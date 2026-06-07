@@ -1,0 +1,317 @@
+Title: Dual Feature Decoupling for Fine-Grained OOD Detection
+
+URL Source: https://arxiv.org/pdf/2606.05536v1
+
+Published Time: Fri, 05 Jun 2026 00:25:49 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+> JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+
+# Dual Feature Decoupling for Fine-Grained OOD Detection 
+
+Xiaokun Li, Yaping Huang, Qingji Guan 
+
+Abstract —Out-of-distribution detection (OOD) is an indispens-able technique when applying machine learning models to real-world scenarios. Most existing OOD detection methods have been developed under the idealized assumption of large inter-class distributional differences, while largely overlooking fine-grained tasks characterized by subtle variations (e.g., medical image classification, vehicle recognition). The high visual similarity among fine-grained subcategories, together with the interference of background factors, makes OOD detection extremely challeng-ing. To tackle this problem, we propose a novel Dual Feature Decoupling Network (DFDNet), which addresses fine-grained OOD detection from the perspective of feature disentanglement. The proposed DFDNet comprises two key components: a spa-tial–frequency decoupling module and a reconstruction-guided decoupling module. The spatial–frequency decoupling module is designed to preserve content features that are discriminative for classification while suppressing task-irrelevant style information. on the other hand, the reconstruction-guided decoupling module introduces a novel pixel-level adversarial reconstruction task to further remove low-level, non-discriminative information and enhance category-specific high-level semantic representations. In particular, extensive experiments demonstrate that our method achieves competitive performance improvements on multiple datasets. 
+
+Index Terms —Out-of-distribution detection, feature decou-pling, adversarial reconstruction. 
+
+I. I NTRODUCTION 
+
+# BENEFITING from the rapid advancement of Deep Neu-ral Networks (DNNs), vision models have been widely applied in real-world scenarios. However, a visual recog-nition system is commonly trained in a controlled labora-tory environment [1], but in a real-world application, it is typically deployed in an open environment, where the data received by the system may belong to unknown categories. Therefore, to identify these unknown classes successfully, out-of-distribution (OOD) detection, which is formulated as a task of detecting whether an input data is from the training distribution ( i.e. , in-distribution, ID) or a distribution different from the training distribution ( i.e. , out-of-distribution, OOD) has attracted more attention. Currently, most existing OOD detection methods [2]–[7] primarily focus on coarse-grained scenarios, and the evaluation is conducted by treating different datasets as in-distribution (ID) and out-of-distribution (OOD) (e.g., CIFAR-10 [8] as ID and LSUN [9] as OOD). Owing to the relatively large semantic shift between categories from different datasets ( e.g. , truck vs. table), most state-of-the-art approaches [1], [5], [10]–[15] can reliably detect such coarse-grained OOD samples. 
+
+Xiaokun Li, Yaping Huang and Qingji Guan are from School of Computer Science and Technology, Beijing Jiaotong University, No. 3 Shangyuan Village, Haidian District, Beijing, China (E-mail: 22110102@bjtu.edu.cn, yphuang@bjtu.edu.cn and qjguan@bjtu.edu.cn). ID           
+
+> 68.7
+> 77.5 77.1
+> 66.9
+> 81.4
+> 60
+> 70
+> 80
+> 90
+> MSP ODIN Energy Rotation Ours
+> Coarse -grained
+> 22.4 22.0
+> 19.2
+> 23.0
+> 25.3
+> 0
+> 10
+> 20
+> 30
+> MSP ODIN Energy Rotation Ours Fine -grained
+
+Fig. 1. Comparison of OOD Detection in coarse-grained and fine-grained environments on the North American Birds dataset, respectively. Whether viewed from the perspective of human vision or deep-learning models, fine-grained OOD detection is more challenging compared to coarse-grained OOD detection. 
+
+However, in fine-grained recognition scenarios, the input samples typically exhibit subtle intra-class variations, because both ID and OOD samples belong to the same coarse-grained category. As a result, they share similar global appearances and overall style features, while differing only in subtle local details. Due to the strong correlations among these fine-grained categories, classifiers trained on these data are prone to misclassification. To approximate real-world conditions, MixOE [16] constructed four large-scale fine-grained datasets and demonstrated that existing OOD detection methods per-form poorly in these challenging scenarios. The reason for the unsatisfactory performance is that sam-ples with fine-grained attributes exhibit high semantic and detail similarities, with considerable overlap in their discrimi-native regions, as illustrated in Fig. 1. Previous methods have largely failed to extract truly discriminative features from the subtle differences between fine-grained categories. We believe that the key challenge in OOD detection under fine-grained settings is to disentangle task-relevant features ( i.e. ,content-related and category-specific discriminative features) from task-irrelevant features ( i.e. , global style similarities such as color, texture, lighting, and other low-level details shared across regions). To address the above issue, we propose a novel Dual Feature Decoupling Network (DFDNet) for fine-grained OOD detec-tion. DFDNet captures distinctive representations at both the feature and pixel levels by decoupling content and style in the spatial–frequency domain and by purifying category-specific local features through reconstruction adversarial training. Specifically, our DFDNet consists of two main mod- 
+
+> arXiv:2606.05536v1 [cs.CV] 4 Jun 2026 JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2Conv
+
+SFD  …
+
+> FC
+
+Residual 
+
+Block 
+
+Residual 
+
+Block  CAM 
+
+ResNet 
+
+Upsampling 
+
+Block  RGD  
+
+> Fig. 2. Overview of the DFDNet. We employ ResNet as share-weight backbone for extracting features. The spatial-frequency decoupling (SFD) modules are plugged in after residual blocks to retain content features that relevant to the classification task while removing irrelevant style features. The reconstruction-guided decoupling (RGD) module is applied in after upsampling block to eliminate low-level task-irrelevant information and purify the category-specific high-level semantic features in reconstruction process.
+
+ules: a spatial–frequency decoupling (SFD) module and a reconstruction-guided decoupling (RGD) module. The spa-tial–frequency decoupling module leverages batch normal-ization (BN) and instance normalization (IN) layers in alearnable manner to retain inter-class distinctiveness while suppressing style variations in spatial features. Furthermore, it incorporates the discrete Fourier transform (DFT) to eliminate additional style information and preserve the invariant charac-teristics of fine-grained images. In parallel, the reconstruction-guided decoupling module decouples category-specific local features from irrelevant background by applying standard reconstruction to target regions and adversarial reconstruction to background regions, thereby reducing the influence of task-irrelevant features such as low-level details. In summary, the main contributions of this paper are three-fold:  
+
+> •
+
+We address the fine-grained OOD detection from anew perspective of feature disentanglement by proposing a novel Dual Feature Decoupling Network (DFDNet), which disentangles the strong correlations between task-relevant and task-irrelevant features.  
+
+> •
+
+We design two complementary modules: (i) a spa-tial–frequency decoupling (SFD) module that removes style features while preserving category-discriminative features in the spatial and frequency domains, and (ii) a reconstruction-guided decoupling (RGD) module that introduces an adversarial process that integrates classifi-cation and reconstruction tasks to further purify category-specific local features.  
+
+> •
+
+We demonstrate the effectiveness of our proposed ap-proach with several extensive experiments over four fine-grained datasets. The experimental results demonstrate that our method achieved excellent performance. II. R ELATED WORK 
+
+A. OOD Detection methods 
+
+Since Maximum Softmax Probability (MSP) [2] was intro-duced as a baseline for OOD detection, the safe deployment of models in real-world applications has received increasing research attention. Among various approaches, classification-based methods have been extensively studied, with repre-sentative techniques including post-hoc detection, confidence-enhancement strategies, and outlier-exposure methods. Once a model is well trained, post-hoc methods can be conveniently applied. ODIN [10] showed that temperature scaling combined with small input perturbations can enhance the model’s ability to distinguish OOD samples. The En-ergy score [17] introduced an energy-based function as an alternative to softmax for OOD detection, where ID samples correspond to lower energy values and OOD samples to higher ones. VIM [14] constructed a virtual OOD logit from residual features and integrated it with the original model output to jointly determine whether a sample is out-of-distribution. DML [18] improved OOD detection by balancing MaxCosine and MaxNorm through the decoupling of MaxLogit. SLE [19] exploited covariate shifts in shallow features to increase the separability of OOD samples. MIntOOD [20] hierarchically designed optimization objectives to learn robust representa-tions that capture both coarse- and fine-grained distinctions within ID and constructed OOD data. [21] employed CLIP’s zero-shot capability to enhance OOD detection, effectively overcoming early stopping during prediction iterations and maintaining task recognition performance despite increasing task numbers. PRO [15] leveraged the discrepancy in adver-sarial perturbation responses between ID and OOD samples for detection. Compared with post-hoc methods, confidence-enhanced approaches [22]–[26], which are trained jointly with neural networks, aim to produce more distinguishable confidence scores for ID and OOD samples. Outlier exposure (OE) methods, such as OE [27], G-OE [28], OE-M [29], and MixOE [16], leveraged auxiliary OOD data as outliers to enhance the model’s ability to discriminate between ID and OOD samples. Fine-grained OOD detection has not yet received suffi-cient research attention. To address this gap, MixOE [16] introduced a large-scale fine-grained OOD detection dataset with hundreds of categories and proposed a training strategy that regularizes the model through mixing ID and outlier samples, thereby yielding a smoother confidence decay for OOD samples. JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 3
+
+B. Feature Decoupling 
+
+Feature decoupling aims to decompose feature represen-tations into independent and unrelated components. In deep learning, this strategy enables models to learn more in-terpretable and discriminative representations, thereby en-hancing both performance and generalization. For example, DADA [30] employed an end-to-end adversarial disentan-glement framework to remove class-irrelevant and domain-specific features. MT-MIM [31] disentangled identity and age components and minimizes their mutual information to mitigate the impact of age variation on recognition. DAC [32] combined regularization with spectral decomposition to elimi-nate style information while preserving content-related charac-teristics, thus improving domain generalization performance. CRADA [33] addressed the UDA-OD task through cyclic reconstruction and feature decoupling in graph space, ana-lyzing domain-specific and domain-invariant feature correla-tions across domains to improve feature quality. MDAL [34] proposed a multi-layer comparison decoupling mechanism to fuse the multi-layer features that are prone to incomplete activation and inaccurate boundaries, thereby improving object localization. To the best of our knowledge, we are the first to introduce a feature decoupling strategy into the fine-grained OOD de-tection task, where feature decoupling is performed on shared discriminative regions across different subcategories. Our de-coupling strategies remove style features among fine-grained categories while preserving distinctive features, thereby im-proving fine-grained OOD detection performance. III. M ETHODOLOGY 
+
+We consider a K-class classification model trained on a fine-grained dataset Din = {(xin i , y in i )}Mi=1 , where yin i ∈{1, . . . , K } denotes the label of sample xi and M is the total number of training samples. The OOD dataset Dout 
+
+{(xout j , y out j )}Nj=1 consists of N samples, where each xout j
+
+denotes an OOD input image and yout j belongs to an OOD label set {K + 1 , K + 2 , . . . }. Note that the in-distribution and out-of-distribution label sets are disjoint, i.e., yin i ∩ yout j = ∅.Our objective is to determine whether an input belongs to the in-distribution or is out-of-distribution. Fig. 2 illustrates the overall architecture of our proposed Dual Feature Decoupling Network (DFDNet). Specifically, we insert Spatial–Frequency Decoupling (SFD) modules after the residual blocks at dif-ferent stages and further incorporate a Reconstruction-guided Decoupling (RGD) module after the upsampling block. By in-troducing dual decoupling strategies, we can remove irrelevant features among fine-grained categories for discrimination. 
+
+A. Spatial-frequency Decoupling Module 
+
+For an image classification task, a classification model uti-lizes the extracted feature representations to determine whether the samples belong to seen categories or not. However, only a subset of these characteristics is visually relevant to the classification task, while characteristics related to style, such as color, texture, and lighting, are irrelevant. These style features are not directly useful for distinguishing between IN 
+
+BN 
+
+# +
+
+> DFT
+> IFT
+
+Amp 
+
+Pha 
+
+Spatial domain  Frequency domain    
+
+> Fig. 3. Illustration of the proposed Spatial-Frequency Decoupling (SFD) module. IN and BN are fused in the spatial domain with a learnable weight
+> γ, while DFT-based decomposition regulates amplitude (style) and preserves phase (content) with a learnable parameter λin the frequency domain.
+
+seen and unseen categories and often exhibit significant varia-tions across different images. This entanglement of relevant and irrelevant features becomes particularly problematic in fine-grained image recognition scenarios. Here, discriminative regions corresponding to different subcategories frequently overlap. These regions often contain not only task-relevant semantic features but also task-irrelevant style attributes, mak-ing separation more challenging. To this end, we introduce the spatial–frequency decoupling module, as illustrated in Fig. 3, which is designed to preserve task-relevant content features while suppressing irrelevant style features in both the spatial and frequency domains. Batch Normalization (BN) [35] and Instance Normaliza-tion (IN) [36] are widely adapted in style transfer tasks to achieve style transfer between different instance images in the spatial domain. In particular, instance normalization (IN) is commonly employed to align the statistical properties of each sample with those of the target style. Motivated by this, a natural strategy for suppressing style-related features in fine-grained OOD detection is to incorporate instance nor-malization (IN) into the learning process. However, instance normalization (IN) can lead to a decrease in the inter-class variance of images, causing a reduction in the discriminative capability of the network. On the contrary, batch normalization (BN) helps to preserve task-relevant content features across samples, yet it remains highly sensitive to appearance-based variations such as changes in style, texture, or lighting. Clearly, batch normalization (BN) and instance normalization (IN) are complementary in nature. A more effective strategy is therefore to integrate the two normalization schemes. However, a simple concatenation is suboptimal for OOD detection, as fine-grained categories are characterized by both large intra-class variance and high inter-class similarity. In this work, to better reduce the intra-class variance and enlarge inter-class discrepancy in spatial domain, we propose a learnable fusion approach to combine the benefits of two normalization schemes: 
+
+fnorm = γf bn + (1 − γ)fin , (1) where fnorm ∈ RH×W ×C is the normalized feature after the fusion process, fbn and fin are calculated by BN and IN respectively, and γ is a learnable weighting parameter. In addition, despite IN helping the model remove style differences between samples and focus more on task-relevant content features, the style and content features may still be JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 4
+
+coupled in the regularized features since the content and style components are innately entangled and hard to be disentangled clearly in spatial domain, especially in the much difficult fine-grained environments. Therefore, we further employ the discrete Fourier transform (DFT) method to disentangle the features in frequency domain. Specifically, for a single chan-nel feature map fnorm from the spatial domain, its Fourier transformation F(x) is formulated as: 
+
+Fnorm (u, v ) = 1
+
+HW  
+
+> W−1
+
+X
+
+> w=0
+> H−1
+
+X
+
+> h=0
+
+fnorm (w, h ) exp i2π( uw W + vh H ),
+
+(2) where w and h denote the spatial feature coordinates, u and v
+
+represent the frequency coordinates in the Fourier domain, and 
+
+i is the imaginary unit. H and W are the height and width of the feature map, respectively. Fnorm (u, v ) consists of complex values and can be represented by: 
+
+Fnorm (u, v ) = R(Fnorm (u, v )) + iI (Fnorm (u, v )) , (3) where R(Fnorm (u, v )) and I(Fnorm (u, v )) are the real and imaginary parts of Fnorm (u, v ), respectively. In the Fourier space, Fnorm (u, v ) consists of an amplitude component Anorm and a phase component Pnorm as follows: 
+
+Anorm = pR2(Fnorm (u, v )) + I2(Fnorm (u, v )) , (4) 
+
+Pnorm = arctan R(Fnorm (u, v )) 
+
+I(Fnorm (u, v )) . (5) The phase generally represents the information about the content of the image and the amplitude represents the in-formation about the style. Although style information does not have semantic information, completely removing it will obviously affect performance. Therefore, we introduce a learn-able parameter λ to regulate the degree of style information suppression. 
+
+fout = F−1(Pnorm + λAnorm ), (6) where F−1 denotes the inverse Fourier transform, and fout 
+
+represents the spatial feature obtained after the spatial-frequency decoupling (SFD) module, with irrelevant style information suppressed. 
+
+B. Reconstruction-guided Decoupling Module 
+
+In general, we expect the extracted features to contain more discriminative information and less irrelevant information, thereby improving the performance of OOD detection. The spatial-frequency decoupling module is designed to suppress task-irrelevant style information in the feature space. However, due to the high similarity among fine-grained subcategories in most regions, certain task-irrelevant low-level details (e.g., similar backgrounds in bird images) may still be entangled with category-specific discriminative features in the pixel space. Therefore, further decoupling these low-level details and background information from discriminative features is also crucial for improving OOD detection performance. Therefore, we propose a reconstruction-guided decoupling module that leverages adversarial learning to disentangle IN 
+
+BN 
+
+## +
+
+Spatial domain 
+
+Upsampling 
+
+Block 
+
+CAM  
+
+> Fig. 4. Structure of the reconstruction-guided decoupling (RGD) module. The category activation mapping (CAM) is applied to decouple the feature areas related to the category and pixel-wise MSE loss is applied to maintain the discriminative features, while the background area is reconstructed in an adversarial way to prevent the model from focusing on task-irrelevant features.
+
+category-specific local features from irrelevant background. By introducing a reconstruction adversarial task and preventing the input images from being effectively reconstructed, the module drives the model to separate useful features from background-irrelevant ones. However, performing adversarial learning by jointly reconstructing and classifying all pixels of the entire image inevitably introduces task-irrelevant back-ground information into the learning process. To mitigate this, we leverage the semantic localization capability of the classification task to focus on category-specific local regions from the input. These semantic regions are then reconstructed normally, while the background areas undergo adversarial reconstruction to prevent the model from overfitting to task-irrelevant information. Specifically, an upsampling block is appended after the feature extraction module (Fig. 2) to perform image recon-struction, which consists of several upsampling layers, residual blocks, and 1 × 1 convolutional layers, without additional spe-cialized operations. Before backpropagation, the reconstructed image contains both foreground and background information. To decouple discriminative regions associated with the target category, we utilize a widely adopted class activation mapping (CAM) [37] technique to segment the image into foreground and background regions as shown in Fig. 4. The class activa-tion mapping CAM is derived from the weights of the fully connected layer in the classification branch, and a threshold τ
+
+is applied to segment the target category region. 
+
+Mcam = I(CAM > τ ), (7) where I is an indicator function defined as I(CAM > τ ) = 1 
+
+if the value of CAM exceeds τ , and 0 otherwise. Afterwards, we first apply a conventional pixel-wise MSE loss to the target class region to improve the model’s ability to learn discriminative features. 
+
+Lrec = ∥M cam · (xi − xrec i )∥2, (8) where xi denotes the input image, and xrec i denotes the image reconstructed by the upsampling block. On the other hand, for JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 5
+
+the background regions, we adopt adversarial reconstruction to prevent the model from focusing on task-irrelevant areas. 
+
+Ladv = 1 − ∥ (1 − M cam ) · (xi − xrec i )∥2. (9) In summary, the reconstruction-guided decoupling (RGD) module leverages the semantic localization capability of the classification model to separate foreground and background regions. For the foreground region, the feature reconstruction is applied to enhance the model’s perception of category semantics, while for the background region, adversarial re-construction is employed to prevent the model from focusing on task-irrelevant background information. 
+
+C. Joint Training 
+
+As described above, our method is a multi-task learning framework comprising two branches: classification branch and reconstruction branch. The classification branch performs a supervised classification task on the extracted features, while the reconstruction branch is responsible for feature recon-struction. Specifically, the classification branch generates class activation mappings (CAMs), which are utilized to guide the reconstruction branch toward task-oriented reconstruction. In turn, the reconstruction branch with foreground–background separation enhances the classification branch by providing richer and more robust feature representations through its pixel-level reconstruction capability. This design establishes a two-way collaborative enhancement mechanism between the two branches. The overall training objective of the network is defined as follows: 
+
+Ltotal = Lcls + Lrec + Ladv . (10) IV. E XPERIMENTS 
+
+A. Datasets 
+
+In order to test the performance of DFDNet in the fine-grained OOD detection task, we follow MixOE [16] to eval-uate on four public fine-grained visual classification (FGVC) datasets, including FGVC-Aircraft [38], Stanford Cars [39], Butterfly [40], and North American Birds [41], for a fair comparison. In addition, WebVision 1.0 [42] is used as an auxiliary training outlier dataset. A detailed introduction to each dataset is as follows: 
+
+FGVC-Aircraft [38] comprises 10,200 images across 102 categories, with each category containing 100 images. We select 90 categories in the training set as ID, and the remaining ones are fine-grained OOD categories at test time. 
+
+Stanford Cars [39] has a total of 196 categories and contains 16185 pictures, of which the training set has 8144 pictures and the test set has 8041 pictures. 150 categories in the training set are used as ID categories, while the other 46 categories are used as fine-grained OOD categories. 
+
+Butterfly [40] consists of 25,279 images of butterflies, covering 200 common species, 116 genera, 23 subfamilies and 5 families. We keep 150 categories as ID and the rest 50 categories are held out from the training set and considered OOD at test time.                                                      
+
+> TABLE I THE NUMBER OF IMAGES FOR EACH SPLIT OF FOUR DATASETS ARE SHOWN BELOW .
+> Dataset Split ID Fine-grained OOD train validation test FGVC-Aircraft 15396 604 3000 333 25380 618 3002 331 35400 597 3003 330 Stanford Cars 15664 623 6210 1831 25657 625 6197 1844 35574 633 6131 1910 Butterfly 17072 798 11513 3458 26813 735 11019 3952 36941 743 11219 3752 North American Birds 17377 809 8547 2149 27278 812 8449 2247 37219 798 8446 2250
+
+North American Birds [41] involves about 48,000 anno-tated images of 400 bird species, including 23,929 training images and 24,633 testing images. We pick 200 categories in the training set as ID, and the rest 55 categories are used as fine-grained OOD categories at test time. 
+
+WebVision 1.0 [42] is an auxiliary training outlier set for MixOE training, which captures the natural images of ImageNet’s 1000 categories from the Internet. In order to avoid introducing images of the same category as ID and OOD, only 1948K images are filtered out and used as the outlier set. Because the epochs of fine-tuning training is relatively small, only about 70K images are used during training. 
+
+B. ID / OOD Setting 
+
+ID setting refers to known categories in the dataset used for training, while OOD setting refers to categories that have not been seen during training and only appear as out-of-distribution categories during testing. We further divide these OOD categories into fine-grained OOD and coarse-grained OOD categories. 
+
+ID setting . In order to solve the bias problem that may occur when splitting ID and OOD samples, each dataset is divided into three equal categories of ID/OOD splits. We follow MixOE’s [16] division of specific image numbers for training, validation, and test sets for each ID/OOD split as shown in Tabel I. 
+
+OOD setting . Considering the fine-grained attributes of each dataset, a subset of categories in the training set is desig-nated as ID, while the remaining categories are treated as fine-grained OOD. For the selection of coarse-grained categories, for example, the categories from the North American Birds dataset as ID, and those from the other three datasets as OOD. 
+
+C. Evaluation Metrics 
+
+We use three metrics for evaluation: TNR95 , AUROC and 
+
+Acc . TNR95 measures the proportion of actual negative cases that are correctly identified as negative, while maintaining a specificity level of 95%. AUROC quantifies the overall ability of a model to distinguish between two classes ( i.e., JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 6
+
+TABLE II OOD D ETECTION PERFORMANCE IS REPORTED IN TERMS OF TNR95 AND AUROC, WITH COMPARISONS TO STATE -OF -THE -ART OOD DETECTION APPROACHES UNDER THE FINE -GRAINED SETTING . M ETHODS LISTED ABOVE THE DOTTED LINE RELY SOLELY ON IN -DISTRIBUTION DATA , WHILE THOSE BELOW THE DOTTED LINE ADDITIONALLY LEVERAGE AN AUXILIARY OUTLIER DATASET FOR TRAINING . I T IS WORTH NOTING THAT ALL RESULTS ARE AVERAGED OVER THREE SPLITS .
+
+Method FGVC-Aircraft Stanford Cars Butterfly North American Birds TNR95 AUROC TNR95 AUROC TNR95 AUROC TNR95 AUROC MSP [2] ICLR’2017 71.2 / 21.4 95.0 / 80.7 87.4 / 56.1 97.7 / 90.3 88.5 / 32.8 94.7 / 80.4 68.7 / 22.4 93.4 / 77.1 ODIN [10] ICLR’2018 82.4 / 20.4 96.7 / 79.8 98.8 / 44.5 99.5 / 88.6 95.5 / 33.2 95.6 / 78.1 77.5 / 22.0 95.1 / 76.0 Energy [17] NeurIPS’2020 83.0 / 20.3 96.8 / 79.4 99.4 / 43.8 99.7 / 87.5 95.4 / 30.6 95.5 / 77.5 77.1 / 19.2 95.1 / 75.0 Rotation [43] AAAI’2020 62.0 / 21.6 93.2 / 80.9 89.0 / 53.9 98.0 / 90.2 87.6 / 32.0 94.0 / 80.5 66.9 / 23.0 93.2 / 77.2 VIM [14] CVPR’2022 100.0 / 7.3 99.7 / 75.3 99.9 / 17.4 99.9 / 81.7 98.0 / 22.6 99.0 / 78.4 84.8 / 8.9 97.5 / 71.3 Scale [44] ICLR’2024 89.5 / 12.0 97.8 / 79.4 99.7 / 40.3 99.9 / 86.9 98.4 / 33.0 99.2 / 80.0 83.6 / 15.7 96.9 / 75.8 PRO-MSP [15] CVPR’2025 76.4 / 15.8 95.8 / 77.1 86.6 / 41.8 97.4 / 87.4 91.7 / 26.5 98.0 / 78.8 66.7 / 16.5 92.7 / 74.7 OE [2] ICLR’2018 98.8 / 20.1 99.7 / 80.5 99.9 / 52.5 100.0 / 89.9 93.4 / 31.0 98.5 / 79.9 98.0 / 21.4 99.5 / 76.1 OE-M [29] ECML-PKDD’2021 99.0 / 18.3 99.8 / 80.8 99.9 / 51.2 100.0 / 89.9 92.1 / 31.8 98.5 / 79.9 98.4 / 20.1 99.5 / 76.1 EnergyOE [17] NeurIPS’2020 99.7 / 22.4 99.8 / 80.8 100.0 / 46.2 100.0 / 89.5 97.7 / 31.0 98.5 / 79.9 99.0 / 19.1 99.5 / 76.1 MixOE-line [16] WACV’2023 91.2 / 27.5 98.2 / 84.1 99.8 / 63.0 99.6 / 92.2 94.9 / 38.5 94.9 / 81.4 86.3 / 26.7 97.1 / 79.7 MixOE-cut [16] WACV’2023 99.2 / 29.4 99.7 / 82.7 99.9 / 68.9 99.9 / 92.9 93.9 / 40.2 98.7 / 82.7 91.9 / 26.7 98.4 / 79.6 Ours (MSP) - 81.1 / 24.7 96.4 / 82.5 92.8 / 54.2 98.4 / 90.1 92.2 / 31.0 98.3 / 80.0 81.4 / 25.3 96.4 / 79.3 
+
+∆ - +9.9 / +3.3 +1.4 / +1.8 +5.4 / -1.9 +0.7 / -0.2 +3.7 / -1.8 +3.6 / -0.4 +12.7 / +2.9 +3.0 / +2.2 Ours (MixOE-cut ) - 99.4 / 30.6 99.4 / 82.0 100.0 / 70.3 100.0 / 93.1 95.9 / 41.5 98.9 / 82.2 95.1 / 30.8 99.0 / 81.4 
+
+∆ - +0.2 / +1.2 -0.3 / -0.7 +0.1 / +1.4 +0.1 / +0.2 +2.0 / +1.3 +0.2 / -0.5 +3.2 / +4.1 +0.6 / +1.8 
+
+positive and negative) by plotting the True Positive Rate (Sensitivity) against the False Positive Rate (1 - Specificity) at various decision thresholds, and the AUROC score provides a single value that represents the area under this curve, ranging from 0 to 1. Acc is a common performance metric used in classification tasks to measure the proportion of correctly predicted instances out of the total instances in a dataset. 
+
+D. Implementation Details 
+
+In the experiments, we train DFDNet using SGD with a batch size of 32 for 90 epochs. The initial learning rate for each component of the network is set to 0.001 and decayed using a cosine annealing schedule [45]. For post-training scoring methods, we utilize the weights of the MixOE baseline model [16] as pre-trained weights to evaluate their perfor-mance. Additionally, we fine-tune the pre-trained DFDNet baseline model for 10 epochs using auxiliary outlier data with a batch size of 16. 
+
+E. Comparisons with Other State-of-the-art Methods 
+
+Results on fine-grained OOD detection. We compare the proposed method with several leading OOD detection approaches, including MSP [2], ODIN [10], Energy [17], Rotation [43], VIM [14], Scale [44], PRO [15], OE [2], OE-M [29], EnergyOE [17], and MixOE [16], on four fine-grained datasets. The results are summarized in Table II. Compared to post-training methods, DFDNet (MSP-based) achieves the best performance on the FGVC-Aircraft and North American Birds datasets without using any additional data. On the Stanford Cars dataset, DFDNet improves TNR95 and AUROC by 1.4% and 0.2%, respectively, over MixOE-cut , outperforming all other methods. In the North American Birds dataset, which exhibits the most fine-grained attributes, DFDNet achieves significant gains of 2.9% in TNR95 and 2.2% in AUROC compared to MSP. Even without incorporating auxiliary outlier data, our method surpasses all approaches except MixOE in final accuracy. 
+
+Results on coarse-grained OOD detection. Although our method is designed for fine-grained OOD detection, it is also suitable for coarse-grained scenarios. For validation, we perform additional experiments on four datasets under the coarse-grained setting. The results are summarized in Table II. Based on the comparative results, our method demonstrates strong advantages in the coarse-grained OOD detection setting. Without using any auxiliary outlier data, our MSP-based approach significantly outperforms traditional post-training methods across multiple fine-grained datasets, most notably achieving a remarkable improvement of 12.7% in TNR95 and 3.0% in AUROC on the challenging North American Birds dataset. When enhanced with auxiliary data, our method further elevates performance, surpassing state-of-the-art techniques such as MixOE-cut with gains of up to 4.1% in TNR95 and 1.8% in AUROC on the same dataset. The consistent performance improvements across diverse fine-grained domains, coupled with particularly outstanding de-tection capability on datasets with highly refined categories, highlight our method’s robustness, generalization strength, and superior handling of fine-grained attributes in coarse-grained OOD detection scenarios. 
+
+Results on ID classification accuracy. Our method demon-strates competitive in-distribution (ID) classification accuracy compared to existing OOD detection approaches. As summa-rized in Table III, our MSP-based variant achieves an aver-JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 7
+
+TABLE III COMPARISON WITH OTHER OOD DETECTION METHODS IN TERMS OF ID 
+
+> CLASSIFICATION ACCURACY
+
+. A VG REPRESENTS THE MEAN COMPARISON WITH OTHER METHODS ACROSS THREE SPLITS .
+
+Method Aircraft Stanford Cars Butterfly NA Birds Avg MSP [2] 89.6 91.8 89.0 82.1 88.1 Rotation [43] 88.5 91.3 88.7 82.0 87.6 OE [2] 89.2 91.6 88.1 82.4 87.8 OE-M [29] 89.3 91.1 88.2 82.7 87.8 EnergyOE [17] 89.2 91.8 89.7 82.3 88.3 MixOE-line [16] 90.4 92.9 89.3 83.4 89.0 MixOE-cut [16] 90.1 92.9 90.1 83.5 89.2 Ours (MSP) 89.3 91.8 88.8 83.7 88.4 Ours (MixOE-cut ) 90.6 94.0 90.0 84.6 89.8 TABLE IV ABLATION STUDY IN TERMS OF TNR95 AND AUROC ON NORTH 
+
+AMERICAN BIRDS DATASET . T HE NUMBERS BEFORE AND AFTER SLASH RESPECTIVELY REPRESENT THE PERFORMANCE OF THE METHODS ON COARSE -GRAINED AND FINE -GRAINED SAMPLES . SFD, DFT, AND RGD  
+
+> REFER TO THE
+
+SPATIAL -F REQUENCY DECOUPLING MODULE , D ISCRETE 
+
+FOURIER TRANSFORM , AND RECONSTRUCTION -GUIDED DECOUPLING MODULE , RESPECTIVELY .
+
+Model SFD RGD TNR95 AUROC BN IN γBN+(1-γ)IN DFT #1 68.7 / 22.4 93.4 / 77.1 #2 ✓ 70.2 / 23.2 94.4 / 79.1 #3 ✓ ✓ 73.3 / 25.5 94.9 / 80.0 #4 ✓ 76.8 / 24.8 95.5 / 79.9 #5 ✓ ✓ 78.3 / 24.2 95.8 / 80.0 #6 ✓ ✓ ✓ 81.4 / 25.3 96.4 / 79.3 
+
+age accuracy of 88.4% across the four fine-grained datasets, slightly outperforming standard MSP (88.1%) and other strong baselines such as EnergyOE (88.3%) without using auxil-iary outlier dataset. More importantly, when integrated with MixOE-cut , our approach obtains the highest average accu-racy of 89.8%, surpassing all compared methods—including MixOE-cut (89.2%) and MixOE-line (89.0%). In particular, our method achieves the best performance in the Stanford Cars (94.0%) and North American Birds (84.6%) datasets, further confirming its effectiveness in maintaining high ID classification performance while improving OOD detection capability. 
+
+F. Ablation Studies 
+
+To better explore the impact of each module in DFDNet, we conduct detailed ablation studies as shown in Table IV. 
+
+The effect of each modules. The standard MSP is used as the baseline model (model #1). The Spatial-Frequency Decoupling (SFD) module decouples features in both the spatial and frequency domains. To validate its design, we further conduct a detailed component-wise analysis. First of all, the detection performance of both coarse-grained and fine-grained are improved after using BN (model #2), showing that discriminative features are preserved more completely. After adding IN (model #3), we observe enhanced effectiveness in removing style-related features for fine-grained OOD detec-tion. Especially introducing learnable parameter fusion (model (a)  (b) 
+
+Fig. 5. Experiments on the split 0 of North American Birds dataset. (a) represents the change process of the value of γ in each spatial-frequency decoupling module during training; (b) shows that the change process of the value of λ.96.2 96.2 96.4 96.3 96.2                      
+
+> 80.6 80.5 81.4 80.7 80.8
+> 75
+> 80
+> 85
+> 90
+> 95
+> 100
+> 0.5 0.6 0.7 0.8 0.9
+> TNR95
+> AUROC
+> 24.4 23.3 25.3 24.4 23.5
+> 78.8 78.4 79.3 79.1 78.5
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> 90
+> 0.5 0.6 0.7 0.8 0.9
+> TNR95
+> AUROC
+> (a) Coarse -grained OOD (b) Fine -grained OOD
+
+Fig. 6. The influence of varying thresholds τ in class activation mappings on model performance. 
+
+#4) can effectively preserve content-relevant discriminative features while removing task-irrelevant features. In order to further remove the style information, we add the Fourier decoupling (model #5), which further improves the coarse-grained detection performance about 1.5%. To further en-hance the discriminative capability of the model, we introduce a Reconstruction-guided Decoupling (RGD) module, which eliminates low-level task-irrelevant details and background information in an adversarial learning framework (Model #6). Experimental results demonstrate that this module contributes to an average improvement of 1.1% in TNR95 for fine-grained OOD detection. 
+
+The effect of γ and λ. To illustrate the influence of style information on network training, we visualize the variation of parameters γ and λ at different stages of the spatial-frequency decoupling module. As shown in Fig. 5 (a), deeper network layers correspond to progressively reduced style information within the features. Furthermore, Fig. 5 (b) indicates that although style information is task-irrelevant, it still constitutes an essential component of the feature representation. 
+
+The effect of τ . We employ class activation mapping (CAM) in the reconstruction-guided decoupling module to decouple the target category regions from the background regions. Specifically, standard reconstruction is applied to the target category regions to enhance the model’s learning of discriminative features, while adversarial reconstruction is applied to the background regions to prevent the model from focusing on irrelevant background information. Fig. 6 illus-trates the impact of different thresholds τ of class activation maps on model performance. Ultimately, we select 0.7 as the threshold for decoupling the foreground and background regions. JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 8
+
+V. C ONCLUSION 
+
+In this paper, we propose a novel framework, termed the Dual Feature Decoupling Network (DFDNet), for out-of-distribution (OOD) detection in fine-grained environments. Specifically, DFDNet consists of a spatial-frequency decou-pling module and a reconstruction decoupling module. The spatial-frequency decoupling module preserves inter-class dis-criminative features while removing irrelevant style informa-tion through spatial-domain regularization, and further elim-inates task-irrelevant style features via Fourier-based decou-pling in the frequency domain. To separate low-level details and background information from discriminative features, the reconstruction decoupling module integrates classification and reconstruction tasks in an adversarial manner. Extensive ex-periments validate the effectiveness of our approach in fine-grained OOD detection tasks. REFERENCES [1] K. He, X. Zhang, S. Ren, and J. Sun, “Delving deep into rectifiers: Surpassing human-level performance on imagenet classification,” in 2015 IEEE International Conference on Computer Vision (ICCV), 2015, pp. 1026–1034. [2] D. Hendrycks and K. Gimpel, “A baseline for detecting misclassified and out-of-distribution examples in neural networks,” in International Conference on Learning Representations, 2017. [Online]. Available: https://openreview.net/forum?id=Hkg4TI9xl [3] Z. Lin, S. D. Roy, and Y. Li, “Mood: Multi-level out-of-distribution detection,” in Proceedings of the IEEE/CVF conference on Computer Vision and Pattern Recognition, 2021, pp. 15 313–15 323. [4] H. Wei, R. Xie, H. Cheng, L. Feng, B. An, and Y. Li, “Mitigating neural network overconfidence with logit normalization,” in International Conference on Machine Learning. PMLR, 2022, pp. 23 631–23 644. [5] K. Lee, K. Lee, H. Lee, and J. Shin, “A simple unified framework for detecting out-of-distribution samples and adversarial attacks,” Advances in neural information processing systems, vol. 31, 2018. [6] J. Van Amersfoort, L. Smith, Y. W. Teh, and Y. Gal, “Uncertainty estima-tion using a single deep deterministic neural network,” in International conference on machine learning. PMLR, 2020, pp. 9690–9700. [7] C. S. Sastry and S. Oore, “Detecting out-of-distribution examples with gram matrices,” in International Conference on Machine Learning. PMLR, 2020, pp. 8491–8501. [8] A. Krizhevsky, G. Hinton et al., “Learning multiple layers of features from tiny images,” 2009. [9] F. Yu, A. Seff, Y. Zhang, S. Song, T. Funkhouser, and J. Xiao, “Lsun: Construction of a large-scale image dataset using deep learning with humans in the loop,” arXiv preprint arXiv:1506.03365, 2015. [10] S. Liang, Y. Li, and R. Srikant, “Enhancing the reliability of out-of-distribution image detection in neural networks,” arXiv preprint arXiv:1706.02690, 2017. [11] Z. Xiao, Q. Yan, and Y. Amit, “Likelihood regret: An out-of-distribution detection score for variational auto-encoder,” Advances in neural information processing systems, vol. 33, pp. 20 685–20 696, 2020. [12] A. Zaeemzadeh, N. Bisagno, Z. Sambugaro, N. Conci, N. Rah-navard, and M. Shah, “Out-of-distribution detection using union of 1-dimensional subspaces,” in Proceedings of the IEEE/CVF conference on Computer Vision and Pattern Recognition, 2021, pp. 9452–9461. [13] J. Ren, S. Fort, J. Liu, A. G. Roy, S. Padhy, and B. Lakshminarayanan, “A simple fix to mahalanobis distance for improving near-ood detection,” arXiv preprint arXiv:2106.09022, 2021. [14] H. Wang, Z. Li, L. Feng, and W. Zhang, “Vim: Out-of-distribution with virtual-logit matching,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, 2022, pp. 4921–4930. [15] W. Chen, R. A. Yeh, S. Mou, and Y. Gu, “Leveraging perturbation robustness to enhance out-of-distribution detection,” in Proceedings of the Computer Vision and Pattern Recognition Conference, 2025, pp. 4724–4733. [16] J. Zhang, N. Inkawhich, R. Linderman, Y. Chen, and H. Li, “Mixture outlier exposure: Towards out-of-distribution detection in fine-grained environments,” in Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision, 2023, pp. 5531–5540. [17] W. Liu, X. Wang, J. Owens, and Y. Li, “Energy-based out-of-distribution detection,” Advances in neural information processing systems, vol. 33, pp. 21 464–21 475, 2020. [18] Z. Zhang and X. Xiang, “Decoupling maxlogit for out-of-distribution detection,” in 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2023, pp. 3388–3397. [19] Z. Yang, C. Liu, and X. Qian, “Sle: Out-of-distribution detection with shallow layer-driven enhancement,” IEEE Transactions on Multimedia, 2025. [20] H. Zhang, Q. Zhou, H. Xu, J. Su, R. Evans, and K. Gao, “Multimodal classification and out-of-distribution detection for multimodal intent understanding,” IEEE Transactions on Multimedia, 2025. [21] X. Cao, H. Lu, X. Liu, and M.-M. Cheng, “Class incremental learning for image classification with out-of-distribution task identification,” IEEE Transactions on Multimedia, 2025. [22] T. DeVries and G. W. Taylor, “Learning confidence for out-of-distribution detection in neural networks,” 2018. [23] H. yang Lu, X. Guo, W. Jiang, C. Fan, Y. Du, Z. Shao, W. Fang, and X. Wu, “Musia: Exploiting multi-source information fusion with abnormal activations for out-of-distribution detection,” Neural Networks, vol. 188, p. 107427, 2025. [Online]. Available: https://www.sciencedirect.com/science/article/pii/S0893608025003065 [24] D. Hendrycks, N. Mu, E. D. Cubuk, B. Zoph, J. Gilmer, and B. Lak-shminarayanan, “Augmix: A simple data processing method to improve robustness and uncertainty,” arXiv preprint arXiv:1912.02781, 2019. [25] J. Bitterwolf, A. Meinke, and M. Hein, “Certifiably adversarially robust detection of out-of-distribution data,” Advances in Neural Information Processing Systems, vol. 33, pp. 16 085–16 095, 2020. [26] S. Thulasidasan, G. Chennupati, J. A. Bilmes, T. Bhattacharya, and S. Michalak, “On mixup training: Improved calibration and predictive uncertainty for deep neural networks,” Advances in Neural Information Processing Systems, vol. 32, 2019. [27] D. Hendrycks, M. Mazeika, and T. Dietterich, “Deep anomaly detection with outlier exposure,” arXiv preprint arXiv:1812.04606, 2018. [28] J. Koo, S. Choi, and S. Hwang, “Generalized outlier exposure: Towards a trustworthy out-of-distribution detector without sacrificing accuracy,” Neurocomputing, vol. 577, p. 127371, 2024. [29] J. Chen, Y. Li, X. Wu, Y. Liang, and S. Jha, “Atom: Robustifying out-of-distribution detection using outlier mining,” 2021. [30] X. Peng, Z. Huang, X. Sun, and K. Saenko, “Domain agnostic learn-ing with disentangled representations,” in International Conference on Machine Learning. PMLR, 2019, pp. 5102–5112. [31] X. Hou, Y. Li, and S. Wang, “Disentangled representation for age-invariant face recognition: A mutual information minimization perspec-tive,” in Proceedings of the IEEE/CVF International Conference on Computer Vision, 2021, pp. 3692–3701. [32] S. Lee, J. Bae, and H. Y. Kim, “Decompose, adjust, compose: Effective normalization by playing with frequency for domain generalization,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2023, pp. 11 776–11 785. [33] Y. Liu, J. Wang, W. Wang, Y. Hu, Y. Wang, and Y. Xu, “Crada: Cross domain object detection with cyclic reconstruction and decoupling adaptation,” IEEE Transactions on Multimedia, vol. 26, pp. 6250–6261, 2024. [34] A. Zhang, Z. Ling, and Y. Wang, “Multi-layer decoupling attention network for weakly supervised object localization,” IEEE Transactions on Multimedia, vol. 26, pp. 4469–4479, 2023. [35] S. Ioffe and C. Szegedy, “Batch normalization: Accelerating deep network training by reducing internal covariate shift,” in International conference on machine learning. pmlr, 2015, pp. 448–456. [36] D. Ulyanov, A. Vedaldi, and V. Lempitsky, “Improved texture networks: Maximizing quality and diversity in feed-forward stylization and texture synthesis,” in Proceedings of the IEEE conference on computer vision and pattern recognition, 2017, pp. 6924–6932. [37] B. Zhou, A. Khosla, A. Lapedriza, A. Oliva, and A. Torralba, “Learning deep features for discriminative localization,” in Proceedings of the IEEE conference on computer vision and pattern recognition, 2016, pp. 2921– 2929. [38] S. Maji, E. Rahtu, J. Kannala, M. Blaschko, and A. Vedaldi, “Fine-grained visual classification of aircraft,” arXiv preprint arXiv:1306.5151, 2013. [39] J. Krause, M. Stark, J. Deng, and L. Fei-Fei, “3d object representations for fine-grained categorization,” in Proceedings of the IEEE international conference on computer vision workshops, 2013, pp. 554–561. [40] T. Chen, W. Wu, Y. Gao, L. Dong, X. Luo, and L. Lin, “Fine-grained representation learning and recognition by exploiting hierarchical semantic embedding,” in Proceedings of the 26th ACM International JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 9
+
+Conference on Multimedia, ser. MM ’18. New York, NY, USA: Association for Computing Machinery, 2018, p. 2023–2031. [Online]. Available: https://doi.org/10.1145/3240508.3240523 [41] G. Van Horn, S. Branson, R. Farrell, S. Haber, J. Barry, P. Ipeirotis, P. Perona, and S. Belongie, “Building a bird recognition app and large scale dataset with citizen scientists: The fine print in fine-grained dataset collection,” in Proceedings of the IEEE conference on computer vision and pattern recognition, 2015, pp. 595–604. [42] W. Li, L. Wang, W. Li, E. Agustsson, and L. Van Gool, “Webvision database: Visual learning and understanding from web data,” arXiv preprint arXiv:1708.02862, 2017. [43] F. Ahmed and A. Courville, “Detecting semantic anomalies,” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 34, no. 04, 2020, pp. 3154–3162. [44] K. Xu, R. Chen, G. Franchi, and A. Yao, “Scaling for training time and post-hoc out-of-distribution detection enhancement,” arXiv preprint arXiv:2310.00227, 2023. [45] I. Loshchilov and F. Hutter, “Sgdr: Stochastic gradient descent with warm restarts,” arXiv preprint arXiv:1608.03983, 2016.

@@ -6,44 +6,46 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-09 ~ 2026-06-07
-- 运行时间：2026-06-07 06:40:07 UTC
+- 最新运行日期：2026-06-07
+- 运行时间：2026-06-07 21:05:07 UTC
 - 运行状态：成功
 - 本次总论文数：7
 - 精读区：0
 - 速读区：7
 
 ### 今日简报（AI）
-1) 本月7篇速读聚焦糖尿病视网膜病变（DR）分级与诊断，三篇高分研究分别探索跨模态语义扩散、降采样深度学习及解剖学无监督推理方法。
-2) 最值得关注：《Cross-Modal Semantic-Enhanced Diffusion Framework》与《Diabetic Retinopathy Classification using Downscaling Algorithms》均获9.0分，前者创新融合多模态特征，后者优化降采样策略提升分类性能。
-3) 建议优先精读这两篇9分文章，并留意《Anatomy-Slot》中无监督解剖因子推理对眼部疾病诊断的潜在突破。
-- 详情：[/20260509-20260607/README](/20260509-20260607/README)
+今天速读了7篇论文，其中3篇视觉与医学图像相关研究亮点突出。
+
+最值得关注两个方向：无需标签即可利用元数据微调视觉基础模型，以及仅用10万参数实现精准视网膜血管分割。
+
+建议重点精读《Who Needs Labels?》探索元数据替代标注的可行性，并对比《LightVesselNet》在医疗场景的资源效率优势。
+- 详情：[/202606/07/README](/202606/07/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Cross-Modal Semantic-Enhanced Diffusion Framework for Diabetic Retinopathy Grading](/20260509-20260607/2605.09242v1-cross-modal-semantic-enhanced-diffusion-framework-for-diabetic-retinopathy-grading)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：基于跨模态语义扩散的糖尿病视网膜病变分级方法
-2. [Diabetic Retinopathy Classification using Downscaling Algorithms and Deep Learning](/20260509-20260607/2605.11430v1-diabetic-retinopathy-classification-using-downscaling-algorithms-and-deep-learning)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：直接针对糖尿病视网膜病变严重程度分级，使用眼底图像
-3. [Anatomy-Slot: Unsupervised Anatomical Factorization for Homologous Bilateral Reasoning in Retinal Diagnosis](/20260509-20260607/2605.12929v1-anatomy-slot-unsupervised-anatomical-factorization-for-homologous-bilateral-reasoning-in-retinal-diagnosis)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：提出利用双眼推理进行眼底图像视网膜疾病分类的方法
-4. [Bridging the Rural Healthcare Gap: A Cascaded Edge-Cloud Architecture for Automated Retinal Screening](/20260509-20260607/2605.14108v1-bridging-the-rural-healthcare-gap-a-cascaded-edge-cloud-architecture-for-automated-retinal-screening)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：基于边缘-云级联架构的糖尿病视网膜病变自动化严重程度分级
-5. [Knowing When Not to Predict: Self Supervised Learning and Abstention for Safer DR Screening](/20260509-20260607/2605.19133v1-knowing-when-not-to-predict-self-supervised-learning-and-abstention-for-safer-dr-screening)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：用于糖尿病视网膜病变分级的自监督学习与弃权
-6. [Benchmarking Convolutional, Transformer, Hybrid, and Vision Language Models for Multi Disease Retinal Screening](/20260509-20260607/2605.26283v1-benchmarking-convolutional-transformer-hybrid-and-vision-language-models-for-multi-disease-retinal-screening)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：在眼底图像上对比多种深度学习模型用于多疾病视网膜筛查
-7. [Deep Learning-assisted AMD Staging based on OCT and OCT Angiography](/20260509-20260607/2606.05379v1-deep-learning-assisted-amd-staging-based-on-oct-and-oct-angiography)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：直接使用深度学习进行AMD自动分期
+1. [Who Needs Labels? Adapting Vision Foundation Models With the Metadata You Already Have](/202606/07/2606.05107v1-who-needs-labels-adapting-vision-foundation-models-with-the-metadata-you-already-have)  
+   标签：评分：7.0/10、query:fundus-class
+   evidence：无标签适应视觉基础模型到专业领域，如眼底
+2. [LightVesselNet: An Ultra-Lightweight Sub-100K Parameter Network for Retinal Blood Vessel Segmentation](/202606/07/2606.05354v1-lightvesselnet-an-ultra-lightweight-sub-100k-parameter-network-for-retinal-blood-vessel-segmentation)  
+   标签：评分：7.0/10、query:fundus-class
+   evidence：用于糖尿病视网膜病变和青光眼检测的视网膜血管分割
+3. [TetraFuse: A Synergistic Four-Dimensional Dynamic Fusion Framework for Efficient and Robust Medical Image Classification](/202606/07/biorxiv-10-64898-2026-06-02-729722-v1-tetrafuse-a-synergistic-four-dimensional-dynamic-fusion-framework-for-efficient-and-robust-medical-image-classification)  
+   标签：评分：7.0/10、query:fundus-class
+   evidence：提出通用医学图像分类深度学习框架，可直接用于眼底病分类
+4. [hZACH-ViT: Curved Latent Geometry for Compact Vision Transformers in Low-Data Medical Imaging](/202606/07/2606.00906v1-hzach-vit-curved-latent-geometry-for-compact-vision-transformers-in-low-data-medical-imaging)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：适用于低数据医学影像的紧凑视觉Transformer，可应用于眼底分类
+5. [ToolFG: Towards Well-Grounded Fine-Grained Image Classification](/202606/07/2606.02518v1-toolfg-towards-well-grounded-fine-grained-image-classification)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：适用于眼底疾病分类的细粒度图像分类框架
+6. [Dual Feature Decoupling for Fine-Grained OOD Detection](/202606/07/2606.05536v1-dual-feature-decoupling-for-fine-grained-ood-detection)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：适用于医学图像分类的细粒度OOD检测方法
+7. [A Web-based software toolkit for accessible and best-practice machine learning analyses in biomedical research](/202606/07/biorxiv-10-64898-2026-06-05-730487-v1-a-web-based-software-toolkit-for-accessible-and-best-practice-machine-learning-analyses-in-biomedical-research)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：基于网页的机器学习工具包支持医学图像分类，可迁移至眼底图像分析
 
 
 <div class="dpr-home-promo-card">
