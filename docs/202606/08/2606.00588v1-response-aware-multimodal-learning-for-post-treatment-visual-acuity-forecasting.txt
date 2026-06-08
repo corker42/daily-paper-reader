@@ -1,0 +1,305 @@
+Title: Response-Aware Multimodal Learning for Post-Treatment Visual Acuity Forecasting
+
+URL Source: https://arxiv.org/pdf/2606.00588v1
+
+Published Time: Tue, 02 Jun 2026 00:39:16 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Response-Aware Multimodal Learning for Post-Treatment Visual Acuity Forecasting 
+
+Phuoc-Nguyen Bui 1 Van-Vi Vo 1, Duc-Tai Le 2, Van-Nguyen Pham 1,Ki-Young Kim 3, Seung-Young Yu 3, and Hyunseung Choo 4⋆ 
+
+> 1
+
+Research Convergence Institute, Sungkyunkwan University, Korea  
+
+> 2
+
+Dept. of AI Systems Engineering, Sungkyunkwan University, Korea  
+
+> 3
+
+Dept. of Ophthalmology, Kyung Hee University Medical Center, Korea  
+
+> 4
+
+Dept. of Electrical and Computer Engineering, Sungkyunkwan University, Korea 
+
+Abstract. Long-term visual acuity (VA) outcomes after anti-VEGF therapy are central to patient counseling, expectation setting, and follow-up planning in diabetic macular edema (DME). However, in clinical prac-tice, physicians must often estimate long-term visual trajectories based only on early post-treatment findings, making reliable prognostication difficult. Although prior OCT-based learning approaches have largely focused on short-term response or single-endpoint prediction, modeling VA trajectories across multiple future time points from early longitu-dinal observations remains insufficiently explored. In this study, we as-sembled a real-world cohort of 188 anti-VEGF–treated DME patients with paired baseline and month-1 OCT scans, along with tabular OCT-derived biomarkers and non-imaging clinical variables. Using only these early data, we formulate a multi-horizon VA forecasting problem aimed at predicting visual outcomes at 3, 6, 12, 18, and 24 months, reflecting clinically meaningful follow-up intervals. We propose ReVA , a response-aware multimodal framework that integrates structural features from baseline and month-1 OCT with the tabular variables to capture base-line disease status and early treatment response. ReVA uses spatial atten-tion to preserve localized prognostic imaging features and a dependency-aware tabular encoder to model interactions among clinical variables. These multimodal representations are fused to predict patient-specific long-term visual acuity trajectories. The proposed framework achieves MAE = 0 .1246 , RMSE = 0 .1621 , and R2 = 0 .6064 for 24-month VA prediction, with consistent performance across all forecast horizons. Our findings show that incorporating early treatment-response signals en-ables clinically meaningful long-term visual acuity forecasting, support-ing data-driven decision support for routine anti-VEGF management. Code and pretrained models will be released on GitHub .
+
+Keywords: Anti-VEGF treatment · Diabetic macular edema · Long-term prognosis · Multimodal learning · Optical coherence tomography ·
+
+Visual acuity prediction.  
+
+> ⋆
+
+Corresponding author  
+
+> arXiv:2606.00588v1 [cs.CV] 30 May 2026 2Bui et al.
+
+## 1 Introduction 
+
+Visual acuity (VA) is the principal functional endpoint in macular disease and directly informs anti-VEGF treatment decisions, follow-up scheduling, and pa-tient counseling. Optical coherence tomography (OCT) is routinely acquired at high resolution, enabling learning-based models that predict VA or treatment outcomes from image data, often augmented with tabular variables. Yet robust multi-horizon VA forecasting remains difficult in real-world cohorts due to het-erogeneous baseline status, variable treatment response trajectories, structure– function discordance, and pervasive missing follow-up and label noise. Existing approaches broadly span (i) classical machine learning on struc-tured tabular variables for short- to mid-term prognosis [18,4], and (ii) deep learning that extracts prognostic representations from OCT, via either engi-neered imaging biomarkers or end-to-end modeling for cross-sectional and fu-ture outcomes [19,5]. Multimodal variants further combine OCT with tabular variables to improve post-treatment VA and anatomical prediction [13], and attention-based or generative methods have been explored for response char-acterization [17]. Despite steady progress, two limitations constrain clinical de-ployment: most models target a single endpoint or short-term response rather than forecasting multiple future horizons, and many OCT encoders compress scans into global thickness/fluid-driven descriptors, underutilizing localized mi-crostructural cues (e.g., outer retinal and photoreceptor integrity) that more directly bound achievable vision. We study long-term VA prognosis in a clinically practical two-visit setting that explicitly leverages early treatment response. We curate a real-world cohort of 188 anti-VEGF–treated DME patients with paired baseline and month-1 OCT scans, together with tabular OCT-derived biomarkers and non-imaging clinical variables, and predict VA at 3, 6, 12, 18, and 24 months using only these early data. Our premise is that the change from baseline to month-1 encodes patient-specific treatment sensitivity and latent disease dynamics, providing a strong signal for long-range forecasting when represented with appropriate inductive bias. To this end, we propose a response-aware multimodal architecture that adapts a foundation-pretrained OCT transformer via LoRA, aggregates patch tokens with multi-head spatial attention to retain localized prognostic patterns, encodes tabular variables with a dependency-aware tabular module, and per-forms cross-attention fusion to obtain visit-specific multimodal representations. A lightweight temporal aggregation module then composes baseline state and early response into a compact embedding for multi-output VA prediction using temporal convolutional networks (TCN). In summary, our main contributions are three-fold: 
+
+– We curate a real-world two-visit DME cohort and formulate an early-response, multi-horizon forecasting task to predict VA at 3–24 months from baseline and month-1 data. 
+
+– We develop ReVA , a response-aware multimodal framework that fuses paired OCT and tabular variables and explicitly models early post-treatment change for long-range VA forecasting. Response-Aware Multimodal Learning for Post-Treatment VA Forecasting 3LoRA  Spatial Self -Attention 
+
+> Temporal Learner
+> Tokenizer
+
+T2G -
+
+Former    
+
+> I2B Cross -Attention
+> Temporal
+> Convolutional Net.
+> Future VA
+> Age
+> Sex
+> VA_ba
+> IRF SRF PED
+> Disease
+> CST_ba VA_1m
+> CST_1m
+> Anti -VEGF
+
+ViT ViT     
+
+> QKVQKV
+> B2I Cross -Attention
+> Fusion
+> Q
+> K
+> V
+> K
+> V
+> Q
+> Baseline
+> 1 month
+> Horizon embedding
+
+Fig. 1: Overview of the proposed response-aware multimodal framework for multi-horizon post-treatment VA forecasting from two-visit OCT (baseline and month-1) scans and tabular variables. The model extracts OCT structural fea-tures with a LoRA-adapted foundation transformer, encodes tabular variables with a dependency-aware encoder, fuses the two branches via cross-attention, and aggregates the two visits to predict VA at multiple future horizons. 
+
+– We achieve strong multi-horizon forecasting performance, with best month-24 results of MAE = 0 .1246 , RMSE = 0 .1621 , and R2 = 0 .6064 , and validate key components via ablation studies. 
+
+## 2 Method 
+
+2.1 Problem Formulation 
+
+For each patient, we observe OCT scans from two visits (baseline and month-1) with two orthogonal scan views (horizontal/vertical), together with tabular OCT-derived biomarkers and non-imaging clinical variables. The OCT input is 
+
+I = {I(0)  
+
+> H
+
+, I(0)  
+
+> V
+
+, I(1)  
+
+> H
+
+, I(1)  
+
+> V
+
+}, (1) where superscripts (0) and (1) denote baseline and month-1. Let 
+
+c denote the tabular variables, consisting of numerical features (Age , CST base , CST 1m , VA base , VA 1m ) and categorical features (Sex , IRF , SRF , PED , Disease , Anti-VEGF type). Our goal is multi-horizon regression of future VA: 
+
+fθ : ( I, c) 7 → ˆy ∈ RT , (2) 4 Bui et al. 
+
+where ˆyt is the predicted VA at horizon t ∈ { 1, . . . , T } (we use T =5 in our implementation). When follow-up labels are missing, we use an observation mask 
+
+m ∈ { 0, 1}T to compute loss only over available horizons. 
+
+2.2 Foundation OCT Encoding and Tabular Tokenization 
+
+Each patient provides two visits (baseline t=0 and month-1 t=1 ) and two orthog-onal B-scan views (horizontal/vertical). Each scan is encoded by a RETFound-initialized ViT-Large, producing a CLS token and N patch tokens: 
+
+Z = [ zCLS , z1, . . . , zN ] ∈ R(N +1) ×D . (3) To enable parameter-efficient fine-tuning, we inject LoRA [8] adapters into attention projections (e.g., qkv , proj ) by reparameterizing 
+
+W′ = W + ∆W, ∆W = αr BA , (4) with rank r and scaling α. When used, the backbone can be frozen so optimiza-tion is restricted to adapter parameters. Given patch tokens X ∈ RB×N ×D, we apply multi-head self-attention pooling to obtain a single view descriptor while retaining spatial attributions: 
+
+A(h) = softmax Q(h)K(h)⊤
+
+√d
+
+!
+
+, ˜X = LN  X + Proj(Concat h(A(h)V (h))) ,
+
+(5) where d = D/H . The view embedding is computed by token pooling, 
+
+v = 1
+
+N
+
+> N
+
+X
+
+> n=1
+
+˜xn ∈ RD . (6) We represent tabular variables (numerical and categorical features) as a token sequence with a learnable readout token, 
+
+T = [ tCLS , t1, . . . , tL] ∈ R(L+1) ×d. (7) Numerical features are embedded by feature-wise scaling of learnable token vec-tors, whereas categorical ones are embedded via lookup tables. We then encode the tabular tokens using T2G-FORMER [20] to capture higher-order feature interactions, and use the final readout token as the clinical embedding g ∈ Rd.
+
+2.3 Cross-Modal Fusion and Delta-Gated Temporal Learner 
+
+Given OCT view descriptors vk and a clinical embedding g, we obtain view-wise multimodal features via cross-attention fusion: 
+
+fk = Fuse( vk, g), k ∈ { 1, . . . , 4}. (8) Response-Aware Multimodal Learning for Post-Treatment VA Forecasting 5
+
+We then concatenate horizontal/vertical features within each visit, 
+
+b = [ f (0)  
+
+> H
+
+; f (0)  
+
+> V
+
+], m = [ f (1)  
+
+> H
+
+; f (1)  
+
+> V
+
+], (9) and summarize early response with a gated delta update: 
+
+s = f (b), ∆ = g(m − b), γ = σ h([ s; ∆; |∆|; ∥∆∥2]) , z = s + γ ⊙ ∆. (10) Here f, g, h are MLPs and γ adaptively suppresses noisy month-1 changes. We further apply delta dropout by randomly zeroing (m − b) with probability p
+
+during training. 
+
+2.4 Time-Conditioned TCN for Multi-Horizon VA Regression 
+
+Given the temporally aggregated patient representation z, we predict VA at T
+
+future horizons by casting multi-horizon forecasting as sequence regression over 
+
+ordered horizons . This enables the predictor to share information across horizons and to model smooth, structured progression patterns without enforcing a rigid parametric trajectory. We first compute a shared latent descriptor 
+
+h = ψ(z) ∈ RH , (11) where ψ(·) is an MLP. To specialize the prediction for each horizon t ∈{0, . . . , T − 1}, we add a learnable horizon embedding et ∈ RH and form a horizon-conditioned token as follows: 
+
+st = h + et, S = [ s0, . . . , sT −1] ∈ RT ×H . (12) This construction yields a compact horizon sequence S whose tokens share pa-tient context ( h) while remaining horizon-aware via et.We then model inter-horizon dependencies with a dilated causal TCN, which captures both short-range coupling (nearby horizons) and long-range effects (dis-tant horizons) using exponentially increasing receptive fields: 
+
+˜S = TCN( S) ∈ RT ×H . (13) The TCN is implemented as a stack of residual temporal blocks with causal, di-lated 1D convolutions and dropout, preserving the horizon order while prevent-ing information leakage from later to earlier horizons. A linear readout produces per-horizon predictions 
+
+ˆy = ρ(˜S) ∈ RT , (14) where ρ(·) is a point-wise linear layer (equivalently a 1×1 temporal convolution). With ground-truth y ∈ RT and observation mask m ∈ { 0, 1}T , we optimize a masked regression objective 
+
+Lreg =
+
+PT −1 
+
+> t=0
+
+mt ℓ(ˆ yt, y t)
+
+PT −1 
+
+> t=0
+
+mt + ϵ , (15) where ℓ is ℓ1 (MAE loss) and ϵ ensures numerical stability. 6 Bui et al. 
+
+## 3 Experiments 
+
+3.1 Dataset and Evaluation Metrics 
+
+We curated a retrospective real-world cohort of N =188 anti-VEGF–treated DME patients with paired OCT acquired at two visits (baseline and month-1), along with tabular OCT-derived biomarkers [2] and non-imaging clinical variables. Each visit includes two orthogonal B-scan views (horizontal and ver-tical), yielding four OCT inputs per patient. All splits were performed at the 
+
+patient level to prevent data leakage [3]. OCT slices are resized to 224 ×224 
+
+and center-cropped to emphasize the foveal region. Numerical tabular variables are z-score normalized using training-fold statistics, while categorical ones are index-encoded. The primary prediction target is best-corrected VA at 24 months post-treatment initiation (logMAR). Intermediate horizons (3, 6, 12, and 18 months) were optionally used as auxiliary supervision during training. Perfor-mance was evaluated using mean absolute error (MAE), root mean squared error (RMSE), and coefficient of determination ( R2). All results are reported under 5-fold cross-validation as mean ±std across folds. 
+
+3.2 Implementation Details 
+
+Unless otherwise specified, we use RETFound ViT-Large as the OCT backbone (output dimension D=768 ) with frozen weights during training. The clinical encoder is a T2G-Former with token dimension d=128 , three graph-attention layers, and four attention heads. Spatial attention uses four heads, and multi-modal fusion uses a hidden dimension of 512. A GRU-based temporal aggregator models two-visit dynamics, followed by a TCN head with a time-embedding di-mension of 16. Dropout is set to p=0 .1. Models were optimized using Adam with early stopping based on validation MAE. All experiments were implemented in PyTorch and trained on NVIDIA A6000 GPU. 
+
+3.3 Comparison with State-of-the-Art 
+
+We compared our approach with representative CNN- and Transformer-based OCT backbones, as well as previously reported VA prognostic models. Quanti-tative results are summarized in Table 1. Our model achieved the lowest MAE (0.1246), lowest RMSE (0.1621), and highest R2 (0.6064). Compared with the strongest prior method, Rohm et al. [18], our approach reduced MAE by 10.17% and improved R2 by 9.80% relative, with statistically significant differences (p < 0.05 ). From a clinical perspective, an MAE of approximately 0.12 log-MAR corresponds to roughly one line on a standard VA chart. While a one-line difference may not independently alter treatment decisions, many clinical trials define meaningful visual change as a two- to three-line difference; thus, the pri-mary value of our approach lies in improving long-term trajectory estimation and setting more informed expectations for patients. Beyond accuracy, spatial atten-tion maps, shown in Fig. 2, consistently highlight pathologically relevant regions, Response-Aware Multimodal Learning for Post-Treatment VA Forecasting 7
+
+including subfoveal fluid and photoreceptor disruption. This agreement between model attribution and clinically recognized features improves interpretability and supports the biological plausibility of the predictions. Table 1: Comparison of 24-month VA regression (logMAR). Lower MAE/RMSE and higher R2 indicate better performance (underline: second best, bold : best). 
+
+Method MAE ↓ RMSE ↓ R2 ↑
+
+Romo-Bucheli et al. [19] 0.2358 ±0.0199 0.2806 ±0.0252 0.1552 ±0.0802 
+
+Ko et al. [12] 0.1427 ±0.0147 0.1895 ±0.0143 0.4591 ±0.1254 
+
+Leng et al. [13] 0.1536 ±0.0201 0.1911 ±0.0227 0.4633 ±0.0785 
+
+Han et al. [6] 0.1657 ±0.0240 0.2091 ±0.0353 0.3541 ±0.1545 
+
+Holste et al. [7] 0.1705 ±0.0167 0.2117 ±0.0236 0.3388 ±0.0986 
+
+Kim et al. [11] 0.1588 ±0.0226 0.1972 ±0.0249 0.4275 ±0.0965 
+
+Anderson et al. [1] 0.1486 ±0.0166 0.1874 ±0.0154 0.4809 ±0.0666 
+
+Rohm et al. [18] 0.1387 ±0.0056 0.1741 ±0.0083 0.5470 ±0.0762 
+
+Mondal et al. [16] 0.1396 ±0.0064 0.1729 ±0.0114 0.5496 ±0.1002 
+
+ReVA 0.1246 ±0.0066 0.1621 ±0.0056 0.6064 ±0.0727 
+
+Fig. 2: Spatial attention heatmaps on representative OCT scans. Warmer colors indicate higher attribution to the predicted VA. 
+
+3.4 Ablation Studies 
+
+We conducted ablation analyses under identical protocols, focusing on 24-month VA prediction in Table 2. First, multimodal fusion outperformed both OCT-only and tabular variables-only models. Clinically, this suggests that structural OCT captures localized microstructural correlates of vision, whereas non-imaging tabular variables provide contextual information that may explain structure– function mismatch when OCT findings are subtle. Second, modeling dependen-8 Bui et al. 
+
+Table 2: Ablation studies for 24-month VA regression (logMAR). 
+
+(a) Impact of different input modalities on prediction performance. Model MAE ↓ RMSE ↓ R2 ↑
+
+OCT-only 0.1571 ±0.0163 0.1957 ±0.0179 0.4354 ±0.0675 
+
+Tabular-only 0.1298 ±0.0073 0.1651 ±0.0589 0.5916 ±0.0734 
+
+Multi-modal 0.1246 ±0.0066 0.1621 ±0.0056 0.6064 ±0.0727 
+
+(b) Comparison of clinical tabular variables and OCT image encoders. Model MAE ↓ RMSE ↓ R2 ↑
+
+MLP 0.1532 ±0.0196 0.1900 ±0.0208 0.4685 ±0.0725 
+
+TabTransformer [10] 0.1329 ±0.00684 0.1693 ±0.0113 0.5745 ±0.0567 
+
+T2G-FORMER [20] 0.1246 ±0.0066 0.1621 ±0.0056 0.6064 ±0.0727 
+
+Swin-T [14] 0.1453 ±0.0161 0.1828 ±0.0123 0.5038 ±0.0691 
+
+DenseNet [9] 0.1448 ±0.0124 0.1822 ±0.0128 0.5124 ±0.0141 
+
+ConvNeXt [15] 0.1432 ±0.0149 0.1785 ±0.0128 0.5268 ±0.0703 
+
+RETFound [21] 0.1246 ±0.0066 0.1621 ±0.0056 0.6064 ±0.0727 
+
+(c) Effectiveness of two-visit temporal aggregation strategies. Model MAE ↓ RMSE ↓ R2 ↑
+
+Naive concat. 0.1296 ±0.0081 0.1668 ±0.0079 0.5951 ±0.0758 
+
+Transformer-based 0.1287 ±0.0083 0.1646 ±0.0076 0.5924 ±0.0933 
+
+GRU-based 0.1246 ±0.0066 0.1621 ±0.0056 0.6064 ±0.0727 
+
+cies among clinical variables (T2G-FORMER [20]) consistently outperformed simpler tabular encoders, supporting the notion that clinical features do not act independently but interact in meaningful ways. Among OCT encoders, RET-Found [21] yielded the strongest performance, consistent with the idea that foundation pretraining on retinal data enhances robustness in relatively small real-world cohorts with long-term outcome noise. Finally, modeling early change (baseline → month-1) as a gated update improved performance over simple con-catenation or generic sequence models. In clinical terms, explicitly modeling early treatment response appears more informative than treating visits as inde-pendent observations, reinforcing the importance of the early response signal in long-term prognosis. 
+
+## 4 Conclusion 
+
+We present a clinically practical two-visit framework for long-term visual progno-sis after anti-VEGF therapy in DME, forecasting VA from 3 to 24 months using only baseline and 1-month OCT scans combined with tabular variables from Response-Aware Multimodal Learning for Post-Treatment VA Forecasting 9
+
+a real-world cohort of 188 patients. By explicitly incorporating early treatment response through multimodal modeling, our approach achieved strong predictive performance (MAE = 0.1246, RMSE = 0.1621, R2 = 0.6064). Beyond numerical improvements, the model provides trajectory-level estimates that may help clin-icians anticipate disease course, individualize follow-up intensity, and support patient counseling. While further validation in larger and external cohorts is required, these findings suggest that response-aware multimodal learning offers a clinically meaningful step toward scalable, data-driven prognostic support in routine anti-VEGF care. 
+
+## References 
+
+1. Anderson, M., Corona, V., Stankiewicz, A., Habib, M., Steel, D.H., Obara, B.: Enhancing post-treatment visual acuity prediction with multimodal deep learning on small-scale clinical and oct datasets. In: Medical Imaging with Deep Learning (2025) 2. Bui, P.N., Le, D.T., Bum, J., Han, J.C., Pham, V.N., Choo, H.: Multi-scale feature enhancement in multi-task learning for medical image analysis. Artificial Intelli-gence in Medicine p. 103338 (2025) 3. Bui, P.N., Le, D.T., Bum, J., Kim, S., Song, S.J., Choo, H.: Multi-scale learning with sparse residual network for explainable multi-disease diagnosis in oct images. Bioengineering 10 (11), 1249 (2023) 4. Chandra, R.S., Ying, G.s.: Predicting visual acuity responses to anti-vegf treatment in the comparison of age-related macular degeneration treatments trials using ma-chine learning. Ophthalmology Retina 8(5), 419–430 (2024) 5. Fu, D.J., Faes, L., Wagner, S.K., Moraes, G., Chopra, R., Patel, P.J., Balaskas, K., Keenan, T.D., Bachmann, L.M., Keane, P.A.: Predicting incremental and future visual change in neovascular age-related macular degeneration using deep learning. Ophthalmology Retina 5(11), 1074–1084 (2021) 6. Han, J.M., Han, J., Ko, J., Jung, J., Park, J.I., Hwang, J.S., Yoon, J., Jung, J.H., Hwang, D.D.J.: Anti-vegf treatment outcome prediction based on optical coherence tomography images in neovascular age-related macular degeneration using a deep neural network. Scientific reports 14 (1), 28253 (2024) 7. Holste, G., Lin, M., Zhou, R., Wang, F., Liu, L., Yan, Q., Van Tassel, S.H., Kovacs, K., Chew, E.Y., Lu, Z., et al.: Harnessing the power of longitudinal medical imaging for eye disease prognosis using transformer-based sequence modeling. NPJ Digital Medicine 7(1), 216 (2024) 8. Hu, E.J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., Chen, W., et al.: Lora: Low-rank adaptation of large language models. Iclr 1(2), 3 (2022) 9. Huang, G., Liu, Z., Van Der Maaten, L., Weinberger, K.Q.: Densely connected convolutional networks. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 4700–4708 (2017) 10. Huang, X., Khetan, A., Cvitkovic, M., Karnin, Z.: Tabtransformer: Tabular data modeling using contextual embeddings. arXiv preprint arXiv:2012.06678 (2020) 11. Kim, N., Lee, M., Chung, H., Kim, H.C., Lee, H.: Prediction of post-treatment visual acuity in age-related macular degeneration patients with an interpretable machine learning method. Translational Vision Science & Technology 13 (9), 3–3 (2024) 10 Bui et al. 12. Ko, Y.C., Peng, C.W., Ho, H.C., Chiu, S.H., Chen, S.J., Lee, C.Y.: Deep learning assisted prediction of long-term visual outcome after 3 monthly anti-vascular en-dothelial growth factor injections in patients with central-involved diabetic macular edema. Investigative Ophthalmology & Visual Science 63 (7), 3778–F0199 (2022) 13. Leng, X., Shi, R., Xu, Z., Zhang, H., Xu, W., Zhu, K., Lu, X.: Development and validation of cnn-mlp models for predicting anti-vegf therapy outcomes in diabetic macular edema. Scientific Reports 14 (1), 30270 (2024) 14. Liu, Z., Lin, Y., Cao, Y., Hu, H., Wei, Y., Zhang, Z., Lin, S., Guo, B.: Swin transformer: Hierarchical vision transformer using shifted windows. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 10012–10022 (2021) 15. Liu, Z., Mao, H., Wu, C.Y., Feichtenhofer, C., Darrell, T., Xie, S.: A convnet for the 2020s. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 11976–11986 (2022) 16. Mondal, A., Nandi, A., Pramanik, S., Mondal, L.K.: Application of deep learn-ing algorithm for judicious use of anti-vegf in diabetic macular edema. Scientific Reports 15 (1), 4569 (2025) 17. Moon, S., Lee, Y., Hwang, J., Kim, C.G., Kim, J.W., Yoon, W.T., Kim, J.H.: Pre-diction of anti-vascular endothelial growth factor agent-specific treatment outcomes in neovascular age-related macular degeneration using a generative adversarial net-work. Scientific reports 13 (1), 5639 (2023) 18. Rohm, M., Tresp, V., Müller, M., Kern, C., Manakov, I., Weiss, M., Sim, D.A., Priglinger, S., Keane, P.A., Kortuem, K.: Predicting visual acuity by using machine learning in patients treated for neovascular age-related macular degeneration. Oph-thalmology 125 (7), 1028–1036 (2018) 19. Romo-Bucheli, D., Erfurth, U.S., Bogunović, H.: End-to-end deep learning model for predicting treatment requirements in neovascular amd from longitudinal retinal oct imaging. IEEE Journal of Biomedical and Health Informatics 24 (12), 3456– 3465 (2020) 20. Yan, J., Chen, J., Wu, Y., Chen, D.Z., Wu, J.: T2g-former: organizing tabular features into relation graphs promotes heterogeneous feature interaction. In: Pro-ceedings of the AAAI Conference on Artificial Intelligence. vol. 37, pp. 10720–10728 (2023) 21. Zhou, Y., Chia, M.A., Wagner, S.K., Ayhan, M.S., Williamson, D.J., Struyven, R.R., Liu, T., Xu, M., Lozano, M.G., Woodward-Court, P., et al.: A foundation model for generalizable disease detection from retinal images. Nature 622 (7981), 156–163 (2023)
