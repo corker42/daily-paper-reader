@@ -1,0 +1,323 @@
+Title: ToolFG: Towards Well-Grounded Fine-Grained Image Classification
+
+URL Source: https://arxiv.org/pdf/2606.02518v1
+
+Published Time: Tue, 02 Jun 2026 03:08:31 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# TOOL FG: T OWARDS WELL -G ROUNDED FINE -G RAINED IMAGE 
+
+# CLASSIFICATION 
+
+Yu Xue 1 Haoxuan Qu 1∗ Zhuoling Li 1 Yihang Lou 2
+
+Yan Bai 2 Hossein Rahmani 1 Jun Liu 1
+
+> 1
+
+Lancaster University 2Peking University 
+
+{y.xue9, h.qu5, z.li81, h.rahmani, j.liu81}@lancaster.ac.uk {yihanglou, yanbai}@pku.edu.cn 
+
+## ABSTRACT 
+
+Fine-grained image classification (FGIC) has broad applications and has attracted significant research attention. In this paper, we explore a novel paradigm for solving FGIC by proposing ToolFG , the first tool-integrated MLLM-based framework tailored to FGIC. ToolFG enables MLLMs to autonomously and flexibly use external tools during the reasoning process, actively interact with images, and collect verifiable visual cues for distinguishing highly similar categories in a more reliable and well-grounded 
+
+manner. To equip the model with such tool-use ability, we design a novel MCTS-guided tool-use knowledge distillation mechanism , which effectively mines tool-use- and FGIC-relevant knowledge from advanced proprietary MLLMs for model training. Furthermore, we propose a model-tool co-evolution mechanism that jointly refines the toolset and the model’s tool-use policy, driving them toward a mutually adapted and FGIC-specialized state. Extensive experiments demonstrate the effectiveness of our framework. 
+
+## 1 Introduction 
+
+Fine-grained image classification (FGIC) aims to distinguish highly similar subcategories within the same superordinate category. As a fundamental task in computer vision with broad applications such as biodiversity monitoring [ 45 , 46 ]and intelligent transportation [ 23 , 22 ], it has attracted sustained research attention [ 49 , 16 , 17 , 15 , 40 , 57 , 53 ]. Recently, multimodal large language models (MLLMs) have shown strong visual understanding ability and, through large-scale pretraining, encode rich world knowledge that covers the prototypical attributes defining different subcategories. Motivated by these properties, a growing line of work has applied MLLMs to FGIC [ 26 , 13 , 19 , 12 , 14 , 29 ]. Specifically, these methods design dedicated training recipes that guide MLLMs to attend to subtle discriminative attributes (e.g., fine differences in color, texture, shape, or part proportions), and further elicit chain-of-thought reasoning to analyze the captured visual evidence before arriving at the final classification result [12, 29]. However, despite the achieved progress, existing MLLM-based FGIC methods [ 12 , 29 ] still remain limited. Specifically, the visual attributes that appear in their reasoning chains often remain vague and qualitative (e.g., “its tail is not long”). Such vague attributes are of little help in distinguishing highly similar subcategories, such as the Boat-tailed Grackle and the Rusty Blackbird, whose discrimination usually requires more concrete and accurate measurements (e.g., the relative ratio of tail length to body length). Without measuring such attributes, the model’s reasoning process can be 
+
+not well-grounded and is thus easily misled by its own vague impressions, ultimately resulting in misclassification. In contrast, human experts are still able to perform FGIC reliably. We observe that rather than “only viewing the image”, some human experts will actively interact with the image using image-processing tools (e.g., zooming into key regions, adjusting contrast, and applying sharpening) to better locate and inspect subtle visual attributes, and even further use measurement tools (e.g., color samplers and calipers) to accurately quantify these attributes [ 2, 47 , 52 ], thereby gathering verifiable evidence to ground the final classification decision. For instance, they may observe that the tail is roughly 50% of the body length, a ratio characteristic of the Boat-tailed Grackle. 
+
+> ∗
+
+Corresponding author 
+
+> arXiv:2606.02518v1 [cs.CV] 1 Jun 2026
+
+A PREPRINT MLLM                        
+
+> Reasoning: ...I need to use bird_geometry tools… <tool_call >bird_geometry (“ tail_to_bird ”) </ tool_call >
+> <tool_result > the tail_height to bird_height is approximately 0.5 </ tool_result >…<tool_call >
+> bird_geometry (“ beak_to_head ”) </ tool_call > < tool_result > the beak -to -head height ratio is about 0.9
+> </ tool_result >. A tail -to -bird ratio of 0.5 indicates a proportionally long tail , and a beak -to -head ratio of 0.9 indicates
+> a proportionally long beak —both features strongly support Boat tailed Grackle.
+> Answer:
+> Boat tailed Grackle.
+> Input image
+> Question: This is an
+> image containing a bird.
+> Please identify the
+> species of the bird in the
+> image from the below
+> options. {Boat tailed
+> Grackle, Rusty
+> Blackbird…}
+> bird_height
+> tail_height
+> head_height
+> <tool_
+> call >
+> <tool_
+> result>
+> <tool_
+> call>
+> <tool_
+> result >
+> bird_ geometry (“ tail_to_bird ”) bird_geometry (“ beak_to_head ”)
+> 0.5 ≈beak_height ≈0.9
+
+Figure 1: Illustration of a tool-integrated reasoning example of our framework, in which the MLLM autonomously invokes tools to integrate with the image and collect verifiable evidence before reaching the final FGIC prediction. We show more examples in the supplementary. This naturally moti-vates us to consider whether MLLM-based FGIC could also benefit from such a human-like tool-using process, which is a very promising direction but still underex-plored. Specifically, as shown in Figure 1, we aim to embed a suite of tools into the MLLM’s chain-of-thought reasoning so that at each reasoning step the model can actively interact with images to capture and measure subtle visual attributes, thereby grounding the fine-grained decision (reasoning) process in verifiable evidence and ultimately helping the model reliably distinguish highly similar subcategories. However, achieving this is non-trivial. First , it is unclear how to instantiate “tools” that allow the MLLM, which has no physical embodiment, to appropriately interact with images and perform verifiable measurements on its own. More importantly , even with a well-crafted toolset, teaching the MLLM to proficiently invoke these previously unseen tools for reasoning is itself highly challenging. No supervision is available for tool-integrated reasoning chains, and the only readily accessible signal, the image-level classification label, can be far too sparse to drive direct reinforcement learning over such a high-dimensional sequential decision-making process, in which the model needs to decide when to invoke which tool and in what order. To tackle the above challenges, we propose ToolFG , a novel tool-integrated MLLM-based framework, which, to the best of our knowledge, is the first method to enable MLLMs to perform FGIC in a well-grounded manner by autonomously interacting with images and collecting verifiable visual evidence. We illustrate the overall training process of our framework in Figure 2, and outline our framework as follows. Overall, in our framework, the MLLM is optimized to actively leverage a set of tools as a medium for interacting with the image to be classified, capturing and measuring subtle visual attributes so that the reasoning process is grounded in concrete, verifiable evidence. Inspired by recent progress in code generation [ 21 , 11 ], where LLMs and MLLMs have demonstrated strong potential to understand and invoke functions, we instantiate the tools as function-like APIs that the MLLM can invoke by passing arguments. Once invoked, these tools execute corresponding operations on the image in a sandboxed environment and return textual or visual output to the model, which is then incorporated into the MLLM’s subsequent reasoning. For example, the tool bird_color_histogram takes as input the name of a bird part (e.g., breast or wing) and returns the HSV and RGB color histograms of its pixels, providing concrete evidence for color-based attribute comparisons. Building on this design, we further develop an LLM-based tool-creation pipeline to automatically construct a toolset tailored for FGIC (mentioned in Section 3.2). With this toolset in hand, the remaining question is how to teach the MLLM to integrate these previously unseen tools into its reasoning chains, so that it can invoke them appropriately to effectively tackle the challenging FGIC task. The key obstacle to teaching the MLLM to proficiently use tools is the absence of any direct supervision for tool-integrated reasoning chains. To tackle this, we introduce a novel Monte Carlo Tree Search (MCTS)-guided Tool-Use Knowledge Distillation mechanism. Our key observation is that advanced proprietary MLLMs (e.g., Gemini and GPT), though not tailored for FGIC nor familiar with our constructed toolset, already encode broad yet coarse knowledge that may cover cues about FGIC and tool use, and can sometimes produce format-valid reasoning chains that correctly invoke our constructed tools, from which they can sometimes even arrive at correct classification results. Thus, we argue that these advanced proprietary MLLMs can be treated as broad-but-not-specialized teachers . Building on this insight, as the core component of our tool-use knowledge distillation mechanism, we design an MCTS-guided exploration process that steers such a teacher MLLM toward promising tool-integrated reasoning chains that lead to correct FGIC predictions, which then serve as supervision for training a specialized student (typically a smaller-capacity MLLM) that becomes proficient at tool use for FGIC. In this way, knowledge genuinely relevant to FGIC and tool use can be effectively distilled from the teacher’s broad experience and imparted to the student model. Through the above teacher-student-based training, the student model should learn to imitate the teacher’s tool-use pattern (e.g., producing syntactically valid tool calls) and acquire familiarity with the appropriate use of the initial toolset. However, as shown in recent studies on LLM training [ 50 ], such supervision-based training may amount to 2A PREPRINT 
+
+mere pattern imitation of the supervision signal, and thus its generalization to diverse FGIC scenarios can still be limited. In addition, a one-shot constructed toolset is also unlikely to be optimal, which may still be insufficient to handle subtle visual attributes encountered across different FGIC samples. Besides, it would be ideal for the toolset to keep pace with the model’s gradually improving tool-use ability, so that more powerful tools could be introduced as the model becomes more capable. To this end, we further introduce a model-tool co-evolution mechanism that iteratively optimizes both the model’s tool-use policy and toolset, so that the MLLM and the toolset co-evolve toward a mutually attuned, FGIC-specialized configuration. Our main contributions are: 1) We propose ToolFG , the first tool-integrated reasoning framework that enables MLLMs to solve FGIC in a well-grounded manner. 2) Through the novel MCTS-guided tool-use knowledge distillation and 
+
+model-tool co-evolution mechanisms, our framework can effectively tailor tools and train the MLLM to master them for solving the challenging FGIC task. 3) Extensive experiments on multiple evaluation benchmarks show the efficacy of our method. 
+
+## 2 Related Work 
+
+Fine-grained Image Classification. Fine-grained image classification (FGIC) has attracted sustained research attention in the computer vision community [ 49 , 16 , 17 , 15 , 40 , 57 , 53 , 34 , 44 , 4 , 60 , 10 , 42 , 55 , 32 , 9 , 8]. Earlier FGIC methods have explored different model architectures for this task, from CNNs [ 55 , 32 , 9] to Transformer-based approaches [ 15 , 44 , 42 ]. Motivated by the rich world knowledge and strong visual reasoning capabilities of MLLMs, recent methods [ 13 , 12 , 29 ] have increasingly adopted MLLMs for solving the challenging FGIC task. For example, Finedefics [ 13 ] improves FGIC by strengthening the alignment between visual representations and fine-grained category names through attribute-augmented contrastive learning. DiVE-k [ 29 ] organizes the top-k predictions on each image as a multiple-choice question and uses reinforcement learning with a verifiable reward to force the model to compare among the most confusable candidate subclasses. Different from them, our work casts MLLM-based FGIC as a process that needs well-grounded reasoning, in which the MLLM actively invokes tools to collect concrete visual evidence, so that every step of its reasoning is backed by verifiable evidence rather than its internal and vague impressions. 
+
+Reasoning for MLLMs. Recently, adapting the general reasoning capability of MLLMs into task-specific reasoning patterns has attracted considerable attention across a range of domains [ 58 , 59 , 43 , 37 , 20 , 7, 35 , 54 ], including reasoning segmentation [ 30 ], detection-oriented MLLM reasoning [ 41 ], and mathematical and chart reasoning [ 56 ]. Different from these works, in this paper, to address the challenging FGIC task, we propose a novel MCTS-guided knowledge distillation mechanism to mine tool-integrated reasoning knowledge for training the MLLM to possess tool-use ability, and further design a new model-tool co-evolution mechanism to mutually promote the model and the toolset, making them increasingly powerful and compatible with each other. 
+
+## 3 Method 
+
+Overview. Our ToolFG aims to enable MLLMs to perform FGIC in a well-grounded manner by invoking tools to interact with the image and collect verifiable evidence. Yet realizing this paradigm is very challenging. There is no off-the-shelf well-tailored toolset for FGIC, and, more importantly, even with a ready toolset, teaching the model to autonomously and flexibly invoke these previously unseen tools within a complex reasoning chain remains non-trivial. To tackle this, as shown in Figure 2, our framework introduces two complementary stages in its training pipeline to enable the MLLM to master the tools and also facilitate the construction of an effective toolset. First, considering no toolset tailored for FGIC is readily available, we design an LLM-based tool-creation pipeline to automatically initialize a set of tools (discussed in Section 3.2) that, while not necessarily optimal, captures the basic operations a human expert would rely on and serves to bootstrap the MLLM’s mastery of the tool-use pattern. With this initial toolset in hand, and given the lack of trajectory-level supervision, we introduce a novel (1) MCTS-Guided Tool-Use Knowledge Distillation mechanism, in which an advanced proprietary teacher MLLM (e.g., Gemini) is guided to explore promising tool-integrated reasoning trajectories, which are then used as supervision to train a student MLLM specialized in FGIC-tailored tool invocation. Additionally, we further design an (2) Model-Tool Co-Evolution 
+
+mechanism to consolidate and promote the generalization of the trained model, and to jointly upgrade the toolset, by refining existing tools and exploring new ones, to keep pace with the model’s growing tool-use ability. Below, we first formalize our proposed tool-integrated FGIC paradigm in Section 3.1, and then detail the toolset initialization and MCTS-guided tool-use knowledge distillation mechanisms in Section 3.2, followed by the policy–tool co-evolution mechanism in Section 3.3. 3A PREPRINT MCTS -guided Tool -Use       
+
+> Knowledge Distillation
+> Knowledge
+> Dataset
+> Mode l-Tool
+> Co -Evolution
+> Refined Toolset
+> MCTS -guided
+> knowledge exploration
+> Student
+> Training
+> Alternate updates
+> !!
+> "#$
+> ""#$!!
+> "
+> ""
+> "∗
+> Student
+> MLLM
+> !!
+> Student
+> MLLM
+> !!
+> &
+> Student
+> MLLM
+> !!
+> ∗
+> Initial Toolset
+> "&
+> Teacher
+> MLLM
+> D'(() Model
+> Update
+> Toolset
+> Update
+
+Figure 2: Our framework comprises two key mechanisms in its training pipeline that together enable the MLLM to master tool use and acquire FGIC-task-relevant knowledge through two complementary stages. In (1) MCTS-Guided Tool-Use Knowledge Distillation , our framework first initializes a toolset T (0) , and then drives an advanced proprietary MLLM teacher to use T (0) to explore insightful tool-integrated reasoning trajectories, which form a tool-use knowledge dataset Dtool for training a student policy π(0)  
+
+> θ
+
+. Besides, in (2) Model-Tool Co-Evolution , we further alternately optimize the policy to discover more effective tool-use patterns, and also refine the toolset so that it keeps pace with the improving tool-use capability of the MLLM. After conducting the above two stages, the resulting MLLM policy π∗ 
+
+> θ
+
+and toolset T ∗
+
+are ready for performing more well-grounded FGIC. 
+
+3.1 Formulation of Tool-Integrated FGIC Paradigm 
+
+Overall, our goal is to learn an MLLM policy πθ and equip the MLLM with an appropriate toolset T = {tk}. Each tool 
+
+tk is associated with a structured tool card Ctk , which provides a standardized description of the tool’s functionality, input arguments, and return values, as detailed in the supplementary. Given a test input image x, our goal is then to derive, using the learned policy and toolset, a tool-integrated reasoning chain τ = {p, x, a 1, a 2, . . . , a n} that leads to the correct classification result ˆy for x. Here, p denotes the system prompt containing the task description and tool cards, while ai denotes the action at step i, which is either a tool invocation with specific arguments or a termination action that outputs the final prediction ˆy.
+
+3.2 MCTS-guided Tool-Use Knowledge Distillation 
+
+As stated in the Introduction, although no direct trajectory-level supervision is available for teaching the model to harness tools, existing advanced proprietary MLLMs (e.g., Gemini) may already encode the FGIC- and tool-use-relevant knowledge we need, and can produce reasoning chains that yield correct classification results albeit at a “relatively low hit rate”. This naturally motivates us to treat such models as broad-but-not-specialized teachers and distill the FGIC-specialized tool-use knowledge (i.e., tool-integrated reasoning supervision) from them into a student policy. With this insight, we introduce a novel MCTS-guided trajectory exploration mechanism, which treats the step-by-step reasoning chain as a search tree and guides the teacher toward more promising trajectories that yield correct results, within the vast space the possible trajectories span. Notably, beyond revealing successful trajectories, the search tree built during exploration also surfaces their sibling paths that appear reasonable at intermediate steps yet ultimately end in wrong predictions. We argue that these failed sibling trajectories should also be collected as hard negatives paired with their positive counterparts. Such paired supervision allows the student policy to learn not only to imitate successful tool use, but also to avoid seemingly reasonable yet ultimately flawed tool-use decisions. In what follows, we instantiate the above idea in three steps. Step 1 , we design an LLM-based tool-creation pipeline that automatically constructs an initial toolset T (0) , serving as the action space for all subsequent steps; Step 2 , we collect paired positive–negative supervision trajectories over T (0) from the teacher via a proposed MCTS-guided exploration scheme; and Step 3 , we train the student policy for tool invocation through a carefully designed trajectory-level contrastive objective. 
+
+Step 1: Automatically Constructing the Initial Tool Set. We design an MLLM-based automatic tool construction pipeline. To build the toolset, our pipeline first identifies a set of attributes that are useful for distinguishing highly similar subcategories, and then constructs invocable tools based on these attributes and task-specific knowledge from existing FGIC practices. More details about tool construction are provided in the supplementary. Through this procedure, we obtain an initial toolset T (0) = {tk}, which serves as the action space for the subsequent trajectory exploration and policy training stages. 4A PREPRINT 
+
+Step 2: Exploring Paired Trajectory Supervision. In this step, we aim to mine reasoning-trajectory-level supervision to teach the model to harness T (0) for solving FGIC. Inspired by tree search methods [ 6, 31 , 51 ], we model the teacher’s reasoning process over the toolset T (0) as a search tree, in which each node represents a partial reasoning chain {p, x, a 1, . . . , a l} and each edge corresponds to a possible next action al+1 . We iteratively grow the search tree to expose branches that lead to correct classifications, which serve as positive trajectories τ +, and branches that look reasonable at intermediate steps yet ultimately end in wrong predictions, which serve as hard-negative trajectories τ −.At each iteration, we first select a promising frontier node from the current tree to decide where to keep searching, then 
+
+expand this node by proposing a small set of candidate next actions to attach as children, simulate a complete rollout from each new child to score the long-term impact of taking that action rather than its local appearance, and finally 
+
+backpropagate the rollout score along the visited path to refine the value estimates that guide subsequent selections. This four-operation cycle is conducted iteratively, after which τ + and τ − are jointly extracted from the search tree. We detail each step below. Selection. After the search has run for a few iterations, the search tree will contain many candidate branches, and each subsequent rollout needs to decide where to continue from. Yet, a naively greedy descent would collapse the search onto a single best path and prune away plausible-but-failing alternatives, which are exactly the hard negatives we want to mine. We therefore select a frontier node (a partially-explored node whose reasoning chain has not yet produced a final classification) by the UCB rule [ 27 ], which balances exploiting high-value branches and exploring less-visited ones in a principled way: a∗ = arg max a
+
+Q(s, a ) + cpln N (s)/N (s, a ), where Q(s, a ) estimates the value of choosing action a at state s, N (s, a ) is its visit count, N (s) is the visit count of state s, and c > 0 controls the exploration strength. Starting from the root, we repeatedly apply this rule until reaching a frontier node sl.Expansion. Given the selected frontier node sl, we expand the tree by adding a small set of candidate next tool invocations. We ask the teacher MLLM to propose J plausible candidates {a(j)
+
+> l+1
+
+}Jj=1 conditioned on the current interaction history. Each candidate is executed to obtain r(j) 
+
+> l+1
+
+and instantiated as a new child node, serving as the starting point of subsequent simulation. Simulation. To evaluate the potential of a newly expanded child nodes, its incomplete reasoning chain alone is insufficient. We therefore continue the rollout from sl using the teacher MLLM, generating subsequent reasoning steps until the model emits a final prediction ˆy, thereby obtaining a complete trajectory τ . The child node can then be scored based on both the classification outcome and the overall quality of the completed reasoning trajectory: 
+
+R(τ ) = Rcls + λR traj (τ ) where Rcls = ⊮[ˆ y = y]. The trajectory-quality term Rtraj employs an LLM-based judge to evaluate the soundness of the entire reasoning process, penalizing "lucky-guess" trajectories that arrive at the correct answer despite containing obviously flawed intermediate steps. Further details are deferred to the supplementary. Backpropagation. To let the rollout outcomes obtained during simulation shape the search behavior of subsequent iterations, we propagate R(τ ) backward through the visited nodes and refresh their visit counts and Q-values accordingly (full update rule deferred to the supplementary). These refreshed statistics are the quantities consumed by the UCB score in the next Selection step. Iterating the four steps above yields a search tree from which we read out a positive trajectory τ + (the most-visited root-to-leaf path, corresponding to the highest-value reasoning chain), together with a hard negative τ − (a sufficiently explored path that nonetheless terminates in an incorrect classification). Because both are drawn from the same tree, they share a long common prefix and diverge only at a few critical decision nodes, yielding precisely the contrastive structure Step 3 will exploit. More trajectory extraction details are deferred to the supplementary. Running the above trajectory extraction on training samples produces our tool-use knowledge dataset Dtool = {(xi, τ + 
+
+> i
+
+, τ − 
+
+> i
+
+)}Ni=1 ,where each trajectory τ +/− 
+
+> i
+
+= ( a1, r 1, . . . , a Li , r Li , ˆyi) records a complete tool-invocation sequences. In this way, we upgrade the supervision available for each sample: the original binary class label is replaced by a process-level positive/negative pair, supplying the contrastive signal that Step 3 consumes for training. 
+
+Step 3: Training the Model on the Tool-Use Knowledge Dataset. Equipped with the paired tool-use knowledge dataset Dtool = {(xi, τ + 
+
+> i
+
+, τ − 
+
+> i
+
+)}Ni=1 , the remaining question reduces to how to exploit it properly for training the student policy. A naive choice is the token-level cross-entropy loss commonly adopted in MLLM supervised training: 
+
+LCE (θ) = − 1
+
+> |D tool |
+
+P 
+
+> (x,τ +)
+
+P 
+
+> t
+
+mt log pθ (τ + 
+
+> t
+
+| τ +
+
+> <t
+
+, x ), where the mask mt = 1 for model-generated tokens and 
+
+mt = 0 for tool returns and system instructions. However, this objective only teaches the model to “go toward τ +”and discards the “do not go toward τ −” signal that Step 2 carefully mined. In FGIC, τ + and τ − often differ at only a single step’s tool choice or argument, which is in fact one of the design goals of our search strategy, so this contrast carries extremely dense discriminative information; throwing it away would waste the main value of Step 2. To use both signals jointly, we draw on contrastive learning in areas such as person re-identification (ReID) [ 18 ], where the “anchor + positive + hard-negative” formulation is widely validated as one of the most effective ways to exploit stratified 5A PREPRINT 
+
+contrast. Transferring this idea to the trajectory level, we take the input x as the anchor, τ + as the positive, and τ − as the hard negative, and encourage the model to assign a higher likelihood to τ + than to τ −:
+
+Ltrip (θ) = 1
+
+|D tool |
+
+X  
+
+> (x,τ +,τ −)
+
+max 
+
+
+
+0, γ −  log pθ (τ + | x) − log pθ (τ − | x)
+
+, (1) where γ > 0 is a margin, and log pθ (τ | x) is computed with the same mask mt as in LCE , so only assistant-generated tokens contribute. Combining the two gives the final objective, 
+
+Linit (θ) = LCE (θ) + β · L trip (θ), (2) where β > 0 balances the two terms: LCE teaches the model what to do right at the token level, while Ltrip teaches it how to avoid going wrong at the trajectory level. Further training details (loss masking, lightweight paraphrasing of tool descriptions, etc.) are deferred to the supplementary. Through the high-quality construction of tool-integrated reasoning trajectories (Step 2) and their proper use in contrastive training (Step 3), the trained model (denoted as π(0)  
+
+> θ
+
+) is expected to have acquired a basic tool-use ability: given a fine-grained image, it can autonomously invoke appropriate tools and collect fine-grained visual evidence for solving the FGIC task. 
+
+3.3 Model-Tool Co-Evolution 
+
+After the above MCTS-guided tool-use knowledge distillation, we obtain an initial toolset and a student policy that has acquired preliminary competence in tool usage and FGIC reasoning. We now aim to further evolve both the policy and the toolset: the policy should move beyond rigidly mimicking the teacher’s tool-use behavior and continually discover more effective tool-use patterns, while the toolset, one-shot initialized in the previous stage, may still be suboptimal and insufficient to handle the subtle visual attributes across FGIC samples, and should also be upgraded to keep pace with the model’s improving tool-use ability. Ideally, the two should converge to a mutually compatible and effective configuration tailored to the FGIC task. Jointly optimizing the policy and the toolset, however, is intractable for two reasons. First , the two are mutually dependent: refining the policy presupposes a suitable toolset, while the suitability of a toolset can only be judged through actual usage by the policy. Second , they live in incompatible optimization regimes—the policy is a continuous, differentiable network amenable to gradient-based methods, whereas the toolset is a discrete collection of executable programs that admits no such gradient-based update and can usually be updated through structural operations such as editing or replacement. To this end, we thus propose a novel iterative co-evolution scheme that alternates between two update (evolution) stages: 
+
+Model Update , where we refine the model policy while keeping the toolset fixed, and Toolset Update , where we evolve the toolset based on the usage feedback collected during model update. Through this alternating process, the policy and the toolset progressively improve and become compatible with each other. Below, we describe the two stages in detail. 
+
+Model Update: Groundedness Reward-guided Reinforcement Learning. In this stage, the toolset is fixed, and we focus on refining the policy alone. Considering the policy obtained from tool-use knowledge distillation may still be limited to merely mimicking the teacher’s tool-use patterns [ 3], we introduce reinforcement learning to further drive it to discover more effective tool-use strategies through repeated interaction with the tool-integrated FGIC environment. The central challenge is to design a principled reward function that faithfully reflects the quality of the policy’s tool-use behavior. In our framework, tool-integrated reasoning is a multi-step decision process: the model needs to decide which tool to invoke and how to set its arguments. A reward defined only by final classification correctness is therefore too coarse: it struggles to identify which intermediate tool decisions caused success or failure, and may even reward trajectories that arrive at correct answers by luck after a flawed process (e.g., invoking a wrong tool or misreading a returned value). To this end, we design a groundedness reward Rground , which evaluates the quality of intermediate tool-use decisions along the trajectory. Together with the classification reward Rcls (the binary correctness of the final classification), it forms a composite reward: R(τ ) = Rcls (τ ) + η · Rground (τ ), where η balances the two terms. While Rcls keeps the policy aligned with the ultimate task goal, Rground assigns a lower return to “right-by-luck” trajectories whose answers happen to be correct despite flawed tool-use steps, and a higher return to “right-by-evidence” trajectories whose reasoning is sound throughout. Optimizing R therefore drives the policy toward genuinely well-grounded tool use rather than accidental correctness. We defer the detailed computation of Rground to the supplementary. Through this RL-based model update stage, the model becomes more proficient at using tools, yet may still be bounded by the sub-optimal toolset itself. We address this next by evolving the toolset. 
+
+Toolset Update: Usage-Feedback-Driven Evolution. We now turn to updating the toolset, which is non-trivial in two ways: tools are executable programs rather than differentiable model parameters, and they come with no ground-truth 6A PREPRINT 
+
+Table 1: Quantitative comparison with existing methods on zero-shot base-to-novel generalization (per-dataset training). B → Base, N → Novel, H → Harmonic Mean. Flowers CUB Pets Cars Aircraft Average Method B N H B N H B N H B N H B N H B N HQwen2.5-VL-7B [1] 84.2 83.8 84.0 63.3 48.2 54.7 87.5 93.3 90.3 58.9 72.9 65.1 50.3 54.3 52.3 68.9 70.5 69.7 MaPLe [24] 95.9 72.5 82.6 80.0 48.8 60.6 95.4 97.8 96.6 72.9 74.0 73.5 37.4 35.6 36.5 76.3 65.7 70.6 PromptSRC [25] 98.1 76.5 86.0 84.3 49.5 62.4 95.3 97.3 96.3 78.3 75.0 76.6 42.7 37.9 40.2 79.7 67.2 73.0 ViRFT [33] 89.5 87.9 88.7 70.0 60.0 64.8 92.6 92.8 92.7 64.8 76.9 70.4 66.4 67.8 67.1 76.8 77.1 76.9 DiVE-k [29] 97.4 88.9 92.9 80.5 65.5 72.2 89.1 94.2 91.6 69.0 76.2 72.4 68.1 69.1 68.6 80.8 78.8 79.8 Fine-R1 [12] 96.6 88.7 92.4 75.8 57.0 65.1 90.9 93.0 92.0 63.6 75.1 68.9 66.8 69.7 68.2 78.7 76.7 77.7 Ours 99.3 93.1 96.1 84.8 73.0 78.5 96.8 99.7 98.2 90.0 90.5 90.2 75.6 76.5 76.1 89.3 86.6 87.9 
+
+Table 2: Quantitative comparison with existing methods on zero-shot base-to-novel generalization (mixed-dataset training). B → Base, N → Novel, H → Harmonic Mean. Flowers CUB Pets Cars Aircraft Average Method B N H B N H B N H B N H B N H B N HQwen2.5-VL-7B [1] 84.2 83.8 84.0 63.3 48.2 54.7 87.5 93.3 90.3 58.9 72.9 65.1 50.3 54.3 52.3 68.9 70.5 69.7 MaPLe [24] 93.8 78.2 85.3 77.8 45.8 57.7 94.2 97.8 96.0 72.7 72.4 72.5 39.0 29.8 33.8 75.5 64.8 69.7 PromptSRC [25] 96.3 80.7 87.8 83.5 50.7 63.1 94.7 96.4 95.5 75.2 74.7 74.9 44.9 34.8 39.2 78.9 67.5 72.7 ViRFT [33] 90.2 87.9 89.0 71.3 58.3 64.2 90.2 91.6 90.9 63.7 76.6 69.6 66.9 66.4 66.7 76.5 76.2 76.1 DiVE-k [29] 97.4 89.9 93.5 76.8 61.3 68.2 87.8 94.7 91.1 68.5 78.5 73.1 65.5 69.7 67.5 79.2 78.8 78.7 Fine-R1 [12] 95.4 87.5 91.3 73.2 55.3 63.0 87.8 94.2 90.9 64.0 76.0 69.5 61.2 67.9 64.4 76.3 76.2 76.2 Ours 99.3 92.6 95.8 83.0 72.7 77.5 97.6 98.6 98.1 92.7 96.8 94.7 74.4 75.9 75.1 89.4 87.3 88.3 
+
+labels of what an “ideal” update should look like. To tackle this, we leverage a key observation borrowed from real-world tool design: a tool’s effectiveness can usually be judged by its actual users’ experience with it . In our setting, the policy that just finished the policy-update stage is precisely such a user, and its usage feedback on T consists of two key signals: which tools it chose to invoke, and whether those invocations led to correct predictions. Together, these capture each tool’s actual effectiveness, informing which tools to keep, fix, or replace. Building on this, we further design a novel LLM-driven tool-evolution mechanism that exploits this signal to update the toolset in a non-differentiable way. Below, we first describe how to collect the user feedback for each tool, and then detail the LLM-driven tool-evolution mechanism. Collecting Usage Feedback. For each tool tk, we record the policy’s behavior during the policy-update stage with two statistics: the invocation frequency f (tk) (the fraction of training samples on which tk is invoked), and the conditional accuracy a(tk) (the fraction of tk-invoking reasoning chains that lead to correct classifications). These two statistics respectively reflect the policy’s preference for the tool and the tool’s actual effectiveness when used. Combining them, we partition the tools into four categories: (A) high f , high a (proven core tools), (B) high f , low a (frequently tried but flawed), (C) low f , high a (reliable but overlooked), and (D) low f , low a (neither used nor effective). For each category, we perform a targeted update operation, as detailed below. LLM-driven Tool Evolution. With the usage feedback in hand, an LLM (e.g., Gemini) is prompted to launch a targeted operation on each tool. The key insight is that, by reading and rewriting each tool’s source code, documentation, and usage records, the LLM serves as a gradient-free optimizer for the executable-program toolset . Specifically: tools in (A) are retained; tools in (D) are discarded; tools in (B), which are tried but flawed, are repaired (e.g., narrowing the parameter space, handling edge cases); and tools in (C), which are reliable but overlooked, are revised to improve discoverability (e.g., clarifying their documentation). Besides refining existing tools, the LLM also brainstorms new ones, such as combining complementary tools—e.g., fusing a “breast color proportion” tool and a “wing morphology” tool into one analyzing “breast–wing color contrast patterns”. All revised or newly generated tools need to pass unit tests —automated checks that verify expected input–output behavior on representative cases—before being admitted. More details about prompt design and tool evolution operations are in the supplementary. After the above operations, we obtain an updated toolset, which serves as the fixed environment for the next policy-update round, launching a new “tool → policy → tool” co-evolution cycle. 
+
+3.4 Overall Training and Inference Training. The training process of our framework consists of two stages: (1) training the model to acquire basic tool-use knowledge for solving FGIC; and (2) further optimizing the model and toolset. In the first stage, a toolset 
+
+T is initialized via our LLM-based tool-creation pipeline (detailed in Step 1 of Sec. 3.2). Since no direct reasoning supervision, for each training sample, our framework drives a proprietary MLLM to use tools from T to try to solve 7A PREPRINT 
+
+Table 3: Quantitative comparison of our proposed method under 4-shot setting. Model Oxford Flowers CUB Oxford Pets Stanford Cars FGVC Aircraft Average Qwen2.5-VL-7B [1] 78.4 51.6 79.1 57.9 52.5 63.9 MaPLe [24] 84.6 60.9 95.3 68.9 32.5 68.4 PromptSRC [25] 92.4 70.3 94.6 76.8 36.8 74.2 ViRFT [33] 84.8 60.0 83.1 64.8 65.4 71.6 DiVE-k [29] 88.7 63.9 85.1 66.9 69.1 74.8 Fine-R1 [12] 86.0 61.9 81.1 64.1 65.1 71.6 Ours 95.8 72.0 97.3 83.4 76.6 85.0 
+
+the sample, producing paired reasoning trajectory supervision. By conducting this process over the entire training set, we obtain a trajectory-level dataset Dtool , which is used to supervise model training with the loss function defined in Eq. (2) . In the second stage, we alternately optimize the model and the toolset. With the toolset fixed, we optimize the model using the composite reward defined in the Model Update step of Sec. 3.3, followed by the tool evolution process detailed in the Toolset Update step of the same section. After this alternating optimization process, we obtain the final model π∗ 
+
+> θ
+
+and toolset T ∗ for testing. 
+
+Testing. Given an input image x and a prompt describing the refined toolset T ∗, the refined MLLM policy π∗ 
+
+> θ
+
+generates a tool-integrated reasoning chain for FGIC prediction. During reasoning, the model invokes function-based tools by outputting their names together with corresponding arguments. Each tool invocation is executed in a sandbox environment, and the execution result is returned to the MLLM in either textual or visual form, depending on the tool. The model then continues reasoning based on the returned evidence until it produces the final classification prediction. 
+
+## 4 Experiments 
+
+Datasets. Following DiVE-k [ 29 ], we evaluate our method on five widely used fine-grained image classification benchmarks: CUB-200 [ 48 ], Oxford Flowers-102 [ 38 ], Stanford Cars-196 [ 28 ], Oxford Pets-37 [ 39 ], and FGVC Aircraft-100 [ 36 ]. To construct the base-novel partition, we follow prior works [ 25 ], where the category set of each dataset is split in half, with one half designated as base classes and the other as novel classes. Importantly, the names of the novel classes are never seen during training. Additional details are provided in the supplementary. 
+
+Evaluation settings and metrics. Following DiVE-k [ 29 ], we evaluate our method under two zero-shot settings and one few-shot setting. The two zero-shot settings are as follows: (1) we train a separate model on the base classes of each of the five datasets independently; (2) we merge the base classes of all five datasets into a single mixed dataset and train a single model on it, in order to assess cross-domain generalization. For the few-shot setting, the model is trained with 4 shots per class. As evaluation metrics, we report the classification accuracy on the base classes and on the novel classes, together with their harmonic mean (HM). Additional details are in the supplementary. 
+
+Implementation details. For the construction of the tool-invocation dataset, we use the advanced proprietary MLLM Gemini 2.5 Flash-Lite [ 5] as the teacher model. Our student model is Qwen2.5-VL-7B [ 1 ]. In the SFT stage, the per-dataset training step counts under the two zero-shot settings are 2000, the training step count on the mixed dataset is 2400; and the training step count under the few-shot setting is 200. All experiments are conducted on NVIDIA H200 GPUs. Additional implementation details are in the supplementary. 
+
+4.1 Main Results 
+
+In our experiments, we compare our method against two categories of baselines. The first category is the open-source model Qwen2.5-VL-7B [ 1]. The second category consists of state-of-the-art FGIC methods. Among them, MaPLe [ 24 ]and PromptSRC [ 25 ] are VLM-based methods, while ViRFT [ 33 ], DiVE-k [ 29 ], and Fine-R1 [ 12 ] are MLLM-based methods. Experimental results on two zero-shot settings and the few-shot setting are reported in Table 1, Table 2, and Table 3, respectively. As shown, our framework achieves the best average performance across the three settings, showing its effectiveness. 
+
+4.2 Ablation Studies and Further Analyses 
+
+In this section and in the supplementary, we conduct extensive ablation studies and further analyses on CUB-200 [ 48 ]. 8A PREPRINT 
+
+Table 4: Evaluation on the two key mechanisms of our framework.                
+
+> Method BNHBaseline (Qwen2.5-VL-7B [1]) 63.3 48.2 54.7 Ours (w/o MCTS-Guided Tool-Use Knowledge Distillation) 74.3 68.7 71.4 Ours (w/o Model-Tool Co-Evolution) 73.8 67.0 70.2 Ours (Full) 84.8 73.0 78.5
+
+Impact of the two key mecha-nisms. In our framework ( Ours (Full) ), we introduce two key mech-anisms: the MCTS-Guided Tool-Use Knowledge Distillation mechanism and the Model-Tool Co-Evolution 
+
+mechanism. To assess the contribu-tion of each, we evaluate two vari-ants. (i) Ours (w/o MCTS-Guided Tool-Use Knowledge Distillation) :we remove the training within the MCTS-Guided Tool-Use Knowledge Distillation mechanism and directly enter the Model-Tool Co-Evolution. (ii) Ours (w/o Model-Tool Co-Evolution) : we keep the MCTS-Guided Tool-Use Knowledge Distillation mechanism but skip the entire Model-Tool Co-Evolution. As shown in Table 4, both variants underperform Ours (Full), validating the efficacy of both key components in our framework. 
+
+## 5 Conclusion 
+
+In this paper, we identified that existing MLLM-based fine-grained image classification methods are not well-grounded :their reasoning relies on vague impressions rather than the subtle yet measurable cues that distinguish similar subcat-egories. To address this, we proposed ToolFG , the first framework that enables well-grounded FGIC by letting the MLLM actively invoke tools to collect such cues. Extensive experiments across different experimental settings show the efficacy of our framework. 
+
+## References 
+
+[1] Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun Tang, Humen Zhong, Yuanzhi Zhu, Mingkun Yang, Zhaohai Li, Jianqiang Wan, Pengfei Wang, Wei Ding, Zheren Fu, Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao Xie, Zesen Cheng, Hang Zhang, Zhibo Yang, Haiyang Xu, and Junyang Lin. Qwen2.5-vl technical report. arXiv preprint arXiv:2502.13923 , 2025. [2] Steve Branson, Catherine Wah, Florian Schroff, Boris Babenko, Peter Welinder, Pietro Perona, and Serge Belongie. Visual recognition with humans in the loop. In European Conference on Computer Vision , pages 438–451. Springer, 2010. [3] Hardy Chen, Haoqin Tu, Fali Wang, Hui Liu, Xianfeng Tang, Xinya Du, Yuyin Zhou, and Cihang Xie. Sft or rl? an early investigation into training r1-like reasoning large vision-language models. arXiv preprint arXiv:2504.11468 ,2025. [4] Yue Chen, Yalong Bai, Wei Zhang, and Tao Mei. Destruction and construction learning for fine-grained image recognition. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 5157–5166, 2019. [5] Gheorghe Comanici, Eric Bieber, Mike Schaekermann, Ice Pasupat, Noveen Sachdeva, Inderjit Dhillon, Marcel Blistein, Ori Ram, Dan Zhang, Evan Rosen, et al. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities. arXiv preprint arXiv:2507.06261 , 2025. [6] Rémi Coulom. Efficient selectivity and backup operators in monte-carlo tree search. In International conference on computers and games , pages 72–83. Springer, 2006. [7] Guanting Dong, Yifei Chen, Xiaoxi Li, Jiajie Jin, Hongjin Qian, Yutao Zhu, Hangyu Mao, Guorui Zhou, Zhicheng Dou, and Ji-Rong Wen. Tool-star: Empowering llm-brained multi-tool reasoner via reinforcement learning. arXiv preprint arXiv:2505.16410 , 2025. [8] Ruoyi Du, Dongliang Chang, Ayan Kumar Bhunia, Jiyang Xie, Zhanyu Ma, Yi-Zhe Song, and Jun Guo. Fine-grained visual classification via progressive multi-granularity training of jigsaw patches. In European conference on computer vision , pages 153–168. Springer, 2020. [9] Jianlong Fu, Heliang Zheng, and Tao Mei. Look closer to see better: Recurrent attention convolutional neural network for fine-grained image recognition. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 4438–4446, 2017. [10] Yu Gao, Xintong Han, Xun Wang, Weilin Huang, and Matthew Scott. Channel interaction networks for fine-grained image categorization. In Proceedings of the AAAI conference on artificial intelligence , volume 34, pages 10818–10825, 2020. 9A PREPRINT 
+
+[11] Burak Gülmez. Code generation with large language models: a survey from neural program synthesis to autonomous software development. Applied Intelligence , 56(6):200, 2026. [12] Hulingxiao He, Zijun Geng, and Yuxin Peng. Fine-r1: Make multi-modal LLMs excel in fine-grained visual recog-nition by chain-of-thought reasoning. In The Fourteenth International Conference on Learning Representations ,2026. [13] Hulingxiao He, Geng Li, Zijun Geng, Jinglin Xu, and Yuxin Peng. Analyzing and boosting the power of fine-grained visual recognition for multi-modal large language models. In The Thirteenth International Conference on Learning Representations , 2025. [14] Hulingxiao He, Zhi Tan, and Yuxin Peng. Taxonomy-aware representation alignment for hierarchical visual recognition with large multimodal models. arXiv preprint arXiv:2603.00431 , 2026. [15] Ju He, Jie-Neng Chen, Shuai Liu, Adam Kortylewski, Cheng Yang, Yutong Bai, and Changhu Wang. Transfg: A transformer architecture for fine-grained recognition. In Proceedings of the AAAI conference on artificial intelligence , volume 36, pages 852–860, 2022. [16] Xiangteng He and Yuxin Peng. Fine-grained image classification via combining vision and language. In 
+
+Proceedings of the IEEE conference on computer vision and pattern recognition , pages 5994–6002, 2017. [17] Xiangteng He and Yuxin Peng. Fine-grained visual-textual representation learning. IEEE Transactions on Circuits and Systems for Video Technology , 30(2):520–531, 2019. [18] Alexander Hermans, Lucas Beyer, and Bastian Leibe. In defense of the triplet loss for person re-identification. 
+
+arXiv preprint arXiv:1703.07737 , 2017. [19] Yunqi Hong, Sohyun An, Andrew Bai, Neil Lin, and Cho-Jui Hsieh. Unlabeled data improves fine-grained image zero-shot classification with multimodal LLMs. In The Thirty-ninth Annual Conference on Neural Information Processing Systems , 2025. [20] Wenxuan Huang, Bohan Jia, Shaosheng Cao, Zheyu Ye, Fei zhao, Zhe Xu, Yao Hu, and Shaohui Lin. Vision-r1: Incentivizing reasoning capability in multimodal large language models. In The Fourteenth International Conference on Learning Representations , 2026. [21] Juyong Jiang, Fan Wang, Jiasi Shen, Sungju Kim, and Sunghun Kim. A survey on large language models for code generation. ACM Transactions on Software Engineering and Methodology , 35(2):1–72, 2026. [22] Xiao Ke and Yufeng Zhang. Fine-grained vehicle type detection and recognition based on dense attention network. 
+
+Neurocomputing , 399:247–257, 2020. [23] Sultan Daud Khan and Habib Ullah. A survey of advances in vision-based vehicle re-identification. Computer Vision and Image Understanding , 182:50–63, 2019. [24] Muhammad Uzair Khattak, Hanoona Rasheed, Muhammad Maaz, Salman Khan, and Fahad Shahbaz Khan. Maple: Multi-modal prompt learning. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 19113–19122, 2023. [25] Muhammad Uzair Khattak, Syed Talal Wasim, Muzammal Naseer, Salman Khan, Ming-Hsuan Yang, and Fahad Shahbaz Khan. Self-regulating prompts: Foundational model adaptation without forgetting. In Proceedings of the IEEE/CVF international conference on computer vision , pages 15190–15200, 2023. [26] Jeonghwan Kim and Heng Ji. Finer: Investigating and enhancing fine-grained visual concept recognition in large vision language models. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , pages 6187–6207, 2024. [27] Levente Kocsis and Csaba Szepesvári. Bandit based monte-carlo planning. In European conference on machine learning , pages 282–293. Springer, 2006. [28] Jonathan Krause, Michael Stark, Jia Deng, and Li Fei-Fei. 3d object representations for fine-grained categorization. In Proceedings of the IEEE international conference on computer vision workshops , pages 554–561, 2013. [29] Raja Kumar, Arka Sadhu, and Ram Nevatia. DiVE-k: DIFFERENTIAL VISUAL REASONING FOR FINE-GRAINED IMAGE RECOGNITION. In The Fourteenth International Conference on Learning Representations ,2026. [30] Xin Lai, Zhuotao Tian, Yukang Chen, Yanwei Li, Yuhui Yuan, Shu Liu, and Jiaya Jia. Lisa: Reasoning segmentation via large language model. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 9579–9589, 2024. [31] Zhuoling Li, Jiarui Zhang, Ping Hu, Jason Kuen, Jiuxiang Gu, Hossein Rahmani, and Jun Liu. Automatic method illustration generation for ai scientific papers via drawing middleware creation, evolution, and orchestration. arXiv preprint arXiv:2603.29590 , 2026. 10 A PREPRINT 
+
+[32] Tsung-Yu Lin, Aruni RoyChowdhury, and Subhransu Maji. Bilinear cnn models for fine-grained visual recognition. In Proceedings of the IEEE international conference on computer vision , pages 1449–1457, 2015. [33] Ziyu Liu, Zeyi Sun, Yuhang Zang, Xiaoyi Dong, Yuhang Cao, Haodong Duan, Dahua Lin, and Jiaqi Wang. Visual-rft: Visual reinforcement fine-tuning. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 2034–2044, 2025. [34] Wei Luo, Xitong Yang, Xianjie Mo, Yuheng Lu, Larry S Davis, Jun Li, Jian Yang, and Ser-Nam Lim. Cross-x learning for fine-grained visual categorization. In Proceedings of the IEEE/CVF international conference on computer vision , pages 8242–8251, 2019. [35] Zhiyuan Ma, Zhenya Huang, Jiayu Liu, Minmao Wang, Hongke Zhao, and Xin Li. Automated creation of reusable and diverse toolsets for enhancing llm reasoning. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 39, pages 24821–24830, 2025. [36] Subhransu Maji, Esa Rahtu, Juho Kannala, Matthew Blaschko, and Andrea Vedaldi. Fine-grained visual classifica-tion of aircraft. arXiv preprint arXiv:1306.5151 , 2013. [37] Chancharik Mitra, Brandon Huang, Trevor Darrell, and Roei Herzig. Compositional chain-of-thought prompting for large multimodal models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 14420–14431, 2024. [38] Maria-Elena Nilsback and Andrew Zisserman. Automated flower classification over a large number of classes. In 
+
+2008 Sixth Indian conference on computer vision, graphics & image processing , pages 722–729. IEEE, 2008. [39] Omkar M Parkhi, Andrea Vedaldi, Andrew Zisserman, and CV Jawahar. Cats and dogs. In 2012 IEEE conference on computer vision and pattern recognition , pages 3498–3505. IEEE, 2012. [40] Yuxin Peng, Xiangteng He, and Junjie Zhao. Object-part attention model for fine-grained image classification. 
+
+IEEE Transactions on Image Processing , 27(3):1487–1500, 2017. [41] Renjie Pi, Jiahui Gao, Shizhe Diao, Rui Pan, Hanze Dong, Jipeng Zhang, Lewei Yao, Jianhua Han, Hang Xu, Lingpeng Kong, et al. Detgpt: Detect what you need via reasoning. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , pages 14172–14189, 2023. [42] Yongming Rao, Guangyi Chen, Jiwen Lu, and Jie Zhou. Counterfactual attention learning for fine-grained visual categorization and re-identification. In Proceedings of the IEEE/CVF international conference on computer vision ,pages 1025–1034, 2021. [43] Hao Shao, Shengju Qian, Han Xiao, Guanglu Song, Zhuofan Zong, Letian Wang, Yu Liu, and Hongsheng Li. Visual cot: Advancing multi-modal language models with a comprehensive dataset and benchmark for chain-of-thought reasoning. Advances in Neural Information Processing Systems , 37:8612–8642, 2024. [44] Hongbo Sun, Xiangteng He, and Yuxin Peng. Sim-trans: Structure information modeling transformer for fine-grained visual categorization. In Proceedings of the 30th ACM international conference on multimedia , pages 5853–5861, 2022. [45] Grant Van Horn, Steve Branson, Ryan Farrell, Scott Haber, Jessie Barry, Panos Ipeirotis, Pietro Perona, and Serge Belongie. Building a bird recognition app and large scale dataset with citizen scientists: The fine print in fine-grained dataset collection. In Proceedings of the IEEE conference on computer vision and pattern recognition ,pages 595–604, 2015. [46] Grant Van Horn, Elijah Cole, Sara Beery, Kimberly Wilber, Serge Belongie, and Oisin Mac Aodha. Benchmarking representation learning for natural world image collections. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 12884–12893, 2021. [47] Catherine Wah, Steve Branson, Pietro Perona, and Serge Belongie. Multiclass recognition and part localization with humans in the loop. In 2011 International Conference on Computer Vision , pages 2524–2531. IEEE, 2011. [48] Catherine Wah, Steve Branson, Peter Welinder, Pietro Perona, and Serge Belongie. The caltech-ucsd birds-200-2011 dataset. 2011. [49] Xiu-Shen Wei, Yi-Zhe Song, Oisin Mac Aodha, Jianxin Wu, Yuxin Peng, Jinhui Tang, Jian Yang, and Serge Belongie. Fine-grained image analysis with deep learning: A survey. IEEE transactions on pattern analysis and machine intelligence , 44(12):8927–8948, 2021. [50] Linyao Yang, Jian-Tao Huang, Yafei Lu, Zhenhui Jessie Li, and Guirong Xue. The emperor’s new reasoning: Format imitation overshadows genuine mathematical understanding in sft. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , pages 21098–21111, 2025. 11 A PREPRINT 
+
+[51] Shuo Yang, Caren Han, Yihao Ding, Shuhe Wang, and Eduard Hovy. Tooltree: Efficient llm tool planning via dual-feedback monte carlo tree search and bidirectional pruning. In The Fourteenth International Conference on Learning Representations , 2026. [52] Ze Yang, Tiange Luo, Dong Wang, Zhiqiang Hu, Jun Gao, and Liwei Wang. Learning to navigate for fine-grained classification. In Proceedings of the European conference on computer vision (ECCV) , pages 420–435, 2018. [53] Chaojian Yu, Xinyi Zhao, Qi Zheng, Peng Zhang, and Xinge You. Hierarchical bilinear pooling for fine-grained visual recognition. In Proceedings of the European conference on computer vision (ECCV) , pages 574–589, 2018. [54] Zhenlong Yuan, Xiangyan Qu, Chengxuan Qian, Rui Chen, Jing Tang, Lei Sun, Xiangxiang Chu, Dapeng Zhang, Yiwei Wang, Yujun Cai, et al. Video-star: Reinforcing open-vocabulary action recognition with tools. arXiv preprint arXiv:2510.08480 , 2025. [55] Ning Zhang, Jeff Donahue, Ross Girshick, and Trevor Darrell. Part-based r-cnns for fine-grained category detection. In European conference on computer vision , pages 834–849. Springer, 2014. [56] Renrui Zhang, Xinyu Wei, Dongzhi Jiang, Ziyu Guo, Yichi Zhang, Chengzhuo Tong, Jiaming Liu, Aojun Zhou, Shanghang Zhang, Peng Gao, and Hongsheng Li. MAVIS: Mathematical visual instruction tuning with an automatic data engine. In The Thirteenth International Conference on Learning Representations , 2025. [57] Xiaopeng Zhang, Hongkai Xiong, Wengang Zhou, Weiyao Lin, and Qi Tian. Picking deep filter responses for fine-grained image recognition. In Proceedings of the IEEE conference on computer vision and pattern recognition ,pages 1134–1142, 2016. [58] Zhuosheng Zhang, Aston Zhang, Mu Li, Hai Zhao, George Karypis, and Alex Smola. Multimodal chain-of-thought reasoning in language models. arXiv preprint arXiv:2302.00923 , 2023. [59] Ge Zheng, Bin Yang, Jiajin Tang, Hong-Yu Zhou, and Sibei Yang. Ddcot: Duty-distinct chain-of-thought prompting for multimodal reasoning in language models. Advances in Neural Information Processing Systems ,36:5168–5191, 2023. [60] Peiqin Zhuang, Yali Wang, and Yu Qiao. Learning attentive pairwise interaction for fine-grained classification. In 
+
+Proceedings of the AAAI conference on artificial intelligence , volume 34, pages 13130–13137, 2020. 12

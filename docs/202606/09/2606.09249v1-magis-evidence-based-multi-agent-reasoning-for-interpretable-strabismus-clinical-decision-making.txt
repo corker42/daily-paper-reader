@@ -1,0 +1,1408 @@
+Title: MAGIS: Evidence-Based Multi-Agent Reasoning for Interpretable Strabismus Clinical Decision-Making
+
+URL Source: https://arxiv.org/pdf/2606.09249v1
+
+Published Time: Tue, 09 Jun 2026 02:34:17 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# MAGIS: Evidence-Based Multi-Agent Reasoning for Interpretable Strabismus Clinical Decision-Making 
+
+## Xikai Tang a, Yifan Wang b, Jiafan Zhuang b,∗, Li Luo c, Jinming Guo c, Xiaoling Xie c, Jiacheng Liu d,Peiwei Wei e, Lihao Zhong f, Xiaoli Kang g, Jie Cen g, Guangqiang Yin a, Kunliang Qiu c,∗,Ce Zheng g,∗ and Zhun Fan b,h ,∗
+
+> a
+
+School of Information and Software Engineering, University of Electronic Science and Technology of China, Chengdu, 611731, China 
+
+> b
+
+Shenzhen Institute for Advanced Study, University of Electronic Science and Technology of China, Shenzhen, 518000, China 
+
+> c
+
+Joint Shantou International Eye Center of Shantou University and The Chinese University of Hong Kong, Shantou, 515041, China 
+
+> d
+
+School of Artificial Intelligence, Guangzhou City Polytechnic, Guangzhou, 510405, China 
+
+> e
+
+Medical College, Shantou University, Shantou, 515041, China 
+
+> f
+
+College of Engineering, Shantou University, Shantou, 515063, China 
+
+> g
+
+Department of Ophthalmology, Xinhua Hospital Affiliated to Shanghai Jiaotong University School of Medicine, Shanghai, 200092, China 
+
+> h
+
+Shenzhen Loop Area Institute, Shenzhen, 518048, China 
+
+A R T I C L E I N F O 
+
+Keywords :strabismus subtype diagnosis multi-agent system hallucination suppression evidence-based reasoning 
+
+A B S T R A C T 
+
+Strabismus is a common ocular disorder that requires fine-grained subtype diagnosis for individ-ualized treatment planning. However, existing deep learning methods mainly provide diagnostic predictions without transparent reasoning, while recent large vision-language models (LVLMs), although promising for joint image understanding and report generation, remain highly prone to hallucination in this evidence-sensitive and rule-driven medical task. To address these challenges, we propose MAGIS, an evidence-based Multi-AG ent reasoning for Interpretable Strabismus diagnosis framework. MAGIS transforms black-box end-to-end generation into a structured diagnostic process consisting of candidate hypothesis generation, dual-evidence constrained context, evidence-based corrective verification, and report generation. Specifically, we introduce a Dual-Evidence Constrained Context (DECC) mechanism that jointly organizes visual evidence from the photograph of the nine cardinal positions of gaze and evidence-based clinical diagnostic rules into a constrained context for reliable diagnostic reasoning. We further develop an Evidence-Based Corrective Verification (EBCV) mechanism that verifies whether the current diagnostic hypothesis is supported by visual evidence, heatmap-based visual cues, and evidence-based clinical diagnostic rules. Hypothesis refinement is triggered when inconsistency is detected. Experiments on a fine-grained strabismus benchmark demonstrate that MAGIS not only significantly outperforms other state-of-the-art diagnostic systems, improving the weighted F1 score from 72.0% to 91.3% , but also substantially improves the clinical reliability (consistency, alignment, and completeness) of generated diagnostic reports. These results demonstrate that MAGIS provides an effective solution for building accurate, evidence-based, and clinically interpretable strabismus diagnosis systems. 
+
+## 1. Introduction 
+
+Strabismus, defined as any form of binocular misalign-ment (Repka et al., 2018), is a common ocular disorder with a prevalence ranging from 0.8% to 6.0% (Friedman et al., 2009; McKean-Cowdin et al., 2013; Robaei et al., 2006; Zhu et al., 2015), traditionally considered to primarily affect children (Chia et al., 2007). Accurate subtype diagnosis is essential for individualized treatment planning and surgical decision-making. Rather than simple ocular misalignment detection, strabismus subtype diagnosis requires analyzing the deviation direction and angle variation of ocular devi-ation across the photograph of the nine cardinal positions of gaze (Menon et al., 2002; VanderVeen et al., 2011). To identify specific strabismus subtypes, clinicians interpret these ocular observations according to subtype-specific di-agnostic rules. Therefore, fine-grained strabismus diagnosis 
+
+> ∗
+
+Corresponding author  
+
+> jfzhuang@uestc.edu.cn
+
+(J. Zhuang); qkl@jsiec.org (K. Qiu);  
+
+> zhengce@xinhuamed.com.cn
+
+(C. Zheng); fanzhun@uestc.edu.cn (Z. Fan) 
+
+> ORCID
+
+(s): 0000-0002-5231-8200 (X. Tang) 
+
+is inherently an evidence-sensitive and rule-dependent task, where reliable conclusions must be supported by visual evidence and interpreted within a clear clinical interpretive framework. Existing deep learning methods (De Almeida et al., 2012; Valente et al., 2017) for strabismus analysis mainly aim to predict diagnostic labels from ocular images. De-spite their encouraging performance, these methods usually operate as black-box predictors, fail to elaborate the visual evidence-based reasoning process of diagnostic and surgical decision-making. Recently, CI-GNN (Zheng et al., 2025) took an initial step toward interpretable strabismus diagnosis by identifying clinically relevant features and highlighting contributory variables. However, it still fails to establish a transparent and verifiable diagnostic process. As a result, the outputs of existing methods remain difficult to be ver-ified according to clinical evidences, since the relationship between the predicted results and the underlying diagnostic basis is not explicitly established. This lack of process-level interpretability remains a major barrier to the clinical adoption of automated strabismus diagnosis systems. 1
+
+> arXiv:2606.09249v1 [cs.CV] 8 Jun 2026
+
+Question:  You are an ophthalmologist. Based on the provided image,  determine the 
+
+strabismus subtype and provide an analysis of the image, give the 
+
+subtype strabismus diagnosis result. 
+
+1. Prediction: "No obvious strabismus" 
+
+2. Analysis:  In this image, both eyes appear well aligned in primary gaze. The corneal light reflexes are symmetric and approximately centered within the pupils, without evident nasal or temporal displacement. No obvious esotropia or exotropia is observed. 
+
+1. Prediction: "Infantile Esotropia" 
+
+2.  Analysis:  This image reveals manifest inward deviation of both eyes, indicative of esotropia. The alignment is consistent with the clinical presentation of infantile esotropia. 
+
+GPT Qwen 
+
+GroundTruth: 
+
+"A-pattern  Exotropia" 
+
+User 
+
+Gemini 
+
+1. Prediction: "V-pattern  Exotropia" 
+
+2.  Analysis:  The patient is  orthophoric with symmetric,  centered corneal light reflexes.  Nine-position gaze analysis reveals a V-pattern: manifest exotropia in upgaze that  resolves in downgaze.  Bottom-row images show manual upper eyelid retraction to facilitate downgaze visualization, confirming alignment. 
+
+7 8 94 5 61 2 3Fig. 1. Visualization of strabismus diagnostic results generated by Gemini-3-Flash-Preview, GPT-5.2, and Qwen3-VL-Plus. These examples show hallucinated responses, including incorrect subtype predictions and clinically unsupported outputs. Text highlighted in red denotes hallucinated responses. Our MAGIS           
+
+> Review of the photograph of the nine cardinal positions of gaze suggests A-pattern
+> exotropia. The patient ’right eye exhibits nasal displacement of the corneal light reflex
+> in primary gaze (position 5). Horizontal divergence is evident across all positions.
+> Comparison between upgaze (position 2) and downgaze (position 8) ......
+> The horizontal deviation appears greater in downgaze than in upgaze, with an
+> estimated difference exceeding 10 prism diopters ......
+> The model predicts A-pattern exotropia, which matches visual evidence of increased
+> temporal deviation in ......
+> The intra-gaze heatmap focuses on the limbus and corneal reflex in positions 3, 4, 5, 7
+> and 8, providing ...... The inter-gaze heatmap highlights position 1, 2, 7 and 8 ......
+> Because heatmap attention regions align with visual evidence and the model
+> prediction matches image abnormity, the final consistency is True.
+> Recommended work-up includes cover testing, prism alternate cover measurement,
+> cycloplegic refraction, and binocular vision assessment. Management may involve
+> refractive correction or surgery if the deviation is stable. For A-pattern exotropia,
+> clinical evaluation must .......
+> Rules used: R1, R2, R2a, R4, R5, R7, R8, R9.
+> Classifier Dual-Evidence Constrained Context (DECC)
+> Visual
+> Evidence
+> Diagnostic
+> Rules
+> Verifier
+> Evidence-Based Corrective Verification
+> (EBCV)
+> Report Generator
+> Y
+> NMulti-Agent Update Refinement
+> Reports generated with reasoning details
+> Key
+> Abnormalities
+> Pattern &
+> Angle Analysis
+> Corrective
+> Verification
+> Treatment
+> Rules Used
+> 789
+> 456
+> 123
+> Exo+A
+> Exo+V
+> Eso
+> Eso+V
+> Exo
+> Vertical
+> Final
+> Prediction A-pattern Exotropia
+
+Fig. 2. Overview of MAGIS for strabismus subtype diagnosis. The framework uses three interacting agents and integrates Dual-Evidence Constrained Context (DECC) with Evidence-Based Cor-rective Verification (EBCV) to verify the classifier’s predicted subtype against visual evidence and diagnostic rules, enabling iterative refinement before report generation. 
+
+Large vision-language models (LVLMs) (Bai et al., 2025; Dubey et al., 2024; Google, 2026; OpenAI, 2025; Zhang et al., 2024a) offer a promising alternative, as they can unify image understanding, reasoning, and diagnostic report generation within a unified framework (Chen et al., 2025b; Li et al., 2024; Wang et al., 2022b). Nevertheless, they remain highly prone to hallucination in strabismus diagnosis, often producing conclusions that are inconsistent with visual evidence or misaligned with accepted clinical criteria (Bai et al., 2024; Huang et al., 2025). To evaluate this issue, we benchmarked several mainstream LVLMs, in-cluding Gemini-3-Flash-Preview (Google, 2026), GPT-5.2 (OpenAI, 2025), and Qwen3-VL-Plus (Bai et al., 2025), on strabismus subtype classification and diagnostic reasoning. As shown in Fig. 1, these models produce two representative types of hallucinated responses: incorrect classification and clinically unsupported outputs. Thus, even though LVLMs may alleviate the “black-box” issue of conventional deep learning models, they also raise a critical challenge: how to ensure that the multimodal diagnostic reasoning process is reliably grounded by visual evidence and remains clinically acceptable. Existing hallucination mitigation approaches for LVLMs can be broadly grouped into training-stage alignment (Liu et al., 2024; Sun et al., 2024; Yu et al., 2024; Zhang et al., 2024b) inference-time grounding (Asai et al., 2023; Dang et al., 2026; Jin et al., 2025; Lee et al., 2026; Lewis et al., 2020; Li et al., 2025; Yang et al., 2025; Zhao et al., 2024) and post-hoc verification (Dhuliawala et al., 2024; Manakul et al., 2023). Although these strategies can reduce unreliable generation, they remain inadequate for strabismus diagnosis. A central limitation is that these methods mainly treat hallu-cination mitigation by controlling response-level generation, rather than using evidence-based diagnostic verification. They do not explicitly model diagnosis as a structured pro-cess in which a diagnostic hypothesis is first formulated, then examined against visual evidence in the photograph of the nine cardinal positions of gaze, and finally evaluated according to accepted clinical criteria. As a result, current methods can hardly articulate how the diagnostic conclu-sion is reached through a clinically verifiable process, or validate whether the results are supported by the underlying evidence. To address these limitations, we propose MAGIS , an 
+
+Multi-AG ent Reasoning for Interpretable Strabismus frame-work that reformulates LVLM-assisted diagnosis as an evidence-constrained and verifiable process as shown in Fig. 2. Instead of generating the final conclusion in a single pass, MAGIS decomposes diagnosis into four successive stages: diagnostic hypothesis generation, Dual-Evidence Constrained Context (DECC), Evidence-Based Corrective Verification (EBCV), and report generation. Specifically, 2DECC constructs a diagnostically constrained context by combining visual evidence with relevant evidence-based clinical diagnostic rules formalized through a doctor-in-the-loop process. EBCV then examines whether the current diagnostic hypothesis is supported by visual evidence and evidence-based clinical diagnostic rules, and triggers hy-pothesis revision when inconsistency is detected. In this way, MAGIS transforms strabismus diagnosis from black-box end-to-end generation into an explicit process of hypothesis formulation, evidence examination, rule-based judgment, and corrective refinement, which improves both diagnostic accuracy and interpretability. The main contributions of this work are threefold:  
+
+> ∙
+
+We propose MAGIS, an evidence-based multi-agent reasoning framework that converts LVLM-assisted strabismus diagnosis from black-box generation into a evidence-constrained and verifiable diagnostic pro-cess.  
+
+> ∙
+
+We develop DECC to construct a dual-evidence con-text based on visual evidence and evidence-based clinical diagnostic rules, and EBCV to assess whether the candidate diagnosis is consistent with this context and refine inconsistent predictions.  
+
+> ∙
+
+We validate MAGIS on a strabismus subtype bench-mark and demonstrate that MAGIS not only signif-icantly outperforms other state-of-the-art diagnostic systems, improving the weighted F1 score from 72.0% 
+
+to 91.3% , but also substantially improves the clinical reliability (clinical consistency, visual alignment, and contextual completeness) of generated diagnostic re-ports. 
+
+## 2. Related Works 
+
+2.1. Hallucination Mitigation in LVLMs 
+
+Hallucination mitigation methods for LVLMs can be broadly categorized into three groups: training-stage align-ment, inference-time grounding, and post-hoc verification. These methods aim to enhance the factual and evidential reliability of model outputs at different stages of the gen-eration pipeline, but they differ substantially in how external evidence is incorporated and how hallucination is corrected. 
+
+Training-stage alignment methods improve factuality by injecting additional supervision into adjusting model parameters during training or fine-tuning. Representative approaches include self-alignment (Zhang et al., 2024b) and RLHF-based methods (Sun et al., 2024; Yu et al., 2024), which encourage the model to better match human feedback or reference outputs. While such methods can improve gen-eral reliability, they typically require expensive retraining and do not explicitly ensure that the diagnostic conclusion for a specific case is grounded in the corresponding image findings. 
+
+Inference-time grounding methods constrain genera-tion without changing model parameters by introducing ex-ternal evidence during inference. Representative directions include retrieval-augmented generation (Dang et al., 2026; Lewis et al., 2020), self-retrieval strategies (Asai et al., 2023), clinically guided prompting (Jiang et al., 2025; Leng et al., 2024), and visually grounded prompting (Favero et al., 2024; Jin et al., 2025; Lee et al., 2026; Li et al., 2025). These approaches improve response quality by narrowing the gen-eration space, but they still mainly operate as response-level guidance and rarely model diagnosis as an explicit and process of hypothesis formulation, evidence examination, rule-based judgment, and report generation. 
+
+Post-hoc verification methods attempt to detect and/or revise hallucinated outputs after generation. Typical exam-ples include self-consistency (Wang et al., 2022a), Self-CheckGPT (Manakul et al., 2023), Chain-of-Verification (Dhuliawala et al., 2024), and NLI-based (Natural Language Inference) hallucination detection (Chen et al., 2025a). Al-though such methods can identify unreliable responses to some extent, they usually operate at the textual level and therefore remain insufficient for evidence-sensitive medical diagnosis, where clinically valid conclusions must be di-rectly supported by visual evidence and accepted clinical criteria. Overall, existing hallucination mitigation methods mainly focus on constraining the generated response. In contrast, our work formulates strabismus diagnosis as an evidence-based medical decision process, in which diag-nostic conclusions are systematically supported by visual evidence and clinically relevant rules. 
+
+2.2. Multi-Agent Collaboration for Reliable Reasoning 
+
+Multi-agent collaboration has recently emerged as a promising paradigm for improving reasoning reliability by assigning different reasoning roles to multiple inter-acting agents. Compared with monolithic inference (Chan et al., 2023; Du et al., 2024; Liang et al., 2024), multi-agent systems can enhance reasoning depth, factual consis-tency, and robustness through interaction. Existing meth-ods can be broadly categorized into two groups: coopera-tion/competition methods and reflection/verification meth-ods. 
+
+Cooperation/Competition methods improve output quality through debate, comparison, or evaluator-based in-teraction among agents. Representative methods include multi-agent debate (Du et al., 2024), MoHD(Long et al., 2026), MAD (Liang et al., 2024), MG-3D (Ni et al., 2026) and ChatEval (Chan et al., 2023), in which different agents generate alternative arguments or assessments before a final response is selected or synthesized (Qian et al., 2024). 
+
+Reflection/Verification methods focus on iterative re-finement through self-critique, self-correction, or internal consistency checking. Representative approaches include BoxMed-RL(Jing et al., 2025), Reflexion (Shinn et al., 2023), Self-Refine (Madaan et al., 2023), and Self-Verification (Weng et al., 2023), which revise intermediate reasoning steps or final outputs based on model-generated feedback (Ki et al., 2025). 3Despite their promise, existing multi-agent methods re-main insufficient for strabismus diagnosis. A key limitation is that agent interactions are still mainly driven by textual reasoning traces, with limited grounding in visual evidence and clinically relevant rules. For an evidence-sensitive med-ical task, this makes it difficult to verify whether the final consensus is supported by case-specific visual evidence and accepted clinical criteria. In contrast, our framework inte-grates multi-agent collaboration with visual evidence and clinically relevant rules, allowing candidate predictions to be explicitly verified and refined before the final diagnosis is generated. 
+
+## 3. Method 
+
+3.1. Overview 
+
+This work proposes MAGIS, a novel evidence-based multi-agent reasoning framework enabling interpretable strabismus subtype diagnosis, personalized treatment plan-ning, and surgical clinical decision-making. Unlike standard LVLM prompting pipelines that generate diagnostic conclu-sions in a single pass, MAGIS formulates diagnosis as a process consisting of candidate hypothesis generation, dual-evidence constrained context construction, evidence-based corrective verification, and structured report generation. This design is motivated by the clinical principle that a diagnostic conclusion should not be accepted solely because it appears linguistically plausible.Instead, it must be explic-itly validated against visual evidence and evidence-based clinical diagnostic rules prior to final decision-making. The overall framework is shown in Fig. 3. MAGIS is built upon three interacting agents: a Classifier Agent, a Verifier Agent, and a Generator Agent. The Classifier Agent first processes the photograph of the nine cardinal positions of gaze and produces a ranked list of diagnostic hypotheses together with visual evidence, including visual cues within each gaze positions and relational cues across gaze posi-tions. Based on these outputs, the framework constructs a Dual-Evidence Constrained Context (DECC) by combin-ing visual evidence with evidence-based clinical diagnostic rules formalized through a doctor-in-the-loop process. The resulting context is then passed to the Verifier Agent, which performs Evidence-Based Corrective Verification (EBCV) to determine whether the current diagnostic hypothesis is supported by visual evidence and evidence-based clinical diagnostic rules. If the hypothesis passes verification, the Generator Agent organizes the verified visual evidence into a structured diagnostic report. Otherwise, the framework triggers refinement the next best candidate hypothesis in the ranked list under updated evidence constraints. The key idea of MAGIS is to convert LVLM-assisted diagnosis from black-box end-to-end generation into an ex-plicit and verifiable decision process. In this framework, DECC provides the constrained diagnostic context needed for grounded reasoning, while EBCV ensures that candidate conclusions are not directly accepted unless they are sup-ported by both visual evidence and evidence-based clinical diagnostic rules. Through this interaction, MAGIS estab-lishes a closed loop of hypothesis formulation, evidence examination, corrective refinement, and report generation, thereby improving both diagnostic accuracy and clinical interpretability. 
+
+3.2. Dual-Evidence Constrained Context 
+
+The goal of Dual-Evidence Constrained Context (DECC) is to construct a diagnostically constrained context for sub-sequent reasoning and verification. Rather than prompting a LVLM to directly generate a diagnosis from the photograph of the nine cardinal positions of gaze, DECC organizes two complementary sources of evidence into a unified context: visual evidence derived from the input image, and evidence-based clinical diagnostic rules formalized through a doctor-in-the-loop process. In this way, the subsequent reasoning process is constrained not only by visual evidence, but also by evidence-based clinical diagnostic rules as shown in Fig. 3. 
+
+3.2.1. Visual Evidence Construction 
+
+To provide clinically meaningful visual evidence for downstream reasoning and verification, we construct the visual components of DECC through a Complementary Decoupled Attention (CDA) module, as shown in Fig. 4. The motivation is that strabismus diagnosis from the photograph of the nine cardinal positions of gaze is inherently twofold and complementary. In clinical practice, ophthalmologists first inspect alignment-related cues within each gaze po-sition, and then compare abnormal variations across gaze positions to determine the deviation direction and the change in the angle of deviation in different positions of gaze. To better reflect this diagnostic procedure, we explicitly decou-ple visual modeling into two complementary branches. Specifically, as shown in Fig. 4 the proposed CDA mod-ule contains an intra-gaze attention branch and an inter-gaze attention branch. The intra-gaze branch is designed to capture local alignment-related cues within a given gaze position, thereby providing visual evidence related to the assessment of ocular misalignment. The inter-gaze branch is designed to capture diagnostically relevant variations across gaze positions, which are important for evaluating gaze-dependent changes and analyzing pattern strabismus. By separating these two branches, the proposed attention mech-anism produces visual evidence that is more consistent with the clinical examination process than a single undifferenti-ated attention map. Based on this design, the classifier takes the input pho-tograph of the nine cardinal positions of gaze 𝐗 and outputs a confidence-ranked list of candidate subtype predictions together with two complementary forms of attention-based visual evidence. Formally, the candidate prediction set is defined as: 
+
+cls (𝐗 ; 𝜃 cls ) = {( 𝑘 𝑖 (𝐗 ), 𝑝 𝑖 (𝐗 ))} 𝑛 𝑖 =1 (1) where cls (𝐗 ; 𝜃 cls ) denotes the classifier parameterized by 
+
+𝜃 cls , and 𝑛 is the number of candidate subtype predictions. 4Classifier 
+
+Complementary Decoupled 
+
+Attention(CDA) 
+
+Int er-gaze attention 
+
+Intra-gaze attention 
+
+Classifier 
+
+Confidence Score 
+
+> heatmap
+
+Refinement 
+
+Select the next 
+
+best preiction in 
+
+the ranked list 
+
+> retrieve
+
+Visual Evidence 
+
+Dual-Evidence 
+
+Constrained 
+
+Context (DECC) 
+
+> Heatmaps  image
+
+Diagnostic Rules 
+
+Verifier 
+
+Diagnostic Rules 
+
+General Rules Strabismus Rules Subtype Rules 
+
+Evidence-Based Corrective Verification (EBCV) 
+
+Rules 
+
+VS 
+
+Image 
+
+Rule 
+
+guided 
+
+CV 
+
+Heatmap 
+
+VS 
+
+Image 
+
+Heatmap 
+
+guided 
+
+CV 
+
+Final 
+
+Verification 
+
+Y/N Y/N 
+
+Multi-Agent Reasoning 
+
+Report Generator 
+
+Key 
+
+Abnormalities 
+
+Pattern & 
+
+Angle Analysis 
+
+Corrective 
+
+Verification 
+
+Treatment 
+
+Recommendations Rules Used 
+
+YN
+
+Example 
+
+You are an 
+
+ophthalmologist. 
+
+Given on the provided image, please ：
+
+1 Determine the 
+
+strabismus subtype 2 Provide an analysis 
+
+of the image 3 Give the subtype strabismus 
+
+diagnosis result. 
+
+> Question  Steps
+
+Step 1 Classifier Prediction: A-pattern Exotropia 
+
+Step 3 Generator Output the final prediction, key abnormalities, pattern/angle 
+
+analysis, corrective verification, treatment, and the rules used. 
+
+[Obtain a ranked list of predictions 
+
+based on their confidence scores] 
+
+DECC selects relevant diagnostic 
+
+rules and visual evidence 
+
+[Obtain Evidence-Based Corrective 
+
+Verification results]  
+
+> EBCV returns a verification decision. If
+> accepted, proceeds to the Generator.
+> Otherwise, selects the next-best prediction
+> from Step 1
+
+[Reasoning & Report] 
+
+> Conclude
+
+Select the next-best 
+
+prediction from the 
+
+confidence-ranked list 
+
+• Final Prediction: V-pattern Exotropia 
+
+• Key Abnormalities: Review of the photograph of the nine cardinal positions of gaze suggests A-pattern exotropia. The patient ’right eye exhibits 
+
+nasal displacement of the corneal light reflex in primary gaze (position 5). Horizontal divergence is evident across all positions. Comparison 
+
+between upgaze (position 2) and downgaze (position 8) reveals a horizontal deviation difference exceeding 10 prism diopters (Δ), with more 
+
+pronounced exotropia in positions (3, 5, 8). Asymmetry is observed between left gaze (position 4) and right gaze (position 6). Binocular 
+
+coordination and fixation preference cannot be determined from static images and require cover-uncover testing for definitive assessment. 
+
+• Pattern & Angle Analysis: The horizontal deviation appears greater in downgaze than in upgaze, with an estimated difference exceeding 10 
+
+prism diopters, thereby supporting an A-pattern. 
+
+• Corrective Verification: The model predicts A-pattern exotropia, which matches visual evidence of increased temporal deviation in position 7, 8 
+
+and 9 relative to positions 1, 2 and 3. The intra-gaze heatmap focuses on the limbus and corneal reflex in positions 3, 4, 5, 7 and 8, providing local 
+
+alignment cues, while revealing exotropia at positions (3, 5). The inter-gaze heatmap highlights positions 1, 2, 7 and 8 which are the clinical 
+
+positions for enabling the comparison of divergence across vertical positions for A-pattern. Because heatmap attention regions align with visual 
+
+evidence and the model prediction matches image abnormity, the final consistency is True. 
+
+• Treatment Recommendations: Recommended work-up includes cover testing, prism alternate cover measurement, cycloplegic refraction, and 
+
+binocular vision assessment. Management may involve refractive correction or surgery if the deviation is stable. For A-pattern exotropia, clinical 
+
+evaluation must confirm the presence or absence of superior oblique overaction to determine if oblique muscle surgery or vertical rectus 
+
+transposition is appropriate. 
+
+• Rules used: R1, R2, R2a, R4, R5, R7, R8, R9. 
+
+Y
+
+Step 2 Verifier EBCV validates the current hypothesis through rule-guided 
+
+verification and heatmap-guided verification. 
+
+N
+
+Final 
+
+Prediction 
+
+Exo+A 
+
+Exo+V 
+
+Eso 
+
+Eso+V 
+
+Exo 
+
+Vertical                   
+
+> 789
+> 456
+> 123
+> 789
+> 456
+> 123
+> 789
+> 456
+> 123
+
+Fig. 3. Overview of the MAGIS framework for hallucination-mitigated strabismus subtype diagnosis. The upper panel presents the overall workflow of MAGIS, which consists of a cyclic three-agent architecture integrating Dual-Evidence Constrained Context (DECC) and Evidence-Based Corrective Verification (EBCV). The Classifier first generates a confidence-ranked list of candidate subtype predictions from the input image. DECC then organizes visual evidence and formalized diagnostic rules into a diagnostically constrained context. In the verification stage, the Verifier uses EBCV to assess whether the current best candidate prediction is consistent with this context. If the current prediction is rejected, the next-best candidate from the confidence-ranked list is selected for verification. Once a candidate prediction is accepted, the Generator produces a detailed diagnostic report. The lower panel illustrates a representative case processed by MAGIS. 
+
+For the 𝑖 -th candidate, 𝑘 𝑖 (𝐗 ) denotes the predicted subtype and 𝑝 𝑖 (𝐗 ) denotes its corresponding confidence score. In addition, the model produces an intra-gaze heatmap 𝐇 intra 
+
+and an inter-gaze heatmap 𝐇 inter , which capture attention patterns within individual gaze positions and across different gaze positions, respectively. In the proposed framework, these heatmaps are used as visual evidence for subsequent evidence-based verification. Accordingly, the visual-constrained component of DECC is defined as: 
+
+𝐗 visual = { 𝐗 , 𝐇 intra , 𝐇 inter } (2) 5Confidence Score              
+
+> Eso+V
+> Exo+A
+> Eso
+> Exo+V
+> Exo
+> Vertical
+> Projector Pooling Classifier
+> Complementary
+> Decoupled
+> Attention
+> Nine-gaze
+> Representation
+> Intra-gaze attention
+> Local-
+> Window
+> Multi-Head
+> Attention Decoder Intra-gaze
+> attention heatmap
+> Inter-gaze attention
+> Local-
+> Window
+> Multi-Head
+> Attention Decoder Inter-gaze
+> attention heatmap
+> 789
+> 456
+> 123
+
+Fig. 4. Illustration of the Complementary Decoupled Attention (CDA) module. CDA separately models intra-gaze and inter-gaze dependencies from the photograph of the nine cardinal positions of gaze, generating attention heatmaps as visual evidence and a confidence-ranked list of candidate subtype predictions 
+
+Together with the confidence-ranked candidate subtype pre-dictions {( 𝑘 𝑖 (𝐗 ), 𝑝 𝑖 (𝐗 ))} 𝑛 𝑖 =1 , these elements form the visual evidence used for subsequent verification under evidence-based clinical diagnostic rules. More results are provided in the supplementary material. 
+
+3.2.2. Evidence-Based Doctor-in-the-Loop Diagnostic Rules Formalization 
+
+Visual evidence alone is still insufficient for reliable strabismus diagnosis, because visual evidence must be con-sistent with clinically relevant diagnostic rules before a diagnostic conclusion can be accepted. To provide this rule-constrained context, we formalize strabismus-related knowl-edge through the Doctor-in-the-Loop diagnostic rules for-malization process. The core objective is to convert natural-language clinical texts, such as strabismus-specific guide-lines, into structured rule representations that support sub-sequent evidence review and diagnostic reasoning, as illus-trated in Fig. 5. Specifically, the evidence-based clinical diagnostic rules formalization consists of four steps. First, we collect clini-cally relevant source materials, including official strabismus clinical guidelines, with a primary focus on core evidence-based clinical diagnostic rules, standardized clinical in-terpretation principles, clinical diagnostic indications, and evidence-referenced treatment thresholds. These materials provide the initial knowledge base for rule construction. Second, we prompt an LLM with the collected guide-lines and a general extraction instruction to generate an initial rule set. The LLM extracts strabismus-related diag-nostic criteria and organizes them into preliminary rules. These rules are then manually reviewed to remove con-tent not directly relevant to strabismus diagnosis, such as epidemiological history, specific patient cases, and general introductory descriptions. The retained rules form the initial rule set, which is subsequently reviewed and refined by specialists. Third, the extracted rules are reviewed by strabismus specialists in a feedback-driven manner. This stage is de-signed to ensure clinical agreement of the rule set. In par-ticular, specialists examine whether the extracted rules are consistent with real clinical reasoning, whether ambiguous or potentially misleading statements in the source text have been properly resolved, and whether the terminology has been corrected to conform to professional medical usage. Through this review, clinically inappropriate, oversimpli-fied, or insufficiently specified rule expressions are revised before being used for downstream reasoning. Finally, the rule set is iteratively refined through doctor-in-the-loop feedback. The LLM updates the structured rules according to the feedback of the specialists, and the revised rules are re-examined until the resulting rule base is clear, clinically meaningful, and suitable for use as diagnostic constraints. The final rules are then organized into three levels according to their scope and applicability: (1) General Rules 𝐺 : These rules define the overall diagnostic framework, such as the purpose of strabismus examination and the nine cardinal positions of gaze. (2) Strabismus Rules 𝑆 : These rules establish basic clinical conventions, such as Hirschberg-based measurement principles, deviation direction terminology, and mirror con-ventions. (3) Subtype Rules 𝑖 𝑠𝑢𝑏 : These rules specify diagnostic criteria and treatment-related guidance for the 𝑖 -th strabis-mus subtype. These constructed rules constitute the rule-constrained component of DECC for subsequent evidence review and diagnostic reasoning. The entire rule base is then organized into 𝑛 category-specific entries: 
+
+ = { 𝑖 }𝑛 𝑖 =1 (3) 
+
+𝑖 = { 𝐺 , 𝑆 , 𝑖 𝑠𝑢𝑏 } (4) For the 𝑖 -th subtype prediction candidate 𝑘 𝑖 (𝐗 ) from the Classifier agent, we retrieve the corresponding rule entry from the evidence-based clinical diagnostic rule base: 
+
+𝑖 (𝐗 ) = retrieve (, 𝑘 𝑖 (𝐗 )) (5) where retrieve denotes the category-indexed rule retrieval function, and 𝑖 (𝐗 ) contains the rules corresponding to the predicted strabismus subtype 𝑘 𝑖 (𝐗 ). The retrieved rule component and the visual component 𝐗 visual together form the complete Dual-Evidence Constrained Context: 
+
+𝐂 DECC = { 𝐗 visual , 𝑖 (𝐗 )} (6) 6Guidelines 
+
+• Basic Examination: 
+
+This section mainly covers medical history taking...... 
+
+• Specialized Examination: 
+
+This section focuses on the systematic evaluation...... 
+
+• Diagnosis and Treatment: 
+
+This section addresses the treatment...... 
+
+Large Language 
+
+Model 
+
+Strabismus Specialist 
+
+Doctor-in-the-Loop 
+
+Evidence-Based Clinical 
+
+Diagnostic Rules 
+
+General Rules: 
+
+(e.g,.purpose, scope......) 
+
+Strabismus Rules: 
+
+(e.g,.nine_gaze mapping, mirror convention, direction 
+
+definitions......) 
+
+Subtype Rules: 
+
+(e.g,.exo rule, eso rule, specific treatment......) 
+
+Example 
+
+Large Language Model 
+
+Guidelines Basic Examination: 
+
+The Hirschberg test (corneal light reflex test), first described by Hirschberg in 
+
+1875, detects ocular deviation by observing the position of the corneal light reflex 
+
+from a light source placed at 33 cm. With the pupil center as the reference, 
+
+displacement of the reflex to the pupillary margin, between the pupillary margin 
+
+and the limbus, and to the limbus corresponds to approximately 15 °, 25 °–30 °,
+
+and 45 ° of deviation, respectively; each 1 mm of displacement corresponds to 
+
+approximately 7 °. The direction of reflex displacement (nasal, temporal, superior, 
+
+or inferior) indicates exotropia, esotropia, hypotropia, or hypertropia, respectively. 
+
+This method is simple to perform and serves as a classical approach for 
+
+strabismus screening and surgical quantification. It is commonly used in 
+
+conjunction with the cover test and is particularly applicable to infants, young 
+
+children, patients with monocular fixation impairment, and those with limited 
+
+ocular motility. 
+
+Prompt: You are a clinical 
+
+rule extraction specialist. 
+
+Convert the provided 
+
+guideline text into 
+
+structured rules.  
+
+> Hirschberg corneal reflex can
+> be a rough estimate
+> (displacement 1 mm ≈ 7 °at
+> near).
+> 1) Do not claim precise prism-
+> based values (prism alternate
+> cover test is clinically most
+> accurate).
+> 2) Hirschberg test results
+> provide only a rough estimate
+> and cannot replace precise
+> prism diopter measurements.
+
+Strabismus Rule 
+
+-- Angle Reporting 
+
+Strabismus Specialist 
+
+Large Language Model 
+
+Strabismus Rule -- Angle Reporting 
+
+Hirschberg corneal reflex can be a rough estimate (displacement 1 mm ≈ 7 ° at 
+
+near). 
+
+1) Report only a coarse range (e.g., 15 °, 25 °–30 °, and 45 °) and label it 
+
+“approximate from image appearance. ”
+
+2) Do not claim precise prism-based values (prism alternate cover test is 
+
+clinically most accurate), an approximate conversion to prism diopters (Δ) may 
+
+be offered for reference only. 
+
+3) If not reliable, state: “Angle not reliably quantifiable from images; requires 
+
+prism alternate cover test. ”
+
+Prompt: You are a clinical guideline rule maintenance specialist. We have an 
+
+existing structured rule base extracted from clinical guidelines. Now we need to 
+
+update these rules based on strabismus specialist' feedback. 
+
+Feedback for Angle 
+
+Reporting 
+
+The angular estimation should 
+
+be restricted to coarse ranges 
+
+inherent to the Hirschberg 
+
+method (e.g., 15 °, 25 °-30 °,
+
+and 45 °) and explicitly labeled 
+
+as “approximate from image 
+
+appearance. ” Additionally, it 
+
+must be supplemented with 
+
+the statement that precise 
+
+quantification requires a prism 
+
+a l t e r n a t e c o v e r t e s t , t h e 
+
+clinical gold standard. 
+
+Doctor-in-the-Loop 
+
+(i) (ii) 
+
+(iii) 
+
+(iv) No Problem 
+
+Update Fig. 5. Doctor-in-the-loop evidence-based clinical diagnostic rules formalization. Unstructured clinical guidelines are first converted into candidate diagnostic rules by a large language model (LLM), and then reviewed and refined by strabismus specialists to ensure clinical validity. The bottom panel shows a representative example of this process: (i) clinical knowledge is collected from strabismus guidelines; (ii) the LLM extracts and structures the relevant content into candidate rules; (iii) strabismus specialists review the extracted rules and provide feedback; and (iv) the rule set is iteratively updated through doctor-in-the-loop refinement. 
+
+3.3. Evidence-Based Corrective Verification 
+
+The purpose of Evidence-Based Corrective Verification (EBCV) is to suppress hallucination by determining whether the current diagnostic hypothesis is supported by the vi-sual evidence of the current case and validated diagnostic rules. In strabismus diagnosis, hallucination occurs when a predicted subtype appears linguistically plausible, yet is not consistent with the visual abnormalities observed in the photograph of the nine cardinal positions of gaze. This support cannot be assessed through a direct comparison between prediction and image, because the former is a diagnostic hypothesis whereas the latter contains only raw visual observations. To address this gap, EBCV performs verification through two types of evidence provided by DECC: attention-based visual evidence and structured evidence-based clinical diag-nostic rules. Specifically, the rules first define the expected abnormalities associated with the current subtype predic-tion. EBCV then assesses whether these expected abnor-malities are consistent with the provided visual evidence, and triggers corrective refinement when inconsistency is detected. In this way, EBCV transforms hallucination mit-igation from constraining the generated response into an explicit and clinically interpretable evidence reviewing pro-cess. 
+
+3.3.1. Dual-Evidence Verification 
+
+Given the current candidate subtype prediction 𝑘 𝑖 (𝐗 )
+
+and the corresponding Dual-Evidence Constrained Context 
+
+𝐂 DECC , EBCV performs two complementary consistency 7Evidence-Based Corrective Verification (EBCV) 
+
+Step 1: Rule-guided CV 
+
+Describe intra-gaze heatmap 
+
+abnormalities. 
+
+Compare heatmap abnormalities 
+
+with image abnormalities. 
+
+STRICTLY using the checklist 
+
+defined in the Stabisums Rules for 
+
+the prediction “Exotropia ”.
+
+Answer 1 
+
+Input 
+
+Intra-gaze 
+
+heatmap 
+
+Review of the photograph of the nine cardinal positions 
+
+of gaze suggests the presence of A-pattern exotropia. 
+
+Outward deviation is evident in the primary gaze 
+
+(position 5), with more pronounced exotropia in 
+
+position (3, 5, 8) . The deviation is more pronounced in 
+
+downgaze (positions 8) than in upgaze (positions 2), 
+
+indicating a A-pattern. 
+
+Answer 1 
+
+Describe key abnormity of the photograph of the 
+
+nine cardinal positions of gaze. 
+
+STRICTLY 
+
+using the checklist defined in the General & 
+
+Subtype Rules for the prediction “Exotropia ”.
+
+Question 1 Input 
+
+LVLM 
+
+Extract Subtype Rules based on the classifier's 
+
+prediction “Exotropia ”.Question 2 
+
+Exotropia: The eye outward deviation toward the temple. 
+
+One eye fixates (with the corneal light reflex centered in 
+
+the pupil), while the fellow eye deviates outward (with 
+
+the corneal light reflex positioned nasally relative to the 
+
+pupil center). 
+
+Both eyes deviate outward (with the corneal light 
+
+reflexes of both eyes positioned nasally within the 
+
+pupils). 
+
+Answer 2 
+
+LVLM 
+
+Is the diagnostic rule consistent with the image 
+
+analysis? Question 3 
+
+Answer 2 
+
+Question 1 
+
+LVLM 
+
+Step 2: Heatmap-guided CV 
+
+Is the Intra-gaze heatmap consistent 
+
+with the image analysis? Question 2 
+
+Describe inter-gaze heatmap 
+
+abnormalities. 
+
+Compare heatmap abnormalities 
+
+with image abnormalities. 
+
+STRICTLY using the checklist 
+
+defined in the Stabisums Rules for 
+
+the prediction “Exotropia ”.
+
+Answer 3 
+
+Input 
+
+Inter-gaze 
+
+heatmap 
+
+Question 3 
+
+Is the Inter-gaze heatmap consistent 
+
+with the image analysis? Question 4 
+
+LVLM 
+
+Describe: The intra-gaze heatmap exhibits 
+
+concentrated activation at positions (1, 2, 3, 4, 
+
+5), while revealing exotropia at positions (3, 5). 
+
+Compare: The photograph of the nine cardinal 
+
+positions of gaze captures the deviation in 
+
+primary gaze (position 5). It adequately attends 
+
+to the pronounced exotropia observed in the 
+
+heatmap in position 3 and primary gaze 
+
+(position 5). 
+
+Describe: The inter-gaze heatmap exhibits 
+
+concentrated activation at positions (2, 5, 8), 
+
+while revealing A-pattern strabismus at 
+
+positions (2, 4, 8). 
+
+Compare: The photograph of the nine cardinal 
+
+positions of gaze reveals that the deviation is 
+
+more pronounced in upgaze (position 2) than in 
+
+downgaze (position 8), indicating a A-pattern. 
+
+This supports the assessment of the A-pattern 
+
+trend, as highlighted in the heatmap. 
+
+Step 1: Rule-guided CV Step 2: Heatmap-guided CV 
+
+Input 
+
+Intra-gaze 
+
+heatmap 
+
+Review of the photograph of the nine cardinal positions 
+
+of gaze suggests A-pattern exotropia. The patient ’right 
+
+eye exhibits nasal displacement of the corneal light 
+
+reflex in primary gaze (position 5). Horizontal 
+
+divergence is evident across all positions. Comparison 
+
+between upgaze (position 2) and downgaze (position 8) 
+
+reveals a horizontal deviation difference exceeding 10 
+
+prism diopters (Δ), with more pronounced exotropia in 
+
+position (3, 5, 8). Asymmetry is observed between left 
+
+gaze (position 4) and right gaze (position 6). 
+
+Answer 1 
+
+Describe key abnormity of the photograph of the 
+
+nine cardinal positions of gaze. 
+
+STRICTLY using 
+
+the checklist defined in the General & Subtype 
+
+Rules for the prediction “A-pattern Exotropia ”.
+
+Input 
+
+LVLM 
+
+Is the Intra-gaze heatmap consistent 
+
+with the image analysis? Question 2 
+
+LVLM 
+
+Answer 2 
+
+Input 
+
+Inter-gaze 
+
+heatmap 
+
+Is the Inter-gaze heatmap consistent 
+
+with the image analysis? Question 4 
+
+Answer 4 
+
+Extract Subtype Rules based on the classifier's 
+
+prediction “A-pattern E xotropia ”.Question 2 
+
+A-pattern exotropia is characterized by a deviation in 
+
+upgaze that is at least 15 prism diopters (Δ) greater than 
+
+in downgaze, with outward deviation of the eye toward 
+
+the temple. 
+
+Answer 2 
+
+LVLM 
+
+Is the diagnostic rule consistent with the image 
+
+analysis? Question 3 
+
+True 
+
+LVLM True True 
+
+LVLM 
+
+Question 1 
+
+Describe intra-gaze heatmap 
+
+abnormalities. 
+
+Compare heatmap abnormalities 
+
+with image abnormalities. 
+
+STRICTLY using the checklist 
+
+defined in the Stabisums Rules for 
+
+the prediction “A-pattern E xotropia ”.
+
+Question 1 
+
+Describe inter-gaze heatmap 
+
+abnormalities. 
+
+Compare heatmap abnormalities 
+
+with image abnormalities. 
+
+STRICTLY using the checklist 
+
+defined in the Stabisums Rules for 
+
+the prediction “A-pattern Exotropia ”.
+
+Question 3 
+
+Answer 1 
+
+LVLM 
+
+Answer 3 
+
+LVLM 
+
+Describe: The intra-gaze heatmap focuses on 
+
+the limbus and corneal reflex in position 3, 4, 5, 
+
+7 and 8, providing local alignment cues, while 
+
+revealing exotropia at positions (3, 5). 
+
+Compare: The photograph of the nine cardinal 
+
+positions of gaze captures the deviation in 
+
+positions (3, 5), aligning with the pronounced 
+
+exotropia observed in the heatmap. 
+
+Describe: The inter-gaze heatmap highlights 
+
+position 1, 2, 7 and 8 which are the clinical 
+
+positions for enabling the comparison of 
+
+divergence across vertical positions for A-
+
+pattern. 
+
+Compare: The photograph of the nine cardinal 
+
+positions of gaze captures the deviation in 
+
+positions (2, 8), aligning with the pronounced 
+
+A-pattern observed in the heatmap. 
+
+Final Verifiaction 
+
+Refinement 
+
+Select the next best preiction in the 
+
+ranked list 
+
+Final Verifiaction Report Generator 
+
+False 
+
+LVLM 
+
+Answer 2 
+
+LVLM 
+
+Answer 2 Answer 4 
+
+True True 
+
+LVLM             
+
+> 789
+> 456
+> 123
+> 789
+> 456
+> 123
+
+Fig. 6. Overview of Evidence-Based Corrective Verification (EBCV). EBCV validates each candidate subtype prediction through two complementary checks: rule-guided CV and heatmap-guided CV. In this example, the current diagnostic hypothesis (Exotropia) fails the rule=-guided CV. Consequently, EBCV rejects this prediction and selects the next-best candidate. The refined prediction, A-pattern Esotropia, passes both CV checks and proceeds to the Generator. 
+
+checks: rule-guided consistency verification (rule-guided CV) and heatmap-guided consistency verification (heatmap-guided CV), as illustrated in Fig. 6. Rule-guided CV eval-uates whether the subtype-specific abnormalities expected by the retrieved diagnostic rules are supported by the case-specific visual evidence. Heatmap-guided CV further exam-ines whether the intra-gaze and inter-gaze heatmaps pro-vide compatible attention-based visual evidence. These two checks jointly determine whether the current candidate pre-diction should be accepted or rejected. 8The first branch, rule-guided CV, verifies whether the rule-defined expectations for the current candidate predic-tion are supported by the visual evidence. For the candidate subtype 𝑘 𝑖 (𝐗 ), the corresponding rule entry 𝑖 (𝐗 ) specifies the expected abnormalities and gaze-dependent patterns on the photograph of the nine cardinal positions of gaze. The LVLM is then required to describe the observed visual ab-normalities, and the Verifier agent compares these two types of abnormalities. This rule-guided CV process is illustrated by Step 1 in the Fig. 6. This process evaluates the consistency between clinical rules and visual evidence for the current candidate prediction. The second branch, heatmap-guided CV, verifies whether the abnormal regions highlighted by the model’s attention maps are consistent with those identified from the original image. The intra-gaze and inter-gaze heatmaps are evaluated separately, as illustrauted by Step 1 in the Fig. 6. For each heatmap, the LVLM describes the attended abnormal re-gions and compares them with the visual evidence observed in the photograph of the nine cardinal positions of gaze during rule-guided CV. A heatmap-guided CV result is considered positive when the attended regions align with the observed abnormalities; otherwise, it is considered negative, indicating that the model may have relied on irrelevant or misleading regions. The final verification outcome is obtained by combining the rule-guided and heatmap-guided consistency verifica-tion. Rule-guided CV is treated as a necessary condition because it evaluates the clinical validity of the current can-didate prediction. Specifically, a candidate subtype should not be accepted unless the abnormalities required by its corresponding diagnostic rules are supported by the visual evidence. Heatmap-guided CV provides auxiliary confir-mation of the model’s attention behavior. The intra-gaze and inter-gaze heatmaps capture complementary forms of attention-based visual evidence: the former reflects local ocular abnormalities within individual gaze positions, while the latter reflects gaze-dependent variations across posi-tions. Since different strabismus subtypes may rely more strongly on either local ocular misalignment ( e.g., Esotropia and Exotropia) or cross-gaze variation ( e.g., A-pattern and V-pattern), requiring both heatmap-guided checks to pass would be overly restrictive. Therefore, the heatmap-guided condition is satisfied when at least one of the two heatmaps is consistent with the observed ocular abnormalities. 
+
+3.3.2. Corrective Refinement 
+
+When the current candidate prediction fails dual-evidence verification, EBCV rejects it rather than accepting the gener-ated conclusion. Such rejection indicates that the predicted subtype lacks sufficient support from case-specific visual evidence under the corresponding diagnostic rules. This rejection mechanism suppresses hallucination by preventing unsupported predictions from being treated as valid diagnos-tic conclusions. If the current candidate prediction fails dual-evidence verification, MAGIS selects the next candidate from the confidence-ranked list and reconstructs the corresponding DECC for another round of verification. Formally, the can-didate index at iteration 𝑡 is updated as: 
+
+𝑟 𝑡 =
+
+{
+
+1, 𝑡 = 1 
+
+𝑟 𝑡 −1 + 1 , 𝑡 > 1 (7) where 𝑟 𝑡 denotes the index of the candidate prediction eval-uated at iteration 𝑡 . The DECC is reconstructed as: 
+
+𝐂 DECC = { 𝐗 visual , 𝑟 𝑡 (𝐗 )} (8) Importantly, the failed verification outcome is used to reject the unsupported candidate prediction and evaluate the next candidate under the same evidence review protocol. By iteratively filtering out predictions that are not supported by visual evidence or diagnostic rules, MAGIS reduces hallu-cinated diagnoses and moves toward an evidence-grounded final decision. Once a candidate prediction passes EBCV, the verified results are passed to the Generator agent for report generation. 
+
+3.4. Report Generation 
+
+This stage is designed not merely to generate a fluent textual summary, but to organize the verified diagnostic out-come into a clinically interpretable and evidence-traceable form. In this way, the report generation serves as the fi-nal stage of the systematic reasoning loop established by MAGIS, converting evidence-grounded verification results into a report format that is suitable for clinical reading and review. Specifically, the generated report includes the key ab-normalities, strabismus pattern and angle description, con-sistency verification results, treatment-related recommen-dations, and the corresponding rules used during reason-ing. Each component is grounded in the verified findings produced by the preceding stages. The primary diagnosis summarizes the abnormalities and pattern and angle descrip-tions derived from visual evidence, the corrective verifica-tion generated from EBCV, and the treatment recommenda-tions generated under the associated evidence-based clinical diagnostic rules. Therefore, the report is not a free-form response generated directly from the image, but a structured synthesis of diagnosis, visual evidence, verification results, and evidence-based clinical diagnostic rules. Further details regarding the LVLM prompts are provided in the supple-mentary material. 
+
+## 4. Experiments and Results 
+
+4.1. Experimental Setup 
+
+4.1.1. Dataset 
+
+Existing strabismus datasets are often limited in scale and lack fine-grained subtype annotations, which restricts their utility for evaluating clinically meaningful diagnosis. To address this issue, we constructed a fine-grained strabis-mus benchmark comprising clinical data from 1,075 patients collected at Xinhua Hospital Affiliated to Shanghai Jiao 9Tong University School of Medicine. For each patient, the dataset includes a photograph of the nine cardinal positions of gaze, annotated by senior ophthalmologists with fine-grained subtype labels. The subtype annotations include six categories: Exotropia, A-pattern Exotropia, V-pattern Exotropia, Esotropia, V-pattern Esotropia, and Vertical stra-bismus. Following standard practice in medical image analysis, the dataset was divided into training, validation, and test sets at a ratio of 6:3:1. This benchmark supports both subtype classification and diagnostic evaluation in our experiments. More detailed dataset information is provided in the supple-mentary material. 
+
+4.1.2. Comparison Methods 
+
+For the diagnostic evaluation, we considered two group of methods: prompt-based methods and fine-tuned medi-cal LVLMs. The prompt-based methods include Reflexion (Shinn et al., 2023), CoVe (Dhuliawala et al., 2024), while the fine-tuned medical LVLM include HealthGPT (Lin et al., 2025) and HuatuoGPT-Vision (Chen et al., 2024). All meth-ods were evaluated using the same input images and task instructions. For strabismus subtype classification, we compared MAGIS with representative image classification models, including VGG-16 (Simonyan et al., 2014), ResNet-50 (He et al., 2016), DenseNet (Huang et al., 2017), ViT (Dosovit-skiy et al., 2020), Swin Transformer (Liu et al., 2021), DeiT (Touvron et al., 2021), and Vision Mamba (Zhu et al., 2024). In addition, we included CI-GNN (Zheng et al., 2025), a recent method specifically developed for strabismus subtype classification, as a task-specific method. 
+
+4.1.3. Implementation Details 
+
+The overall experimental pipeline consists of two stages: strabismus subtype classification and diagnosis. In the clas-sification stage, the Classifier agent was implemented in Py-Torch and trained on a single NVIDIA GeForce RTX 4090 GPU. Input images were resized to 192 × 576 to preserve the spatial layout of the photograph of the nine cardinal positions of gaze, and were then partitioned into non-overlapping 16× 16 patches. Optimization was performed using SGD with momentum of 0.9, weight decay of 5 × 10 −5 , and an initial learning rate of 1 × 10 −3 with cosine annealing. The model was trained for 500 epochs with standard data augmentation, including random horizontal flipping and color jittering. In the diagnosis stage, the Verifier and Generator agent were instantiated using three representative LVLMs: Gemini-3-Flash-Preview (Google, 2026), GPT-5.2 (OpenAI, 2025), and Qwen3-VL-Plus (Bai et al., 2025). 
+
+4.2. Evaluation Metrics 
+
+To comprehensively evaluate the proposed framework, we assess both the clinical reliability of generated diagnostic reports and the performance of strabismus subtype classifi-cation. 
+
+4.2.1. Clinical Reliability Metrics 
+
+Following the human evaluation protocol of PhraseAug (Mei et al., 2024), we evaluate the quality of the generated diagnostic reports along three dimensions: Clinical Con-sistency (Consistency), Visual Alignment (Alignment), and Contextual Completeness (Completeness). Five strabismus specialists independently rated each report on a 5-point Likert scale and were blinded to the method identity. Consistency assesses whether the report agrees with ac-cepted clinical knowledge and diagnostic reasoning. Align-ment evaluates whether the main diagnostic conclusions are supported by corresponding visual evidence. Completeness measures whether the report covers the key aspects required for strabismus assessment, including abnormality descrip-tion, gaze-dependent variation, subtype-related pattern anal-ysis, and angle approximation. The three metrics jointly measure the clinical acceptability, evidence support, and practical usefulness of the generated reports. The final score for each metric was obtained by averaging ratings across specialists and test cases. 
+
+4.2.2. Classification Performance Metrics 
+
+To evaluate strabismus subtype classification perfor-mance, we report two groups of metrics: task-specific ac-curacy metrics and weighted joint-classification metrics. Acc Dir and Acc Ang are used to evaluate the two subtasks separately. Specifically, Acc Dir evaluates the recognition of deviation direction, ( i.e., esotropia, exotropia, and vertical strabismus), while Acc Ang evaluates the recognition of angle variations across gaze positions ( i.e., A-pattern, V-pattern, and absence of A- or V-pattern): Acc Dir = 1
+
+𝑁 
+
+> 𝑁
+
+∑
+
+> 𝑖 =1
+
+I(̂𝑦 Dir  
+
+> 𝑖
+
+= 𝑦 Dir 
+
+> 𝑖
+
+), (9) Acc Ang = 1
+
+𝑁 
+
+> 𝑁
+
+∑
+
+> 𝑖 =1
+
+I(̂𝑦 Ang  
+
+> 𝑖
+
+= 𝑦 Ang 
+
+> 𝑖
+
+), (10) where 𝑦 𝑖 and ̂𝑦 𝑖 denote the ground-truth and predicted labels of the 𝑖 -th sample, 𝑁 is the number of test samples, and 
+
+I( ⋅) is the indicator function. Here, the superscripts Dir and Ang correspond to deviation direction and angle variation, respectively. In addition to task-specific accuracy, we report weighted precision (W-P), weighted recall (W-R), and weighted F1-score (W-F1) to evaluate the overall performance of joint subtype classification. Each sample is assigned to one of six joint classes formed by the combination of deviation direction and angle variation. The detailed mathematical definitions of these metrics are provided in the supplemen-tary. 
+
+4.3. Main Results 
+
+4.3.1. Clinical Reliability 
+
+As shown in Table 1, we first evaluate the clinical relia-bility of generated diagnostic reports and the ability to sup-press hallucination. Prompt-based methods, including Re-flexion and CoVe, and fine-tuned medical LVLMs, including 10 Table 1 
+
+Comparison of clinical reliability and classification performance across diagnostic methods. Clinical reliability metrics (Consistency, Alignment, Completeness) are rated on a 5-point Likert scale (5 = highest). Classification metrics (Acc Dir , Acc Ang , weighted precision (W-P), weighted recall (W-R), weighted F1 (W-F1)) are reported as percentages [%]. All methods, including prompt-based approaches (Reflexion, CoVe) and fine-tuned medical LVLMs (HealthGPT, HuatuoGPT-Vision), were evaluated under identical input conditions and task instructions. 
+
+Methods Consistency Alignment Completeness Acc Dir Acc Ang W-P W-R W-F1 
+
+Prompt-based Methods 
+
+Qwen + CoVe(Dhuliawala et al., 2024) 1.85 1.98 1.79 63.6 23.4 32.4 17.8 11.1 Qwen + Reflexion(Shinn et al., 2023) 1.44 1.35 1.37 43.9 40.2 42.3 15.0 13.6 GPT + CoVe(Dhuliawala et al., 2024) 1.84 1.87 1.80 60.7 45.8 43.1 26.2 30.7 GPT + Reflexion(Shinn et al., 2023) 2.03 2.00 1.98 70.1 41.1 74.9 38.3 41.5 Gemini-3-flash-preview + CoVe(Dhuliawala et al., 2024) 2.43 2.33 2.45 71.0 18.7 79.1 16.8 9.6 Gemini-3-flash-preview + Reflexion(Shinn et al., 2023) 2.12 1.99 2.06 65.4 16.8 2.3 15.0 4.0 
+
+Fine-tuning-based Models 
+
+HuatuoGPT-Vision(Chen et al., 2024) 2.16 2.08 2.05 56.1 64.5 36.5 31.8 33.9 HealthGPT(Lin et al., 2025) 2.15 1.99 2.05 51.4 70.1 42.8 35.5 38.8 
+
+Ours 
+
+Qwen + MAGIS 3.42 3.35 4.20 94.4 88.8 83.3 83.2 79.3 GPT + MAGIS 3.64 3.95 3.90 93.5 93.5 84.5 87.9 85.2 
+
+Gemini-3-flash-preview + MAGIS 4.52 4.14 4.41 95.3 97.2 91.1 92.5 91.3 
+
+Table 2 
+
+Ablation study of MAGIS components. We evaluate the contributions of three key components: the diagnostic rules and visual evidence in DECC, and the consistency verification mechanism in EBCV. Clinical reliability metrics (Consistency, Alignment, Completeness) are rated on a 5-point Likert scale (5 = highest), and classification metrics (Acc Dir , Acc Ang , weighted precision (W-P), weighted recall (W-R), weighted F1 (W-F1)) are reported as percentages [%]. All results are obtained using Gemini-3-Flash-Preview as the default LVLM.                                                                                        
+
+> Setting Diagnostic Rules Visual Evidence Consistency Verification Consistency Alignment Completeness Acc Dir Acc Ang W-P W-R W-F1
+> (a) 1.04 1.05 1.02 92.5 82.2 58.1 75.7 65.7 (b) ✓3.15 3.16 3.64 92.5 82.2 58.1 75.7 65.7 (c) ✓2.19 2.24 2.16 92.5 82.2 58.1 75.7 65.7 (d) ✓3.37 3.76 3.42 93.5 87.9 77.4 81.3 79.0 (e) ✓✓3.90 3.96 4.00 92.5 82.2 58.1 75.7 65.7 (f) ✓✓3.97 4.03 4.19 92.5 97.2 86.6 90.7 88.4 (g) ✓✓3.38 3.56 3.59 95.3 95.3 89.6 90.7 89.7
+> (h) ✓✓✓4.52 4.14 4.41 95.3 97.2 91.1 92.5 91.3
+
+Table 3 
+
+Performance comparison with representative classification meth-ods. Classification metrics (Acc Dir , Acc Ang , weighted precision (W-P), weighted recall (W-R), weighted F1 (W-F1)) are reported as percentages [%].                                                   
+
+> Model Acc Dir Acc Ang W-P W-R W-F1
+> VGG-16 (Simonyan et al., 2014) 89.7 77.6 63.2 68.2 65.1 ResNet-50 (He et al., 2016) 93.5 81.3 69.7 74.8 68.1 DenseNet (Huang et al., 2017) 91.6 81.3 62.2 75.7 68.2 ViT (Dosovitskiy et al., 2020) 88.8 82.2 55.9 72.9 63.3 Swin Transformer (Liu et al., 2021) 90.7 78.5 55.9 70.1 62.2 DeiT (Touvron et al., 2021) 73.8 81.3 44.3 57.0 48.9 Vision Mamba (Zhu et al., 2024) 76.6 81.3 48.2 60.8 52.0 CI-GNN (Zheng et al., 2025) 90.5 86.9 75.5 77.6 72.0
+> Our MAGIS 95.3 97.2 91.1 92.5 91.3
+
+HealthGPT and HuatuoGPT-Vision, obtain relatively low scores in Consistency, Alignment, and Completeness. In contrast, MAGIS consistently achieves higher scores across different LVLM backbones, suggesting that the proposed evidence-based consistency verification process effectively reduces linguistically plausible but unsupported outputs. In particular, MAGIS with Gemini-3-Flash-Preview achieves the best performance on all three metrics. These results demonstrate that MAGIS substantially improves the clinical reliability by grounding report generation in visual evidence and evidence-based clinical diagnostic rules. 
+
+4.3.2. Strabismus Subtype Classification Performance 
+
+As shown in Table 1, we further evaluate the effect of MAGIS on strabismus subtype classification. MAGIS consistently achieves the best results across all classification metrics. Among different LVLM backbones, MAGIS with Gemini-3-Flash-Preview obtains the highest overall perfor-mance, with 95.3% Acc Dir , 97.2% Acc Deg , 91.1% weighted precision, 92.5% weighted recall, and 91.3% weighted F1 score. The improvement in Acc Deg suggests that modeling inter-gaze variation is particularly useful for recognizing A-and V-pattern strabismus. In addition, Table 3 shows that MAGIS significantly outperforms representative classifica-tion methods, including VGG, ResNet, DenseNet, ViT, Swin Transformer, DeiT, Vision Mamba, and the task-specific CI-GNN method. 11 Case 1 Case 2 Case 3 
+
+Prediction: " V-pattern Esotropia " Prediction: "V -pattern Exotropia" Prediction: "Vertical" 
+
+Review of the photograph of the nine cardinal positions 
+
+of gaze suggests V-pattern esotropia. An inward 
+
+deviation is present in the primary position (position 5). 
+
+The corneal light reflex is displaced temporally in the 
+
+patient ’s right eye. The inward deviation increases in 
+
+downgaze (position 8) and decreases in upgaze 
+
+(position 2). Asymmetry is present in left and right 
+
+gaze (positions 4 and 6). 
+
+Review of the photograph of the nine cardinal positions 
+
+of gaze suggests V-pattern exotropia. The patient ’s right 
+
+eye shows outward deviation in primary gaze (position 5). 
+
+Outward deviation is present in positions 4, 6, 7, 8, and 9. 
+
+The horizontal deviation is present in upgaze (position 2) 
+
+and reduces to a nearly orthotropic appearance in 
+
+downgaze (position 8). 
+
+Review of the photograph of the nine cardinal positions 
+
+of gaze suggests vertical strabismus. Evaluation of the 
+
+diagram reveals consistent vertical misalignment of the 
+
+left eye, which is positioned superiorly relative to the 
+
+right eye in primary gaze (position 5) and across all 
+
+other positions (1–9). This left hypertropia is evident in 
+
+left gaze (position 4) and up-left gaze (position 1). No 
+
+horizontal deviation trends ar e o b se r v e d u p o n 
+
+comparison of upgaze (position 2) and downgaze 
+
+(position 8). 
+
+The estimated angle is >20Δ based on the image; 
+
+however, the angle cannot be reliably quantified from 
+
+images alone and requires a prism alternate cover test. 
+
+The estimated deviation angle in primary gaze 
+
+(position 5) is ≥15 prism diopters (Δ). The horizontal 
+
+deviation appears greater in upgaze (position 2) than in 
+
+downgaze (position 8), supporting a V-pattern. Exact 
+
+quantification requires prism alternate cover testing. 
+
+Vertical strabismus. The deviation angle cannot be 
+
+reliably quantified from the images and requires prism 
+
+alternate cover testing for definitive measurement. 
+
+The model predicts V-pattern esotropia, which matches the 
+
+visual evidence of a V-pattern esotropia with a widening 
+
+inward deviation in downgaze (position 8). Intra-gaze 
+
+heatmaps focus on the nasal limbus and corneal reflex of 
+
+the patient ’s right eye in primary gaze (position 5), right 
+
+gaze (position 6), upgaze (position 2), and downgaze 
+
+(position 8), providing local evidence for esotropia. Inter-
+
+gaze heatmaps highlight the relationship between the 
+
+fixating left eye and the deviating right eye across all gazes, 
+
+specifically in positions 1, 2, 4, 5, 7, and 8, which is critical 
+
+for identifying the V-pattern. Because the heatmap attention 
+
+regions align with the visual evidence and the model 
+
+prediction matches the image abnormality, the final 
+
+consistency is True. 
+
+The model predicts V-pattern exotropia, which matches 
+
+the visual evidence of horizontal divergence increasing 
+
+in upgaze (position 2) and decreasing in downgaze 
+
+(position 8). The intra-gaze heatmap focuses on 
+
+pupillary and limbal landmarks in positions 1, 2, 4, and 
+
+5, providing local evidence of exotropia. The inter-gaze 
+
+heatmap highlights the patient's right eye across 
+
+positions 1 and 7, and shows horizontal deviation in 
+
+upgaze and downgaze (positions 2, 8), enabling the 
+
+comparison of divergence across vertical positions and 
+
+supporting a V-pattern. 
+
+Because the heatmap attention regions align with the 
+
+visual evidence and the model prediction matches the 
+
+image abnormality, the final consistency is True. 
+
+The model predicts a vertical, which matches visual 
+
+evidence of constant left hypertropia and the absence of 
+
+horizontal A/V trends. Intra-gaze heatmaps focus on the 
+
+left eye limbus and pupil in gazes 2, 3, 4, 5 and 6, while 
+
+inter-gaze attention is localized to the left eye column 
+
+across most gazes. These attention regions correspond 
+
+to the clinical evidence of vertical deviation. 
+
+Because heatmap attention regions align with visual 
+
+evidence and the model prediction matches image 
+
+findings, the final consistency is True. 
+
+Baseline work-up must include cover/alternate cover 
+
+testing, prism alternate cover measurement, cycloplegic 
+
+refraction, and binocular vision assessment. Evaluate 
+
+for inferior oblique muscle overaction to determine 
+
+whether weakening procedures or vertical rectus 
+
+transposition is indicated. Surgical intervention may be 
+
+considered if the deviation is stable, with the specific 
+
+procedure to be determined by a specialist after 
+
+quantitative measurement. 
+
+R e c o m m e n d e d b a s e l i n e w o r k - u p i n c l u d e s 
+
+cover/alternate cover testing, prism alternate cover 
+
+measurement, cycloplegic refraction, and binocular 
+
+vision assessment. If clinical evaluation confirms the 
+
+V-pattern is associated with inferior oblique overaction, 
+
+inferior oblique weakening procedures may be 
+
+considered. All surgical interventions must be 
+
+determined by a strabismus specialist based on 
+
+quantitative measurements. 
+
+A c o m p r e h e n si v e b a se l i n e w o r k - u p s h o u l d b e 
+
+completed, including cover tests, alternate cover tests, 
+
+prism alternate cover measurement, cycloplegic 
+
+refraction, and binocular vision assessment. If vertical 
+
+deviation is confirmed to be 10 prism diopters (Δ) or 
+
+greater, surgical interventions such as inferior oblique 
+
+weakening or superior oblique tuck may be considered 
+
+f o l l o w i n g s p e c i a l i s t e v a l u a t i o n a n d p r e c i s e 
+
+quantification. 
+
+R1, R2, R2a, R4, R5, R7, R8, R9 R1, R2a, R4, R5, R7, R8, R9 R1, R2, R2a, R3, R4, R5, R7, R8, R9 
+
+GroundTruth : "V -pattern Exotropia" GroundTruth : "Vertical" 
+
+Intra-gaze Inter-gaze 
+
+> Key Abnormalities  Pattern & Angle  Corrective Verification  Treatment  Rules Pred Heatmap Image
+
+Intra-gaze Inter-gaze Intra-gaze Inter-gaze 
+
+GroundTruth: " V-pattern Esotropia"                   
+
+> 789
+> 456
+> 123
+> 789
+> 456
+> 123
+> 789
+> 456
+> 123
+
+Fig. 7. Representative diagnostic reports generated by MAGIS using Gemini-3-Flash-Preview as the LVLM backbone. Each report com-prises several components: prediction, key abnormalities, pattern and angle analysis, corrective verification, treatment recommendations, and rules used. 
+
+4.4. Ablation Study 
+
+We conduct ablation studies using Gemini-3-Flash-Preview as the default LVLM to evaluate the contributions of the proposed components ( i.e., evidence-based clinical diagnostic rules (diagnostic rules) and visual evidence in DECC, and consistency verification mechanism in EBCV). As shown in Table 2, the model performs poorly when all three components are removed, achieving only 1.04, 1.05, and 1.02 in Consistency, Alignment, and Completeness, respectively. This indicates that direct generation without evidence constraints is insufficient for clinically reliable strabismus diagnosis. 12 Adding diagnostic rules alone substantially improves the clinical reliability of generated reports, especially Complete-ness, which increases from 1.02 to 3.64. This suggests that rule-based clinical knowledge helps the model organize di-agnostically relevant content. Adding visual evidence alone also improves the results, but its effect is weaker than diag-nostic rules in this setting. When diagnostic rules and visual evidence are combined, the scores further increase to 3.90, 3.96, and 4.00, showing that the two components of DECC provide complementary support for report generation. The consistency verification mechanism brings addi-tional gains, especially in subtype classification. Compared with using diagnostic rules and visual evidence without ver-ification, adding consistency verification improves weighted precision from 58.1% to 91.1%, weighted recall from 75.7% to 92.5%, and weighted F1 score from 65.7% to 91.3%. This shows that DECC alone can improve the quality of gener-ated reports, but explicit verification is necessary to reject unsupported candidate predictions and select more reliable candidates. The full MAGIS configuration achieves the best overall performance across all metrics, demonstrating that DECC and EBCV jointly contribute to subtype classifica-tion, hallucination suppression, and clinical reliability. 
+
+4.5. Qualitative Evaluation of Diagnostic Report 
+
+To further evaluate the interpretability of MAGIS, we qualitatively analyze representative diagnostic reports gen-erated by the proposed framework, as shown in Fig. 7. The visualization includes three representative cases covering V-pattern Esotropia, V-pattern Exotropia, and Vertical strabis-mus. For each case, MAGIS presents the original photograph of the nine cardinal positions of gaze, subtype prediction, the intra-gaze and inter-gaze heatmaps, key abnormalities, pat-tern and angle analysis, consistency verification, treatment-related recommendations, and the diagnostic rules used. This structured layout allows the diagnostic conclusion to be traced back to both visual evidence and diagnostic rules. In Case 1, MAGIS identifies V-pattern Esotropia. The report describes inward deviation in the primary gaze and a stronger horizontal deviation in downgaze than in upgaze, which supports the V-pattern diagnosis. The intra-gaze heatmap highlights the patient’s right eye in primary gaze, which corresponds to the local ocular misalignment ob-served in the original image. In Case 2, MAGIS identifies V-pattern Exotropia by describing horizontal divergence across gaze positions and a larger deviation in upgaze than in downgaze. The heatmaps highlight gaze positions that are clinically relevant for comparing horizontal deviation across vertical gaze directions. In Case 3, MAGIS iden-tifies Vertical strabismus by describing consistent vertical misalignment of the left eye across gaze positions, with heatmap attention localized to regions corresponding to vertical deviation. These examples show that MAGIS does not generate free-form diagnostic descriptions directly from images. In-stead, it organizes the verified results into a clinically review-able report, where the final prediction is supported by key abnormalities, pattern and angle analysis, consistency veri-fication, and the corresponding rules used during diagnosis. Overall, the qualitative results demonstrate that MAGIS can produce evidence-traceable diagnostic reports that make the diagnostic process more transparent and clinically inter-pretable. 
+
+## 5. Conclusion 
+
+In this work, we proposed MAGIS, an evidence-based multi-agent framework for interpretable strabismus diag-nosis. MAGIS addresses the limited transparency of con-ventional deep learning methods and the hallucination risk of LVLM-based approaches by reformulating strabismus diagnosis as an evidence-constrained and verifiable process. Specifically, candidate predictions are examined against vi-sual evidence and evidence-based clinical diagnostic rules rules before the final diagnosis is generated. By integrating Dual-Evidence Constrained Context and Evidence-Based Corrective Verification, MAGIS improves fine-grained sub-type prediction while producing diagnostic reports with stronger clinical interpretability and trustworthiness. Exten-sive experiments show that MAGIS provides an effective solution for evidence-supported and clinically reliable stra-bismus diagnosis. 
+
+## 6. Limitations and Future Work 
+
+MAGIS is currently evaluated on a single strabismus subtype diagnosis benchmark. Further validation with larger cohorts and multi-center datasets is needed to assess its ro-bustness across different imaging protocols, acquisition con-ditions, and patient populations. Beyond this task, MAGIS provides an extensible framework for evidence-supported medical diagnosis. By replacing the visual evidence mod-ule and evidence-based clinical diagnostic rules with task-specific counterparts, it can be adapted to broader medical fields, such as radiology, dermatology, pathology, and en-doscopy. Future work will evaluate MAGIS in these domains to further validate its generalizability. 
+
+## Acknowledgments 
+
+This work was supported in part by the National Natural Science Foundation of China (grant numbers 62406186, 62476163, and 82571270), the Hospital Funded Clinical Research, Xinhua Hospital Affiliated to Shanghai Jiao Tong University School of Medicine (grant numbers 21XJMR02 and 24XHCR10B), the Natural Science Foundation of Guangdong Province (grant number 2025A1515010800), the Guangdong Basic and Applied Basic Research Founda-tion (grant number 2023B1515120020), the GBA Ascend Application Innovation Institute, and the Guangdong Lab-oratory of Artificial Intelligence and Digital Economy (SZ) (grant number GML-ST-2026-02), the Industry-University-Research Innovation Fund of Chinese Universities–New Generation Information Technology Innovation Project (grant number 2024IT013), the Institutional Project of Joint 13 Shantou International Eye Center of Shantou University and the Chinese University of Hong Kong (grant number 26-008), the State Key Laboratory of Autonomous Intelligent Unmanned Systems (grant number ZZKF2025-3-4). 
+
+## References 
+
+Asai, A., Wu, Z., Wang, Y., Sil, A., Hajishirzi, H., 2023. Self-rag: Learning to retrieve, generate, and critique through self-reflection, in: ICLR. Bai, S., et al., 2025. Qwen3-vl technical report. arXiv preprint arXiv:2511.21631 . Bai, Z., et al., 2024. Hallucination of multimodal large language models: A survey. arXiv preprint arXiv:2404.18930 . Chan, C.M., et al., 2023. Chateval: Towards better llm-based evaluators through multi-agent debate. arXiv preprint arXiv:2308.07201 . Chen, J., et al., 2024. Towards injecting medical visual knowledge into multimodal llms at scale, in: Proceedings of the 2024 conference on empirical methods in natural language processing, pp. 7346–7370. Chen, W.F., Zhao, Z., Karimi, A., Flek, L., 2025a. Explainable halluci-nation through natural language inference mapping, in: Findings of the Association for Computational Linguistics: ACL 2025, pp. 1888–1896. Chen, Z., Bie, Y., Jin, H., Chen, H., 2025b. Large language model with region-guided referring and grounding for ct report generation. IEEE Transactions on Medical Imaging . Chia, A., Roy, L., Seenyen, L., 2007. Comitant horizontal strabismus: an asian perspective. British Journal of Ophthalmology . Dang, X., et al., 2026. Advancing radiograph representation learning via cascading graph alignment for vision-language clinical concepts. Medical Image Analysis , 104064. De Almeida, J.D.S., Silva, A.C., de Paiva, A.C., Teixeira, J.A.M., 2012. Computational methodology for automatic detection of strabismus in digital images through hirschberg test. Computers in biology and medicine 42, 135–146. Dhuliawala, S., et al., 2024. Chain-of-verification reduces hallucination in large language models, in: Findings of the association for computational linguistics: ACL 2024, pp. 3563–3578. Dosovitskiy, et al., 2020. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 . Du, Y., Li, S., Torralba, A., Tenenbaum, J.B., Mordatch, I., 2024. Improving factuality and reasoning in language models through multiagent debate, in: Forty-first international conference on machine learning. Dubey, A., et al., 2024. The llama 3 herd of models. arXiv e-prints , arXiv– 2407. Favero, A., et al., 2024. Multi-modal hallucination control by visual information grounding, in: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 14303–14312. Friedman, D.S., et al., 2009. Prevalence of amblyopia and strabismus in white and african american children aged 6 through 71 months: the baltimore pediatric eye disease study. Ophthalmology . Google, 2026. Gemini 3 flash preview. https://ai.google.dev/gemini-api/ docs/models/gemini-3-flash-preview . Accessed: June 2, 2026. He, K., Zhang, X., Ren, S., Sun, J., 2016. Deep residual learning for image recognition, in: Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 770–778. Huang, G., Liu, Z., Van Der Maaten, L., Weinberger, K.Q., 2017. Densely connected convolutional networks, in: Proceedings of the IEEE confer-ence on computer vision and pattern recognition, pp. 4700–4708. Huang, L., et al., 2025. A survey on hallucination in large language models: Principles, taxonomy, challenges, and open questions. ACM Transactions on Information Systems 43, 1–55. Jiang, Y., et al., 2025. Comt: Chain-of-medical-thought reduces hallu-cination in medical report generation, in: ICASSP 2025-2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), IEEE. pp. 1–5. Jin, H., Che, H., He, S., Chen, H., 2025. A chain of diagnosis framework for accurate and explainable radiology report generation. IEEE Transactions on Medical Imaging . Jing, P., Lee, K., Zhang, Z., Zhou, H., Yuan, Z., Gao, Z., Zhu, L., Papanas-tasiou, G., Fang, Y., Yang, G., 2025. Reason like a radiologist: Chain-of-thought and reinforcement learning for verifiable report generation. Medical Image Analysis , 103910. Ki, D., Rudinger, R., Zhou, T., Carpuat, M., 2025. Multiple llm agents debate for equitable cultural alignment, in: Proceedings of the 63rd An-nual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pp. 24841–24877. Lee, C., Park, S., Shin, C.I., Choi, W.H., Park, H.J., Lee, J.E., Ye, J.C., 2026. Read like a radiologist: Efficient vision-language model for 3d medical imaging interpretation. Medical Image Analysis , 104077. Leng, S., et al., 2024. Mitigating object hallucinations in large vision-language models through visual contrastive decoding, in: CVPR, pp. 13872–13882. Lewis, P., et al., 2020. Retrieval-augmented generation for knowledge-intensive nlp tasks. NeurIPS 33, 9459–9474. Li, J., Su, T., Zhao, B., Lv, F., Wang, Q., Navab, N., Hu, Y., Jiang, Z., 2024. Ultrasound report generation with cross-modality feature alignment via unsupervised guidance. IEEE Transactions on Medical Imaging 44, 19– 30. Li, W., et al., 2025. Visual evidence prompting mitigates hallucinations in large vision-language models, in: ACL, pp. 4048–4080. doi: 10.18653/ v1/2025.acl-long.205 .Liang, T., et al., 2024. Encouraging divergent thinking in large language models through multi-agent debate, in: Proceedings of the 2024 confer-ence on empirical methods in natural language processing, pp. 17889– 17904. Lin, T., et al., 2025. HealthGPT: A medical large vision-language model for unifying comprehension and generation via heterogeneous knowledge adaptation, in: Proceedings of the IEEE/CVF international conference on computer vision. Liu, A., Guo, Y., Yong, J.h., Xu, F., 2024. Multi-grained radiology report generation with sentence-level image-language contrastive learning. IEEE Transactions on Medical Imaging 43, 2657–2669. Liu, Z., et al., 2021. Swin transformer: Hierarchical vision transformer using shifted windows, in: Proceedings of the IEEE/CVF international conference on computer vision, pp. 10012–10022. Long, L., Li, Y., Zhang, D., Wang, Y., 2026. Mohd: Multi-modal survival prediction through hierarchical decoupling of whole-slide image pyra-mids and genomics. Medical Image Analysis , 104098. Madaan, A., et al., 2023. Self-refine: Iterative refinement with self-feedback. Advances in neural information processing systems 36, 46534–46594. Manakul, P., Liusie, A., Gales, M., 2023. Selfcheckgpt: Zero-resource black-box hallucination detection for generative large language models, in: Proceedings of the 2023 conference on empirical methods in natural language processing, pp. 9004–9017. McKean-Cowdin, R., et al., 2013. Prevalence of amblyopia or strabismus in asian and non-hispanic white preschool children: multi-ethnic pediatric eye disease study. Ophthalmology . Mei, X., et al., 2024. Phraseaug: An augmented medical report generation model with phrasebook. IEEE Transactions on Medical Imaging 43, 4211–4223. Menon, V., Saha, J., Tandon, R., Mehta, M., Khokhar, S.K., 2002. Study of the psychosocial aspects of strabismus. Journal of pediatric ophthal-mology and strabismus 39 4, 203–8. Ni, X., Wu, L., Zhuang, J., Wang, Q., Wu, M., Vardhanabhuti, V., Zhang, L., Gao, H., Chen, H., 2026. Mg-3d: Multi-grained knowledge-enhanced vision-language pre-training for 3d medical image analysis. Medical Image Analysis , 104027. OpenAI, 2025. Update to gpt-5 system card: Gpt-5.2. https://openai.com/ index/gpt-5-system-card-update-gpt-5-2/ . Accessed: June 2, 2026. Qian, C., et al., 2024. Scaling large language model-based multi-agent collaboration. arXiv preprint arXiv:2406.07155 . Repka, M.X., et al., 2018. Strabismus, strabismus surgery, and reoperation rate in the united states: analysis from the iris registry. Ophthalmology . Robaei, D., et al., 2006. Factors associated with childhood strabismus: findings from a population-based study. Ophthalmology . 
+
+14 Shinn, N., Cassano, F., Gopinath, A., Narasimhan, K., Yao, S., 2023. Re-flexion: Language agents with verbal reinforcement learning. Advances in neural information processing systems 36, 8634–8652. Simonyan, K., et al., 2014. Very deep convolutional networks for large-scale image recognition. arXiv preprint arXiv:1409.1556 . Sun, Z., et al., 2024. Aligning large multimodal models with factually augmented rlhf, in: ACL Findings, pp. 13088–13110. Touvron, H., Cord, M., Douze, M., Massa, F., Sablayrolles, A., Jégou, H., 2021. Training data-efficient image transformers & distillation through attention, in: International conference on machine learning, PMLR. pp. 10347–10357. Valente, T.L.A., De Almeida, J.D.S., Silva, A.C., Teixeira, J.A.M., Gattass, M., 2017. Automatic diagnosis of strabismus in digital videos through cover test. Computer methods and programs in biomedicine 140, 295– 305. VanderVeen, D.K., et al., 2011. Prevalence and course of strabismus through age 6 years in participants of the early treatment for retinopathy of prematurity randomized trial. J. AAPOS 15, 536–540. Wang, X., et al., 2022a. Self-consistency improves chain of thought reasoning in language models. arXiv preprint arXiv:2203.11171 . Wang, Z., Han, H., Wang, L., Li, X., Zhou, L., 2022b. Automated radiographic report generation purely on transformer: A multicriteria supervised approach. IEEE Transactions on Medical Imaging 41, 2803– 2813. Weng, Y., et al., 2023. Large language models are better reasoners with self-verification, in: Findings of the Association for Computational Linguistics: EMNLP 2023, pp. 2550–2575. Yang, Y., et al., 2025. Spatio-temporal and retrieval-augmented modelling for chest x-ray report generation. IEEE Transactions on Medical Imaging .Yu, T., et al., 2024. Rlhf-v: Towards trustworthy mllms via behavior alignment from fine-grained correctional human feedback, in: CVPR, pp. 13807–13816. Zhang, J., Wang, G., Kalra, M.K., Yan, P., 2024a. Disease-informed adaptation of vision-language models. IEEE Transactions on Medical Imaging . Zhang, X., et al., 2024b. Self-alignment for factuality: Mitigating halluci-nations in llms via self-evaluation, in: ACL, pp. 1946–1965. Zhao, J., Zhou, Y., Chen, Z., Fu, H., Wan, L., 2024. Topicwise separable sentence retrieval for medical report generation. IEEE Transactions on Medical Imaging 44, 1505–1517. Zheng, J., et al., 2025. Causality-inspired graph neural network for inter-pretable strabismus subtype classification, in: International Conference on Medical Image Computing and Computer-Assisted Intervention, Springer. pp. 107–116. Zhu, H., et al., 2015. Association between childhood strabismus and refractive error in chinese preschool children. PloS one . Zhu, L., Liao, B., Zhang, Q., Wang, X., Liu, W., Wang, X., 2024. Vision mamba: Efficient visual representation learning with bidirectional state space model. arXiv preprint arXiv:2401.09417 . 
+
+15
