@@ -1,0 +1,579 @@
+Title: DiffSight-Former: Modeling Structural Differences and Temporal Dynamics for Glaucoma Progression Prediction
+
+URL Source: https://arxiv.org/pdf/2606.09140v1
+
+Published Time: Tue, 09 Jun 2026 01:50:33 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+> IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS 1
+
+# DiffSight-Former: Modeling Structural Differences and Temporal Dynamics for Glaucoma Progression Prediction 
+
+Yi Huang, Lei Bi, and Jinman Kim Member, IEEE 
+
+Abstract — Glaucoma is a leading cause of irreversible blindness worldwide, and early detection from fundus im-ages is critical for effective disease management. While deep learning has achieved promising performance in fun-dus image analysis, most existing methods rely on single time-point images and therefore fail to capture longitudinal structural and vascular changes that are informative for disease progression. Sequential fundus images collected during clinical follow-up provide valuable temporal infor-mation; however, current sequential models often struggle to detect subtle early progression signals and commonly rely on fixed-length inputs or diagnostic cues from al-ready glaucoma images, limiting their clinical utility for early forecasting. To address these limitations, we propose DiffSight-Former, a framework for glaucoma progression prediction from sequential fundus images. It incorporates a time-variant feature extraction module based on a fundus-specific foundation model to obtain robust anatomical rep-resentations. A multi-structure difference modeling mod-ule is introduced to quantify progression-related structural changes in the optic disc/cup region and retinal vascu-lature. These representations are integrated with tempo-ral interval embeddings and processed by a time-aware Transformer to model disease progression dynamics and estimate the probability of future glaucoma onset. Experi-ments were conducted on two longitudinal datasets, SIGF (405 sequences) and GRAPE (263 sequences). On SIGF, DiffSight-Former achieved an AUC of 91.54% and a sensi-tivity of 92.16% for progression prediction. On GRAPE, the proposed method achieved an average accuracy of 87.48% across three clinical visual-field progression criteria. Com-pared with existing approaches, DiffSight-Former demon-strates consistently strong performance and improved ro-bustness across different temporal settings, highlighting its potential for longitudinal glaucoma monitoring and early risk prediction. 
+
+Index Terms — Glaucoma progression prediction, Fun-dus image, Longitudinal medical imaging, Temporal mod-eling, Time-aware Transformer. 
+
+I. I NTRODUCTION 
+
+# GLaucoma is one of the leading causes of irreversible blindness worldwide [1], affecting more than 70 million individuals [2], [3]. Early identification of disease progression is essential for preventing vision loss and guiding timely 
+
+Yi Huang and Jinman Kim are with the School of Computer Science, The University of Sydney. (e-mail: yhua0932@uni.sydney.edu.au; jin-man.kim@sydney.edu.au) Lei Bi is with the Institute of Translational Medicine, Shanghai Jiao Tong University. (e-mail: lei.bi@sjtu.edu.cn) 
+
+clinical intervention. Color fundus photography is widely used for glaucoma screening and longitudinal monitoring due to its non-invasive nature and ability to capture structural changes in the optic nerve head and retinal vasculature [4], [5]. With the increasing availability of longitudinal imaging data in clinical practice, automated analysis of sequential fundus images has become an important research direction for predicting glaucoma progression [6]–[10]. Despite using of longitudinal fundus imaging in clinical practice, accurately predicting glaucoma progression from sequential images re-mains a challenging problem. Deep learning techniques have shown promising perfor-mance in fundus image analysis, particularly for glaucoma detection and segmentation tasks [11]–[14]. However, most existing approaches analyze fundus images at a single time point and therefore cannot capture disease progression patterns that unfold over time [15]–[19]. In clinical practice, glaucoma progression is typically characterized by gradual structural changes in the optic disc, cup morphology, and retinal vas-culature across multiple visits, rather than abrupt diagnostic appearance differences. Sequential imaging data thus provide important temporal cues that may improve progression pre-diction. Consequently, models designed for static diagnosis may not effectively capture progression-related patterns in longitudinal data. Recent studies have attempted to model longitudinal fundus sequences using recurrent neural networks or Transformer-based architectures [20]–[23]. Despite these advances, two important challenges remain. First, subtle structural changes associated with early glaucoma progression are often difficult to capture using global image representations. Second, many sequential models rely on fixed-length inputs or include al-ready glaucomatous images in the input sequences [8], [24]– [26], which may bias predictions toward diagnostic appearance cues rather than true progression dynamics. These approaches typically encode each image as a global representation and rely on temporal aggregation to infer disease evolution. However, such strategies may overlook localized structural differences between visits that are critical for identifying early progres-sion. Recently, foundation models (FMs) pretrained on large-scale retinal image datasets have shown strong capability in learning generalizable representations for ophthalmic image analysis [27]–[30]. These models capture rich anatomical and semantic features that may benefit longitudinal modeling      
+
+> arXiv:2606.09140v1 [cs.CV] 8 Jun 2026 2IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS (a) Existing approaches
+> (b) Our approach
+
+Prediction 
+
+Model s 
+
+> Original Polar
+
+Difference -aware representation 
+
+Appearance -driven 
+
+Anatomical 
+
+Global image representation    
+
+> Attention
+> Vessel Optic disk/cup Polar
+
+Temporal Embeddings 
+
+> Structural
+> differences
+> Original
+
+Image sequences 
+
+> 1990.04  1991.06  1994.07  1995.09  1996.09  1997.09
+> onset
+> 2006.04  2007.03  2008.01  2009.02  2012.05  2013.03
+> Progression
+> onset
+
+Predict 
+
+Input  
+
+> Non -glaucoma
+> Non -glaucoma
+> Fig. 1. Comparison between existing approaches and the proposed method for glaucoma progression prediction from sequential fundus images. Existing methods primarily rely on global image representations derived from appearance-driven features, which are subsequently aggregated with temporal embeddings for prediction. The proposed framework explicitly models inter-visit structural differences by leveraging anatomical priors, including optic disc/cup and retinal vasculature, to capture progression-related changes. These difference-aware representations, combined with temporal interval information, enable more effective prediction of early glaucoma progression.
+
+of disease progression. However, effectively leveraging such representations for sequential progression forecasting remains challenging, particularly when subtle structural changes must be distinguished from non-pathological appearance variations across visits. Nevertheless, effectively leveraging foundation model representations for progression forecasting requires mechanisms that can highlight subtle inter-visit structural changes while suppressing appearance variations unrelated to disease progression. To address these challenges, we propose DiffSight-Former, a framework designed to model structural differences and temporal dynamics for glaucoma progression prediction from sequential fundus images. As illustrated in Fig. 1, existing ap-proaches primarily rely on global appearance representations aggregated over time, which may overlook subtle progression cues when pathological changes are not visually apparent. In contrast, the proposed framework explicitly models inter-visit structural differences in anatomically relevant regions, enabling the extraction of progression-related signals even un-der clinically early-stage conditions with non-glaucoma inputs. This design allows the model to capture disease evolution more effectively while accounting for irregular temporal intervals in longitudinal data. Specifically, we employ a Time-variant Feature Extrac-tion (TFE) module that leverages a fundus-specific foun-dation model to extract dynamic representations that cap-ture both semantic and anatomical characteristics of retinal structures across visits. A Multi-Structure Difference Mod-ulation (MDM) module is introduced to detect subtle inter-scans variations by comparing semantic features from multiple retinal structures, thereby enhancing sensitivity in detecting early pathological changes. Finally, both temporal interval information and inter-image difference features are embedded into a Transformer-based architecture to explicitly associate structural changes with temporal dynamics, as such enabling to model irregular follow-up intervals and forecast glaucoma pro-gression more effectively. This design allows the framework to capture progression dynamics under irregular follow-up intervals commonly observed in real-world clinical data. Based on the above considerations, this work makes the following contributions:  
+
+> •
+
+We propose DiffSight-Former, which explicitly models inter-visit structural changes in sequential fundus images to improve early glaucoma progression prediction.  
+
+> •
+
+We design multi-structure difference modeling for cap-turing subtle anatomical changes, integrating information from the optic disc/cup region, retinal vasculature, and fundus appearance to better characterize progression-related structural variations.  
+
+> •
+
+We embed both temporal interval information and inter-scan difference features into a time-aware Transformer, enabling effective modeling of disease dynamics under irregular clinical follow-up intervals.  
+
+> •
+
+Experiments on two independent datasets demonstrate that the proposed method achieves strong performance and improved robustness across different temporal set-tings and clinical progression criteria. 
+
+II. R ELATED WORK 
+
+We have categorized the related studies into (1) temporal modeling for medical image sequences; and (2) early glau-coma prediction. 
+
+A. Temporal Modeling on Medical Image Sequences 
+
+Research across multiple clinical domains has demonstrated the importance of leveraging sequential data to monitor disease progression and forecast clinical outcomes. For instance, lon-gitudinal modeling has been used to predict Alzheimer’s dis-ease progression from structural magnetic resonance imaging (MRI) [31], track femoral shape changes associated with hip osteoarthritis using CT [32], and forecast knee osteoarthritis progression from X-Ray imaging [33]. In ophthalmology, sequential imaging has also been applied to, for instance, predict the progression in age-related macular degeneration YI HUANG et al. : DIFFSIGHT-FORMER: MODELING STRUCTURAL DIFFERENCES AND TEMPORAL DYNAMICS 3
+
+(AMD), diabetic retinopathy (DR), and myopia [10], [34]– [36]. A variety of sequential architectures have been explored to capture temporal dependencies. Early approaches primarily employed recurrent neural networks (RNNs), including long short-term memory (LSTM) and gated recurrent units (GRUs), which model temporal dependencies by sequentially updating hidden states [37]–[40]. These models effectively capture coarse temporal trends but struggle with long-range depen-dencies, spatial feature preservation, and irregular sampling, which reduce their suitability for complex medical image sequences. More recently, Transformers have emerged as a powerful architecture for sequence modeling, owing to their ability to capture long-range dependencies via self-attention mech-anisms. In medical imaging, Transformer-based models have been applied to diverse tasks such as in image classification, lesion segmentation, detection, reconstruction, synthesis, regis-tration, and clinical report generation [41]–[45]. For sequential medical data, temporal Transformers have been explored in applications including video analysis, longitudinal radiology studies, and electronic health records (EHRs) [46]–[50]. To encode time information directly from the data, several works have extended Transformers with time-aware mecha-nisms, incorporating explicit temporal embeddings or event-time modeling into the self-attention layer. For example, Wu et al. [47] proposed the Pattern-Aware Transformer (PATrans), which introduces a hierarchical tokenization strategy featuring a global-local dual-path pattern-aware cross-attention mech-anism to handle video object detection or 3D segmentation across sequential medical images. Li et al. [51] introduced ViTST, an approach for modeling irregularly sampled time series by transforming them into graph images and leveraging pre-trained vision transformers for classification. Xiao et al. [52] proposed XTSFormer, a cross-temporal-scale Transformer tailored for irregularly clinical events modeling and prediction from EHRs. Li et al. proposed [53] UniFormer, a unified architecture that integrates the strengths of convolution and self-attention within a concise Transformer framework, per-forming well in a variety of image and video task. However, these methods are primarily designed for regularly sampled data and do not explicitly model subtle structural changes across irregular clinical visits, limiting their effectiveness for longitudinal fundus progression forecasting. 
+
+B. Early Glaucoma Prediction 
+
+Glaucoma presents unique challenges for disease fore-casting because its structural deterioration is typically slow, subtle, and often clinically indistinguishable in early stages, making short-term changes difficult to detect. Earlier studies primarily employed CNNs and LSTM networks to capture spatial features and temporal dynamics. In 2020, Li et al. [8] introduced the SIGF dataset, the first sequential fundus dataset for glaucoma forecasting. Along with this dataset, they proposed DeepGF, which combined CNN-based spatial feature extraction with LSTM-based temporal modeling. They modeled glaucoma progression by taking a sequence of five chronological fundus images as input and predicting the label of the next clinical visit, thereby formulating forecasting as a next-step progression classification problem. Building on this, Hu et al. [25] developed GLIM-Net, the first Transformer-based framework applied to irregularly sampled SIGF sequences. By incorporating time positional encoding and time-sensitive multi-head self-attention, GLIM-Net improved forecasting accuracy and enabled prediction conditioned on a specific future time. However, the model represented each fundus image as a single global token, which restricts its ability to model local structural changes, such as early optic cup enlargement or vessel displacement, that are critical predictive cues for identifying subtle progression trends. Later, Holste et al. [54] introduced the Longitudinal Transformer for Survival Analysis (LTSA), which modeled disease time-to-event outcomes from irregularly sampled fun-dus image sequences, outperforming single-image baselines for forecasting slow, progressive eye diseases including pri-mary open-angle glaucoma and AMD on OHTS [6] and AREDS [7] datasets. Most recently, Yang et al. [26] proposed MST-former, which incorporated space-time positional encoding, multi-scale spa-tial feature extraction, and time-aware temporal attention to better capture intra-image details and inter-visit progression cues. In addition, a temperature-controlled Balanced Softmax loss was introduced to address extreme class imbalance issues. Despite these advances, several limitations remain. Existing studies typically employ fixed-length input sequences and of-ten include already glaucoma images in the input, which limits their clinical relevance for early forecasting. More importantly, most methods represent each image as a global feature and rely on temporal aggregation to infer progression, making them less sensitive to subtle, localized structural changes that characterize early-stage disease. As a result, predictions are often dominated by the most recent image, leading to biased learning and reduced generalizability. 
+
+III. P ROPOSED METHOD 
+
+Our proposed method is shown in Fig. 2., which consists of three main components: (A) Time-Variant Feature Extraction (TFE), (B) Multi-structure Difference Modulation (MDM), and (C) Time-Aware Transformer (TAT). Given a sequence of longitudinal fundus images {x1, x 2, . . . , x T (T < = 5) } with the time stamps {t1, t 2, . . . , t T } and label {y1, y 2, . . . , y T }
+
+, TFE extracts time-variant representations using a fundus-specific foundation model. MDM computes multi-structure difference features from original images as well as vessel and optic disc/cup maps. Finally, TAT incorporates temporal interval embeddings and integrates all features through atime-aware Transformer backbone, producing a probability prediction PT +1 for future glaucoma onset. 
+
+A. Time-variant Feature Extraction Module 
+
+The first stage aims to obtain robust and semantically rich representations of sequential fundus images. The input images are normalized to a shape of B × 3 × 224 × 224 . B stands for batch size. Following [15], each input image in the sequence 
+
+{x1, x 2, . . . , x T } is first transformed by polar coordinates, 4 IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS …
+
+x!    
+
+> N×Decoder
+> Masked Multi -Head
+> Spatial -Temporal
+> Attention
+> Add & Norm
+> Add &Norm
+> MLP
+> Add & Norm
+> Multi -Head Spatial -
+> Temporal Attention
+> Output Embedding
+
+𝑡 " 𝑡 # month 𝑡 $ 
+
+> ≤t years
+
+Foundation model      
+
+> ❄RET
+> Found
+> M×Encoder
+> Add &Norm
+> Multi -Head
+> Spatial -Temporal
+> Attention
+> MLP
+> Add &Norm
+> Time positional
+> Embedding
+
+f!
+
+f"
+
+f#
+
+x"     
+
+> Longitudinal
+> Images
+> R!
+> R"
+> +Polar
+> +Polar
+> diff time matrix
+> (B, 1, 512)
+> ...
+> (B, 1, 512)
+
+Time -variant Feature Extraction (TFE) 
+
+Multi -structure Difference Modulation (MDM) 
+
+Time -Aware Transformer (TAT) 
+
+> ...
+> ...
+
+∆t#,% , ∆t%,& … ∆t'(#,'
+
+𝑀 )
+
+𝑃 "$!
+
+𝛾 
+
+vessel 
+
+optic disc/cup 
+
+f)*++ , f)*++ -
+
+> ...
+> ...
+
+(a) (b) 
+
+Progression 
+
+Prediction 
+
+"Z%
+
+"𝑃 "$!    
+
+> (B, T, 512)
+> (B, T-1, 512)
+
+f)*++ . ... 
+
+f/*++ 0  
+
+> Difference -bas ed Prediction Modulat ion Multi -structure Difference Feature Extracti on
+
+#Z)
+
+𝑦 " 𝑦 1
+
+...    
+
+> O
+> 𝑝 (𝑢 ,𝑣 )
+> 𝜃
+> R
+> r
+> 𝑝 !(𝜃 ,𝑟 )
+> 𝜃
+
+🔥  
+
+> Polar transformat ion
+> ❄RET
+> Found
+> …
+
+Fig. 2. Overview of the proposed DiffSight-Former, which consists of three modules: Time-Variant Feature Extraction (TFE), Multi-structure Difference Modulation (MDM) and Time-Aware Transformer (TAT). In the TFE module, sequential fundus images are first polar-transformed and then encoded using a fundus-specific foundation model (RETFound) to obtain time-variant image features. In MDM module (a), the vessel and optic disc/cup maps are generated, and their corresponding difference features are computed to characterize structural and vascular changes. In the TAT module, the time interval between images is encoded, and three types of inputs are fused: (1) the original image features extracted by TFE, (2) the multi-structure difference features from MDM, and (3) the temporal interval embeddings. These fused representations are processed by a time-aware Transformer to model progression dynamics. Finally, the MDM module (b) modulates the Transformer’s output to adjust the predicted probability of future glaucoma progression, yielding the final prediction. 
+
+which enlarge the optic disc/cup region and normalize struc-tural variations. The process of polar coordinate transformation is shown in Fig. 2. For each pixel p(u, v ) in the original image, its position is transformed to p′(θ, r ) as follows: 
+
+
+
+r = pu2 + v2
+
+θ = tan −1  vu
+
+ (1) where u, v represent the position in the original coordinate system. θ, r represent the angle and radius in the polar coordinate system. Then, the polar images are processed by RETFound [27], a large-scale fundus-specific foundation model pre-trained on ImageNet-1k and 1.6 million retinal images via the self-supervised Mask Autoencoder. With an encoder-decoder archi-tecture, RETFound uses 24 transformer blocks as the encoder with an embedding vector of size 1024, and 8 transformer blocks as the decoder and an embedding vector size of 512. Here, we load its pre-trained weights and freeze all parameters for the time-variant feature extraction. After all the polar image sequences are extracted, image features {f1, f 2, . . . , f T } are obtained with the shape of B × 1 × 512 respectively. They are then concatenated to form the sequence feature fs in the shape of B × T × 512 .
+
+B. Multi-structure Difference Modulation Module 
+
+To capture reliable cues of glaucoma progression, we com-pute difference features across visits at multiple structures. As glaucoma develops, the most salient structural alterations occur in the optic cup/disc, where enlargement of the cup-to-disc ratio is an indicator of disease progression. In addition, vascular patterns in the peripapillary region usually shift due to structural remodeling of the optic nerve head. They provide distinct information at different spatial scales: vessels reflect fine-grained, high-frequency changes, while optic disc/cup morphology reflects coarser, low-frequency alterations. Here the module is composed of 2 sub-modules: (1) Multi-structure Difference Feature Extraction, as illustrated in Fig. 2 MDM (a), (2) Difference-based Prediction Modulation, as illustrated in Fig. 2 MDM (b). 
+
+1) Multi-structure Difference Feature Extraction: To get the vessel map and optic cup and disk map corresponding to each input image, we utilize AutoMorph [55] to process the original images. As a fully automated method for quan-tifying retinal morphology, AutoMorph can be applied to image quality assessment, anatomical tissue segmentation, and clinically relevant index measurement, effectively per-forming quantitative analysis of retinal morphology under different human health conditions. Using AutoMorph, the sequence images {x1, x 2, . . . , x T } are processed to get the YI HUANG et al. : DIFFSIGHT-FORMER: MODELING STRUCTURAL DIFFERENCES AND TEMPORAL DYNAMICS 5
+
+vessel maps {v1, v 2, . . . , v T } and the optic cup and disk maps {o1, o 2, . . . , o T } respectively. Feature embeddings are extracted from these maps, then compared across visits to compute temporal difference features together with the polar images features {f1, f 2, . . . , f T }. These maps are in the same way firstly processed by RETFound to get the vessel features 
+
+{f v 1, f v 2, . . . , f v T } and the optic cup and disk features 
+
+{f o 1, f o 2, . . . , f o T }. After this, the difference features are calculated as follows: 
+
+
+
+∆ft = ft − ft−1
+
+∆fvt = f v t − f v t−1
+
+∆fot = f o t − f o t−1
+
+(2) in which t = 2 , 3, ..., T . So for a sequence with T images, there are T − 1 vessel and optic cup and disk difference features. The overall polar image difference features fdif f I ,vessel difference features fdif f V , and optic cup and disk difference features fdif f O are combined by the following equations: 
+
+fdif f I =
+
+> T
+
+X
+
+> t=2
+
+∆ft, f dif f V =
+
+> T
+
+X
+
+> t=2
+
+∆fvt , f dif f O =
+
+> T
+
+X
+
+> t=2
+
+∆fot
+
+(3) By explicitly modeling these changes in the original fundus images, the network can capture subtle but clinically mean-ingful differences that may be overlooked when only global embeddings are used. 
+
+2) Difference-based Prediction Modulation: Since the differ-ence features contain change information, they are used to refine the probability prediction output from the TAT module. Specifically, a scalar modulation factor derived from differ-ences features is applied to adjust the raw prediction. Denote 
+
+L ∈ RB×T +1 ×C (C = 2) as the class-logits emitted by the TAT module, Zd is the last token encodes the difference vector. 
+
+Zd = L:,T, : ∈ RB×C (4) A lightweight MLP predicts a scalar modulation factor, 
+
+MLP reg (x) = W2σ (W1x + b1) + b2
+
+m = MLP reg (zd) ∈ RB (5) with W1 ∈ R32 ×C , W 2 ∈ R1×32 and GELU activation σ.A learnable scalar γ, initialised to 0.5, broadcasts m over the full logit tensor: 
+
+L |∗
+
+= L + γm ⊗ 13×C , m ⊗ 13×C ∈ RB×3×C (6) Thus logits of each sequence are adaptively boosted or at-tenuated in proportion to the learned difference magnitude. When greater structural changes are detected, the probability of future glaucoma is increased accordingly. Through this two-stage design, MDM explicitly aligns image-derived structural progression cues with model outputs, ensuring that predictions are not only data-driven but also grounded in clinical markers of glaucomatous change. 
+
+C. Time-Aware Transformer 
+
+In this module, based on the Transformer [56] structure, we embedded the time gap and the difference features with the fundus features extracted by the foundation model to output the prediction probability. 
+
+1) Time positional embedding: Since the Transformer lacks sequence information, we need to manually inject position into the input image feature vector. However, the original position encoding assumes no temporal differences between images. Our sequential images are acquired at different times, so tem-poral information is incorporated into the position encoding. To explicitly incorporate irregular follow-up intervals into the Transformer, we extend the sinusoidal positional encoding scheme [56] to encode time intervals between visits. Suppose each images from the sequence {x1, x 2, . . . , x T } is taken at a corresponding time point {t1, t 2, . . . , t T }, measured in months. For each visit i, we compute its relative time interval with respect to the last visit: 
+
+∆ti = tT − ti, i = 1 , 2, . . . T − 1 (7) Denote the embedding dimension is E. For each time interval 
+
+∆ti, the encoding vector is defined as: 
+
+T P E (∆ ti, 2n) = sin ( ∆ti
+
+10000 2n/E )
+
+T P E (∆ ti, 2n + 1) = cos ( ∆ti
+
+10000 2n/E )
+
+(8) where n = 0 , 1, 2, . . . , E/ 2 − 1. Thus, for each sequence we obtain a matrix: 
+
+T P E = [ T P E (∆ t1), T P E (∆ t2), . . . , T P E (∆ tT )] ∈ RT ×E
+
+(9) In practice, we precompute a positional encoding matrix P ∈
+
+RT ×E , where L is the maximum sequence length. Each row 
+
+P [] corresponds to the encoding of a time interval . Given a batch of visit intervals ∆t, we simply gather the corresponding rows of P , producing the final time encoding tensor: 
+
+Ztime = P [∆ t1, ∆t2, . . . , ∆tT ] ∈ RB×T ×E (10) where B is the batch size. These encodings are added to the fundus feature embeddings before feeding into the Transformer encoder, allowing the model to differentiate visit intervals of varying lengths and capture time-dependent pro-gression patterns. 
+
+2) Feature difference embedding: In addition to temporal embeddings, we incorporate feature difference embeddings to explicitly model inter-visit structural changes, which are often more informative for glaucoma progression than absolute image features. The sequential fundus embeddings extracted by TFE module is fs. The difference features of different struc-ture are fdif f I , fdif f V , and fdif f O . To reflect their varying contributions, we introduce learnable weights wI , w V , w O ∈
+
+R, normalized by a softmax constraint: 
+
+wI + wV + wO = 1 (11) The final multi-structure difference feature is then computed as: 
+
+fdif f S = wI · fdif f I + wV · fdif f V + wO · fdif f O (12) 6 IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS 
+
+Finally, the multi-structure difference feature fdif f S is con-catenated with the time-aware fundus embeddings F ′
+
+∈
+
+RB×T ×E :
+
+X = Contat (F ′
+
+, f dif f ) ∈ RB×T +1 ×E (13) This enriched representation X preserves both spatial features and multi-structure relative progression cues, serving as the input to the Transformer encoder. 
+
+3) Encoder-decoder structure with Time-aware attention: 
+
+Following the vanilla Transformer structure, there are M
+
+encoders and N decoders stacked together. Each encoder consists of a time-aware multi-head self-attention layer and a feed-forward network, accompanied by a residual connection and layer normalization. Each decoder has three sub-layers: a masked time-aware multi-head self-attention layer, a time-aware multi-head self-attention layer and a feed-forward net-work, also with a residual connection and layer normalization. Specifically, we extend the standard multi-head self-attention mechanism by incorporating a time-related weighting matrix that encodes the temporal interval between visits. This ensures that attention weights reflect not only feature similarity but also the relative distance in time between observations. Given input features X ∈ RB×(T +1) ×dmodel for a batch of size B, sequence length T , and feature dimension dmodel , we compute queries, keys, and values via linear projections: 
+
+Q = XW Q, K = XW K , V = XW V (14) where WQ, W K , W V ∈ Rdmodel ×dmodel . We then split them into h heads with per-head dimension dk = dmodel /h :
+
+Q = [ Q(1) , Q (2) , . . . , Q (h)], Q (u) ∈ RB×(T +1) ×dk (15) and similarly for K, V . To account for temporal irregularity, we introduce a time weighting matrix ∆ ∈ RN ×(T +1) ×(T +1) ,where ∆ij encodes the time interval between visit i and j.A learnable function Φ( ·) transforms this into a multiplicative bias T = Φ(∆) .
+
+eS(u) =
+
+
+
+Q(u)(K(u))⊤
+
+⊙ Φ(∆) (16) For each head u, the normalized attention scores are given by the dot product between queries and keys: 
+
+H(u) = Sof tmax ( eS(u)
+
+√dk
+
+)V (u) ∈ RN ×T ×T (17) All heads are concatenated and projected: 
+
+M HAT T (X) = [ H(1) || H(2) || . . . || H(h)] (18) Finally, the output of the time-aware multi-head self-attention layer is: 
+
+Y = LayerN orm (X + M HAT T (X)) (19) The final output of the time-aware transformer is Zd|| PT +1 .Input: All Negative Predict:        
+
+> Negative /Positive
+> Input: Negative +Positiv eNegative
+> Negative
+> Negative Positive
+> Negative Positive
+> Negative Negative
+
+(a) (b) 
+
+Fig. 3. Different input sequences. (a) Input sequences in previous studies: the negative and positive glaucoma images are all used to predict with fixed input length. (b) Input sequences in our method: only negative glaucoma images are used to predict, with flexible input length. 
+
+D. Loss function 
+
+In our task, the progression outcome is binary, so we adopt the cross-entropy loss to optimize the glaucoma progression prediction model, which can be formulated as: 
+
+LCE = − 1
+
+B
+
+> B
+
+X
+
+> i=1
+
+[yi log (ˆ pi) + (1 − yi) log (1 − ˆpi)] (20) where yi ∈ { 0, 1} denotes the ground truth label for the i-th sequence, ˆpi denotes the predicted probability of the i-th sequence. 
+
+IV. E XPERIMENTS 
+
+A. Datasets 
+
+We evaluate the performance of DiffSight-Former compared to the state-of-the-art counterpart using two sequential glau-coma datasets. 
+
+TABLE I DATA DISTRIBUTION OF THE SEQUENCES FROM THE SIGF DATASET .
+
+Label Train Validation Test T=2 Progression 221 26 62 Non-progression 221 26 62 Total 442 52 124 T=3 Progression 603 68 163 Non-progression 603 68 163 Total 1206 136 326 T=4 Progression 1612 180 251 Non-progression 1612 180 251 Total 3224 360 502 
+
+TABLE II DATA DISTRIBUTION OF THE SEQUENCES FROM THE GRAPE DATASET .
+
+Type Label Eyes Number Training Test PLR2 Progression 26 20 6Non-progression 170 136 34 Total 196 156 40 PLR3 Progression 8 6 2Non-progression 188 151 37 Total 196 156 40 MD Progression 16 12 4Non-progression 180 144 36 Total 196 156 49 YI HUANG et al. : DIFFSIGHT-FORMER: MODELING STRUCTURAL DIFFERENCES AND TEMPORAL DYNAMICS 7                                                                   
+
+> TABLE III COMPARISON OF THE PROPOSED METHOD WITH OTHER METHODS ON SIGF DATASET .( UNIT :%)
+> Method Year ACC SEN SPE AUC ACC SEN SPE AUC Progression ( T=2) Augmentation ( T=5) ConvLSTM [37] NeurIPS2015 57.26 67.74 46.77 55.25 60.23 60.78 55.83 67.15 DeepGF [8] MICCAI2020 60.48 66.13 58.06 65.99 66.90 66.67 66.90 71.28 Uniformer [53] TPAMI2023 64.52 64.52 64.52 67.04 79.03 68.80 78.34 74.44 GLIM-Net [25] TMI2023 60.83 61.29 60.34 72.16 80.29 80.39 80.28 87.38 MST-Former [26] JBHI2025 62.50 66.31 58.62 72.41 88.90 96.10 88.60 97.60
+> Ours 2026 86.29 80.65 91.94 87.71 87.90 92.16 88.10 91.54
+
+1) SIGF: The Sequential Fundus Images for Glaucoma Forecast (SIGF) dataset [8] is the first publicly available longitudinal fundus images database for glaucoma forecasting. It contains 405 image sequences from different eyes, each with at least six time points collected between 1986 and 2018, totaling 3,671 images. All fundus images are annotated with binary glaucoma labels. Among the sequences, 37 progress from negative to positive glaucoma, while 368 remain negative throughout follow-up. Previous studies followed the sampling strategy in [8] by generating overlapping clips, where each clip consists of five sequential input images and a sixth image serving as the prediction target. These clips are extracted from longer trajectories to augment the dataset while preserving temporal order. However, predicting glaucoma using input images that are already labeled positive provides limited clinical value. Therefore, we adopt a revised sampling strategy as show in Fig. 3. From each original sequence, we construct progression clips in which all input images are non-glaucoma, while the prediction target may be either glaucoma-positive or negative. To simulate realistic clinical follow-up intervals, we require that the last two time points be no more than three years apart. Constraining the interval encourages the model to focus on early structural cues within a clinically actionable time frame while reducing variability from irregular long-term follow-ups, which better reflects the clinical objective of forecasting disease before it becomes detectable. If the final image is labeled glaucoma, the sequence is designated as “progression”; if not, as “non-progression”. The data distribution of the progression sequences with different lengths is summarized in Table I. 
+
+2) GRAPE: The Glaucoma Real-world Appraisal Progres-sion Ensemble (GRAPE) dataset [9] is a multi-modal lon-gitudinal collection of visual field (VF) and fundus images for glaucoma. It includes 1,115 longitudinal records from 263 eyes of 144 patients collected between 2015 and 2022. The dataset contains VFs, fundus images, OCT measurements, and clinical information, with annotated optic disc segmentation and VF progression. The progression was defined using stan-dard Octopus VF criteria based on point-wise linear regression (PLR2, PLR3) and mean deviation (MD) slope, confirmed by three glaucoma specialists. For our experiments, the first two fundus images from each eye were used as a sequence to predict progression, and sequences containing only one image are discard. The data distribution of sequences under three criteria is shown in Table II. 
+
+B. Evaluation Metrics 
+
+We used the commonly used evaluation metrics includ-ing Accuracy (ACC), Sensitivity (SEN), Specificity (SPE), and Area Under the Receiver Operating Characteristic Curve (AUC) to evaluate the proposed method and the comparison methods. They can be expressed as follows: 
+
+ACC = T P + T N T P + F N + T N + F P (21) 
+
+SEN = T P T P + F N , SP E = T N T N + F P (22) where TP, TN, FP, and FN represent the number of samples detected as true positive, true negative, false positive, and false negative. In addition, we further used AUC to evaluate the per-formance, which is defined as the area under the Receiver Operating Characteristic (ROC) curve, which plots the true positive rate (SEN) against the false positive rate (1–SPE) at varying decision thresholds. AUC measures the overall discriminative ability of the model: an AUC of 0.5 corresponds to random guessing, while an AUC of 1.0 indicates perfect classification. 
+
+C. Implementation Details 
+
+Our method was implemented using the PyTorch frame-work, and all the experiments were conducted on NVIDIA RTX A6000 GPUs. During training, the performance was monitored on the validation set after each epoch. We trained our model for over 800 epochs and we observed that the validation loss plateaued after approximately 800 epochs. The batch size was fixed at 4, and optimization was performed using the AdamW optimizer with an initial learning rate of 
+
+3 × 10 −8, following a cosine annealing with warm restarts learning rate schedule. The RETFound mae natureCFP pre-trained weights were adopted to initialize the RETFound backbone. 
+
+V. R ESULTS 
+
+A. Comparison to the Sate-of-the-Art Methods 
+
+1) SIGF: We compared with methods related to glaucoma forecasting and time-related sequence modeling, including ConvLSTM [37], DeepGF [8], Uniformer [53], GLIM-Net 8 IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS                                                      
+
+> TABLE IV COMPARISON OF THE PROPOSED METHOD WITH OTHER METHODS ON GRAPE DATASET .( UNIT :%)
+> PLR2 PLR3 MD Average Method ACC AUC ACC AUC ACC AUC ACC AUC GRAPE* 75.00 71.00 91.00 80.00 81.00 73.00 82.33 74.67 GRAPE 78.05 66.45 82.18 76.77 81.69 79.07 80.64 74.10 Uniformer 78.10 71.00 80.56 87.40 83.27 77.49 80.65 78.55 GLIM-Net 80.09 72.37 87.71 89.90 83.67 76.39 83.82 79.55 Ours 81.18 79.14 92.50 88.03 88.77 79.58 87.46 82.25
+
+[25] and MST-Former [26]. ConvLSTM and DeepGF are CNN–LSTM-based methods that combine CNN-based feature extraction with LSTM-based temporal modeling. Uniformer, GLIM-Net and MST-Former are Transformer-based models. Uniformer integrates convolution and self-attention for spa-tiotemporal representation learning, which has achieved the leading performance on a variety of image and video clas-sification tasks. GLIM-Net is a time-aware Transformer that incorporates time-positional encoding and time-sensitive at-tention to handle irregularly sampled fundus sequences. MST-Former is a multi-scale spatio-temporal Transformer that intro-duces space–time positional encoding and previously achieved state-of-the-art performance in glaucoma forecasting tasks. To ensure a fair comparison, all the comparison methods were trained and evaluated under the same experimental settings, using both the newly constructed progression sequences and the original augmented sequences. The experimental results are shown in Table III, with the best results shown in bold and the second best results underlined. T stands for the number of time points used to forecast the next image. For progression sequences ( T = 2 ), our method achieved the best overall performance with an ACC of 86.29%, SEN of 80.65%, SPE of 91.94%, and AUC of 87.71%, surpassing MST-Former by 23.79% in ACC and 15.3% in AUC. In this setting, all input images are non-glaucoma, making predic-tion particularly challenging due to the absence of explicit pathological cues. Existing CNN–LSTM and Transformer-based methods encode images as global representations and rely on temporal aggregation. Without visible disease patterns, these features are often dominated by appearance variability, e.g., illumination and imaging conditions, leading to unstable predictions and reliance on the most recent image. In contrast, DiffSight-Former explicitly models inter-visit structural differ-ences in anatomically relevant regions, enabling the extraction of subtle yet consistent progression signals from normal-appearing inputs. This explains the notable gains in AUC and specificity, reflecting more reliable early-stage discrimination. For augmented sequences (T = 5), which include glaucoma-positive images, our method achieved an ACC of 87.90% with competitive SEN and SPE at 92.16% and 88.10%, remaining close to the state-of-the-art. Although addi-tional disease-related information is available, the performance gain of DiffSight-Former is more moderate than that of other methods. This is because many existing approaches benefit disproportionately from strong diagnostic cues in the most recent positive image, effectively shifting toward late-stage recognition rather than progression modeling. By contrast, DiffSight-Former emphasizes inter-visit structural change over static appearance, meaning that much of the discriminative information is already captured in the early forecasting setting. The inclusion of positive images therefore provides com-plementary but less dominant cues, resulting in more stable performance across settings.  
+
+> 2) GRAPE:
+
+We further evaluated the proposed method on the GRAPE dataset to assess the generalizability of the pro-posed method. Based on the results on SIGF dataset, we select several methods standing for Transformer-based structure for comparison. Table IV presents the comparison of our method against the existing models on the GRAPE dataset, with progression defined by Octopus VF criteria (PLR2, PLR3, and MD slope) and their average scores. The first row refers to the result of the validation baseline for VF progression prediction in their original paper, which only used the first image of each eye. For the rest rows, all the methods used the first and second images from each eye for prediction. Under the PLR2 criterion, our method achieved the best performance with an ACC of 81.18% and an AUC of 79.14%, outperforming both baseline and competing methods. Under the stricter PLR3 definition, our approach attained the highest accuracy of 92.50%. For the MD slope criterion, DiffSight-Former again achieved the best results, with an ACC of 88.77% and an AUC of 79.58%. The consistent gains across these VF-based criteria indicate that the proposed model captures progression signals that are relevant to functional deterioration. Since visual field loss reflects accumulated functional damage that is often preceded by subtle structural changes in the optic nerve head and vascu-lature, modeling inter-visit structural variation provides a more reliable indicator of progression. By explicitly encoding these changes in anatomically meaningful regions, DiffSight-Former aligns more closely with the structure–function relationship in glaucoma, leading to stable performance across heterogeneous progression definitions. 
+
+B. Ablation Study  
+
+> 1) Overall Structure:
+
+To evaluate the contribution of each component in our proposed framework, we conducted ablation studies on SIGF dataset on three key modules: the Time-variant Feature Extraction (TFE) module, the Multi-Structure Difference Modulation (MDM) module, and the Time-Aware Transformer (TAT) module. As presented in Table V, the TFE backbone alone shows limited performance, indicating that feature extraction alone YI HUANG et al. : DIFFSIGHT-FORMER: MODELING STRUCTURAL DIFFERENCES AND TEMPORAL DYNAMICS 9                                       
+
+> TABLE V ABLATION STUDY RESULTS ON THE OVERALL STRUCTURE .( UNIT :%)
+> TFE TAT MDM ACC SEN SPE AUC 1✓71.77 72.58 70.97 64.67 2✓✓83.87 72.58 90.16 79.81 3✓✓85.58 92.76 78.39 86.76 4✓✓✓86.29 80.65 91.94 87.71 66.94 62.9
+> 70.97 73.54 71.77
+> 61.29
+> 82.26
+> 76.77
+> 81.45
+> 74.19
+> 88.71
+> 79.97
+> 86.29
+> 80.65
+> 91.94
+> 87.71
+> 40
+> 50
+> 60
+> 70
+> 80
+> 90
+> 100
+> ACC SEN SPE AUC
+> Image Image + Vessel Image + Optic Image + Vessel + Optic
+> (%)
+> Fig. 4. Ablation study results on the Multi-structure Difference Modu-lation. Different structural maps is used to compute difference features. (unit:%)
+
+is insufficient for progression prediction, as it does not ex-plicitly encode inter-visit change. Incorporating TAT improves performance to 83.87% ACC and 79.81% AUC, suggesting that modeling irregular temporal intervals enables the network to better weight observations across visits, particularly when follow-up spacing varies. Introducing MDM further boosts performance to SEN 92.76% and AUC 86.76%), highlighting that explicitly capturing structural differences in the optic disc/cup and vasculature makes subtle progression signals more detectable. The combination of all modules yields the best results, demonstrating that jointly modeling temporal dynamics and anatomically localized changes is essential for accurate glaucoma progression prediction. 
+
+2) Multi-structure Difference Modulation: To further assess the effectiveness of the proposed MDM module, we performed ablation experiments by incrementally incorporating different structural maps into the difference features computation. As shown in Fig. 4, using only the original image yields limited performance, indicating that appearance features alone are insufficient to capture progression signals. Incorporating either the vessel map or the optic disc/cup map leads to clear improvements, suggesting that progression-related changes are more prominently reflected in anatomically structured regions rather than the global fundus appearance. In particular, ves-sel maps capture vascular attenuation and distortion, while disc/cup maps emphasize morphological deformation, both of which are known indicators of glaucoma progression. When all three components are combined, the model achieves the best performance, demonstrating that these structural cues provide complementary information. This indicates that ex-plicitly modeling inter-visit differences in multiple anatomical structures enables more reliable detection of subtle progression patterns that may not be observable from raw images alone. 
+
+C. Sequence Length Analysis 
+
+Fig. 5 compares the performance of DiffSight-Former and MST-Former across different progression sequence lengths. MST-Former is selected as a representative state-of-the-art method due to its strong performance and comparable Transformer-based architecture. When four images were used (T = 4 ), our model achieved the highest AUC of 91.34%, out-performing MST-Former, which achieved an AUC of 89.97%. At three images ( T = 3 ), both methods showed performance degradation; however, our method maintained a clear advan-tage with an AUC of 88.10%, compared to 83.54% for MST-Former. Even under the most challenging setting of only two available images ( T = 2 ), DiffSight-Former achieved strong performance, obtaining an AUC of 87.71% with balanced sensitivity of 80.65% and specificity of 91.94%. While MST-Former dropped markedly to an AUC of 72.41%, a SEN of 66.31% and a SPE of 58.62%. The superior performance of DiffSight-Former under re-duced sequence lengths stems from how progression cues are extracted and aggregated. MST-Former primarily encodes each image as a global representation and infers progression through temporal aggregation. When only a few images are available, this approach becomes unreliable because global appearance changes are dominated by imaging variability rather than disease evolution. In contrast, DiffSight-Former is designed to directly isolate inter-visit anatomical change. The MDM module explicitly measures structural differences in disc/cup and vascular regions, enabling progression sig-nals to be extracted even from a single interval, while the TFE module stabilizes feature representations across visits by suppressing non-pathological variations. As a result, the model depends less on long temporal context and more on localized, biologically meaningful change, which explains both its robustness and the observed improvement in specificity under short-sequence settings. 
+
+D. Effectiveness of Difference Modeling 
+
+To further evaluate the effectiveness of our proposed differ-ence modeling, we conducted a feature-level comparison with MST-Former, the second best performing method. To ensure a fair comparison, we extracted intermediate features from the official MST-Former implementation by taking the encoded feature sequence from the last encoder layer and computing temporal difference features using the same formulation as in DiffSight-Former. This ensures that both models are evaluated under an identical feature definition, removing architectural biases and enabling an equitable analysis. We applied t-SNE to project the high-dimensional difference features into a 2-dimensional space for the test sets under three temporal configurations of 2, 3, and 4 input images. As shown in Fig. 6, (a), (b), and (c) visualize the projected difference features for T = 2, 3, and 4, with DiffSight-Former in the top row and MST-Former in the bottom row. The representa-tions produced by DiffSight-Former exhibit markedly clearer separation between progression and non-progression cases, forming well-defined and largely linearly separable clusters with a consistent separating direction across input lengths. 10 IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS 82.07 80.4 80.65                                        
+
+> 78.94
+> 71.86
+> 66.31
+> 50
+> 60
+> 70
+> 80
+> 90
+> 100
+> SEN
+> 86.85 87.12 91.94
+> 82.75 80.13
+> 58.62
+> 50
+> 60
+> 70
+> 80
+> 90
+> 100
+> SPE
+> 89.46
+> 83.74 86.29
+> 80.81 76.9
+> 62.5
+> 50
+> 60
+> 70
+> 80
+> 90
+> 100
+> ACC
+> 91.34 88.1 87.71
+> 89.97
+> 83.54
+> 72.41
+> 50
+> 60
+> 70
+> 80
+> 90
+> 100
+> AUC
+> (%) (%) (%) (%)
+> T=4 T=3 T=2 T=4 T=3 T=2 T=4 T=3 T=2 T=4 T=3 T=2
+> ∆−18 .31 %
+> ∆−3.71 %
+> ∆+5.09 %
+> ∆−3.63 %
+> ∆−17 .56 %
+> ∆−1.42 %
+> ∆−12 .63 %∆−24 .13 %
+> Fig. 5. The results comparison on different sequence length (T = 4, 3, 2) between our method and the MST-Former. (a) (b) (c)
+> Fig. 6. The t-SNE distribution analysis of the difference features on test set under different temporal configurations produced by our method and MST-Former. In (a),(b),(c), the sequences used are T = 2,3,4 respectively.
+
+As expected, both methods show slightly improved class separability when more time points are available, reflecting the additional temporal context. The observations suggest that the improved separability arises from how progression cues are encoded. While both methods utilize temporal information, MST-Former primarily aggregates global appearance features, which are sensitive to imaging variability and may not consistently reflect disease-related change. As a result, its difference features capture mixed signals dominated by appearance similarity rather than true progression patterns. In contrast, DiffSight-Former explic-itly encodes inter-visit structural differences in anatomically relevant regions, allowing the resulting feature space to be organized according to progression-related change. This leads to more stable cluster geometry and a consistent separating direction across different input lengths. Such representations are more aligned with the underlying progression process in glaucoma, where subtle changes in the optic disc/cup and vasculature accumulate over time. These findings provide further evidence that modeling structured anatomical change, rather than relying on implicit temporal aggregation, is critical for learning meaningful pro-gression representations, consistent with the performance gains observed in both ablation studies and main experiments. 
+
+VI. D ISCUSSION 
+
+This study demonstrates that explicitly modeling inter-visit structural differences provides a more effective strategy for glaucoma progression prediction than relying on global ap-pearance representations. Across both datasets and experimen-tal settings, DiffSight-Former consistently shows improved performance, particularly under early-stage conditions where input images are non-glaucoma. This suggests that progression signals are more reliably captured through localized anatomi-cal changes, such as optic disc/cup deformation and vascular variation, rather than global image features. By decoupling structural change from appearance variability, the proposed framework reduces sensitivity to imaging noise and mitigates bias toward the most recent visit, leading to more stable and clinically meaningful predictions. From a clinical perspective, the ability to predict progression from normal-appearing fundus images is particularly valuable for early intervention and long-term disease management. Un-like conventional approaches that depend on observable patho-YI HUANG et al. : DIFFSIGHT-FORMER: MODELING STRUCTURAL DIFFERENCES AND TEMPORAL DYNAMICS 11 
+
+logical signs, DiffSight-Former focuses on subtle progression-related changes that may precede clinical diagnosis. Fur-thermore, its consistent performance on the GRAPE dataset indicates that the learned structural representations generalize beyond image-level prediction to functional outcomes defined by visual field criteria. This alignment with the underlying structure–function relationship in glaucoma highlights the potential of the proposed framework for real-world clinical applications. Despite these promising results, several limitations remain. The current study focuses on fundus image sequences, and future work will explore extending the framework to other longitudinal imaging modalities, such as OCT, as well as to other chronic diseases. In addition, validation on larger and more diverse clinical cohorts is needed to further assess robustness and facilitate translation into clinical practice. 
+
+VII. C ONCLUSION 
+
+We proposed DiffSight-Former, a framework for glaucoma progression prediction from longitudinal fundus image se-quences. By explicitly modeling inter-visit structural differ-ences and incorporating temporal dynamics, the proposed method captures subtle progression cues that are often missed by approaches relying on global appearance representations. Experiments on the SIGF and GRAPE datasets demonstrate consistent performance improvements over CNN–LSTM and Transformer-based baselines, with particularly strong perfor-mance under short-sequence settings where input images are non-glaucoma. These results highlight the importance of mod-eling progression as a difference-driven process rather than a static recognition task, which is critical for early-stage predic-tion in clinical practice. Future work will explore extending the framework to other longitudinal imaging modalities and validating its effectiveness on larger and more diverse multi-center datasets. 
+
+REFERENCES 
+
+[1] H. Danesh-Meyer and L. Levin, “Glaucoma as a neurodegenerative disease,” J. Neuro-Ophthalmol , vol. 35, pp. 22–28, 2015. [2] S. R. Flaxman, R. R. A. Bourne, S. Resnikoff, P. Ackland, and et al., “Global causes of blindness and distance vision impairment 1990–2020: a systematic review and meta-analysise,” Lancet Glob Health. , vol. 5, pp. 1221–1234, 2017. [3] Y.-C. Tham, X. Li, T. Y. Wong, H. A. Quigley, T. Aung, and C.-Y. Cheng, “Global prevalence of glaucoma and projections of glaucoma burden through 2040: a systematic review and meta-analysis,” Ophthal-mology , vol. 121, pp. 2081–2090, 2014. [4] B. Goutam, M. F. Hashmi, Z. W. Geem, and N. D. Bokde, “A compre-hensive review of deep learning strategies in retinal disease diagnosis using fundus images,” IEEE Access , vol. 10, pp. 57 796–57 823, 2022. [5] S. Iqbal, T. M. Khan, K. Naveed, S. S. Naqvi, and S. J. Nawaz, “Recent trends and advances in fundus image analysis: A review,” Comput. Biol. Med. , vol. 151, p. 106277, 2022. [6] M. O. Gordon and M. A. Kass, “The ocular hypertension treatment study: Design and baseline description of the participants,” Arch. Oph-thalmol. , vol. 117, pp. 573–583, 1999. [7] A.-R. E. D. S. R. Group et al. , “The age-related eye disease study (AREDS): design implications areds report no. 1,” Controlled clinical trials , vol. 20, no. 6, p. 573, 1999. [8] L. Li, X. Wang, M. Xu, H. Liu, and X. Chen, “DeepGF: Glaucoma forecast using the sequential fundus images,” in Proc. Int. Conf. Med. Image Comput. Comput. Assi. Inte. (MICCAI) , 2020, pp. 626–635. [9] X. Huang, X. Kong, Z. Shen, and et al., “GRAPE: A multi-modal dataset of longitudinal follow-up visual field and fundus images for glaucoma management,” Sci. Data , vol. 10, p. 520, 2023. [10] Z. Qi, T. Li, J. Chen, J. C. Yam, and et al., “A deep learning system for myopia onset prediction and intervention effectiveness evaluation in children,” npj Digit. Med. , vol. 7, no. 1, p. 206, 2024. [11] X. Li, X. Hu, L. Yu, L. Zhu, C.-W. Fu, and P.-A. Heng, “CANet: Cross-disease attention network for joint diabetic retinopathy and diabetic macular edema grading,” IEEE Trans. Med. Imag. , vol. 39, no. 5, pp. 1483–1493, 2020. [12] A. He, T. Li, N. Li, K. Wang, and H. Fu, “CABNet: Category attention block for imbalanced diabetic retinopathy grading,” IEEE Trans. Med. Imag. , vol. 40, no. 1, pp. 143–153, 2021. [13] K. Pammi and S. Priyank, “Cataract detection and visualization based on multi-scale deep features by rinet tuned with cyclic learning rate hyperparameter,” Biomed. Signal Process. Control , vol. 87, p. 105452, 2024. [14] V. Ghodrati, J. Duan, F. Ali, A. Bedayat, A. Prosper, and M. Bydder, “Accelerating cardiac radial-mri: Fully polar based technique using compressed sensing and deep learning,” Med. Image Anal. , vol. 105, p. 103732, 2025. [15] H. Fu, J. Cheng, Y. Xu, D. W. K. Wong, J. Liu, and X. Cao, “Joint optic disc and cup segmentation based on multi-label deep network and polar transformation,” IEEE Trans. Med. Imaging , vol. 37, no. 7, pp. 1597–1605, 2018. [16] V. V. N. S. Kumar, G. H. Reddy, and M. GiriPrasad, “A novel glau-coma detection model using unet++-based segmentation and resnet with gru-based optimized deep learning,” Biomed. Signal Process. Control ,vol. 86, p. 105069, 2023. [17] D. Das, D. R. Nayak, S. V. Bhandary, and U. R. Acharya, “CDAM-Net: Channel shuffle dual attention based multi-scale cnn for efficient glaucoma detection using fundus images,” Eng. Appl. Artif. Intel. , vol. 133, p. 108454, 2024. [18] R. Hemelings, B. Elen, A. Schuster, and et al., “A generalizable deep learning regression model for automated glaucoma screening from fundus images,” npj Digit. Med. , vol. 6, p. 112, 2023. [19] Y. Tang, M. Zhang, and J. Feng, “RDD-Net: Randomized joint data-feature augmentation and deep-shallow feature fusion networks for automated diagnosis of glaucoma,” in Proc. Int. Conf. Med. Image Comput. Comput. Assi. Inte. (MICCAI) , 2024, pp. 575–584. [20] J. I. Orlando, E. Prokofyeva, M. del Fresno, and M. B. Blaschko, “Convolutional neural network transfer for automated glaucoma iden-tification,” in Int. Symp. Med. Info. Process. Anal. , vol. 10160, 2017, pp. 241–250. [21] S. Saha, J. Vignarajan, and S. Frost, “A fast and fully automated system for glaucoma detection using color fundus photographs,” Sci. Rep. ,vol. 13, p. 18408, 2023. [22] D. Song, B. Fu, F. Li, J. Xiong, J. He, X. Zhang, and Y. Qiao, “Deep relation transformer for diagnosing glaucoma with optical coherence tomography and visual field function,” IEEE Trans. Med. Imag. , vol. 40, no. 9, pp. 2392–2402, 2021. [23] T. Deng, Y. Huang, and C. Yang, “Parallel multi-path network for ocular disease detection inspired by visual cognition mechanism,” IEEE J. Biomed. Health. Inf. , vol. 29, no. 1, pp. 345–357, 2025. [24] R. Acharya and N. B. Puhan, “Long short-term memory model based microaneurysm sequence classification in fundus images,” in IEEE Int. Conf. on Signal Processing and Communications (SPCOM) , 2022, pp. 1–5. [25] X. Hu, L.-X. Zhang, L. Gao, W. Dai, X. Han, Y.-K. Lai, and Y. Chen, “GLIM-Net: Chronic glaucoma forecast transformer for irregularly sampled sequential fundus images,” IEEE Trans. Med. Imaging , vol. 42, no. 6, pp. 1875–1884, 2023. [26] X. Yang, J. Wu, X. Wang, Y. Yuan, J. Li, G. Chen, N. L. Wang, and P.-A. Heng, “Multi-scale spatio-temporal transformer-based imbalanced longitudinal learning for glaucoma forecasting from irregular time series images,” IEEE J. Biomed. Health. Inf. , vol. 29, no. 4, pp. 2859–2870, 2025. [27] Y. Zhou, M. A. Chia, S. K. Wagner, M. S. Ayhan, and et al., “A foun-dation model for generalizable disease detection from retinal images,” 
+
+Nature , vol. 622, pp. 156–163, 2023. [28] J. Qiu, J. Wu, H. Wei, and et al., “Development and validation of a multimodal multitask vision foundation model for generalist ophthalmic artificial intelligence,” NEJM AI , vol. 1, no. 12, p. AIoa2300221, 2024. [29] Y. Wu, B. Qian, T. Li, and et al., “An eyecare foundation model for clinical assistance: a randomized controlled trial,” Nat. Med. , vol. 31, p. 3404–3413, 2025. 12 IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS 
+
+[30] D. Shi, W. Zhang, J. Yang, and et al., “A multimodal visual–language foundation model for computational ophthalmology,” npj Digit. Med. ,vol. 8, p. 381, 2025. [31] K. Wu, H. Wang, F. Feng, T. Liu, and Y. Sun, “Multi-knowledge informed deep learning model for multi-point prediction of alzheimer’s disease progression,” Neural Networks , vol. 185, p. 107203, 2025. [32] G. Li, Y. Otake, M. Soufi, M. Masuda, and et al., “Prediction of disease-related femur shape changes using geometric encoding and clinical context on a hip disease ct database,” in Proc. Int. Conf. Med. Image Comput. Comput. Assi. Inte. (MICCAI) , 2024, pp. 368–378. [33] A. H. David Butler and G. Carneiro, “Risk estimation of knee os-teoarthritis progression via predictive multi-task modelling from efficient diffusion model using X-Ray images,” 2025, pp. 539 – 549. [34] A. Chakravarty, T. Emre, O. Leingang, S. Riedl, and et al., “Morph-ssl: Self-supervision with longitudinal morphing for forecasting amd progression from oct volumes,” IEEE Trans. Med. Imaging , vol. 43, no. 9, pp. 3224–3239, 2024. [35] D. Lachinov, A. Chakravarty, C. Grechenig, U. Schmidt-Erfurth, and H. Bogunovi´ c, “Learning spatio-temporal model of disease progression with neuralodes from longitudinal volumetric data,” IEEE Trans. Med. Imaging , vol. 43, no. 3, pp. 1165–1179, 2024. [36] R. Zeghlache, P.-H. Conze, M. E. H. Daho, Y. Li, H. L. Boit´ e, and et al., “LaTiM: Longitudinal representation learning in continuous-time models to predict disease progression,” in Proc. Int. Conf. Med. Image Comput. Comput. Assi. Inte. (MICCAI) , 2024, pp. 404–414. [37] X. Shi, Z. Chen, H. Wang, D.-Y. Yeung, W. kin Wong, and W. chun woo, “Convolutional LSTM network: A machine learning approach for precipitation nowcasting,” in Proc. Int. Conf. Neural Inf. Proces. Syst. (NeurIPS) , 2015, pp. 802 – 810. [38] B. C. Kwon, M.-J. Choi, J. T. Kim, E. Choi, Y. B. Kim, S. Kwon, J. Sun, and J. Choo, “RetainVis: Visual analytics with interpretable and interactive recurrent neural networks on electronic medical records,” 
+
+IEEE Trans. Vis. Comput. Graph. , vol. 25, no. 1, pp. 299–309, 2019. [39] Q. Tan, M. Ye, B. Yang, S. Liu, and et al., “DATA-GRU: Dual-attention time-aware gated recurrent unit for irregular multivariate time series,” in Proc. AAAI Conf. Artif. Intell. (AAAI) , 2020, pp. 930–937. [40] M. Li, W. Zhang, H. Zhao, Y. Xu, J. Xu, and H. Li, “A spatiotemporal convolution recurrent neural network for pixel-level peripapillary atro-phy prediction using sequential fundus images,” Appl. Soft Comput. , vol. 155, p. 111431, 2024. [41] F. Shamshad, S. Khan, S. W. Zamir, M. H. Khan, M. Hayat, F. S. Khan, and H. Fu, “Transformers in medical imaging: A survey,” Med. Image Anal. , vol. 88, p. 102802, 2023. [42] Q. Pu, Z. Xi, S. Yin, Z. Zhao, and L. Zhao, “Transformers in medical imaging: A survey,” BioMed. Eng. OnLine , vol. 23, p. 14, 2024. [43] G. J. Chowdary and Z. Yin, “Med-Former: A transformer based archi-tecture for medical image classification,” in Proc. Int. Conf. Med. Image Comput. Comput. Assi. Inte. (MICCAI) , 2024, pp. 448–457. [44] P. Guo, Y. Mei, J. Zhou, S. Jiang, and V. M. Patel, “ReconFormer: Accelerated MRI reconstruction using recurrent transformer,” IEEE Trans. Med. Imaging , vol. 43, no. 1, pp. 582–593, 2024. [45] Z. Wang, L. Liu, L. Wang, and L. Zhou, “METransformer: Radiology report generation by transformer with multiple learnable expert tokens,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR) , 2023, pp. 11 558–11 567. [46] T. Z. Li, J. M. Still, K. Xu, H. H. Lee, and et al., “Longitudinal multimodal transformer integrating imaging and latent clinical signatures from routine ehrs for pulmonary nodule classification,” in Proc. Int. Conf. Med. Image Comput. Comput. Assi. Inte. (MICCAI) , 2023, pp. 649–659. [47] L. Wu, X. Gao, Z. Hu, and S. Zhang, “Pattern-aware transformer: Hierarchical pattern propagation in sequential medical images,” IEEE Trans. Med. Imaging , vol. 43, no. 1, pp. 405–415, 2024. [48] C. Shen, M. J. Menten, H. Bogunovi´ c, U. Schmidt-Erfurth, and et al., “Spatiotemporal representation learning for short and long medical image time series,” in Proc. Int. Conf. Med. Image Comput. Comput. Assi. Inte. (MICCAI) , 2024, pp. 656–666. [49] Q. Chen, Q. Fu, H. Bai, and Y. Hong, “LongFormer: Longitudinal transformer for alzheimer’s disease classification with structural mris,” in Proc. IEEE/CVF Winter Conf. Appl. Comput. Vis. (WACV) , 2024, pp. 3563–3572. [50] D. Li, W. Xing, J. Zhao, C. Shi, and F. Wang, “Multimodal deep learning for predicting in-hospital mortality in heart failure patients using longitudinal chest x-rays and electronic health records,” Int. J. Cardiovas. Imag. , vol. 41, pp. 427–440, 2025. [51] Z. Li, S. Li, and X. Yan, “Time series as images: Vision transformer for irregularly sampled time series,” in Proc. Int. Conf. Neural Inf. Proces. Syst. (NeurIPS) , 2023, pp. 49 187 – 49 204. [52] T. Xiao, Z. Xu, W. He, Z. Xiao, and et al., “XTSFormer: Cross-temporal-scale transformer for irregular-time event prediction in clinical applications,” in Proc. AAAI Conf. Artif. Intell. (AAAI) , 2025, pp. 28 502– 28 510. [53] K. Li, Y. Wang, J. Zhang, P. Gao, G. Song, Y. Liu, H. Li, and Y. Qiao, “Uniformer: Unifying convolution and self-attention for visual recognition,” IEEE Trans. Pattern Anal. Mach. Intell. , vol. 45, no. 10, pp. 12 581–12 600, 2023. [54] G. Holste, M. Lin, R. Zhou, and et al., “Harnessing the power of longitu-dinal medical imaging for eye disease prognosis using transformer-based sequence modeling,” npj Digit. Med. , vol. 7, p. 216, 2024. [55] Y. Zhou, S. K. Wagner, M. A. Chia, A. Zhao, P. Woodward-Court, and et al., “AutoMorph: Automated retinal vascular morphology quantifica-tion via a deep learning pipeline,” Transl. Vis. Sci. Technol. , vol. 11, p. 12, 2022. [56] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, and et al., “Attention is all you need,” in Proc. Int. Conf. Neural Inf. Proces. Syst. (NeurIPS) ,2015, pp. 6000 – 6010.
