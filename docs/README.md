@@ -6,69 +6,61 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-12 ~ 2026-06-10
-- 运行时间：2026-06-10 01:36:01 UTC
+- 最新运行日期：2026-06-10
+- 运行时间：2026-06-10 23:05:46 UTC
 - 运行状态：成功
-- 本次总论文数：16
-- 精读区：0
-- 速读区：16
+- 本次总论文数：13
+- 精读区：7
+- 速读区：6
 
 ### 今日简报（AI）
-本周速读16篇眼底AI论文，聚焦糖尿病视网膜病变分类与多疾病筛查。最值得关注：下采样算法+深度学习提升DR分类精度，以及解剖槽无监督因子分析实现双侧视网膜推理。建议优先精读这两篇10分论文，掌握特征优化与结构推理的最新思路。
-- 详情：[/20260512-20260610/README](/20260512-20260610/README)
+今日精读聚焦临床医疗智能体与诊断策略学习，两篇论文获9分高分。  
+最值得看的方向是特权合成与分支共识的多样化诊断策略（PACT），以及面向连续护理的临床级智能体系统（Baichuan-M4）。  
+建议优先关注Baichuan-M4的临床实用性，PACT适合对诊断多样性有需求的研发者。
+- 详情：[/202606/10/README](/202606/10/README)
 
 ### 精读区论文标签
-- 本次无精读推荐。
+1. [PACT: Learning Diverse Diagnostic Strategies via Privileged Synthesis and Branch Consensus](/202606/10/2606.08938v1-pact-learning-diverse-diagnostic-strategies-via-privileged-synthesis-and-branch-consensus)  
+   标签：评分：9.0/10、query:retina-agent
+   evidence：基于大语言模型的医疗诊断代理
+2. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/202606/10/2606.08982v2-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
+   标签：评分：9.0/10、query:drl-retina
+   evidence：采用强化学习训练的临床级医疗智能体系统，用于持续护理
+3. [Learning to See via Epiretinal Implant Stimulation in silico with Model-Based Deep Reinforcement Learning](/202606/10/2606.03118v1-learning-to-see-via-epiretinal-implant-stimulation-in-silico-with-model-based-deep-reinforcement-learning)  
+   标签：评分：8.0/10、query:drl-retina
+   evidence：基于模型的深度强化学习用于视网膜植入刺激治疗视网膜疾病
+4. [Noise-Aware Visual Representation Learning for Medical Visual Question Answering](/202606/10/2606.05535v1-noise-aware-visual-representation-learning-for-medical-visual-question-answering)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：利用去噪自编码器和LLM的噪声感知医学视觉问答
+5. [CheXanatomy: Anatomy-Aware Vision-Language Modeling for Chest Radiographs](/202606/10/2606.08420v1-chexanatomy-anatomy-aware-vision-language-modeling-for-chest-radiographs)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：医学诊断中的大语言模型
+6. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/202606/10/2606.08982v1-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：基于大语言模型的医疗代理系统可用于眼底病诊断
+7. [CodeCytos: AI-assisted spatial molecular imaging analysis via code-augmented agent action space](/202606/10/biorxiv-10-64898-2026-05-30-728935-v1-codecytos-ai-assisted-spatial-molecular-imaging-analysis-via-code-augmented-agent-action-space)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：用于医疗组织图像分析的智能体系统
 
 ### 速读区论文标签
-1. [Diabetic Retinopathy Classification using Downscaling Algorithms and Deep Learning](/20260512-20260610/2605.11430v1-diabetic-retinopathy-classification-using-downscaling-algorithms-and-deep-learning)  
-   标签：评分：10.0/10、query:fundus-class
-   evidence：直接针对糖尿病视网膜病变分级，使用深度学习眼底图像
-2. [Benchmarking Convolutional, Transformer, Hybrid, and Vision Language Models for Multi Disease Retinal Screening](/20260512-20260610/2605.26283v1-benchmarking-convolutional-transformer-hybrid-and-vision-language-models-for-multi-disease-retinal-screening)  
-   标签：评分：10.0/10、query:fundus-class
-   evidence：基于深度学习的多疾病视网膜筛查
-3. [Anatomy-Slot: Unsupervised Anatomical Factorization for Homologous Bilateral Reasoning in Retinal Diagnosis](/20260512-20260610/2605.12929v1-anatomy-slot-unsupervised-anatomical-factorization-for-homologous-bilateral-reasoning-in-retinal-diagnosis)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：使用深度解剖分解的视网膜诊断
-4. [Bridging the Rural Healthcare Gap: A Cascaded Edge-Cloud Architecture for Automated Retinal Screening](/20260512-20260610/2605.14108v1-bridging-the-rural-healthcare-gap-a-cascaded-edge-cloud-architecture-for-automated-retinal-screening)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：使用边缘-云级联实现糖尿病视网膜病变自动分级
-5. [Knowing When Not to Predict: Self Supervised Learning and Abstention for Safer DR Screening](/20260512-20260610/2605.19133v1-knowing-when-not-to-predict-self-supervised-learning-and-abstention-for-safer-dr-screening)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：自我监督学习和弃权用于糖尿病视网膜病变分级
-6. [Towards Clinically Interpretable Ophthalmic VQA via Spatially-Grounded Lesion Evidence](/20260512-20260610/2605.22414v1-towards-clinically-interpretable-ophthalmic-vqa-via-spatially-grounded-lesion-evidence)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：提出FundusGround基准，含眼底图像病变空间定位
-7. [OphIn-500K: Curating Web-Scale Visual Instructions for Scaling Ophthalmic Multimodal Large Language Models](/20260512-20260610/2605.27916v1-ophin-500k-curating-web-scale-visual-instructions-for-scaling-ophthalmic-multimodal-large-language-models)  
-   标签：评分：9.0/10、query:retina-agent
-   evidence：为眼科多模态大语言模型构建大规模指令数据集
-8. [LightVesselNet: An Ultra-Lightweight Sub-100K Parameter Network for Retinal Blood Vessel Segmentation](/20260512-20260610/2606.05354v1-lightvesselnet-an-ultra-lightweight-sub-100k-parameter-network-for-retinal-blood-vessel-segmentation)  
-   标签：评分：9.0/10、query:retina-agent
-   evidence：提出LightVesselNet，75K参数用于视网膜血管分割
-9. [DiffSight-Former: Modeling Structural Differences and Temporal Dynamics for Glaucoma Progression Prediction](/20260512-20260610/2606.09140v1-diffsight-former-modeling-structural-differences-and-temporal-dynamics-for-glaucoma-progression-prediction)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：利用眼底图像进行青光眼进展预测，建模时序和结构差异
-10. [Clinically relevant AAV8-PEX1 gene therapy preserves retinal integrity and function long-term in a murine model of Zellweger spectrum disorder](/20260512-20260610/biorxiv-10-64898-2026-05-11-723906-v1-clinically-relevant-aav8-pex1-gene-therapy-preserves-retinal-integrity-and-function-long-term-in-a-murine-model-of-zellweger-spectrum-disorder)  
-   标签：评分：9.0/10、query:retina-agent
-   evidence：基因治疗保持视网膜完整性和功能
-11. [Extracellular Vesicle Biomarkers in the Aqueous Humor Correlate with Retinoblastoma Seeding](/20260512-20260610/biorxiv-10-64898-2026-06-01-728823-v1-extracellular-vesicle-biomarkers-in-the-aqueous-humor-correlate-with-retinoblastoma-seeding)  
-   标签：评分：9.0/10、query:fundus-class
-   evidence：研究房水外泌体生物标志物与视网膜母细胞瘤分期相关性，直接相关眼底病分类
-12. [ELEMENT: Multi-Modal Retinal Vessel Segmentation Based on a Coupled Region Growing and Machine Learning Approach](/20260512-20260610/2605.20458v1-element-multi-modal-retinal-vessel-segmentation-based-on-a-coupled-region-growing-and-machine-learning-approach)  
-   标签：评分：8.0/10、query:fundus-class
-   evidence：用于AMD、DR、青光眼的多模态视网膜血管分割
-13. [Case-Aware Medical Image Classification with Multimodal Knowledge Graphs and Reliability-Guided Refinement](/20260512-20260610/2605.22547v1-case-aware-medical-image-classification-with-multimodal-knowledge-graphs-and-reliability-guided-refinement)  
-   标签：评分：8.0/10、query:fundus-class
-   evidence：提出基于多模态知识图谱的病例感知推理用于医学图像分类，可应用于眼底病分类
-14. [Explainable Multi-Task Retinal Imaging Reveals Microvascular Signals for Systemic Risk Stratification in Type 2 Diabetes: A Pilot Study](/20260512-20260610/2605.24913v1-explainable-multi-task-retinal-imaging-reveals-microvascular-signals-for-systemic-risk-stratification-in-type-2-diabetes-a-pilot-study)  
-   标签：评分：8.0/10、query:fundus-class
-   evidence：在眼底图像上使用多任务深度学习进行糖尿病系统性风险分层
-15. [A multifractal-based masked auto-encoder: an application to medical images](/20260512-20260610/2605.26287v1-a-multifractal-based-masked-auto-encoder-an-application-to-medical-images)  
-   标签：评分：8.0/10、query:fundus-class
-   evidence：提出基于多重分形的掩码自编码器用于医学图像分类，可迁移至眼底病分类
-16. [Active Source-free Domain Adaptation in Open-set Medical Image Segmentation via Decomposed Uncertainty and Prototype Discrepancy](/20260512-20260610/2606.08749v1-active-source-free-domain-adaptation-in-open-set-medical-image-segmentation-via-decomposed-uncertainty-and-prototype-discrepancy)  
-   标签：评分：8.0/10、query:drl-retina
-   evidence：主动无源域适应方法用于医学图像分割
+1. [ROBUST-WT: Robust Uncertainty-aware Segmentation Transform via Whitening and Training Enhancements](/202606/10/2606.03069v1-robust-wt-robust-uncertainty-aware-segmentation-transform-via-whitening-and-training-enhancements)  
+   标签：评分：6.0/10、query:drl-retina
+   evidence：基于白化变换的跨域分割方法，可用于眼底图像分析
+2. [GLINT: Sparsely Gated Vision-Language Alignment for Fine-Grained Radiology Representations](/202606/10/2606.03180v1-glint-sparsely-gated-vision-language-alignment-for-fine-grained-radiology-representations)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：稀疏门控视觉-语言对齐方法，可用于眼底疾病分类等细粒度医学图像分析
+3. [XSSR: Cross-Domain Self-Supervised Representative Selection for Efficient Annotation in Medical Image Segmentation](/202606/10/2606.04301v1-xssr-cross-domain-self-supervised-representative-selection-for-efficient-annotation-in-medical-image-segmentation)  
+   标签：评分：6.0/10、query:drl-retina
+   evidence：跨域自监督代表性选择方法可用于眼底图像分析
+4. [TopoPult-SSL: Gland-Mask-Free Cross-Device Meibomian Gland Segmentation via Self-Distilled Weak Clinical Priors](/202606/10/2606.05347v1-topopult-ssl-gland-mask-free-cross-device-meibomian-gland-segmentation-via-self-distilled-weak-clinical-priors)  
+   标签：评分：6.0/10、query:drl-retina
+   evidence：眼底图像分析中的域适应方法
+5. [DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation](/202606/10/2606.07646v1-dome-learning-transferable-domain-variables-from-sparse-supervision-for-test-time-adaptation)  
+   标签：评分：6.0/10、query:drl-retina
+   evidence：域自适应用于眼底图像分析
+6. [SortIT - A Tool For Assessing Observer Variability And Creating Ground Truth Image Classification Datasets](/202606/10/biorxiv-10-64898-2026-05-28-728616-v2-sortit---a-tool-for-assessing-observer-variability-and-creating-ground-truth-image-classification-datasets)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：创建图像分类地面真值数据集的工具，对眼底病分类至关重要
 
 
 <div class="dpr-home-promo-card">

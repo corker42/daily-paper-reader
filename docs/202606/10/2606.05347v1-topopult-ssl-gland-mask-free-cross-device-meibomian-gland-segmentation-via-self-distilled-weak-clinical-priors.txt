@@ -1,0 +1,446 @@
+Title: TopoPult-SSL: Gland-Mask-Free Cross-Device Meibomian Gland Segmentation via Self-Distilled Weak Clinical Priors
+
+URL Source: https://arxiv.org/pdf/2606.05347v1
+
+Published Time: Fri, 05 Jun 2026 00:14:26 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# TopoPult-SSL: Gland-Mask-Free Cross-Device Meibomian Gland Segmentation via Self-Distilled Weak Clinical Priors 
+
+Nicolò Savioli 1 and Luca Del Tongo 2 
+
+> 1
+
+OdaxAI S.R.L., Abano Terme (PD), Italy 
+
+nicolo.savioli@odaxai.com  
+
+> 2
+
+Topcon Group — VISIA Imaging S.R.L., San Giovanni Valdarno (AR), Italy 
+
+ldeltongo@topcon.com 
+
+Abstract. Every new clinical imaging device creates a domain shift where dense gland masks are expensive yet cheap clinical signals—eyelid outlines, Pult grades, morphometric ratios—are routinely recorded. We present TopoPult-SSL, a two-stage framework for cross-device meibomian gland segmentation. Stage 1 adapts a source-trained model without target gland masks in the training loss , using four weak-prior anchors driven by target eyelid masks and clinical metadata only. Stage 2 , when target gland masks are available, distils complementary Stage-1 teachers into a single compact student via supervised self-distillation. We develop and validate the technique on the public MGD-1k →CAMG research benchmark ( 1,000 →100 images, different device), where the distilled model achieves Dice 0.716 ± 0.006 (best 0.726 ), surpassing UA-MT ( 0.710 )and the ensemble teacher ( 0.720 )—with a single pass. The gland-mask-free Stage-1 variant reaches Precision 0.694 vs. 0.30 –0.34 for SAM/MedSAM (p< 0.001 ), enabling deployment without dense gland contouring. MGD-1k and CAMG serve as public development benchmarks; commercial deployment applies the same protocol to VISIA/Topcon MYAH →Tera datasets. Code and reproducibility scripts are released. 
+
+Keywords: Meibomian gland · Self-distillation · Cross-device adap-tation · Weakly supervised · Self-supervised learning · Topology ·
+
+clDice · Clinical priors. 
+
+1 Introduction 
+
+Meibomian gland dysfunction (MGD) is the leading cause of evaporative dry-eye disease, affecting up to 70% of clinical populations in East Asia [ 10 ]. Infrared meibography is the standard modality for visualising gland dropout, but manual grading is subjective and labour-intensive. Automated segmentation with deep networks [ 13 , 12 , 18 ] has brought in-domain Dice above 0.82 ; the critical open challenge is deployment on a new device with a different acquisition chain [7,2].  
+
+> arXiv:2606.05347v1 [cs.CV] 3 Jun 2026 2N. Savioli, L. Del Tongo
+
+The deployment gap. Models trained on the public MGD-1k corpus [ 12 ] lose 
+
+15 –25 Dice points when transferred to a new clinical imager [ 2]. Annotating dense gland masks on every new device is impractical: each mask requires ∼30 min of expert contouring. Yet two forms of weak supervision are freely available in routine practice: (i) an image-level Pult meiboscore p∈{ 0, 1, 2, 3}, constraining expected gland coverage, and (ii) an eyelid support region that generalises across devices. This motivates our question: can a source-trained segmenter be adapted to a new device using only cheap clinical signals (eyelid outlines, Pult grades, morphometric ratios) in the training loss, without dense gland masks on the target device? 
+
+Prior methods require target masks or degenerate. Semi-supervised baselines— Mean Teacher [ 16 ], UA-MT [ 17 ], CPS [ 1], FixMatch [ 15 ]—still need a labelled target subset. Prompt-based foundation models (SAM [ 5 ], MedSAM [ 8]) require no training masks but produce degenerate predictions on meibography: Precision 
+
+0.30 –0.34 , with the bounding-box prompt flooding the entire eyelid. ADAM-Net [ 2] uses a bespoke architecture for joint segmentation and grading; our method is architecture-agnostic .This work: TopoPult-SSL. We propose a two-stage framework: Stage 1 builds clinically grounded adaptation models via four weak-prior anchors (topology, resolution-equivariance, morphometric consistency, eyelid-anatomy) using no target gland masks in the training loss; Stage 2 , when a small labelled target set is available, distils their complementary knowledge into a single compact student via supervised self-distillation—yielding SOTA performance with a single inference pass (Figure 1). 
+
+Contributions. – Gland-mask-free adaptation (Stage 1). Four weak-prior anchors adapt a source segmenter using only target eyelid masks and clinical metadata—no target gland masks in the training loss. 
+
+– Supervised self-distillation (Stage 2). When target gland masks are available, complementary Stage-1 teachers are distilled into a single compact student achieving SOTA Dice 0.716 ±0.006 (best 0.726 ), surpassing UA-MT ( 0.710 )and the ensemble ( 0.720 ). 
+
+– Clinically viable gland-mask-free deployment. Stage 1 alone delivers Precision 
+
+0.694 vs. 0.30 –0.34 for SAM/MedSAM ( p< 0.001 ), enabling deployment without dense gland contouring on the target device. 
+
+– Reproducibility. Four architectures, per-anchor ablations, five-seed statistics, one-command reproduction scripts, and fixed splits. 
+
+2 Related Work 
+
+MG segmentation. Meibography has evolved from handcrafted morphometrics [ 10 ]to deep segmentation [ 13 , 11 ] on MGD-1k [ 12 ]. Boundary-aware multi-task mod-els [ 18 ] and multicentre validation [ 7 ] push in-domain Dice above 0.82 ; cross-device transfer remains the open challenge. TopoPult-SSL: Gland-Mask-Free Cross-Device MG Segmentation 3
+
+Cross-device / annotation-efficient meibography. ADAM-Net [ 2] bundles segmentation and grading via unsupervised domain adaptation. Our method is narrower and deployment-facing: the segmenter stays a black box; only target-side self-supervisory anchors and self-distillation are added. Semi-supervised segmentation. Mean Teacher [ 16 ], UA-MT [ 17 ], CPS [ 1 ], and FixMatch [ 15 ] define the SSL landscape for medical imaging. All require labelled 
+
+target data in the training loss. Our Stage 1 adapts without target gland masks in the loss; Stage 2 uses target gland masks for supervised self-distillation. Knowledge distillation and self-training. Self-training with pseudo-labels has shown consistent improvements when the teacher ensemble is stronger than any single model [ 3 ,9]. We show this principle extends to cross-device medical image segmentation: a distilled student exceeds its ensemble teacher. Topology-preserving losses. clDice [ 14 ] is under-exploited in meibography; we use it as a topology-distillation anchor for the first time in MG segmentation. 
+
+3 Method 
+
+We address cross-device meibomian gland segmentation as adaptation from a large labelled source corpus (MGD-1k, LipiView II, 1280 ×640 px) to a small target corpus (CAMG, Nt= 100 images, different protocol and resolution). Our framework, TopoPult-SSL, operates in two stages: Stage 1 trains complementary adaptation models using four weak-prior self-supervised anchors; Stage 2 distils their knowledge into a single compact student. An overview is given in Figure 1. 
+
+3.1 Problem Setup 
+
+Let Ds = {(xsi , y si , e si , p si )}Ns 
+
+> i=1
+
+be the labelled source corpus (MGD-1k, Ns= 1,000 )and Dt = {(xtj , y tj , e tj , p tj )}Nt 
+
+> j=1
+
+the target corpus (CAMG, Nt= 100 ). Each sample carries a gland mask y, an eyelid mask e and a Pult meiboscore p ∈ { 0, 1, 2, 3} [10 ]. The two corpora differ in acquisition protocol and native resolution. CAMG is partitioned by case identifier into disjoint train/val/test splits. The goal is to maximise target test Dice while preserving gland topology and Pult-consistent morphology. 
+
+3.2 Stage 1: Source-Domain Supervision 
+
+We train a baseline segmenter on Ds with a binary cross-entropy + soft-Dice loss: 
+
+Lsup (θ) = 1
+
+> Ns
+
+∑
+
+> i
+
+[
+
+BCE (fθ (xsi ), y si
+
+) + λd LDice 
+
+(fθ (xsi ), y si
+
+)]
+
+. (1) The same encoder also predicts the eyelid mask es via a head f eye  
+
+> θ
+
+, providing the zero-shot baseline and the initialisation for Stage 1 self-supervision. 4 N. Savioli, L. Del Tongo 
+
+Fig. 1. TopoPult-SSL overview. (A) Source supervision on labelled MGD-1k with Lsup .(B) Stage 1 (gland-mask-free): CAMG images at two augmentation strengths feed an EMA teacher–student pair; four weak-prior anchors — Ltopo (clDice), Lres (resolution equivariance), Lmorph (morphometric ratio) and Lana (eyelid prior) — regularise adap-tation without any target gland mask. (C) Stage 2 (self-distillation): teachers T1/T2
+
+generate ˆyens ; a student is jointly trained on CAMG gland masks and pseudo-labels, reaching Dice 0.716 ±0.006 / clDice 0.764 at inference. 
+
+3.3 Stage 1: Four Anchors for Cross-Device Adaptation 
+
+For each xt ∈ D t we draw a pair of multi-scale views ˜xt 
+
+> 1
+
+= τ1(xt; s1) and 
+
+˜xt 
+
+> 2
+
+= τ2(xt; s2), where s1, s 2 bracket the source resolution ( s1 ∈ [0 .7, 1.0] , s2 ∈
+
+[1 .0, 1.4] ) and τk applies photometric/geometric perturbations. An EMA teacher 
+
+fθt processes the weak view ˜xt
+
+> 1
+
+, a student fθs the strong view ˜xt
+
+> 2
+
+:
+
+θt ← m θ t + (1 − m) θs, m ∈ [0 .99 , 0.999] . (2) 
+
+Anchor 1: Topology-preserving distillation ( Ltopo ). Meibomian glands are elon-gated near-parallel strips. We distil topology via the centre-line Dice loss [14]: 
+
+Ltopo = Ext
+
+[1 − clDice (fθs (˜ xt
+
+> 2
+
+), Rs1→s2
+
+[ sg fθt (˜ xt
+
+> 1
+
+)])] , (3) where sg[ ·] is stop-gradient and R the resampling operator. 
+
+Anchor 2: Resolution-equivariance ( Lres ). A model overfitting the source resolu-tion loses gland detail at other scales. We impose cross-scale consistency between the EMA teacher (at s1) and the student (at s2), both brought to a common native grid: 
+
+Lres = Ext
+
+[ ∥∥Rs2 [fθs (˜ xt
+
+> 2
+
+)] − R s1
+
+[sg fθt (˜ xt
+
+> 1
+
+)]∥ ∥22
+
+]
+
+. (4) TopoPult-SSL: Gland-Mask-Free Cross-Device MG Segmentation 5
+
+Anchor 3: Morphometric consistency ( Lmorph ). The CAMG manifest provides per-image gland-to-eyelid coverage ratios rt ∈ [0 , 1] (a single scalar per image, cheap to extract from the clinical workflow). Letting ˆr(xt) = |fθs (˜ xt
+
+> 2
+
+)|/|et|:
+
+Lmorph = Ext
+
+[
+
+SmoothL1 (ˆr(xt), r t)]
+
+. (5) The target rt is read from the CAMG manifest (training split only); test annota-tions are never used for loss or threshold selection. 
+
+Anchor 4: Eyelid-anatomy conditioning ( Lana ). We penalise gland predictions outside the target eyelid mask et (a cheap annotation taking ∼2 min per image vs. ∼30 min for dense gland contouring): 
+
+Lana = Ext
+
+[ ∥ ∥fθs (˜ xt
+
+> 2
+
+) ⊙ (1 − et)∥ ∥1
+
+] . (6) 
+
+Stage 1 total objective. 
+
+LTopoPult = Lsup + λt Ltopo + λr Lres + λm Lmorph + λa Lana . (7) In the gland-mask-free scenario, Lsup is dropped; the four anchors drive adaptation using only target eyelid masks and per-image morphometric ratios—no dense gland masks enter the training loss on the target device. CAMG validation gland masks are used for early stopping and threshold calibration; CAMG test gland masks are used only for final evaluation. 
+
+3.4 Stage 2: Self-Distillation into a Single Model 
+
+Stage 1 produces complementary models: TopoPult-SSL (without Ltopo , which is noisy at small Nt) generates well-calibrated probability maps via resolution-equivariance, while a standard supervised CAMG-FT model has strong pixel-level accuracy. Their probability average forms a powerful teacher signal. In Stage 2 we train a fresh student fθsd (initialised from the source checkpoint) using: 
+
+Ldistill = Lsup (fθsd , y t) + λpl BCE (fθsd (xt), ˆyens 
+
+), (8) where ˆyens = ⊮[ 12 (σ(fθ1 (xt)) + σ(fθ2 (xt))) > τ pl 
+
+] is the hard pseudo-label from the Stage-1 ensemble teacher and τpl = 0.35 is a confidence threshold calibrated on the validation split. The student learns from both ground truth and the ensemble’s richer decision boundary in a single training pass with cosine scheduling. 
+
+Calibrated inference. After distillation, the binarisation threshold τ ∗ is selected on the validation split by maximising Dice over τ ∈ [0 .20 , 0.70] . This single free parameter yields consistent gains over the default τ =0 .5.
+
+Why self-distillation exceeds the ensemble. The two Stage-1 teachers are com-plementary: TopoPult-SSL is conservative (high Precision, low Recall) while CAMG-FT is balanced. Their average exposes more gland extent than either alone. The student, trained jointly on ground truth and these richer pseudo-labels, learns a tighter boundary than either teacher. At test time: one forward pass +calibrated threshold. 6 N. Savioli, L. Del Tongo 
+
+4 Experimental Setup 
+
+4.1 Datasets 
+
+Public source benchmark (MGD-1k). MGD-1k [ 12 ] contains 1,000 infrared mei-bography images ( 1280 × 640 px) acquired with a LipiView II Ocular Surface Interferometer from ∼340 subjects. Each image carries binary gland and eyelid masks and a six-round Pult meiboscore. Per-image morphometrics—gland-to-eyelid ratio |y|/|e| (31 .3±8.1%) and dropout 1−| y|/|e| (68 .7±8.1%)—track the Pult grade monotonically (Figure 3), justifying Lmorph . We partition by subject ID into train (70%), val (15%), test (15%). 
+
+Public target benchmark (CAMG — 100 fully annotated images). CAMG [ 6 ]is an open-access benchmark for meibomian gland analysis in children and adolescents. We use a curated 100-image fully annotated subset ( 350 ×740 px) as the target-domain benchmark, each carrying expert gland mask, eyelid mask, per-gland morphometrics, and a derived Pult meiboscore. The 10 : 1 source-to-target ratio makes transfer well posed. We partition by case ID into train/val/test (60/20/20%); the test split is reserved for final reporting only. 
+
+VISIA/Topcon deployment datasets. The public MGD-1k →CAMG benchmark develops the technique before productisation. Commercial deployment applies the same protocol to VISIA/Topcon MYAH →Tera data, where MYAH is the labelled source domain and Tera is the target device domain. 
+
+4.2 Evaluation Metrics 
+
+We report Dice, IoU, Precision, Recall on the held-out test split, plus topology-aware clDice [ 14 ]. Statistical significance is assessed via 95% bootstrap confidence intervals ( B=10 ,000 resamples) and paired permutation tests. 
+
+4.3 Baselines and Adaptation Variants 
+
+We benchmark against four architectures pre-trained on MGD-1k: U-Net + MiT-B0 ( 5.6 M), U-Net + EfficientNet-B0 ( 6.3 M), FPN + MobileNet-V2 ( 5.0 M), DeepLabV3+ + MobileNet-V2 ( 5.2 M). For each: (i) zero-shot, (ii) CAMG-FT (Lsup only), (iii) TopoPult-SSL (Equation (7)), (iv) mask-free TopoPult-SSL. SSL baselines: Mean Teacher [ 16 ], UA-MT [ 17 ], CPS [ 1], FixMatch-Seg [ 15 ]—all with the same backbone and training budget. Foundation models SAM [ 5] and MedSAM [8] are evaluated with bounding-box prompts. 
+
+4.4 Implementation Details 
+
+All models: input 256 ×256 , AdamW ( wd= 10 −4), 3-epoch linear warm-up + co-sine decay, val-Dice early stopping. Stage 1 (supervised): lr 5·10 −5, 60 epochs, TopoPult-SSL: Gland-Mask-Free Cross-Device MG Segmentation 7case 11 |y|/|e|=0.21 case 33 |y|/|e|=0.30 case 73 |y|/|e|=0.34 case 5 |y|/|e|=0.41                     
+
+> expert: gland (green) + eyelid (cyan) expert: gland (green) + eyelid (cyan) expert: gland (green) + eyelid (cyan) expert: gland (green) + eyelid (cyan)
+> CAMG: 100 fully annotated meibography cases (target domain) 10 12 14 16 18 20 22 24
+> # glands
+> 0
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> # cases
+> Glands per case
+> 25 30 35 40 45 50
+> %
+> 0.0
+> 2.5
+> 5.0
+> 7.5
+> 10.0
+> 12.5
+> 15.0
+> 17.5
+> # cases
+> Total glands ratio
+> 50 55 60 65 70 75
+> %
+> 0.0
+> 2.5
+> 5.0
+> 7.5
+> 10.0
+> 12.5
+> 15.0
+> 17.5
+> # cases
+> Glandular deletion ratio
+> CAMG morphometrics (N=100 cases)
+
+Fig. 2. (top) CAMG target-domain cases ranked by gland-to-eyelid ratio; bottom row overlays expert gland (green) and eyelid (cyan) masks. (bottom) Morphometric distributions ( N =100 ). 
+
+EMA m= 0.99 , scales s1= 0.75 /s2= 1.25 , (λt, λ r , λ m, λ a) = (0 .5, 0.5, 0.2, 0.2) , pa-tience 20 (on CAMG validation Dice). Stage 1 (gland-mask-free): same architec-ture, (λt, λ r , λ m, λ a) = (1 , 1, 0.5, 0.5) , λs= 0; model selection uses CAMG validation gland masks. Stage 2 (self-distillation): lr 2·10 −4, 80 epochs, λpl = 2.0, τpl = 0.35 ,patience 25. Calibrated threshold τ ∗ selected on val after training. All experi-ments on a single NVIDIA RTX 3090. Five seeds ( {42 , 123 , 456 , 789 , 2024 }) for Stage 2 robustness. 
+
+5 Results 
+
+We report (i) source-domain baselines on MGD-1k (Table 1); (ii) cross-device transfer on CAMG across four backbones (Table 2); (iii) a two-block comparison structured by target mask availability (Table 3); and (iv) the Stage 2 self-distillation results with five-seed robustness. 
+
+5.1 MGD-1k Source Performance and Pult-Band Evidence 
+
+The eyelid silhouette is consistent across Pult grades, making it a stable cross-device anchor (Equation (6)). The four ordinal Pult bands are monotonically separated in gland-to-eyelid coverage, validating Lmorph ; see Figure 3. Table 1 reports supervised baselines trained on MGD-1k. 8 N. Savioli, L. Del Tongo Pult 0 | |y|/| e| = 20 \% Pult 1 | |y|/| e| = 35 \%               
+
+> Pult 2 ||y|/| e| = 30 \% Pult 3 ||y|/| e| = 17 \% 020 40 60 80 100
+> Predicted dropout 1 − | y|/| e| (\%)
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> Gland-to-eyelid ratio | y|/| e| (\%)
+> Pult-grade morphometric bands (motivates pult )
+> Pult 0 Pult 1 Pult 2 Pult 3
+
+Fig. 3. (top) MGD-1k expert annotations per Pult grade. (bottom) Gland-to-eyelid ratio vs. Pult grade; the monotonic separation motivates Lmorph . Per-image target ratios are read from the CAMG manifest at training time. 
+
+Table 1. Source-domain (MGD-1k) test performance. Encoder Decoder Dice ↑ IoU ↑ Prec. Rec. MiT-B2 MA-Net 0.819 0.694 0.801 0.839 ResNet-50 U-Net 0.817 0.691 0.788 0.848 EfficientNet-B3 U-Net 0.816 0.690 0.796 0.838 MobileNetV2 U-Net 0.814 0.686 0.781 0.851 SBD-MTLNet [18] (lit.) ∼0.84 — — —ADAM-Net [2] (lit.) ∼0.83 ∼0.71 — —
+
+5.2 Cross-Device Transfer on CAMG 
+
+Table 2 shows the CAMG test split ( N = 20 ) under three regimes. The domain shift costs 15 –24 Dice points. CAMG-FT (supervised on 60 training images) recovers 4–8 pts. TopoPult-SSL improves over zero-shot by +2 .4–+4 .7 Dice pts. The gland-mask-free variant reaches Dice 0.645 with Precision 0.694 , matching CAMG-FT Precision while using no target gland annotations in the training loss. 
+
+Anchor ablations. Removing Ltopo improves Dice by +0 .014 because at Nt= 60 
+
+the EMA teacher topology signal is noisy—motivating its exclusion from the Stage-2 distillation teacher. Lres is the most robust single contributor. 
+
+5.3 Two-Regime Comparison 
+
+Table 3 presents all methods on U-Net + MiT-B0, separated into Block A (no target gland masks in the training loss) and Block B (target gland masks available). 95% bootstrap CIs shown (CAMG N =20 ). TopoPult-SSL: Gland-Mask-Free Cross-Device MG Segmentation 9
+
+Table 2. CAMG test ( N = 20 ) across four backbones. TopoPult-SSL: Lsup + anchors (uses gland masks); gland-mask-free: anchors only (eyelid + morphometric ratios). Regime Dec. Enc. Dice ↑ IoU ↑ Prec. Rec. zero-shot U-Net MiT-B0 0.661 0.526 0.654 0.674 zero-shot U-Net Eff-B0 0.647 0.510 0.664 0.640 zero-shot FPN MNv2 0.620 0.466 0.567 0.697 zero-shot DLv3+ MNv2 0.571 0.417 0.562 0.603 CAMG-FT U-Net MiT-B0 0.707 0.572 0.697 0.722 CAMG-FT U-Net Eff-B0 0.695 0.566 0.670 0.732 CAMG-FT FPN MNv2 0.668 0.516 0.609 0.750 CAMG-FT DLv3+ MNv2 0.655 0.498 0.583 0.765 TopoPult-SSL U-Net MiT-B0 0.684 0.549 0.655 0.724 TopoPult-SSL U-Net Eff-B0 0.681 0.545 0.655 0.720 TopoPult-SSL FPN MNv2 0.657 0.498 0.556 0.815 
+
+TopoPult-SSL DLv3+ MNv2 0.618 0.460 0.574 0.679 Mask-free U-Net MiT-B0 0.645 0.505 0.694 0.608 case 47        
+
+> input ground truth
+> ERR
+> D=0.36
+> T=0.28
+> Zero-shot
+> ERR
+> D=0.47
+> T=0.38
+> UA-MT
+> ERR
+> D=0.44
+> T=0.34
+> CAMG-FT
+> OURS
+> D=0.59
+> T=0.55
+> TopoPult-SSL d
+> case 23
+> ERR
+> D=0.44
+> T=0.44
+> ERR
+> D=0.48
+> T=0.49
+> ERR
+> D=0.49
+> T=0.51
+> OURS
+> D=0.52
+> T=0.54
+> case 71 D=0.83
+> T=0.92
+> ERR
+> D=0.82
+> T=0.91
+> FN
+> D=0.83
+> T=0.91
+> OURS
+> D=0.86
+> T=0.93
+> case 96
+> FP
+> D=0.86
+> T=0.93
+> FN
+> D=0.87
+> T=0.93 D=0.89
+> T=0.94
+> OURS
+> D=0.90
+> T=0.95
+> Qualitative comparison: gland Dice (D) and topology clDice (T) per cell. Yellow = predicted skeleton.
+> GT contour Pred contour Pred skeleton (topology) baseline trails (D/T gap) ours: correct ROI
+
+Fig. 4. Qualitative comparison on four CAMG test cases ranked by joint Dice + clDice margin against the strongest baseline. Each cell reports per-image D=Dice and T=clDice. Contours: green=GT, red=prediction; yellow=predicted skeleton (topology). Red boxes with × FP/FN/ERR badges mark baselines that trail ours on the case (Dice gap ≥ 0.03 
+
+or clDice gap ≥ 0.02 ); the green ✓ OURS box highlights the same ROI on our column. Cases without a badge are near-ties (we lead only marginally). Columns: Zero-shot / UA-MT / CAMG-FT / TopoPult-SSL d.
+
+Block A (gland-mask-free training loss). SAM/MedSAM flood the eyelid (Precision 0.30 –0.34 ). TopoPult-SSL ∗ uses target eyelid masks and morphometric metadata (but no gland masks) in the training loss, achieving Precision 0.694 (+36 –
+
+40 pts over SAM/MedSAM; p< 0.001 ). Model selection uses CAMG validation gland masks. 10 N. Savioli, L. Del Tongo 
+
+Block B (target gland masks used in training). The self-distilled single model (Section 3.4) uses CAMG training gland masks in Lsup and achieves Dice 0.726 
+
+(best seed), surpassing UA-MT ( 0.710 ), CPS ( 0.707 ), CAMG-FT ( 0.707 ), and the Stage-1 ensemble ( 0.720 ). Across 5 seeds: 0.716 ±0.006 .
+
+Table 3. Two-regime comparison on CAMG test ( N = 20 ), U-Net + MiT-B0. A: no gland masks in training loss (val masks for selection). B: gland masks in training. 95% CI. Bold: best. Method Supervision Dice ↑ Prec. ↑ Rec. clDice ↑
+
+Block A: no gland masks in training loss (eyelid masks + morphometric ratios) 
+
+MedSAM [8] 0-shot+box 0.496 [.46–.53] 0.335 [.30–.37] 0.992 —SAM [5] 0-shot+box 0.454 [.41–.49] 0.298 [.26–.33] 0.997 —Zero-shot (MGD-1k) 0-shot 0.661 [.57–.75] 0.654 [.55–.75] 0.674 0.706 TopoPult-SSL ∗ (ours) gland-mask-free 0.645 [.56–.73] 0.694 [.59–.80] 0.608 0.688 
+
+Block B: target gland masks used in training 
+
+Mean Teacher [16] EMA 0.702 [.62–.78] 0.660 0.756 0.739 FixMatch-Seg [15] pseudo-lbl 0.705 [.64–.77] 0.647 0.783 —CPS [1] cross-PL 0.707 [.63–.78] 0.683 0.742 —UA-MT [17] EMA+unc. 0.710 [.63–.78] 0.661 0.774 0.750 CAMG-FT (ours) supervised 0.707 [.63–.78] 0.697 0.722 0.748 TopoPult-SSL (ours) sup+anchors 0.691 [.61–.77] 0.650 0.745 0.722 
+
+TopoPult-SSL d (ours) self-distill 0.726 [.65–.80] 0.691 0.770 0.764 
+
+5.4 Self-Distillation Analysis 
+
+Table 4 shows the five-seed robustness of the final self-distilled model against the two-model ensemble and best baselines. The key finding is that self-distillation 
+
+exceeds the ensemble teacher: the student benefits from seeing both ground truth and pseudo-labels jointly, learning a decision boundary that is tighter than either teacher alone. 
+
+Table 4. Self-distillation vs. ensemble and baselines (U-Net + MiT-B0, CAMG test 
+
+N = 20 ). Stage 2 uses CAMG training gland masks and is therefore not gland-mask-free. Mean ±std over 5 seeds. Method Dice ↑ Prec. Rec. Inference UA-MT [17] 0.710 0.661 0.774 1 pass CAMG-FT (supervised) 0.707 0.697 0.722 1 pass Stage-1 ensemble ( τ ∗=0 .35 ) 0.720 0.665 0.794 2 passes Self-distilled (ours) 0.716 ±0.006 0.685 0.763 1 pass Best seed 0.726 0.691 0.770 1 pass 
+
+Calibrated thresholding ( τ ∗ on validation) is essential: the optimal τ ∗ ranges between 0.32 –0.46 depending on the seed, yielding +1 .5–+3 .0 Dice pts over the default τ = 0.5. We recommend that cross-device studies always report both thresholds. TopoPult-SSL: Gland-Mask-Free Cross-Device MG Segmentation 11 
+
+6 Discussion and Conclusion 
+
+Summary. TopoPult-SSL addresses a critical clinical bottleneck: every new mei-bography device requires expensive gland re-annotation, but eyelid outlines, Pult grades, and morphometric ratios are cheaply available . Stage 1 enables gland-mask-free adaptation using these weak clinical priors. Stage 2, when target gland masks are available, distils complementary Stage-1 models into a single SOTA segmenter: Dice 0.716 ±0.006 (best 0.726 ), surpassing UA-MT ( 0.710 ) and all SSL baselines—with a single inference pass. The gland-mask-free Stage-1 variant delivers Precision 0.694 (vs. 0.30 for SAM), enabling deployment without dense gland contouring. Why self-distillation outperforms the ensemble. The Stage-1 teachers are com-plementary: TopoPult-SSL is conservative (Precision 0.694 , Recall 0.608 ) while CAMG-FT is balanced ( 0.697 /0.722 ). Their average exposes more gland extent. The student, trained on both ground truth and these richer pseudo-labels, learns a tighter decision boundary than either teacher—a phenomenon consistent with knowledge distillation [ 4] and self-ensembling domain adaptation [ 3]. Crucially, inference remains a single forward pass ( 5.6 M parameters, < 10 ms on GPU). Resolution-equivariance as the key enabler. Lres is the most robust single anchor ( +1 .4 Dice when ablated). It produces smooth, well-calibrated probability maps that enable effective threshold calibration ( τ ∗= 0.32 –0.46 vs. the suboptimal 
+
+0.5 default) and make the pseudo-labels from the ensemble teacher more reliable. Topology trade-off at small Nt. Ltopo does not improve Dice at Nt= 60 because the EMA teacher produces noisy skeletons early in training. However, it con-tributes to skeleton precision ( 0.722 vs. 0.686 zero-shot), which matters clinically for individual gland counting. At larger Nt we expect topology anchoring to become beneficial. Generality. The template— ordinal clinical score + anatomy region + topology prior + resolution-equivariance + self-distillation —applies to any elongated structure with routine grading: corneal nerves with CNFL scoring, retinal layers with thickness grading, or airways with obstruction scores. Limitations. (i) Small test set ( N = 20 ): bootstrap CIs are wide. (ii) Single target device; multi-site evaluation is needed. (iii) Stage 1 does not use target gland masks in the training loss but uses target eyelid masks and morphometric ratios (cheap but not zero-cost); model selection uses CAMG validation gland masks. (iv) Stage 2 requires target gland masks for Lsup and is therefore not gland-mask-free. (v) SAM/MedSAM results are specific to box prompting on meibography. Despite these caveats, TopoPult-SSL sets a new SOTA on the MGD-1k →CAMG public benchmark and demonstrates that cheap clinical signals can substitute expensive dense gland annotation. 
+
+Acknowledgments. Industrial R&D collaboration between OdaxAI S.r.l. and VISIA Imaging S.r.l. (Topcon Group). 12 N. Savioli, L. Del Tongo 
+
+References 
+
+1. Chen, X., Yuan, Y., Zeng, G., Wang, J.: Semi-supervised semantic segmentation with cross pseudo supervision. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR). pp. 2613–2622 (2021) 2. Fang, J., He, X., Jiang, Y., Wang, M.H.: Adam-net: Anatomy-guided attentive unsu-pervised domain adaptation for joint MG segmentation and MGD grading. Journal of Imaging 12 (1), 50 (2026), https://doi.org/10.3390/jimaging12010050 
+
+3. French, G., Mackiewicz, M., Fisher, M.: Self-ensembling for visual domain adapta-tion. In: International Conference on Learning Representations (ICLR) (2018) 4. Hinton, G., Vinyals, O., Dean, J.: Distilling the knowledge in a neural network. arXiv preprint arXiv:1503.02531 (2015) 5. Kirillov, A., Mintun, E., Ravi, N., Mao, H., Rolland, C., Gustafson, L., Xiao, T., Whitehead, S., Berg, A.C., Lo, W.Y., Dollár, P., Girshick, R.: Segment anything. In: Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) (2023) 6. Li, L., Xiao, K., Lai, K., Lai, T., Wang, Y., Shang, X., Xue, Y., Ge, Z., Liang, L., He, M., Lin, J., Zhu, Z.: AI-driven quantitative analysis of meibomian glands in children and adolescents: a benchmark dataset study. Eye and Vision 12 , 46 (2025), https://doi.org/10.1186/s40662-025-00460-2 
+
+7. Li, L., Xiao, K., Lai, T., Lai, K., Lin, J., Ge, Z., Liang, L., Huang, H., Zhang, X., Liu, L., Wang, Y., Shang, X., He, M., Xue, Y., Zhu, Z.: Development and multicenter validation of an AI-driven model for quantitative meibomian gland evaluation. npj Digital Medicine 8, 403 (2025), https://doi.org/10.1038/s41746-025-01753-5 
+
+8. Ma, J., He, Y., Li, F., Han, L., You, C., Wang, B.: Segment anything in medical images. Nature Communications 15 , 654 (2024) 9. Perone, C.S., Ballester, P., Barros, R.C., Cohen-Adad, J.: Unsupervised domain adaptation for medical imaging segmentation with self-ensembling. NeuroImage 
+
+194 , 1–11 (2019), https://doi.org/10.1016/j.neuroimage.2019.03.026 
+
+10. Pult, H., Riede-Pult, B.H.: Comparison of subjective grading and objective assess-ment in meibography. Contact Lens and Anterior Eye 36 (1), 22–27 (2013) 11. Ronneberger, O., Fischer, P., Brox, T.: U-net: Convolutional networks for biomed-ical image segmentation. In: Medical Image Computing and Computer-Assisted Intervention (MICCAI). pp. 234–241 (2015) 12. Saha, R.K., Chowdhury, A.M.M., Na, K.S., Hwang, G.D., Eom, Y., Kim, J., Jeon, H.G., Hwang, H.S., Chung, E.S.: Automated quantification of meibomian gland dropout in infrared meibography using deep learning. The Ocular Surface 26 ,283–294 (2022), https://doi.org/10.1016/j.jtos.2022.06.006 
+
+13. Setu, M.A.K., Horstmann, J., Schmidt, S., Stern, M.E., Steven, P.: Deep learning-based automatic meibomian gland segmentation and morphology assessment in infrared meibography. Scientific Reports 11 , 7649 (2021), https://doi.org/10. 1038/s41598-021-87314-8 
+
+14. Shit, S., Paetzold, J.C., Sekuboyina, A., Ezhov, I., Unger, A., Zhylka, A., Pluim, J.P.W., Bauer, U., Menze, B.H.: clDice – a novel topology-preserving loss function for tubular structure segmentation. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR). pp. 16560–16569 (2021), 
+
+https://doi.org/10.1109/CVPR46437.2021.01629 
+
+15. Sohn, K., Berthelot, D., Carlini, N., Zhang, Z., Zhang, H., Raffel, C., Cubuk, E.D., Kurakin, A., Li, C.L.: Fixmatch: Simplifying semi-supervised learning with consistency and confidence. In: Advances in Neural Information Processing Systems (NeurIPS) (2020) TopoPult-SSL: Gland-Mask-Free Cross-Device MG Segmentation 13 16. Tarvainen, A., Valpola, H.: Mean teachers are better role models: Weight-averaged consistency targets improve semi-supervised deep learning results. In: Advances in Neural Information Processing Systems (NeurIPS) (2017) 17. Yu, L., Wang, S., Li, X., Fu, C.W., Heng, P.A.: Uncertainty-aware self-ensembling model for semi-supervised 3d left atrium segmentation. In: Medical Image Comput-ing and Computer-Assisted Intervention (MICCAI). pp. 605–613 (2019) 18. Zhu, W., Liu, D., Zhuang, X., Gong, T., Shi, F., Xiang, D., Peng, T., Zhang, X., Chen, X.: Strip and boundary detection multi-task learning network for seg-mentation of meibomian glands. Medical Physics 52 , 1615–1628 (2025), https: //doi.org/10.1002/mp.17542

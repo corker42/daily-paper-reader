@@ -1,0 +1,188 @@
+Title: SortIT — A Tool For Assessing Observer Variability And Creating Ground Truth Image Classification Datasets
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.05.28.728616v2.full.pdf
+
+Number of Pages: 11
+
+Markdown Content:
+# SortIT — A Tool For Assessing Observer Variability And Creating Ground Truth Image Classification Datasets 
+
+# Wataru Uegami 1,2 , Tom Bisson 3, Ethan N. Okoshi 1, Frederico Gaia Costa da Silva 1, Jijgee Munkhdelger 2, Kris Lami 1,2 , Norman Zerbe 3, Andrey Bychkov 2, and Junya Fukuoka ∗1,2 
+
+> 1
+
+Department of Pathology Informatics, Nagasaki University Graduate School of Biomedical Sciences, Nagasaki, Japan 
+
+> 2
+
+Department of Pathology, Kameda Medical Center, Kamogawa, Japan 
+
+> 3
+
+Charité-Universitätsmedizin Berlin, Corporate Member of Freie Universität Berlin and Humboldt-Universität zu Berlin, Institute of Pathology, Germany 
+
+# June 2, 2026 
+
+Abstract 
+
+Interobserver variability in pathological assessments is a well-recognized challenge that impacts diagnostic reliability and disease understanding. This variability exists across many subspecialties due to the subjective nature of evaluations. Artificial intelligence (AI) applied to whole slide images has potential to standardize procedures and reduce variability in pathol-ogy, but transitioning to these technologies does not guarantee improvement. Establishing reliable ground truth datasets with consensus annotations is crucial for developing robust AI solutions. We introduce SortIT, an open-source web application that facilitates systematic creation and evaluation of ground truth image tile annotations. SortIT enables multiple annotators to independently label tiles, with flexible user permission controls. Annotated data can be exported for statistical analysis of observer variation and for creating ground truth datasets from consensus tiles. We outline protocols using SortIT for several use cases: (1) mitosis segmentation in tumor regions, (2) evaluating AI solutions for prostate cancer grading by comparing to expert consensus, and (3) granuloma classification by annotating discriminative tile-level features. Key strengths of SortIT lies in its ease of deployment, making it accessible and usable for a wide range of users. Overall, SortIT provides a valuable tool to establish high-quality ground truth datasets and comprehensively assess observer variability. Critical evaluation of ground truth quality using systematic annotation methodologies is crucial for developing accurate and generalizable diagnostic AI tools. Its open-source nature facilitates community adoption and further development. 
+
+Keywords— interobserver variability, statistical analysis, annotation, open-source software, digital pathology, dataset labeling 
+
+# 1 Introduction 
+
+In pathology, interobserver variability in tissue evaluations is a common yet critical issue. It not only affects diagnostic reliability at the clinical level but also hinders the understanding of diseases. As 
+
+> ∗
+
+Corresponding author: Junya Fukuoka, MD, PhD, 1-7-1, Sakamoto, Nagasaki 852-8523, Japan, Email: fukuokaj@nagasaki-u.ac.jp, Phone: +81-95-819-7055 
+
+1
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint Figure 1: Survey results from expert pathologists evaluating the level of interobserver agreement on various tasks. The survey was shared via social media, and 81 responses were collected over 2 weeks in December 2025. Each question was multiple choice, and only one answer could be selected. 
+
+pathological assessment often relies on the subjective judgment of pathologists, this problem arises in nearly every subspecialty and domain of pathology, including disease classification, tumor grading, cancer staging, and various reporting parameters. There are many notable examples of considerable expert disagreement in breast, 1 prostate, 2 lung, 3 skin, 4 gynecologic, 5 and endocrine tumor 6, 7 pathology, among others. The same issue is equally recognized in non-neoplastic diseases 8–10 and cytopathology. 11 
+
+Furthermore, evaluation of common ancillary techniques, such as immunostaining and in situ hybridiza-tion, have also been shown to be subject to interobserver variability. 12, 13 We conducted a survey of international expert pathologists ( n = 81 ; December 2025), distributed via social media, to assess their estimation of interobserver variability across different diagnostic domains (Figure 1). The results showed that pathologists believe agreement is generally high for common neoplastic and non-neoplastic diseases, while uncertainty and discordance increase when rare entities are encountered. For malignant vs. benign classification of common neoplasms, 84% (95%CI [0.74, 0.91]) of respondents believed that interobserver agreement was ≥80%, compared with 59% (95%CI [0.48, 0.70]) for rare neoplasms. Using whole slide images (WSIs) analyzed with computational pathology techniques such as artificial intelligence (AI) could help standardize diagnostic procedures and potentially reduce interobserver variability, thus optimizing patient care. 14 Validation studies comparing digitized WSI-based workflows with conventional microscopy have shown mixed results. Some studies, on renal pathology 15, 16 and on tumor bud evaluation, 17 showed improved agreement with WSI, while others have shown better agreement using conventional microscopy. 18, 19 AI assistance has been shown to improve interobserver agreement on WSI in several studies. 20, 21 However, the use of AI in pathology carries the risk of overinterpreting the performance metrics achieved with these computational tools. When AI models achieve high performance metrics, there is a tendency to develop a certain level of trust in the algorithm. It is important to note that these metrics are based on the algorithm’s performance on a pre-existing validation or test data set. Yet, the quality and representativeness of this specific data set is rarely critically examined. This raises important considerations regarding interobserver variability and how it might be counterbalanced, strategies to deal with tissue structures lacking consensus between the rating pathologists, possible distinctions between structures with immediate consensus and those necessitating discussion, or potential diagnostic variations across different laboratories. These and other aspects of dataset compilation must be considered when applying computational pathology tools to routine diagnostics. To deal with this fundamental issue, a variety of approaches have been developed to measure and, when necessary, minimize the effects of interobserver variability. 22 In this paper, we present an image sorting tool for dataset building, SortIT. SortIT is a web application that allows users to compile image datasets with human-confirmed ground truth labels. Our patch-level labeling tool is engineered for ease of use, offering an intuitive and user-friendly experience. SortIT can be deployed locally or in the cloud, ensuring easy access. The tool includes a user management system which maintains a clear differentiation between administrators and regular users. Importantly, it allows for granular permission assignments to individual users, enabling tailored setups that align with the specific needs of various 
+
+2
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+Figure 2: Visualization of the complete workflow. Image tiles need to be generated from a set of WSIs to then be classified by multiple pathologists. Afterwards, the results can be exported as a CSV file for further analysis. 
+
+institutions. SortIT facilitates independent labeling by multiple users, offering a high degree of flexibility. SortIT has been made available as open-source software ( https://github.com/FukuokaLab/SortIT ). 
+
+# 2 Methods 
+
+# 2.1 Brief Overview 
+
+The workflow begins with collecting a set of WSIs on which tile-level classification should be performed. Then, the image tiles need to be generated from these WSIs in order to import them into SortIT. Subsequently, several pathologists can perform the classification task via the browser-based user interface. When the classification phase is completed, the resulting data can be exported as a CSV file, facilitating a thorough evaluation and comprehensive analysis (Figure 2). Usage of the tool is described in detail in the code repository README. 
+
+# 2.2 Software 
+
+SortIT is a web application using the Django framework. It can be accessed from any device which can support a web browser, including smartphones, tablets, and personal computers. Within the software, user roles are divided into administrators and standard users. Administrators have additional privileges, such as preparing datasets and managing user accounts. By default, standard users are limited to image annotation, although administrators can expand their access as needed. The annotation process can follow either a single-class or a multi-class approach. In the single-class annotation mode, images are displayed in a grid format, allowing users to select images which do not belong to the target class by clicking on the images (Figure 3a). Selected images are filtered out of the dataset (label is left empty). In the multi-class mode, images are shown individually, and users select from multiple applicable class options for each image (Figure 3b). A progress indicator informs users how many images have been annotated out of the total batch, helping monitor workflow completion. A key feature of SortIT is its ability to export annotated data in CSV format. In this format, users are represented by rows, images by columns, and the assigned classes are recorded in the corresponding cells. This exported CSV file offers a structured summary of the annotations, making it suitable for further analysis. 
+
+# 2.3 Tile Creation 
+
+The presented software is based on classification at the image tile level, with no special requirements for the sizes of the image tiles. These may already correspond exactly to the dimensions expected by the neural network used in each case, but the tool does not restrict in this regard, so that different 
+
+3
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+Figure 3: SortIT user interface. Single-class (A) and multi-class (B) sorting approaches. 
+
+approaches to ground truth creation can also be applied. Generating these image tiles is not part of SortIT. The authors generally use openslide-python or QuPath. For this purpose, the QuPath documentation provides a sample script that can be used to configure various parameters such as tile size, size of the overlapping area, resolution, or consideration of any annotations that may be present. In some scenarios it is advantageous to modify the image tiles afterwards. One possibility, for example, is to display a larger tissue area and additionally mark the area to be classified. This could ensure that the surrounding tissue can also be considered during the sorting process. Furthermore, users can apply methods such as MIXTURE to further reduce the burden of labeling images. 23 
+
+# 2.4 Statistical Evaluation 
+
+Ground truth quality assessment requires precise statistical analysis of interobserver and/or intraobserver variability. This is typically achieved through interobserver agreement measures such as Cohen’s kappa and Fleiss’ kappa. Our tool facilitates these analyses by enabling CSV data export. To determine the interobserver variability, it is sufficient to create an individual user account for each annotating expert. Depending on the problem under investigation, it is advisable to define certain procedures. For 
+
+4
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+example, a maximum session duration could be defined to minimize fatigue. Other problem-specific study parameters could be, for example, compliance with guidelines, defining classes by the presence of morphological characteristics, or the use of cutoff-values. To determine intraobserver variability, several user accounts could be created for a single person, with all of these accounts operating on the same data set. First, this data set should be fully annotated with one account. Then, a washout period should be applied, usually of two weeks or longer. Subsequently, the dataset can be annotated by the same pathologist again using a separate account. 
+
+# 2.5 Customizing SortIT 
+
+SortIT is built using the Django 24 framework. New features can be added to the app by altering the code found in our public repository. Adding new features will require familiarity with Python and web design languages like HTML and JavaScript, but the website is designed to be simple to extend. Detailed discussion of the codebase and its structure is included in the README file in the code repository. 
+
+# 3 Results 
+
+# 3.1 Validation Study 
+
+To validate SortIT with an empirical study, three board-certified pathologists (P1–P3), who were blinded to the study hypothesis and comparative objectives, independently performed tumor-rich patch selection on two cases. Whole-slide images were pre-segmented into non-overlapping 224 ×224 pixel patches. Using the SortIT interface, each pathologist selected patches estimated to contain ≥70% tumor cells based on visual assessment. For comparison, manual annotation was performed using QuPath (version 6.0.0). Tumor regions were delineated at the structural/glandular level using polygon annotations. Subsequently, 224 ×224 pixel patches were generated from areas in which ≥70% of the patch area was covered by the annotated tumor region. The number of tumor-rich patches identified by each method and the time required for completion were recorded for each pathologist and case. SortIT yielded significantly higher numbers of tumor-rich ( ≥70%) image acquisitions compared with manual annotation (paired t-test, 
+
+p = 0 .0074 , 95%CI=[106.1, 414.2]; Wilcoxon signed-rank test, p = 0 .031 , 95%CI=[105, 531]). There was no statistically significant difference in acquisition time in seconds between SortIT and manual annotation (paired t-test, p = 0 .50 , 95%CI=[-384.81, 687.48]; Wilcoxon signed-rank test, p = 0 .44 ,95%CI=[-647, 900]). (Figure 4) 
+
+# 3.2 Use Cases 
+
+SortIT provides a useful tool to establish ground truth datasets composed of consensus tiles 3 and comprehensively assess interobserver and intraobserver variability. To facilitate these evaluations, we designed different study protocols which can serve as guidelines, ensuring a systematic approach to studying and quantifying the levels of variability within our analyses. In the following, we will delineate several distinct methodologies for establishing ground truth for various tasks using SortIT. 
+
+3.2.1 Use Case 1: Mitosis Segmentation 
+
+In this first use case we describe how we would train a neural network for mitosis segmentation in H&E images. As input, we would define a region of interest (ROI) within the WSI, outlining tumor areas exclusively to accurately count relevant mitotic figures. As there is no need to address inherent spatial context between individual mitoses, the AI will work solely at the tile level. By building a dataset comprising the precise coordinates of mitoses, we gain the flexibility to generate image tiles containing mitoses positioned at various locations, scales and rotations. As there might be more than just one mitosis in one image tile, we will aim for a segmentation model to find all instances of mitosis in each specific tile. To generate the image tiles to be classified, we employed the QuPath cell detection algorithm to achieve automated segmentation of cells within WSI. It results in a set of annotations outlining both the outer cell membrane as well as the nuclei. Leveraging this annotation data, we proceeded to create tiles cropped to the dimensions of the detected cells using a custom groovy script. 25 In this case, there is no need for a specific tile size since the training data is generated at a later stage utilizing the output of 
+
+5
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+Figure 4: Validation study results between hand annotations vs. SortIT for patch dataset creation. 2 cases were evaluated by 3 trained pathologists. (A) Number of patches generated by each pathologist. (B) time spent on each task. 
+
+SortIT. When all cells were classified into either mitotic or non-mitotic in single-class approach, we can map the IDs of the images to the results obtained from QuPath’s cell detection algorithm resulting in a comprehensive dataset, featuring segmentation masks for both mitotic as well as non-mitotic cells. The non-segmented remainder of the ROI may serve as a background class allowing a 3-class segmentation model to be trained (Figure 5). In evaluating the ground truth for mitosis detection in H&E slides, it’s important to acknowledge the inherent challenge of achieving perfect classification accuracy for pathologists. Given this, we recommend creating a representative subset, encompassing a percentage of the entire dataset, for annotation by pathologists allowing for a comprehensive interrater agreement assessment using Fleiss’ kappa. By deriving insights from their annotations, we obtained valuable information regarding the dataset’s reliability and the challenging nature of the task. Understanding the imperfections in manual annotation of mitosis, we are confident that with a sufficiently large dataset, the neural network will effectively mitigate the noise, encompassing both falsely annotated cells and potentially missed mitotic figures, within the dataset. 
+
+3.2.2 Use Case 2: Evaluation of AI-Solutions for Prostate Cancer Grading 
+
+In the second use case, we demonstrate how to analyze the performance of AI tools for prostate cancer grading. The relevance of this topic is reflected in the continued emergence of commercial AI solutions in this field, such as those from Ibex, Paige Prostate or Ibex Galen prostate, to name a few. To investigate these solutions, they are first employed on a series of prostate slides to then evaluate the individually identified lesions. In doing so, both the AI-assigned Gleason grades and the accuracy of the annotations will be examined. To obtain the individual images, the respective AI algorithm to be evaluated is applied to the WSIs followed by acquiring screenshots of each lesion either directly through the program’s user interface or alternatively in QuPath and saving them with the slide name, a unique ID for the lesion, 
+
+6
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+Figure 5: Overview of dataset creation for ground truth generation in mitosis segmentation 
+
+and the Gleason grade provided by the tool. Then, all images are uploaded to SortIT and made available to multiple pathologists for evaluation (Figure 6). For the evaluation, Cohen’s kappa is calculated to measure the agreement between the AI tool and each pathologist in grading the lesions. In addition, Fleiss’ kappa is calculated between all pathologists for each lesion, providing information on the overall agreement between pathologists in grading. Furthermore, the percentage of lesions for which the AI-assigned Gleason grade is in agreement with the majority pathologists is determined, illustrating the agreement of the prostate AI tool with expert opinion. Finally, the percentage of cases in which the AI yields false positives – defined as giving a grade differing from the majority consensus – is determined, providing insight into its specificity. False negatives are not included in this process but can also be covered by adjusting data generation accordingly. This comprehensive investigation ensures a solid understanding of the performance of the AI tool and helps assess its applicability in the diagnosis of prostate cancer. 
+
+3.2.3 Use case 3: Granuloma classification 
+
+Granulomas, organized aggregates of immune cells, form as a defense mechanism in response to persistent infections, foreign materials, or autoimmune conditions. In the lungs, granulomas are commonly caused by diseases such as tuberculosis, non-tuberculous mycobacterial infections, sarcoidosis, hypersensitivity pneumonitis, and granulomatous vasculitis. Each of these diseases have distinct histological features in their granulomas, but they do not always have clear boundaries and often show overlapping characteristics. Each of these diseases displays unique histological features in their granulomas, 6but overlapping characteristics often make differentiation difficult, complicating the diagnostic process. Accurately identifying the underlying disease, however, is crucial for delivering effective therapy. Necrotizing, 
+
+7
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+Figure 6: Overview of the AI evaluation process for prostate cancer grading. 
+
+well-formed granulomas are associated with infections, well-formed granulomas with fibrosis are seen in sarcoidosis, small and poorly formed granulomas composed of loosely connected histiocytes are characteristic of hypersensitivity pneumonitis, and well-formed granulomas with a palisading pattern are observed in granulomatosis with polyangiitis and other types of vasculitis. These features are not necessarily uniform across the entire granuloma. Consequently, certain regions may reflect the underlying disease more accurately than others. AI algorithms are designed to optimize their decision-making over all training data points, necessitating robust and precise annotation strategies to create a reliable ground truth. When regarding granuloma, it might seem intuitive to assign a single label to an entire granuloma, describing the distinct characteristic reflecting the underlying disease. However, because the specific histological features of certain granulomas can be concentrated in localized areas, there is a risk that a neural network will optimize towards irrelevant or non-disease-specific features across the whole structure. To address this, we use SortIT to annotate granulomas at the tile level using a multi-class approach, increasing the likelihood that AI will accurately learn the characteristic histological features (Figure 7). 
+
+# 4 Discussion 
+
+The developed SortIT tool is an open-source, web-based application designed for the labeling of image tiles. Its key advantage lies in its ease of deployment, making it accessible and usable for a wide range of users. The versatility of the tool allows it to serve various use cases in the field of digital pathology, ranging from the pure investigation of intra- and interobserver variabilities up to the creation of a ground truth used to train an AI and simultaneously measure the quality of the dataset. Since the respective evaluations are performed using data that has been collected and processed automatically, not only is the labeling process simplified, but also, the tool facilitates evaluation of the reliability and precision of the collected data. There are a number of available tools for the purpose of labeling image data, including CVAT, VoTT, MakeSense, Label Studio, OpenLabeler, MedTagger, etc. However, many of these tools are no longer actively maintained, are not open source, focus more on object detection and segmentation tasks, or are more complex. We designed SortIT to be limited in scope so as to be as simple as possible to use for the specific use case. The main feature of SortIT, the ability for multiple users to enter annotations for images, is not a common feature among the labeling tools we found. MedTagger and LOST also feature collaborative labeling functionality, but the former is no longer maintained as of 2020, and the latter has a much wider scope. SortIT provides a tool for users that value a fast and simple tool for image classification tasks. One strength of our solution is that it operates as a web application, accessible through a browser, without the need for an installation process. This design not only improves usability but also allows pathologists to conduct data analysis and creation without extensive time, effort, and IT expertise. SortIT can be encapsulated in a Docker container, i.e. a virtual containerized operating system with comprehensive system setup. This not only simplifies the initial setup of the tool but also ensures that the tool can be used regardless of the system environment. Additionally, the tool was implemented using the Django web framework, which is written for Python. Python is widely used in the AI community due to its numerous existing libraries for AI and image 
+
+8
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+Figure 7: Overview of the AI evaluation process for prostate cancer grading. 
+
+processing, such as PyTorch, TensorFlow, Scikit-Image and OpenCV. This, along with the open-source license under which the tool is provided, opens up multiple opportunities for further development by the community. One of the main hurdles for the development, acceptance and dissemination of AI solutions is the availability of annotations. While there are a number of publicly available datasets, 26, 27 this is not true for every single diagnostic domain. Not every research group is sufficiently staffed and funded to develop their own annotation tools and processes. Thus, there is a demand for making annotations more widely available. 28 SortIT counteracts this by greatly simplifying the annotation/sorting process. Another significant benefit is the lack of having to transfer data between individual annotators, allowing seamless collaboration across multiple sites. Since SortIT is provided as open source, anyone can create another ground truth using exactly the same annotation methodology and can furthermore measure and compare the inherent interobserver variability in these datasets. A notable constraint of this tool is its limitation to tile-level classification tasks, constricting its versatility and applicability for image segmentation tasks. Moreover, in its current form, SortIT does not provide a comprehensive end-to-end solution encompassing the entire process from generating image tiles from WSI to statistically evaluating results. The responsibility to generate image tiles falls on the user, although guidance and a script for a specific case within QuPath are provided to ease this process. Similarly, the tool leaves the statistical evaluation of results to the user, exporting only raw classification data. It is crucial to underline that the evaluation results heavily hinge on the chosen annotation methodology. The current methodology involves classification based on predefined image tiles (still images) without the ability to navigate within the tissue offered by WSI, meaning users are unable to view the surrounding tissue of the tile to put it into context. However, users can choose to upload tiles at any magnification and resolution, so they can ensure that tiles have sufficient context for their specific labeling task. 
+
+9
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+# 5 Conclusion 
+
+The quality of ground truth in a dataset is a critical factor in the development of AI-powered diagnostic solutions and is determined not only by the number of data points included, but also by a transparent explanation of the creation process. Our SortIT tool provides researchers with the ability to perform such an assessment with minimal setup effort. We present several use cases, including classification at the individual cell level, scoring within fixed size areas, as well as tissue structures within their spatial context. It is of great importance that researchers critically evaluate their ground truth by performing such comprehensive quality measurements. 
+
+# References 
+
+[1] Allison Kimberly H, Reisch Lisa M, Carney Patricia A, et al. Understanding diagnostic variabil-ity in breast pathology: lessons learned from an expert consensus review panel Histopathology. 
+
+2014;65:240–251. [2] McLean M t, Srigley J, Banerjee D, Warde P, Hao Y. Interobserver variation in prostate cancer Gleason scoring: are there implications for the design of clinical trials and treatment strategies? 
+
+Clinical oncology. 1997;9:222–225. [3] Lami Kris, Ota Noriaki, Yamaoka Shinsuke, et al. Standardized classification of lung adenocarcinoma subtypes and improvement of grading assessment through deep learning The American journal of pathology. 2023;193:2066–2079. [4] Elmore Joann G, Barnhill Raymond L, Elder David E, et al. Pathologists’ diagnosis of inva-sive melanoma and melanocytic proliferations: observer accuracy and reproducibility study bmj. 
+
+2017;357. [5] Hecht Jonathan L, Ince Tan A, Baak Jan, Baker Heather E, Ogden Maryann W, Mutter George L. Prediction of endometrial carcinoma by subjective endometrial intraepithelial neoplasia diagnosis 
+
+Modern pathology. 2005;18:324–330. [6] Liu Zhiyan, Bychkov Andrey, Jung Chan Kwon, et al. Interobserver and intraobserver variation in the morphological evaluation of noninvasive follicular thyroid neoplasm with papillary-like nuclear features in Asian practice Pathology international. 2019;69:202–210. [7] Zhu Yun, Li Yaqiong, Jung Chan Kwon, et al. Histopathologic assessment of capsular invasion in follicular thyroid neoplasms—an observer variation study Endocrine pathology. 2020;31:132–140. [8] Pavlides Michael, Birks Jacqueline, Fryer Eve, et al. Interobserver variability in histologic evaluation of liver fibrosis using categorical and quantitative scores American journal of clinical pathology. 
+
+2017;147:364–369. [9] Seki Kurumi, Munkhdelger Jijgee, Bychkov Andrey, et al. Challenges in recognizing airway-centered fibrosis: Observer concordance and its role in fibrotic hypersensitivity pneumonitis Respiratory Investigation. 2025;63:314–321. [10] Shinohara Shizu, Bychkov Andrey, Munkhdelger Jijgee, et al. Substantial improvement of histopatho-logical diagnosis by whole-slide image-based remote consultation Virchows Archiv. 2022;481:295–305. [11] Cibas Edmund S, Baloch Zubair W, Fellegara Giovanni, et al. A prospective assessment defining the limitations of thyroid nodule pathologic evaluation Annals of internal medicine. 2013;159:325–332. [12] Chang Sunhee, Park Hyung Kyu, Choi Yoon-La, Jang Se Jin. Interobserver reproducibility of PD-L1 biomarker in non-small cell lung cancer: a multi-institutional study by 27 pathologists Journal of Pathology and Translational Medicine. 2019;53:347–353. [13] Papouchado Bettina G, Myles Jonathan, Lloyd Ricardo V, et al. Silver in situ hybridization (SISH) for determination of HER2 gene status in breast carcinoma: comparison with FISH and assessment of interobserver reproducibility The American journal of surgical pathology. 2010;34:767–776. [14] Berbís M Alvaro, McClintock David S, Bychkov Andrey, et al. Computational pathology in 2030: a Delphi study forecasting the role of AI in pathology within the next decade EBioMedicine. 2023;88. 
+
+10 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 2, 2026. ;https://doi.org/10.64898/2026.05.28.728616 doi: bioRxiv preprint
+
+[15] Barisoni Laura, Nast Cynthia C, Jennette J Charles, et al. Digital pathology evaluation in the multicenter Nephrotic Syndrome Study Network (NEPTUNE) Clinical Journal of the American Society of Nephrology. 2013;8:1449–1459. [16] Azam Ayesha S, Tsang Yee-Wah, Thirlwall Jenny, et al. Digital pathology for reporting histopathol-ogy samples, including cancer screening samples–definitive evidence from a multisite study 
+
+Histopathology. 2024;84:847–862. [17] Hacking Sean, Nasim Rafae, Lee Lili, et al. Whole slide imaging and colorectal carcinoma: avalidation study for tumor budding and stromal differentiation Pathology-Research and Practice. 
+
+2020;216:153233. [18] Gavrielides Marios A, Ronnett Brigitte M, Vang Russell, et al. Pathologist concordance for ovarian carcinoma subtype classification and identification of relevant histologic features using microscope and whole slide imaging Archives of Pathology & Laboratory Medicine. 2021;145:1516–1525. [19] Lashen Ayat, Ibrahim Asmaa, Katayama Ayaka, et al. Visual assessment of mitotic figures in breast cancer: a comparative study between light microscopy and whole slide images Histopathology. 
+
+2021;79:913–925. [20] Bulten Wouter, Balkenhol Maschenka, Belinga Jean-Joël Awoumou, et al. Artificial intelligence assistance significantly improves Gleason grading of prostate biopsies by pathologists Modern Pathology. 2021;34:660–671. [21] Tolkach Yuri, Wolgast Lisa Marie, Damanakis Alexander, et al. Artificial intelligence for tumour tissue detection and histological regression grading in oesophageal adenocarcinomas: a retrospective algorithm development and validation study The Lancet Digital Health. 2023;5:e265–e275. [22] Popović Zoran B, Thomas James D. Assessing observer variability: a user’s guide Cardiovascular diagnosis and therapy. 2017;7:317. [23] Uegami Wataru, Bychkov Andrey, Ozasa Mutsumi, et al. MIXTURE of human expertise and deep learning—developing an explainable model for predicting pathological diagnosis and survival in patients with interstitial lung disease Modern Pathology. 2022;35:1083–1091. [24] Django Software Foundation . Django 2013. Computer software. [25] N-Lab-Co . SortIT https://github.com/N-Lab-Co/SortIT 2026. GitHub repository. [26] Conde-Sousa Eduardo, Vale João, Feng Ming, et al. HEROHE challenge: predicting HER2 status in breast cancer from hematoxylin–eosin whole-slide imaging Journal of Imaging. 2022;8:213. [27] Griem Johanna, Eich Marie-Lisa, Schallenberg Simon, et al. Artificial intelligence–based tool for tumor detection and quantitative tissue analysis in colorectal specimens Modern Pathology. 
+
+2023;36:100327. [28] Verghese Gregory, Lennerz Jochen K, Ruta Danny, et al. Computational pathology in cancer diagno-sis, prognosis, and prediction–present day and prospects The Journal of pathology. 2023;260:551–563. 
+
+11

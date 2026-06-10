@@ -1,0 +1,564 @@
+Title: DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation
+
+URL Source: https://arxiv.org/pdf/2606.07646v1
+
+Published Time: Tue, 09 Jun 2026 00:19:21 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation 
+
+# Xiaoran Xu ∗
+
+xuxiaoran22@mails.ucas.ac.cn MAIS, IACAS Beijing, China 
+
+# Yifan Xu ∗
+
+yifan.xu@nlpr.ia.ac.cn MAIS, IACAS Beijing, China 
+
+# Yupeng Wu ∗
+
+wuyupeng2023@ia.ac.cn MAIS, IACAS Beijing, China 
+
+# Xiaoshan Yang †
+
+xiaoshan.yang@nlpr.ia.ac.cn MAIS, IACAS Beijing, China 
+
+# Changsheng Xu 
+
+changsheng.xu@nlpr.ia.ac.cn MAIS, IACAS Beijing, China 
+
+## Abstract 
+
+Test-time adaptation (TTA) aims to align a model to shifting test do-mains using only unlabeled streaming data. Most existing methods implicitly infer a single global domain distribution, ignoring the multidimensional and sample-specific nature of real-world domain shifts, leading to fragile adaptation. We propose DOME, an effective domain encoder that explicitly models each sample’s domain in a zero-shot manner. DOME leverages vision-language pretraining to extract dense, continuous representations, parameterizes domains as distributional variables, and introduces a momentum-updated sparse domain bank for disentangled supervision. By injecting these explicit domain cues into downstream models, even a basic entropy-minimization TTA strategy achieves state-of-the-art performance across ImageNet-C, ImageNet-R, and ImageNet-Sketch, outperform-ing complex TTA approaches. Our results demonstrate that robust adaptation stems not from intricate adaptation algorithms, but from explicit, structured domain representation. 
+
+## 1 Introduction 
+
+The visual world is rich with diverse, continuous domains, such as climate change [ 11 ], image corruptions [ 10 ], and style transfer [ 14 ]. These domain shifts make it challenging for models to generalize in real world. To address this, Test-Time Adaptation (TTA) [ 32 ,44 , 46 ] has emerged as a promising paradigm, which adapts the model to the target domain on the fly at inference with incoming, unlabeled test data. This direction is gaining increasing attention and prompting the development of more robust models. Since the domain information is concealed within the visual in-put, which is not directly accessible, TTA methods typically seek the global statistical distribution as target domain during online opti-mization. Early TTA methods [ 9 , 31 , 44 ] mitigate distribution shifts by adapting activation statistics and updating the affine parameters of normalization layers through lightweight self-supervised train-ing, such as self-entropy [ 31 , 44 , 46 ]. Another line of research seeks to utilize the predictions of the model itself as pseudo-labels and re-train the model, known as the self-training strategy [ 2, 18 , 24 , 31 ]. Despite various approaches have been proposed, most works follow the “implicit search” paradigm, which treats the domain as a latent variable and searches for one single distribution to represent all 
+
+> ∗Equal contribution.
+> †Corresponding author.
+
+DOME 
+
+CLIP Image 
+
+Encoder  
+
+> A Man Domain
+> Variables
+> Wanted! Unwanted!
+> momentum
+> update
+> predict
+> Image
+> Features
+> supervise
+
+Domain 
+
+Bank 
+
+> average
+> sparse
+> optimize
+> Loss
+> Dense Prediction
+> approximation
+> Sparse Signal
+
+Figure 1: A simple illustration of DOME. DOME is supervised by a sparse momentum bank, which enables it to extract transferable domain representations instead of semantic in-formation. 
+
+target data. However, domain representation is multidimensional. For example, an oil painting of birds can be categorized as either the artwork domain or the animal domain. This makes the implicit search fragile. First, the multidimensional, per-sample domain rep-resentation conflicts with the objective of learning a single, unified target-domain representation, which leads to unstable optimization and increases the risk of getting trapped in local minima. Second, one single domain representation for all target data eliminates sample-specific domain cues, causing information loss. Therefore previous TTA methods require carefully engineered heuristics to address these challenges. This paper poses a simple question: can we explicitly model each sample’s domain instead of implicit search? With an explicit domain representation, test-time adaptation becomes data-dependent, al-lowing the inference process to be customized to each sample’s multidimensional domain rather than optimized for a global distri-bution. Moreover, explicitly providing domain information simpli-fies the task and allows the model to focus on semantic information. To answer the above question, we develop a domain encoder that can generate domain representations for any downstream samples in a zero-shot manner. Surprisingly, we found that even using self-entropy[ 32 , 44 ], a very naive TTA method, can achieve state-of-the-art performance on TTA benchmarks with explicit domain 
+
+> arXiv:2606.07646v1 [cs.CV] 2 Jun 2026 Xu et al.
+
+injection. However, it is nontrivial to obtain a domain encoder. The challenges and our insights are as follows. 
+
+Dense domain encoding with vision-language pretraining .Domain representation is inherently continuous and multidimen-sional, whereas existing datasets [ 4, 10 –12 , 16 , 21 , 26 , 34 , 39 –41 , 45 ]typically provide only discrete, single-domain labels. This mismatch makes it difficult to derive a domain representation from limited and discrete domain annotations from scratch. We claim that pretrained vision-language models [37] are well suited to address this gap: 1) Large-scale pretraining yields continuous, transferable represen-tations. This enables the model to potentially learn a dense, con-tinuous domain representation after light-weight fine-tuning [ 22 ]. 2) Language serves as a scaffold for visual learning [ 37 , 50 ]. For example, explicitly instructing the model to extract the “snowy” do-main largely reduces the chance it gets lost in the multidimensional domain space. 
+
+Momentum sparse bank as supervision. Domain cues are entangled with semantics in images, and there is no direct supervi-sion for domain alone. Several works [ 3, 34 , 49 ] maintain a feature bank to store dense features as domain signals using momentum up-dating strategies. However, since dense features remain entangled with semantic information, the resulting domain representations can only be applied to specific datasets. Our key insight is that sparsifying output features can encourage disentanglement [ 5 ], but it may hurt generalization and disrupt representation continuity when used directly for inference [ 36 ]. Instead, we can use the sparse representation only as supervision signals. We construct a domain bank and update it with momentum sparse representation per sam-ple. This reinforces shared domain information while suppressing sample-specific semantics. Combining these insights, we propose a DOMain Encoder, DOME, capable of generating domain representations for any downstream sample in a zero-shot manner. Fig. 1 shows a simple explanation of DOME. DOME is learned by a Sparse-to-Dense (S2D) learning framework, which features: 1) Dense domain encoding : DOME is finetuned based on a CLIP [ 37 ] image encoder to extract dense, continuous representations, parameterizing the final representation as means and variances for domain representation. We use partially masked domain text as guidance during training to avoid ambiguity in the multidimensional domain space. 2) Sparse domain super-vision : We maintain a domain bank storing domain-related sparse features with a momentum updating strategy. We use this bank to supervise the main model. 3) Explicit domain injection . For downstream tasks, we use an MLP adapter to connect the frozen pretrained DOME with a downstream ViT, tuning only the adapter and normalization layers of the downstream ViT with lightweight self-entropy TTA objective. In summary, the main contributions of this work are: 
+
+• We propose a domain encoder, DOME, which can generate domain representation for any downstream samples in a zero-shot manner, transforming Test-Time domain Adap-tation (TTA) from implicit domain search to explicit do-main injection. To our best knowledge, DOME is the first general-purpose domain-specific feature extractor in the TTA literature. 
+
+• To train DOME, we propose a Sparse-to-Dense (S2D) learn-ing framework featuring two key components: (1) Sparse-Label Domain Disentanglement, constructing explicit su-pervision via a sparse momentum domain bank; (2) Dense Domain Representations Learning, extrapolating sparse an-notations into a continuous domain representation space for zero-shot generalization. 
+
+• Experiments across multiple backbones and TTA bench-marks on both base and novel domains show that, with explicit domain injection, even a naive entropy-based TTA method can achieve state-of-the-art performance. 
+
+## 2 Related Work 2.1 Test-time Adaptation 
+
+Test-time adaptation (TTA) has become a key paradigm for han-dling distribution shifts between training and test data, especially in real-world deployments where test conditions differ from the train-ing environment [ 20 , 48 ]. Unlike traditional domain adaptation, TTA adapts models at inference using test samples without class labels [44], making it well-suited for dynamic or unseen domains. Existing TTA approaches primarily follow three paradigms: (i) Entropy-minimization, which refines model parameters by reduc-ing prediction uncertainty [ 15 , 44 ]; (ii) Prototype-based strategies, which maintain momentum-updated anchors to guide feature align-ment [ 32 , 46 ]; and (iii) Self-supervised consistency, which enforces invariance across augmented views of test inputs [30]. Despite their success, most existing TTA methods either operate without explicit domain modeling or infer domain characteristics solely from potentially noisy test-time predictions. This limits their ability to generalize under domain gaps and visual styles. 
+
+## 2.2 Domain Representation Learning 
+
+A key challenge in domain adaptation is disentangling domain-specific factors from domain-invariant semantics, as early methods often conflate these signals, harming generalization under distribu-tion shift [ 1 , 7]. Sparse Autoencoders (SAEs) promote disentangle-ment via sparse latent activations, producing interpretable features aligned with generative factors [ 5, 8, 25 , 29 ], but their use for iso-lating domain-specific directions in TTA is limited. Feature-wise Linear Modulation (FiLM) injects external context through affine feature transformations [ 35 ], enabling rapid adaptation without updating backbone weights [ 17 , 19 , 23 ], yet TTA rarely conditions on explicit, disentangled domain representations. Motivated by these advances, we integrate sparse domain en-coding with FiLM-style modulation to construct a general-purpose domain-specific feature extractor, a functionality that existing TTA frameworks do not provide. 
+
+## 3 Methodology 3.1 Overview 
+
+To explicitly extract domain-specific features while suppressing cat-egory semantics and domain-invariant components, we propose the Sparse-to-Dense (S2D) framework for training the domain encoder DOME, shown in Fig. 2a. DOME is trained on multiple domain DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation Reparameterize 
+
+Domain 
+
+Label 
+
+Img Seq  Text S eq 
+
+> Positional
+> Encoding
+
+Multi -Head 
+
+Attention 
+
+Add & Norm 
+
+Feed 
+
+Forward 
+
+Add & Norm 
+
+× 6
+
+Linear  Layer 
+
+LayerNorm   
+
+> Extract Img Seq
+> Visual
+> Projection
+> Text
+> Projection
+
+Ƹ
+
+𝜇  ො𝜎 
+
+ො𝒛 
+
+ℒ𝑁𝐶𝐸 
+
+> Dictionary
+> Projector
+
+ො𝒛 𝒑𝒓𝒐𝒋 
+
+> Random Mask
+
+Reparameterize 
+
+𝒛 𝒊𝒎𝒈 
+
+Domain Bank 
+
+> domain-specific
+> domain-invariant
+> channel
+> domain-specific
+> domain-invariant
+> channel
+> JumpRELU
+
+𝒛 𝒅𝒐𝒎 
+
+ℒ𝑚𝑠𝑒 
+
+# IE  TE 
+
+ℒ𝑎𝑢𝑥 
+
+> momentum update
+
+# IE  Exclude  
+
+> Positional
+> Encoding
+> Domain Encoder DOME Sparse -Label Domain Disentanglement
+> Dense Domain Prototype Learning
+
+ℒ𝑠𝑝 
+
+(𝜇 , 𝜎 )
+
+(a) The DOME learns structured and transferable domain representations via Sparse-Label Domain Disentanglement and Dense Domain Representa-tions Learning. DOME 
+
+MLP 
+
+Adapter 
+
+Patches 
+
+> Linear Projection
+
+VIT 
+
+> LayNorm
+> Multi -Head
+> Attention
+> LayNorm
+> MLP
+> x = x * (1 + g) + b
+> CLS Head
+> (g, b)
+
+logits 
+
+× 𝐿 
+
+ℒ𝑒𝑛𝑡  ℒ𝑚𝑎𝑟𝑔   
+
+> Forward Only Once At Test Time.
+
+Adapting 
+
+VIT with DOME 
+
+and MLP  logits  
+
+> Class
+> Label
+
+Accuracy@Top1 
+
+Testing 
+
+(b) At test time, the domain statistics encoded by DOME are used to adapt the frozen VIT classifier via an adapter module, enabling robust recognition under distribution shifts. 
+
+Figure 2: Overview of our Sparse-to-Dense Learning Framework to train DOME and its integration with the VIT-based test-time adaptation. 
+
+datasets with domain labels but no category supervision, providing sparse yet explicit domain annotations for learning. S2D consists of two synergistic components: (1) Sparse-Label Domain Disentanglement (SDD), isolating domain-specific factors from category semantics; and (2) Dense Domain Representation Learning (DDRL), extrapolating sparse annotations into a continu-ous domain space for sample-specific modeling and generalization to unseen domains. At deployment, DOME captures domain variables for Test-Time Adaptation (TTA), enabling adaptation to unseen target domains without class labels. Integrated with a lightweight TTA module, illustrated in Fig. 2b, our method achieves state-of-the-art perfor-mance across benchmarks. Detailed descriptions follow. 
+
+## 3.2 Sparse-to-Dense Learning Framework 
+
+Domain Encoder (DOME). The architecture of the domain en-coder DOME is shown in Fig. 2a. DOME captures domain-specific stylistic characteristics by fusing image and text features in a shared space, initialized from frozen CLIP’s pre-trained image and text encoders. An input image is encoded into image tokens 𝑓 img , and its domain label into text tokens 𝑓 txt . The text tokens provide a seman-tic prior that guides the extraction of domain variables, reducing ambiguity in the multidimensional domain representation. How-ever, downstream samples typically lack domain labels. To mitigate the gap between DOME pretraining and downstream application, we randomly zero-mask the text embeddings with a probability of 20%, yielding the partially masked domain text ˆ𝑓 txt . These are then processed through six additional transformer layers to get the final fused image representation 𝑓 ′
+
+> img
+
+, as: 
+
+𝑓 ′
+
+> img
+
+, 𝑓 ′ 
+
+> txt
+
+= Transformer ([ 𝑓 img ; ˆ𝑓 txt ]) . (1) During downstream implementation, we can simply use a zero embedding to replace the domain text ˆ𝑓 txt , eliminating the need for actual domain labels. Inspired by the role of channel-wise statistics in style model-ing [ 13 , 28 , 43 , 51 ], we represent domain-specific characteristics as predicted channel-wise mean ˆ𝜇 and standard deviation ˆ𝜎 . These are obtained by mapping 𝑓 ′ 
+
+> img
+
+through LayerNorm and a linear layer: 
+
+( ˆ𝜇, ˆ𝜎 ) = LinearLayer (Norm (𝑓 ′
+
+> img
+
+)) . (2) This compact statistical representation effectively captures the in-put image’s domain signature, enabling feature disentanglement and test-time adaptation. Xu et al. 
+
+Sparse-Label Domain Disentanglement. In the absence of dense domain labels, extracting domain-specific information from lim-ited supervision remains challenging. To address this, we propose 
+
+Sparse-Label Domain Disentanglement (SDD), which learns repre-sentations from the CLIP vision encoder that are discriminative across domains yet invariant to object categories, illustrated in Fig. 2a. We extract intermediate tokens from the CLIP vision encoder and remove their positional encodings to suppress category-related cues, encouraging focus on domain-specific appearance. From these position-free tokens, we compute channel-wise mean 𝜇 and stan-dard deviation 𝛿 across spatial locations, yielding a compact global statistic (𝜇, 𝛿 ) as an initial content-driven proxy for domain style. This statistic is reparameterized into a latent vector zimg ∈
+
+R𝑑 hidden , representing the image’s raw stylistic signature. 
+
+zimg = 𝝁 img + 𝝈 img · 𝝐 , 𝝐 ∼ N ( 0, 𝐼 ). (3) However, zimg often entangles domain factors with instance-level variations; using it directly to update the domain bank B = {p𝑦 𝑘 |
+
+𝑘 = 1, 2, . . . , 𝐾 }, where 𝑦 𝑘 is the 𝑘 -th domain label and p𝑦 𝑘 is the learnable prototype for 𝑦 𝑘 , would propagate noise. To mitigate this, we introduce a lightweight Dictionary Decoder, a linear mapping that lifts zimg into a high-dimensional, overcom-plete domain space, enabling sparse and robust domain representa-tions. 
+
+d𝑘 = zimg wdec + bdec , (4) Here, wdec ∈ R𝑑 hidden ×𝑑 in with 𝑑 in ≫ 𝑑 hidden , and its rows {p⊤ 
+
+> 𝑗
+
+}𝑑 hidden 
+
+> 𝑗 =1
+
+define learnable atoms in R𝑑 in , each representing a canonical do-main attribute. By lifting representations into this overcomplete space, the model activates only a sparse subset of interpretable features while suppressing irrelevant variations. The resulting projections d𝑘 update the domain bank via mo-mentum update, where d𝑘 is applied to the prototype p𝑦 𝑘 :
+
+p𝑦 𝑘 = 𝑚 · p𝑦 𝑘 + ( 1 − 𝑚 ) · d𝑘 , (5) where the hyperparameter 𝑚 is set to 0.9.To enhance domain-specificity and disentangle domain-level features from variations, we apply ℓ1 sparsity regularization to the prototypes: 
+
+L𝑠𝑝 =
+
+> 𝑛 dom
+
+∑︁ 
+
+> 𝑘 =1
+
+∥m𝑘 ∥1, (6) where m𝑘 is the prototype for the 𝑘 -th domain, 𝑛 dom is the total numbers of domains. This sparsity encourages the domain bank to retain only consistent, recurring signals shared across instances within the same domain for training, while smoothing out noisy or irrelevant features. Combined with momentum updating, this ensures that the shared, domain-relevant features are reinforced, whereas instance-specific signals are gradually suppressed. Finally, when using bank prototypes to supervise DOME, we apply JumpReLU [ 38 ] to suppress residual weak activations. This element-wise sparsification on the retrieved prototype m𝑘 yields a clean domain-specific representation zdom :
+
+z(𝑖 ) 
+
+> dom
+
+= JumpReLU (m(𝑖 ) 
+
+> 𝑘
+
+) =
+
+(
+
+m(𝑖 ) 
+
+> 𝑘
+
+if m(𝑖 ) 
+
+> 𝑘
+
+≥ 𝛽, 
+
+0 otherwise , (7) where 𝛽 is a learnable threshold. 
+
+Dense Domain Representations Learning. To align DOME’s features with the clean domain signals from SDD, we introduce Dense Domain Representations Learning (DDRL). Dense features 
+
+ˆz capture full, sample-specific domain information beyond sparse prototypes, enabling robust and discriminative representations that generalize to unseen domains. As shown in Fig. 2a, DDRL projects 
+
+ˆz, reparameterized from ( ˆ𝜇, ˆ𝜎 ), into an overcomplete space via a Dictionary Projection Layer to obtain ˆzproj , and enforces consistency with the sparse, high-fidelity signal zdom through three losses. First, an MSE loss regresses ˆzproj toward zdom :
+
+LMSE = ˆzproj − zdom 22 . (8) To preserve projection fidelity, we add an auxiliary loss aligning 
+
+ˆzproj with the raw domain statistic zimg :
+
+Laux = ˆzproj − zimg 22 . (9) To encourage intra-domain cohesion and inter-domain separa-tion, we use a multi-positive InfoNCE loss: 
+
+LNCE = − 1
+
+𝑁 
+
+> 𝑁
+
+∑︁ 
+
+> 𝑖 =1
+
+log 
+
+Í𝑗 ∈𝑃 𝑖 exp   cos (ˆz𝑖 , ˆz𝑗 )/ 𝜏 Í𝑘 ≠𝑖 exp   cos (ˆz𝑖 , ˆz𝑘 )/ 𝜏  , (10) where 𝑃 𝑖 indexes samples from the same domain as 𝑖 , cos (· , ·) is cosine similarity, and 𝜏 is a temperature parameter. This yields domain-compact and cross-domain-discriminative representations. 
+
+Overall Objective. The full training objective of the Sparse-to-Dense framework is a weighted sum of all introduced losses: 
+
+LS2D = 𝜆 𝑠𝑝 L𝑠𝑝 + 𝜆 MSE LMSE + 𝜆 NCE LNCE + 𝜆 aux Laux . (11) This composite loss jointly encourages sparsity in the domain bank, fidelity in projection, and cohesion among same-domain samples, enabling the learning of structured and transferable domain repre-sentations. 
+
+## 3.3 Test-Time Adaptation via DOME 
+
+Our frozen DOME is integrated into an Online Test-Time Adapta-tion (TTA) framework, shown in Fig. 2b, dynamically generating domain-conditional normalization parameters for the ViT back-bone to bridge sparse training supervision and dense test-time generalization. DOME processes the original test image Img ori and its weakly augmented version Img aug , producing domain statistics (𝜇 dom , 𝛿 dom ),which are fed into a lightweight MLP Adapter that outputs affine parameters (𝑔, 𝑏 ). These are injected after LayerNorm in each ViT block, modulating features x as 
+
+x = x · ( 1 + 𝑔 ) + 𝑏, (12) which enables instance-level modulation that adapts features to the input’s specific style. During inference, only the Adapter and LayerNorm affine terms are updated via a single gradient step; DOME and other ViT weights remain frozen. Adaptation uses unsupervised TTA losses: condi-tional entropy Lent [ 15 , 44 ] and marginal entropy Lmarg [ 31 , 32 ], combined as LTTA = 𝜆 ent Lent + 𝜆 marg Lmarg , with 
+
+Lent = − 1
+
+𝑁 
+
+> 𝑁
+
+∑︁ 
+
+> 𝑖 =1
+> 𝐶
+
+∑︁ 
+
+> 𝑐 =1
+
+𝑝 𝑖,𝑐 log 𝑝 𝑖,𝑐 , 𝑝 𝑖,𝑐 = 𝑝 (𝑦 = 𝑐 | 𝑥 𝑖 ), (13) DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation 
+
+Lmarg =
+
+> 𝐶
+
+∑︁ 
+
+> 𝑐 =1
+
+¯𝑝 𝑐 log ¯ 𝑝 𝑐 , ¯𝑝 𝑐 = 1
+
+𝑁 
+
+> 𝑁
+
+∑︁ 
+
+> 𝑖 =1
+
+𝑝 (𝑦 = 𝑐 | 𝑥 𝑖 ), (14) where the marginal loss encourages high-entropy predictions to prevent collapse. No additional supervision or task-specific design is used; perfor-mance gains derive entirely from the high-quality domain repre-sentations learned by S2D. 
+
+## 4 Experiment 4.1 Experimental Setup 
+
+Dataset. We construct a large-scale, diverse dataset named Domain-Specific, comprising 41 domains collected from multiples public datasets (e.g., ImageNet, DomainNet, PACS, et al.) [ 4, 10 – 12 , 16 , 21 ,26 , 34 , 39 –41 , 45 ], with over 1.2M images. It covers a wide range of domain shifts, including artistic styles and real-world variations. Following the standard unsupervised test-time adaptation (TTA) protocols, we discard class labels and retain only domain identities for the auxiliary representation learning. The DomainSpecific data is partitioned into two disjoint subsets for training and evaluation: 
+
+• Pretraining Domains (25): To construct a high-diversity source domain pool for DOME, we integrate data from three distinct sources: (i) 15 synthetic corruptions generated by subsam-pling 50,000 images from the ImageNet-1K training dataset and applying perturbation protocols (severity level 5) as described in [ 11 ] (e.g., glass blur , shot noise , jpeg compression ); (ii) 5 artis-tic domains directly sourced from ImageNet-R (e.g., cartoon ,
+
+sketch , painting ); (iii) 5 diverse environmental and stylistic variations collected from auxiliary datasets. 
+
+• OOD Domains (16): These serve as strictly held-out targets to evaluate zero-shot generalization. This set includes: (i) 10 unseen artistic stylizations from ImageNet-R (e.g., deviantart ,
+
+graffiti ); (ii) 4 unseen corruption categories from ImageNet-C (spatter , speckle noise , gaussian blur , and saturate ; (iii) 2 unseen artistic stylizations from DomainNet (e.g. Real , Infograph ). Detailed domain configurations are provided in Appendix .
+
+Implementation Details. Our DOME model uses CLIP image fea-tures with a 6-layer Transformer (8 attention heads) and mean pool-ing over patch tokens. Training runs for 30 epochs with AdamW (learning rate 1 × 10 −4, batch size 256). Domain prototypes are up-dated via momentum update ( 𝑚 = 0.9), and loss weights are set as 
+
+𝜆 𝑠𝑝 = 1.0, 𝜆 MSE = 1.0, 𝜆 NCE = 0.1, 𝜆 aux = 0.1. DOME employs CLIP-B and CLIP-L with hidden sizes 𝑑 hidden = 768 and 1024 , respectively, and input dimension 𝑑 in = 16384 .For classification, following CoTTA [ 46 ] and SAR [ 32 ], we use SGD with momentum 0.9 and single GPU batch size 64. Online TTA adapts the model with one forward-backward pass per batch, while Offline TTA runs once over the full unlabeled test set, followed by re-evaluation. We set the entropy loss weight to 𝜆 ent = 1.4 and the margin loss weight to 𝜆 marg = 0.8.For comparison, DomStat is a simple baseline we introduce, which averages CLIP image features from the target domain to form a fixed representation, illustrating DOME’s ability to capture domain-specific information. All experiments are conducted on NVIDIA RTX 5090 GPU, primarily using pretrained ViT-B and VIT-L models from timm [47]. 
+
+## 4.2 Performance Against Competing Methods 
+
+Following standard online test-time adaptation protocols, we eval-uate our method sequentially on ImageNet-C, ImageNet-R, and ImageNet-Sketch. The model adapts via a single forward-backward pass per batch in a streaming setting and reports overall accuracy. Our method achieves the highest average accuracy across those benchmarks, outperforming TENT [ 44 ], CoTTA [ 46 ], SAR [ 32 ], ActMAD [27], DeYO [15], and FOA [30]. 
+
+ImageNet-C: As shown in Tab. 1, DOME combined with en-tropy minimization achieves SOTA accuracy (66.7%), outperforming complex baselines like DeYO (66.4%) and FOA (66.3%). Crucially, our protocol ensures zero data leakage: while pre-training involves synthetic domains, there is no overlap in either image samples or specific corruption instances with the ImageNet-C benchmark. As shown in Tab. 1, DOME combined with basic entropy minimiza-tion yields strong results, outperforming complex ensemble and memory-based methods. We achieve top performance on Motion Blur (64.7%), Zoom Blur (64.4%), Elastic Transform (70.8%) and Pixe-late (75.8%), also remain stable on the other domains. 
+
+ImageNet-R: In Tab. 2, our method reaches 68.7% top-1 accu-racy, euqal to DeYO (68.7%), effectively handling styles shifts. 
+
+ImageNet-Sketch: We set a new state of the art at 53.9% , sur-passing DeYO (50.3%), showing strong robustness when texture cues disappear. These results show that DOME allows simple entropy minimiza-tion to adapt effectively across diverse domain shifts. 
+
+## 4.3 Ablation Study 
+
+Ablation on online-TTA. In online TTA, our method uses only a simple entropy-minimization objective, conditional entropy Lent 
+
+and marginal entropy Lmarg , without auxiliary regularization or complex update rules. As shown in Tab. 3, it surpasses Lent +Lmarg on both ImageNet-R and ImageNet-Sketch, highlighting the importance of high-quality domain-aware features for effective adaptation. 
+
+Ablation on OOD Generalizability. We evaluate DOME under an offline TTA setting across diverse artistic domains. As shown in Tab. 5, DOME consistently outperforms the DomStat baseline, which adapts using CLIP-derived domain statistics, on both seen and unseen domains and across two pretrained backbones [6, 33]. With ViT-based models, our approach improves accuracy from 52.81% to 68.34% on ViT-B/16 and from 65.79% to 68.35% on ViT-L/16. Similar gains are observed with DINOv2, achieving 78.09% (B) and 81.28% (L). Notably, DOME yields substantial improvements on unseen domains in DOME’s pretraining, highlighting its robustness to continuous domain shifts. 
+
+Ablation on DOME. To isolate the contribution of key design choices in the DOME, we consider two variants: 
+
+• Ours w/o text : trains DOME without CLIP text embed-dings, using only visual inputs; 
+
+• Ours w/o sparsity : trains DOME without sparsity opera-tion like JumpReLU, retaining all prototypes’ responses. As reported in Tab. 4, both variants result in performance drops, confirming that (1) semantic guidance from CLIP text prompts and (2) sparse feature selection via JumpReLU are essential for effective domain-specific representation learning. Xu et al. 
+
+Table 1: Top-1 accuracy (%) of different methods in the online test-time adaptation setting on ImageNet-C (severity level 5), where models adapt in a single pass over sequentially arriving batches without access to future data. Baseline: ViT-Base without test-time adaptation. Ours: Baseline + Lent + Lmarg + DOME. Method Noise Blur Weather Digital Avg.                                                                                                                                               
+
+> Gauss Shot Impul. Defoc. Glass Motion Zoom Snow Frost Fog Bright. Contr. Elastic Pixel JPEG Baseline 56.8 56.8 57.5 46.9 35.6 53.1 44.8 62.2 62.5 65.7 77.7 32.6 46.0 67.0 67.6 55.5 TENT 60.3 61.6 61.8 59.2 56.5 63.5 59.2 54.3 64.5 2.3 79.1 67.4 61.5 72.5 70.6 59.6 CoTTA 63.6 63.8 64.1 55.5 51.1 63.6 55.5 70.0 69.4 71.5 78.5 46.7 64.5 73.4 71.2 64.2 SAR 59.2 60.5 60.7 57.5 55.6 61.8 57.6 65.9 63.5 69.1 78.7 45.7 62.4 71.9 70.3 62.7 ActMAD 61.3 62.8 63.2 55.9 55.7 62.7 61.7 70.8 68.8 73.5 80.8 62.3 67.8 74.8 73.0 66.3 DeYO 59.8 61.5 61.1 57.4 59.0 64.5 61.9 69.1 66.7 69.5 78.9 65.3 69.6 74.0 72.5 66.4 FOA 61.5 63.2 63.3 59.3 56.7 61.4 57.7 69.4 69.6 73.4 81.1 67.7 62.7 73.9 73.0 66.3 Ours 58.8 60.7 60.6 58.8 58.7 64.7 64.4 70.5 68.9 72.7 79.9 62.2 70.8 75.8 73.0 66.7
+
+Table 2: Top-1 accuracy (%) of different methods in the online test-time adaptation setting on ImageNet-R/-Sketch. Method R Sketch Avg. 
+
+Baseline 59.2 44.9 52.1 TENT 63.9 49.1 56.5 CoTTA 63.5 50.0 56.8 SAR 63.3 48.7 56.0 ActMAD 60.2 46.2 53.2 DeYO 68.7 50.3 59.5 FOA 63.3 49.9 56.6 Ours 68.7 53.9 61.3 Table 3: Online TTA ablation. “+ Lent /+ Lmarg ” uses condi-tional/marginal entropy with diversity regularization. Method R Sketch Avg. 
+
+Baseline 59.2 44.9 52.1 +Lent +Lmarg 62.9 49.9 56.6 +Lent +Lmarg +DOME 68.7 53.9 61.3 Table 4: Ablation study on the training of the DOME using CLIP-Base, evaluated under online TTA on ImageNet-R. 
+
+Text Sparsity Accuracy 
+
+✗ ✗ 59.2 
+
+✓ ✗ 67.5 
+
+✗ ✓ 67.0 
+
+✓ ✓ 68.7 In summary, our ablation studies validate that the strong perfor-mance of our method stems from the design of the DOME: high-quality domain-aware features, enabled by text guidance and sparse prototype activation, are the key drivers of adaptation success. 
+
+## 4.4 Analysis and Visualization 
+
+We provide qualitative and geometric insights into how DOME enables effective test-time adaptation by analyzing its attention behavior and learned feature structure. 
+
+Attention Visualization. We examine DOME’s attention maps across diverse domains, shown in Fig. 3, which reveal sample-specific 
+
+patterns that adapt to each input’s unique domain characteristics. For images with complex backgrounds and rich domain cues, DOME attends to both the foreground object and surrounding regions en-coding domain-specific patterns, enabling accurate per-sample do-main estimation and effective feature alignment. Conversely, when domain cues are sparse and mainly concentrated on the object itself, the attention map tightly focuses on the salient region, resulting in a heatmap that cleanly wraps around the entire object. Compared to ViT and DomStat, which may fragment attention or miss peripheral details, DOME’s holistic focus captures richer semantic features. This dual-mode behavior, contextual style when relevant and ob-ject integrity when necessary, demonstrates that DOME learns a flexible, sample-aware representation. 
+
+t-SNE Visualization. To analyze how DOME captures distribution shifts, we visualize feature distributions under five ImageNet-C corruptions: Brightness , Frost , Gaussian Blur , Spatter , and Speckle Noise , each serving as a separate target domain during TTA. As shown in Fig. 4a and Fig. 4b, ViT and DomStat produce highly en-tangled features across corruption types, revealing limited domain discrimination. In contrast, DOME (Fig. 4c) forms well-separated clusters aligned with domain structure, demonstrating its ability to learn discriminative domain representations. These results show that DOME not only perceives domain-specific signals but also organizes its feature space according to test-time domain shifts, enabling more robust and interpretable adaptation. These visualiza-tions show that DOME separates domain-specific signals, yielding a structured feature space for robust and interpretable adaptation. 
+
+## 5 Disscussion 
+
+DOME-Integrated Online TTA. To evaluate compatibility, we integrate DOME into representative online TTA baselines by equip-ping them with our pre-trained DOME. As shown in Tab. 6, DOME consistently boosts all methods: TENT (+0.9%), SAR (+1.8%), CoTTA (+1.8%), and DeYO (+0.3%). This consistent improvement across entropy-minimization and stability-regularization schemes con-firms that DOME’s explicit domain modeling provides critical ro-bust cues that online self-supervision alone cannot capture. DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation 
+
+Table 5: Offline TTA ablation across vision backbones and ImageNet-R. DomStat: uses target-domain statistics from a frozen CLIP Image encoder; Ours: employs our DOME. Seen domains were unlabeled during training; Unseen domains excluded. Domain ViT-B/16 ViT-L/16 DINOv2-B DINOv2-L Base DomStat Ours Base DomStat Ours Base DomStat Ours Base DomStat Ours 
+
+Seen Domains 
+
+cartoon 45.94 36.85 56.58 53.01 52.98 61.35 57.94 61.35 70.61 72.09 73.67 74.21 
+
+sketch 73.97 49.33 81.25 80.84 77.97 84.07 85.37 86.04 88.02 92.58 93.18 92.60 painting 75.27 73.40 81.23 79.22 78.62 82.15 80.18 83.49 86.98 87.97 88.99 88.89 videogame 64.91 56.89 69.48 69.27 67.37 69.13 67.44 73.77 78.83 75.88 79.18 78.27 tattoo 37.29 40.42 53.42 40.47 50.95 55.16 56.24 70.88 74.52 74.06 77.09 77.91 
+
+Unseen Domains 
+
+art 62.30 57.59 70.22 66.56 68.46 73.49 66.23 74.08 79.32 78.08 81.28 81.54 
+
+deviantart 70.83 63.11 75.22 75.40 72.68 78.36 74.48 77.53 82.02 82.94 83.50 81.92 
+
+embroidery 37.81 43.49 58.45 41.55 53.74 59.14 42.80 68.14 77.42 60.25 75.90 73.27 graffiti 37.30 42.19 55.05 42.40 54.62 59.19 41.87 59.72 70.99 60.89 72.16 73.22 
+
+graphic 60.09 54.04 66.77 65.68 64.91 70.65 66.30 73.45 76.09 76.24 78.26 79.35 
+
+misc 60.51 58.29 69.93 66.01 67.23 72.10 68.82 73.68 77.84 78.28 80.65 81.60 
+
+origami 41.27 47.45 51.27 44.00 59.27 63.27 35.27 53.09 58.55 42.55 47.64 71.45 
+
+sculpture 55.27 52.93 63.71 60.95 63.96 67.22 64.46 71.32 75.33 79.18 82.11 83.44 
+
+sticker 44.69 41.93 56.50 48.82 55.31 60.63 49.21 64.96 68.90 65.94 72.24 75.19 
+
+toy 53.08 52.28 61.48 56.45 56.06 57.97 51.42 64.73 65.39 61.61 67.11 68.10 Average 59.23 52.81 68.34 64.34 65.79 70.84 66.97 73.46 78.09 77.88 80.64 81.28 VIT DomStat IMG Ours classfier DOME 
+
+Complex Domain  
+
+> help
+
+DomStat VIT IMG Ours classfier DOME help 
+
+Simple Domain 
+
+Figure 3: Attention maps [ 42 ] showing that our method produces sample-specific attention: it adaptively highlights domain-relevant context or object structure depending on the input, achieving better focus and semantic coverage than ViT/DomStat. Computational Efficiency. DOME strikes an optimal trade-off be-tween capacity and cost (Tab. 7): it achieves SOTA accuracy (66.7%) using 4× fewer trainable parameters than full-model adaptation (CoTTA: 21.53M vs. 86.57M), while maintaining real-time viability (17.56ms latency) with negligible overhead ( ≈ 8.9ms) over minimal-update methods (TENT). Although the dual-branch CLIP architec-ture increases total parameters (279.26M) and FLOPs (33.74G), this investment is justified by the unique ability to capture disentangled domain variables, a capability absent in implicit TTA baselines. Xu et al. 
+
+(a) Features from the baseline (VIT-B/16) are highly entangled, showing poor domain sepa-ration. 
+
+(b) Features from the baseline (DomStat) are highly entangled, showing poor domain sepa-ration. 
+
+(c) Features encoded with domain encoder DOME successfully form distinct, well-separated clusters. 
+
+Figure 4: t-SNE visualization of feature distributions across five corruption domains from ImageNet-C: Brightness, Frost, Speckle Noise, Gaussian Blur, and Spatter, all at severity 5. Table 6: Combining DOME with Existing Online TTA Meth-ods. We report accuracy (%) on ImageNet-R. “+ DOME” de-notes modulating the model with our pre-trained DOME. 
+
+Method w/o DOME w/ DOME TENT [44] 63.9 64.8 
+
+SAR [32] 63.3 65.1 
+
+CoTTA [46] 63.5 65.1 
+
+DeYO [15] 68.7 69.0 Table 7: Comparison of Computational Overhead and Online TTA Performance on ImageNet-C. DOME offers an optimal balance between Trainable Parameters and expressivity. Method Complexity Parameters (M) Performance FLOPs (G) Latency (ms) Trainable Total Avg. Acc (%) TENT [44] 16.87 8.66 ±0.48 0.04 86.57 59.6               
+
+> CoTTA [46] 16.87 394.57 ±29.27 86.57 86.57 63.5
+> DOME+TTA 33.74 17.56 ±0.25 21.53 279.26 66.7
+
+Generalization Beyond Natural Image Manifolds. To further assess the robustness of our approach under more severe distribu-tion shifts, we extend our evaluation to DomainNet [ 34 ], which contains substantial cross-domain variations beyond natural im-age statistics. Specifically, we fine-tune a ViT-Base model on the 
+
+Real domain and evaluate its generalization performance on the 
+
+Infograph domain, representing a challenging transfer from natural images to highly abstract visual representations. As shown in Tab. 8, the standard fine-tuned ViT-Base achieves 24.69% Top-1 accuracy. By incorporating DOME with offline test-time adaptation, the performance improves to 25.80% Top-1 and 40.74% Top-5 accuracy, yielding gains of +1.11% and +3.46%, respec-tively. These consistent improvements under significant domain discrepancy suggest that DOME enhances the model’s ability to cap-ture domain-invariant features, thereby improving generalization beyond the ImageNet-style distribution. 
+
+Table 8: Generalization results on the DomainNet. Models are fintuned on the Real domain and evaluated on the Infograph 
+
+domain, which are all not included in DOME’s pretraining, to test robustness against non-natural imaging shifts. 
+
+Method Real → Infograph Top-1 Acc. (%) Top-5 Acc. (%) 
+
+Full Fine-tuning 24.69 37.28 Full Fine-tuning + DOME 25.80 40.74 
+
+## 6 Conclusion 
+
+We propose DOME, a zero-shot domain encoder, which transforms test-time adaptation from an implicit domain search paradigm to an explict domain injection paradigm. By leveraging vision-language pretraining, representing domains as distributional variables, and using sparse momentum-based supervision, DOME successfully disentangles domain cues from semantics. Remarkably, DOME with simple entropy minimization achieves state-of-the-art performance on diverse unseen domains, showing that robust adaptation relies on explicit domain understanding. We hope DOME inspires more explicit domain modeling for adaptive vision in open-world settings. 
+
+## Acknowledgments 
+
+To Robert, for the bagels and explaining CMYK and color spaces. 
+
+## References     
+
+> [1] Shai Ben-David, John Blitzer, Koby Crammer, Alex Kulesza, Fernando Pereira, and Jennifer Wortman Vaughan. 2010. A theory of learning from different domains. Machine learning 79, 1 (2010), 151–175.
+
+DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation 
+
+[2] Dian Chen, Dequan Wang, Trevor Darrell, and Sayna Ebrahimi. 2022. Contrastive test-time adaptation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 295–305. [3] Yang Chen, Yu Wang, Yingwei Pan, Ting Yao, Xinmei Tian, and Tao Mei. 2021. A style and semantic memory mechanism for domain generalization. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 9164–9173. [4] Marius Cordts, Mohamed Omran, Sebastian Ramos, Timo Rehfeld, Markus En-zweiler, Rodrigo Benenson, Uwe Franke, Stefan Roth, and Bernt Schiele. 2016. The cityscapes dataset for semantic urban scene understanding. In Proceedings of the IEEE conference on computer vision and pattern recognition . 3213–3223. [5] Hoagy Cunningham, Aidan Ewart, Logan Riggs, Robert Huben, and Lee Sharkey. 2023. Sparse autoencoders find highly interpretable features in language models. 
+
+arXiv preprint arXiv:2309.08600 (2023). [6] Alexey Dosovitskiy. 2020. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 (2020). [7] Yaroslav Ganin, Evgeniya Ustinova, Hana Ajakan, Pascal Germain, Hugo Larochelle, François Laviolette, Mario March, and Victor Lempitsky. 2016. Domain-adversarial training of neural networks. Journal of machine learning research 17, 59 (2016), 1–35. [8] Leo Gao, Tom Dupré la Tour, Henk Tillman, Gabriel Goh, Rajan Troll, Alec Radford, Ilya Sutskever, Jan Leike, and Jeffrey Wu. 2024. Scaling and evaluating sparse autoencoders. arXiv preprint arXiv:2406.04093 (2024). [9] Taesik Gong, Jongheon Jeong, Taewon Kim, Yewon Kim, Jinwoo Shin, and Sung-Ju Lee. 2022. Note: Robust continual test-time adaptation against temporal correlation. Advances in Neural Information Processing Systems 35 (2022), 27253– 27266. [10] Dan Hendrycks, Steven Basart, Norman Mu, Saurav Kadavath, Frank Wang, Evan Dorundo, Rahul Desai, Tyler Zhu, Samyak Parajuli, Mike Guo, et al . 2021. The many faces of robustness: A critical analysis of out-of-distribution generalization. In Proceedings of the IEEE/CVF international conference on computer vision . 8340– 8349. [11] Dan Hendrycks and Thomas Dietterich. 2019. Benchmarking neural net-work robustness to common corruptions and perturbations. arXiv preprint arXiv:1903.12261 (2019). Includes ImageNet-C. [12] Xiaowei Hu, Chi-Wing Fu, Lei Zhu, and Pheng-Ann Heng. 2019. Depth-attentional features for single-image rain removal. In Proceedings of the IEEE/CVF Conference on computer vision and pattern recognition . 8022–8031. [13] Xun Huang and Serge Belongie. 2017. Arbitrary style transfer in real-time with adaptive instance normalization. In Proceedings of the IEEE international conference on computer vision . 1501–1510. [14] Yongcheng Jing, Yezhou Yang, Zunlei Feng, Jingwen Ye, Yizhou Yu, and Mingli Song. 2019. Neural style transfer: A review. IEEE transactions on visualization and computer graphics 26, 11 (2019), 3365–3385. [15] Jonghyun Lee, Dahuin Jung, Saehyung Lee, Junsung Park, Juhyeon Shin, Uiwon Hwang, and Sungroh Yoon. 2024. Entropy is not enough for test-time adaptation: From the perspective of disentangled factors. arXiv preprint arXiv:2403.07366 
+
+(2024). [16] Da Li, Yongxin Yang, Yi-Zhe Song, and Timothy M Hospedales. 2017. Deeper, broader and artier domain generalization. In Proceedings of the IEEE international conference on computer vision . 5542–5550. [17] Wei-Hong Li, Xialei Liu, and Hakan Bilen. 2021. Universal representation learning from multiple domains for few-shot classification. In Proceedings of the IEEE/CVF international conference on computer vision . 9526–9535. [18] Xianfeng Li, Weijie Chen, Di Xie, Shicai Yang, Peng Yuan, Shiliang Pu, and Yueting Zhuang. 2021. A free lunch for unsupervised domain adaptive object detection without source data. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 35. 8474–8481. [19] Ya Li, Mingming Gong, Xinmei Tian, Tongliang Liu, and Dacheng Tao. 2018. Domain generalization via conditional invariant representations. In Proceedings of the AAAI conference on artificial intelligence , Vol. 32. [20] Jian Liang, Ran He, and Tieniu Tan. 2025. A comprehensive survey on test-time adaptation under distribution shifts. International Journal of Computer Vision 
+
+133, 1 (2025), 31–64. [21] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence Zitnick. 2014. Microsoft coco: Common objects in context. In European conference on computer vision . Springer, 740–755. [22] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2023. Visual in-struction tuning. Advances in neural information processing systems 36 (2023), 34892–34916. [23] Mingsheng Long, Zhangjie Cao, Jianmin Wang, and Michael I Jordan. 2018. Conditional adversarial domain adaptation. Advances in neural information processing systems 31 (2018). [24] Jing Ma. 2024. Improved self-training for test-time adaptation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 23701– 23710. [25] Alireza Makhzani and Brendan Frey. 2013. K-sparse autoencoders. arXiv preprint arXiv:1312.5663 (2013). [26] Xiaofeng Mao, Yuefeng Chen, Yao Zhu, Da Chen, Hang Su, Rong Zhang, and Hui Xue. 2023. Coco-o: A benchmark for object detectors under natural distribution shifts. In Proceedings of the IEEE/CVF International Conference on Computer Vision .6339–6350. [27] Muhammad Jehanzeb Mirza, Pol Jané Soneira, Wei Lin, Mateusz Kozinski, Horst Possegger, and Horst Bischof. 2023. Actmad: Activation matching to align distributions for test-time-training. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 24152–24161. [28] Hyeonseob Nam and Hyo-Eun Kim. 2018. Batch-instance normalization for adaptively style-invariant neural networks. Advances in Neural Information Processing Systems 31 (2018). [29] Andrew Ng et al . 2011. Sparse autoencoder. CS294A Lecture notes 72, 2011 (2011), 1–19. [30] Shuaicheng Niu, Chunyan Miao, Guohao Chen, Pengcheng Wu, and Peilin Zhao. 2024. Test-time model adaptation with only forward passes. arXiv preprint arXiv:2404.01650 (2024). [31] Shuaicheng Niu, Jiaxiang Wu, Yifan Zhang, Yaofo Chen, Shijian Zheng, Peilin Zhao, and Mingkui Tan. 2022. Efficient test-time model adaptation without forgetting. In International conference on machine learning . PMLR, 16888–16905. [32] Shuaicheng Niu, Jiaxiang Wu, Yifan Zhang, Zhiquan Wen, Yaofo Chen, Peilin Zhao, and Mingkui Tan. 2023. Towards stable test-time adaptation in dynamic wild world. arXiv preprint arXiv:2302.12400 (2023). [33] Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al . 2023. Dinov2: Learning robust visual features without supervision. 
+
+arXiv preprint arXiv:2304.07193 (2023). [34] Xingchao Peng, Qinxun Bai, Xide Xia, Zijun Huang, Kate Saenko, and Bo Wang. 2019. Moment matching for multi-source domain adaptation. In Proceedings of the IEEE/CVF international conference on computer vision . 1406–1415. [35] Ethan Perez, Florian Strub, Harm De Vries, Vincent Dumoulin, and Aaron Courville. 2018. Film: Visual reasoning with a general conditioning layer. In 
+
+Proceedings of the AAAI conference on artificial intelligence , Vol. 32. [36] Leonardo Petrini, Francesco Cagnetta, Eric Vanden-Eijnden, and Matthieu Wyart. 2022. Learning sparse features can lead to overfitting in neural networks. Ad-vances in Neural Information Processing Systems 35 (2022), 9403–9416. [37] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sand-hini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al .2021. Learning transferable visual models from natural language supervision. In 
+
+International conference on machine learning . PmLR, 8748–8763. [38] Senthooran Rajamanoharan, Tom Lieberum, Nicolas Sonnerat, Arthur Conmy, Vikrant Varma, János Kramár, and Neel Nanda. 2024. Jumping ahead: Improv-ing reconstruction fidelity with jumprelu sparse autoencoders. arXiv preprint arXiv:2407.14435 (2024). [39] Stephan R Richter, Vibhav Vineet, Stefan Roth, and Vladlen Koltun. 2016. Playing for data: Ground truth from computer games. In European conference on computer vision . Springer, 102–118. [40] Christos Sakaridis, Dengxin Dai, and Luc Van Gool. 2018. Semantic foggy scene understanding with synthetic data. International Journal of Computer Vision 126, 9 (2018), 973–992. [41] Christos Sakaridis, Dengxin Dai, and Luc Van Gool. 2021. ACDC: The adverse conditions dataset with correspondences for semantic driving scene understand-ing. In Proceedings of the IEEE/CVF international conference on computer vision .10765–10775. [42] Ramprasaath R Selvaraju, Michael Cogswell, Abhishek Das, Ramakrishna Vedan-tam, Devi Parikh, and Dhruv Batra. 2017. Grad-cam: Visual explanations from deep networks via gradient-based localization. In Proceedings of the IEEE inter-national conference on computer vision . 618–626. [43] Dmitry Ulyanov, Andrea Vedaldi, and Victor Lempitsky. 2016. Instance normaliza-tion: The missing ingredient for fast stylization. arXiv preprint arXiv:1607.08022 
+
+(2016). [44] Dequan Wang, Evan Shelhamer, Shaoteng Liu, Bruno Olshausen, and Trevor Darrell. 2020. Tent: Fully test-time adaptation by entropy minimization. arXiv preprint arXiv:2006.10726 (2020). [45] Haohan Wang, Songwei Ge, Zachary Lipton, and Eric P Xing. 2019. Learning robust global representations by penalizing local predictive power. Advances in neural information processing systems 32 (2019). [46] Qin Wang, Olga Fink, Luc Van Gool, and Dengxin Dai. 2022. Continual test-time domain adaptation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 7201–7211. [47] Ross Wightman. 2019. PyTorch Image Models. https://github.com/rwightman/ pytorch-image-models. doi:10.5281/zenodo.4414861 [48] Zehao Xiao and Cees GM Snoek. 2024. Beyond model adaptation at test time: A survey. arXiv preprint arXiv:2411.03687 (2024). [49] Longhui Yuan, Binhui Xie, and Shuang Li. 2023. Robust test-time adaptation in dynamic scenarios. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 15922–15932. [50] Kaiyang Zhou, Jingkang Yang, Chen Change Loy, and Ziwei Liu. 2022. Condi-tional prompt learning for vision-language models. In Proceedings of the IEEE/CVF Xu et al. 
+
+conference on computer vision and pattern recognition . 16816–16825. [51] Kaiyang Zhou, Yongxin Yang, Yu Qiao, and Tao Xiang. 2021. Domain generaliza-tion with mixstyle. arXiv preprint arXiv:2104.02008 (2021).
