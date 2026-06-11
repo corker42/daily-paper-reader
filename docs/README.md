@@ -6,61 +6,36 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-10
-- 运行时间：2026-06-10 23:05:46 UTC
+- 最新运行日期：2026-05-13 ~ 2026-06-11
+- 运行时间：2026-06-11 06:07:32 UTC
 - 运行状态：成功
-- 本次总论文数：13
-- 精读区：7
-- 速读区：6
+- 本次总论文数：5
+- 精读区：0
+- 速读区：5
 
 ### 今日简报（AI）
-今日精读聚焦临床医疗智能体与诊断策略学习，两篇论文获9分高分。  
-最值得看的方向是特权合成与分支共识的多样化诊断策略（PACT），以及面向连续护理的临床级智能体系统（Baichuan-M4）。  
-建议优先关注Baichuan-M4的临床实用性，PACT适合对诊断多样性有需求的研发者。
-- 详情：[/202606/10/README](/202606/10/README)
+今日速读5篇论文，聚焦视网膜疾病自动筛查与诊断，其中3篇获得高分关注。最值得看的是多疾病视网膜筛查的模型对比研究（Benchmarking卷积/Transformer/混合/视觉语言模型）以及无监督解剖分解用于双视网膜诊断的方法。建议进一步阅读边缘-云端级联架构如何降低农村筛查门槛，并关注模型在不同疾病谱系中的实际表现。
+- 详情：[/20260513-20260611/README](/20260513-20260611/README)
 
 ### 精读区论文标签
-1. [PACT: Learning Diverse Diagnostic Strategies via Privileged Synthesis and Branch Consensus](/202606/10/2606.08938v1-pact-learning-diverse-diagnostic-strategies-via-privileged-synthesis-and-branch-consensus)  
-   标签：评分：9.0/10、query:retina-agent
-   evidence：基于大语言模型的医疗诊断代理
-2. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/202606/10/2606.08982v2-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
-   标签：评分：9.0/10、query:drl-retina
-   evidence：采用强化学习训练的临床级医疗智能体系统，用于持续护理
-3. [Learning to See via Epiretinal Implant Stimulation in silico with Model-Based Deep Reinforcement Learning](/202606/10/2606.03118v1-learning-to-see-via-epiretinal-implant-stimulation-in-silico-with-model-based-deep-reinforcement-learning)  
-   标签：评分：8.0/10、query:drl-retina
-   evidence：基于模型的深度强化学习用于视网膜植入刺激治疗视网膜疾病
-4. [Noise-Aware Visual Representation Learning for Medical Visual Question Answering](/202606/10/2606.05535v1-noise-aware-visual-representation-learning-for-medical-visual-question-answering)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：利用去噪自编码器和LLM的噪声感知医学视觉问答
-5. [CheXanatomy: Anatomy-Aware Vision-Language Modeling for Chest Radiographs](/202606/10/2606.08420v1-chexanatomy-anatomy-aware-vision-language-modeling-for-chest-radiographs)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：医学诊断中的大语言模型
-6. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/202606/10/2606.08982v1-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：基于大语言模型的医疗代理系统可用于眼底病诊断
-7. [CodeCytos: AI-assisted spatial molecular imaging analysis via code-augmented agent action space](/202606/10/biorxiv-10-64898-2026-05-30-728935-v1-codecytos-ai-assisted-spatial-molecular-imaging-analysis-via-code-augmented-agent-action-space)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：用于医疗组织图像分析的智能体系统
+- 本次无精读推荐。
 
 ### 速读区论文标签
-1. [ROBUST-WT: Robust Uncertainty-aware Segmentation Transform via Whitening and Training Enhancements](/202606/10/2606.03069v1-robust-wt-robust-uncertainty-aware-segmentation-transform-via-whitening-and-training-enhancements)  
-   标签：评分：6.0/10、query:drl-retina
-   evidence：基于白化变换的跨域分割方法，可用于眼底图像分析
-2. [GLINT: Sparsely Gated Vision-Language Alignment for Fine-Grained Radiology Representations](/202606/10/2606.03180v1-glint-sparsely-gated-vision-language-alignment-for-fine-grained-radiology-representations)  
-   标签：评分：6.0/10、query:fundus-class
-   evidence：稀疏门控视觉-语言对齐方法，可用于眼底疾病分类等细粒度医学图像分析
-3. [XSSR: Cross-Domain Self-Supervised Representative Selection for Efficient Annotation in Medical Image Segmentation](/202606/10/2606.04301v1-xssr-cross-domain-self-supervised-representative-selection-for-efficient-annotation-in-medical-image-segmentation)  
-   标签：评分：6.0/10、query:drl-retina
-   evidence：跨域自监督代表性选择方法可用于眼底图像分析
-4. [TopoPult-SSL: Gland-Mask-Free Cross-Device Meibomian Gland Segmentation via Self-Distilled Weak Clinical Priors](/202606/10/2606.05347v1-topopult-ssl-gland-mask-free-cross-device-meibomian-gland-segmentation-via-self-distilled-weak-clinical-priors)  
-   标签：评分：6.0/10、query:drl-retina
-   evidence：眼底图像分析中的域适应方法
-5. [DOME: Learning Transferable Domain Variables from Sparse Supervision for Test-Time Adaptation](/202606/10/2606.07646v1-dome-learning-transferable-domain-variables-from-sparse-supervision-for-test-time-adaptation)  
-   标签：评分：6.0/10、query:drl-retina
-   evidence：域自适应用于眼底图像分析
-6. [SortIT - A Tool For Assessing Observer Variability And Creating Ground Truth Image Classification Datasets](/202606/10/biorxiv-10-64898-2026-05-28-728616-v2-sortit---a-tool-for-assessing-observer-variability-and-creating-ground-truth-image-classification-datasets)  
-   标签：评分：6.0/10、query:fundus-class
-   evidence：创建图像分类地面真值数据集的工具，对眼底病分类至关重要
+1. [Benchmarking Convolutional, Transformer, Hybrid, and Vision Language Models for Multi Disease Retinal Screening](/20260513-20260611/2605.26283v1-benchmarking-convolutional-transformer-hybrid-and-vision-language-models-for-multi-disease-retinal-screening)  
+   标签：评分：10.0/10、query:fundus-mc
+   evidence：使用眼底图像对多种视网膜疾病筛查的多种深度学习架构进行基准测试
+2. [Anatomy-Slot: Unsupervised Anatomical Factorization for Homologous Bilateral Reasoning in Retinal Diagnosis](/20260513-20260611/2605.12929v1-anatomy-slot-unsupervised-anatomical-factorization-for-homologous-bilateral-reasoning-in-retinal-diagnosis)  
+   标签：评分：9.0/10、query:fundus-class
+   evidence：使用深度学习的视网膜诊断，强调解剖对应
+3. [Bridging the Rural Healthcare Gap: A Cascaded Edge-Cloud Architecture for Automated Retinal Screening](/20260513-20260611/2605.14108v1-bridging-the-rural-healthcare-gap-a-cascaded-edge-cloud-architecture-for-automated-retinal-screening)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：提出了一种带有轻量级模型的级联边缘-云架构用于视网膜筛查
+4. [DiffSight-Former: Modeling Structural Differences and Temporal Dynamics for Glaucoma Progression Prediction](/20260513-20260611/2606.09140v1-diffsight-former-modeling-structural-differences-and-temporal-dynamics-for-glaucoma-progression-prediction)  
+   标签：评分：9.0/10、query:fundus-class
+   evidence：基于眼底图像的青光眼进展预测深度学习模型
+5. [LightVesselNet: An Ultra-Lightweight Sub-100K Parameter Network for Retinal Blood Vessel Segmentation](/20260513-20260611/2606.05354v1-lightvesselnet-an-ultra-lightweight-sub-100k-parameter-network-for-retinal-blood-vessel-segmentation)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：用于视网膜血管分割的超轻量级神经网络
 
 
 <div class="dpr-home-promo-card">
