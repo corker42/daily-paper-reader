@@ -1,0 +1,549 @@
+Title: Disentangled Fine-Grained Prototype Learning for Incomplete Image-Tabular Classification
+
+URL Source: https://arxiv.org/pdf/2606.05455v1
+
+Published Time: Fri, 05 Jun 2026 00:24:10 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+> 1
+
+# Disentangled Fine-Grained Prototype Learning for Incomplete Image-Tabular Classification 
+
+Feixiang Zhou, Jianyang Xie, Zhuangzhi Gao, Qinkai Yu, Fu Wang, Yuheng Fan, Jing Li, Zheheng Jiang, Yitian Zhao, Senior Member, IEEE , Yanda Meng, He Zhao, Gregory Y.H. Lip, and Yalin Zheng 
+
+Abstract —The missing-modality problem poses a significant challenge in image–tabular multimodal learning across a wide range of multimedia applications, including product under-standing, recommendation systems, and medical diagnosis. This challenge is particularly pronounced when the two modalities are highly heterogeneous, as images and tabular attributes differ substantially in their semantic granularity and data distribu-tions. Existing methods learn modality-invariant representations through disentanglement and alignment over global token-averaged features, capturing only coarse cross-modal consistency and overlooking fine-grained semantic and distributional mis-alignment, which hampers the exploitation of complementary cues under missing modalities. To address this, we propose DFPL, a novel framework for fine-grained prototype learning. Specifically, Shared–Specific Prototype Modeling (SSPM) extracts compact and diverse shared and modality-specific prototypes, and further performs prototype-level disentanglement to suppress redundant intra-modality correlations. Additionally, we pro-pose a Prototype-guided Fine-grained Alignment (PFA) module that jointly enforces prototype-level distribution matching and prototype-to-class semantic alignment within a unified prototype space, thereby preserving both fine-grained distributional and semantic consistency across modalities. We further introduce a Class-aware Multi-scale Aggregation (CMA) module to adap-tively aggregate shared semantics and modality-specific charac-teristics from global and prototype levels for robust predictions. Extensive experiments on three diverse image–tabular bench-marks demonstrate the superiority of our method compared to the previous approaches under various missing-modality settings. Code will be made publicly available. 
+
+Index Terms —Multimodal learning, Missing modality, Image-tabular classification, Disease diagnosis. 
+
+I. I NTRODUCTION 
+
+# MULTIMODAL learning has achieved remarkable progress in a wide range of applications, including vision–language understanding [3], [4], audio–visual analysis [5], [6], and medical diagnosis [7], [8]. By jointly leveraging 
+
+F. Zhou, J. Xie, Z. Gao, F. Wang, Y. Fang, H. Zhao, and Y. Zheng are with the School of Eye and Vision Sciences, University of Liverpool, U.K. Y. Zheng is the corresponding author. G. Y.H. Lip is with the Department of Cardiovascular and Metabolic Medicine, University of Liverpool, U.K. Q. Yu is with the School of Computer Science, University of Exeter, U.K. J. Li is with the School of Computer Science and Engineering, South China University of Technology, China. Z. Jiang is with the School of Computing and Mathematical Sciences, University of Leicester, U.K. Y. Zhao is with Ningbo Institute of Industrial Technology, Chinese Academy of Sciences, China. Y. Meng is with the Bioengineering Program, Biological and Environmental Science and Engineering Division (BESE), King Abdullah University of Science and Technology (KAUST), Saudi Arabia. 
+
+Fig. 1. (a) Most existing shared-specific modeling methods [1], [2] perform disentanglement and alignment only on globally averaged features, leading to suboptimal intra-modality disentanglement and inter-modality alignment. (b) Unlike the coarse-grained modeling in (a), our method further employs a Token Prototype Extractor (TPE) to derive both shared and modality-specific prototypes, followed by prototype-level disentanglement and alignment. This enables more effective use of fine-grained semantic and distributional cues from the available modality to offset the missing one. 
+
+complementary information from different modalities, multi-modal models can often outperform unimodal counterparts. Among various multimodal settings, image–tabular learning has recently gained increasing attention due to its broad applicability in domains such as clinical decision support [9], [10] and marketing research [11]. Images typically capture rich visual patterns, while tabular data provide complemen-tary structured information, such as demographic attributes, numerical measurements, and contextual records. However, modality incompleteness is common in practice. For example, in healthcare, imaging exams may be unavailable for some patients due to cost or accessibility constraints, while clinical measurements can be missing under emergency conditions. Most existing image–tabular methods [12]–[16] typically as-sume that all modalities are available during both training and inference, making them vulnerable in missing-modality scenarios. Therefore, developing robust image–tabular classi-fication models that can effectively handle missing modalities is of great practical importance. Incomplete image–tabular learning is non-trivial because the two modalities are not only complementary but also highly heterogeneous, making robust fusion under incompleteness especially difficult. To address this issue, prior image–tabular approaches often aim to learn modality-invariant representa-tions. For instance, DrFuse [2] performs shared–specific disen-tanglement and coarse-grained alignment on globally averaged token representations. Similar strategies have been explored in other multimodal domains, such as semantic segmentation 
+
+> arXiv:2606.05455v1 [cs.CV] 3 Jun 2026 2
+
+[17], emotion recognition [18], and disease diagnosis [19]. However, these approaches ignore token-level semantic incon-sistencies and fine-grained distribution discrepancies, resulting in potential representation entanglement and suboptimal cross-modal alignment. To facilitate cross-modal learning, a recent work [20] introduces a prototype-based distribution alignment, but its prototype modeling is primarily confined to modality-specific representations, without explicitly modeling shared prototypes or class-level semantic consistency. Another line of research addresses missing modalities via knowledge dis-tillation [21]–[23], where a teacher model trained on com-plete modalities supervises a student model operating on partial modalities. However, this paradigm requires access to all modalities for teacher training, which is impractical when large-scale, complete data are unavailable. Recently, prompt-based methods [24], [25] have leveraged prompt-tuning techniques to effectively transfer the capabilities of large vision–language models ( e.g. , CLIP [26]) pre-trained on complete multimodal datasets to tasks involving missing modalities. Despite their success in vision–language tasks, adapting these models to image–tabular settings is non-trivial due to the intrinsic heterogeneity of tabular data and the lack of universally pre-trained image–tabular models. To address these challenges, we propose DFPL, a novel framework for incomplete tabular–image classification that disentangles multimodal features into shared and modality-specific prototypes, enabling fine-grained cross-modal inter-actions at the prototype level while enhancing robustness to incomplete inputs, as illustrated in Fig. 1(b). In detail, we propose a SSPM module to extract compact and diverse shared and modality-specific prototypes via different prototype queries. These prototypes serve as structured semantic sum-maries of token-level features, which are then used for fine-grained disentanglement and alignment. In addition, we de-velop a PFA module that enforces prototype-level distribution matching for both shared and modality-specific prototypes, as well as prototype-to-class semantic alignment. Specifically, the former matches cross-modal shared/specific prototypes based on optimal transport (OT), while the latter aligns cross-modal similarity distributions between shared prototypes and class prototypes, thus promoting fine-grained distributional and semantic consistency across modalities. Inspired by the advantages of label-query mechanisms [27] in extracting class-related features, we further introduce a CMA module that adaptively integrates shared and modality-specific representa-tions across two scales ( i.e. , global and prototype) by learnable class queries to produce robust classification results. The main contributions of this paper are summarized as follows:  
+
+> •
+
+We introduce DFPL, a novel framework for incomplete tabular-image classification that achieves disentangled representation learning from coarse global features to fine-grained prototypes. Extensive experiments on three image-tabular datasets demonstrate its superior perfor-mance under various missing-modality scenarios.  
+
+> •
+
+We propose a SSPM module to extract compact and di-verse shared and modality-specific prototypes from token-level features, enabling prototype-level disentanglement.  
+
+> •
+
+We develop a PFA module that performs cross-modal distribution matching over shared and modality-specific prototypes, and further enforces similarity-distribution consistency between shared prototypes and class proto-types.  
+
+> •
+
+We design a CMA module to integrate global- and prototype-level representations in a class-guided manner, improving robustness to missing modalities. II. R ELATED WORK 
+
+Multimodal Image–Tabular Learning. Multimodal im-age–tabular learning has attracted increasing attention in a variety of domains, particularly in the medical field [28]–[31], where images capture visual patterns while tabular data encode structured attributes such as demographics, laboratory tests, and clinical history. Early works mainly focused on designing feature fusion strategies [13], such as feature concatenation or attention-based weighting, without explicitly addressing the missing-modality problem. More recently, self-supervised pre-training [16], [32] has been explored to improve cross-modal representation learning. For example, MMCL [14] was the first to leverage contrastive pre-training on large-scale image–tabular pairs, followed by supervised fine-tuning on labeled datasets. TIP [12] further enhanced the representation capability by modeling missing variables within tabular data during pre-training. The emergence of tabular foundation models has recently opened a new direction for image–tabular learning. Compared with conventional tabular encoders, which are usually optimized from scratch on task-specific datasets, tabular foundation models aim to provide transferable rep-resentations by exploiting large-scale pretraining or meta-learning over diverse tabular tasks. TIME [33] leveraged TabPFN [34] as a frozen tabular encoder to generate robust and informative tabular embeddings, and then combined them with image features from pretrained vision backbones. Multi-ModalPFN [35] further generalized TabPFN from tabular-only settings to multimodal inputs, including tabular data paired with images or text. By mapping non-tabular embeddings into balanced token representations, it mitigates the attention imbalance problem and improves multimodal fusion across both medical and general-purpose benchmarks. Although these methods significantly improve downstream task performance by exploiting image–tabular correlations, they still assume that both modalities are always available during inference, making them less effective in real-world scenarios where modality missingness is common. 
+
+Missing Modality in Multimodal Learning. The missing-modality problem is prevalent in real-world multimodal sce-narios due to acquisition cost, sensor failure, privacy con-straints, or incomplete data collection [36], [37]. Existing solutions can be broadly grouped into modality reconstruc-tion, knowledge distillation, prompt-based adaptation, and modality-invariant representation learning. Modality reconstruction methods [38], [39] attempt to syn-thesize or impute the missing modality from the available ones using autoencoders, generative adversarial networks, diffusion models, or cross-modal generation modules. Although these 3          
+
+> Fig. 2. The overview of DFPL. Given multimodal inputs, image and tabular encoders extract modality-specific and shared token-level representations. SSPM aims to extract shared and modality-specific prototypes by TPE for prototype-level disentanglement ( Lm
+> pdis ,m∈ { img, tab }). PFA then performs prototype-level distribution matching ( Lshared pali ,Lspec pali ) for both shared and modality-specific prototypes, as well as prototype-to-class semantic alignment ( Lcali ). CMA then adaptively fuses shared and specific information from two scales for class-aware robust prediction. Lm
+> tdis and Ltali denote the global-level disentanglement and alignment losses, respectively.
+
+methods provide an intuitive way to recover missing informa-tion, they may introduce noisy or biased synthetic features when the cross-modal mapping is ambiguous. This issue becomes more severe in image-tabular learning, where visual patterns and structured variables are highly heterogeneous and do not necessarily have one-to-one correspondences. Knowledge distillation-based approaches [21]–[23] train a teacher network with complete modalities to guide a student model that operates on partial modalities. By transferring the predictions or intermediate representations of the complete-modality teacher, these methods can improve the performance of unimodal or incomplete-modality students. However, they usually require fully paired multimodal data to train a reliable teacher model, which is often unavailable in practical appli-cations. Prompt-based methods [24], [25], [40] leverage large vision-language models by designing task-specific prompts to handle missing inputs. These methods have shown promising results in vision-language tasks, where large-scale pre-trained models provide strong cross-modal priors. Nevertheless, they are diffi-cult to directly adapt to image-tabular learning, because tabular data are schema-specific, domain-dependent, and structurally different from natural language. Moreover, general-purpose pre-trained image-tabular models are still lacking, limiting the transferability of prompt-based solutions to heterogeneous image-tabular scenarios. Modality-invariant representation learning seeks to project available modalities into a shared latent space, where the learned representations preserve useful cross-modal cues and enable inference when one modality is missing [2], [17]– [19]. Recent methods further introduced shared-specific dis-entanglement to separate modality-shared information from modality-specific characteristics. Despite their effectiveness, most of them perform alignment on globally aggregated fea-tures, which mainly capture coarse-grained cross-modal con-sistency. As a result, token-level semantic inconsistencies and fine-grained distribution discrepancies between heterogeneous modalities may remain unresolved, leading to representation entanglement and suboptimal cross-modal alignment. Different from these methods, the proposed DFPL focuses on fine-grained shared-specific prototype learning for incom-plete image–tabular classification. Instead of aligning only global representations or reconstructing missing modalities, DFPL explicitly extracts shared and modality-specific proto-types from token-level features, performs prototype-level dis-tribution matching, and further enforces class-level semantic consistency. This design enables the model to better exploit distributional and semantic cues from the available modality, thereby improving robustness under various missing-modality scenarios. III. M ETHOD 
+
+A. Problem Formulation and Overall Framework 
+
+Problem Formulation. We consider a multimodal classi-fication setting with image ximg ∈ RH×W ×3 and tabular 
+
+xtab , where H and W denote the image height and width, 4
+
+respectively. The tabular modality may appear as a static feature vector xtab ∈ RL or a temporal sequence xtab ∈ RS×L
+
+(e.g., electronic health records (EHR)), where S is the tem-poral length and L is the feature dimension. Given a dataset 
+
+D = {(ximg  
+
+> n
+
+, xtab  
+
+> n
+
+, yn)}Nn=1 with N samples, the label vector 
+
+yn ∈ {0, 1}C denotes the class annotations, where C is the number of classes. Missing modalities are indicated by a binary mask m = [ mI , m T ] ∈ { 0, 1}2, where mI = 1 if the image is present. Similar to [2], [17], missing inputs are replaced with zero vectors during both training and inference. 
+
+Overall Framework. Following the recent work [2] on missing-modality learning, we employ, for each modality, two encoders with identical architectures to extract shared and specific token-level features, i.e. , Tm
+
+> shared
+
+, Tm 
+
+> spec
+
+∈ RLm×D ,where modality m ∈ { img, tab }, D is the hidden dimension and Lm represents the token lengths of m. The two encoders share lower-layer parameters to capture common low-level patterns, while maintaining separate higher layers to specialize in shared or modality-specific semantics. As shown in Fig. 2, SSPM jointly learns compact and diverse shared and specific prototypes, followed by fine-grained disentanglement (Sec. III-B). Besides, PFA aims to further align prototype-level and prototype-to-class distributions, achieving distributional and semantic consistency across modalities (Sec. III-C). Finally, CMA is introduced to fuse shared and specific information to yield robust predictions (Sec. III-D). 
+
+B. Shared-Specific Prototype Modeling (SSPM) 
+
+As aforementioned, prior shared–specific models [1], [2] op-erate on globally averaged features, capturing coarse modality-invariant cues but overlooking fine-grained token semantics. A straightforward solution would be to enforce disentanglement constraints on all token-level features directly, but the large number of tokens may introduce noisy and redundant super-vision. In contrast, our SSPM learns a small set of semantic prototypes to organize token features into compact shared and modality-specific components. 
+
+Coarse-grained Shared-Specific Modeling. We first obtain global representations by averaging token features within each modality branch. The objective is to disentangle the shared and specific subspaces of each modality while aligning shared representations across modalities at a coarse level. Following [2], the loss is defined as: 
+
+Lcssm = X
+
+> m∈{ img ,tab }
+
+tm 
+
+> shared
+
+· (tm
+
+> spec
+
+)T
+
+|| tm
+
+> shared
+
+|| 2 || tm
+
+> spec
+
+|| 2
+
++ JSD 
+
+
+
+timg shared , ttab shared 
+
+
+
+,
+
+(1) where the first and second items are global disentanglement (i.e. , Ltdis ) and alignment (i.e. , Ltali ) losses, respectively. 
+
+t ∈ RD is the global average of T, and JSD (·) is the Jensen–Shannon divergence. This coarse-grained modeling defines global semantic boundaries that can effectively guide and stabilize prototype-level refinement (verified in Supp. C ). 
+
+Token Prototype Extractor (TPE). Inspired by prototype learning [41], [42] that represents each semantic concept or class with a compact set of learnable prototypes, we propose to dynamically extract a small number of semantic prototypes from the token-level features of each modality branch through a learnable query-based attention mechanism, where each prototype compactly summarizes a distinct la-tent semantic pattern. Formally, given token-level represen-tations T ∈ T = Tm
+
+> shared
+
+, Tm 
+
+> spec
+
+| m ∈ { img , tab } , we introduce K learnable prototype queries for each branch, denoted as F ∈ F = Fm
+
+> shared
+
+, Fm 
+
+> spec
+
+| m ∈ { img , tab } , to produce shared and modality-specific prototypes P ∈ P =Pm
+
+> shared
+
+, Pm 
+
+> spec
+
+| m ∈ { img , tab } . The four groups of proto-type queries in F are parameter-independent, which encour-ages different branches to focus on distinct semantic patterns and facilitates subsequent shared–specific disentanglement. Mathematically, each query and its corresponding token-level features are fed into a branch-specific attention module to extract prototypes: 
+
+F′ = softmax 
+
+ QK ⊤
+
+√D
+
+
+
+V + F,
+
+P = F F N (F′) + F′,
+
+(2) where Q = FW q , K = TW k, and V = TW v . Wq .
+
+Wk, Wv ∈ RD×D are learnable projection matrices. F F N (·)
+
+represents the feed-forward network. 
+
+Prototype Diversity Loss. After obtaining the prototype-level representation P ∈ RK×D , it is crucial to ensure that each pro-totype within it encodes distinct semantics to avoid redundant prototypes. To this end, we introduce a diversity regularization loss that minimizes cosine similarity ( i.e. , cos( ·)) between every pair of prototypes. Given P, we have: 
+
+Ldiv = 1
+
+K(K − 1) 
+
+X
+
+> P∈P
+
+X
+
+> i̸=j
+
+max  0, cos( Pi, Pj ) − δ, (3) where δ ∈ [0 , 1] is a similarity margin, which enforces separation only when two prototypes are overly close. This constraint encourages each prototype to attend to unique latent semantics and avoids mode collapse. 
+
+Prototype-level Disentanglement. We further enforce disen-tanglement between shared and modality-specific representa-tions at the prototype level after extracting the shared-specific prototype set P. Since K is relatively small compared with the original number of tokens, we directly average over prototype-level representations, i.e. , Pm 
+
+> shared
+
+and Pm 
+
+> spec
+
+to obtain pm 
+
+> shared
+
+and 
+
+pm 
+
+> spec
+
+respectively, where m ∈ { img, tab }. We then apply the same loss defined in Eq. (1) to pm 
+
+> shared
+
+and pm 
+
+> spec
+
+to get Lpdis . By combining coarse-grained and prototype-level disentanglement losses, we achieve a clearer separation between shared and modality-specific spaces. 
+
+C. Prototype-guided Fine-grained Alignment (PFA) 
+
+Despite global-level alignment in Eq. (1), cross-modal distribution and semantic discrepancies remain due to high modality heterogeneity. Inspired by the success of fine-grained alignment in vision-language learning [43], [44], which shows that aligning specific regions within images with correspond-ing text can enhance representation learning, we propose to boost fine-grained distributional and semantic consistency across modalities by aligning prototype-level distributions, as well as prototype-to-class semantics. 5
+
+Prototype-level Distribution Alignment. Unlike the re-gion–text pairs in [43], [44], the shared and specific prototypes are not in a one-to-one correspondence across modalities, making direct prototype-level alignment infeasible. Therefore, we formulate the alignment as an OT problem, where the OT distance [45]–[47] is employed to measure the distri-butional discrepancy between prototypes across modalities. Given modality-shared prototypes Pimg shared and Ptab shared , we con-struct a cost matrix that measures the distance between each prototype pair: 
+
+Cij = ∥Pimg shared ,i − Ptab shared ,j ∥22. (4) We seek an optimal transport plan G ∈ RK×K that minimizes the transport cost across modalities. The entropic-regularized OT solution is efficiently approximated using the Sinkhorn algorithm [45], and the resulting prototype-level distribution alignment loss is formulated as: 
+
+Lshared pali = min 
+
+> G∈Π( μimg ,μ tab )
+
+⟨G, C⟩ + ε X
+
+> i,j
+
+Gij log Gij , (5) where Π( μimg , μ tab ) = {G | G1 K = μimg , G⊤1K = μtab }
+
+denote the marginal constraints of total mass equality between marginal distributions, i.e. , μimg and μtab . 1K represents a K-dimensional vector of ones. ⟨G, C⟩ = P 
+
+> i,j
+
+Gij Cij is the total transportation cost. Weight ε controls the regularization strength, which is set to 0.1. Although modality-specific prototypes encode modality-dependent characteristics, the structural gap between image and tabular subspaces can still be substantial due to their heterogeneous feature distributions. If left unregularized, this discrepancy may hinder effective cross-modal interaction and weaken robustness under missing-modality scenarios. To this end, we further extend the Sinkhorn-based OT to modality-specific prototypes, yielding Lspec pali . Moderate alignment en-courages structural compatibility across modality-dependent subspaces while preserving their complementary characteris-tics. The overall distribution alignment loss is then defined as 
+
+Lpali = Lshared pali + ωLspec pali , where ω is a small weighting factor to prevent over-alignment that may collapse modality-specific characteristics. 
+
+Prototype-to-Class Semantic Alignment. While prototype-level alignment reduces the discrepancy between modalities in the prototype space, it does not explicitly enforce semantic consistency with respect to the class space. Therefore, we propose to align cross-modal shared semantics by extracting multi-level class prototypes and encouraging prototype-to-class semantic consistency. This design enhances the semantic structure and robustness of shared representations. Class prototypes are the representative embeddings of all positive samples in each class within a mini-batch. Unlike prior works [1], [22], we construct class prototypes at both global and prototype levels and fuse them with a learnable gate to provide richer semantic cues for alignment. For each class c
+
+that appears in the current mini-batch, the class prototype νmc
+
+for modality m is constructed by fusing the global prototype 
+
+νm 
+
+> glo ,c
+
+with the prototype-level counterpart νm
+
+> proto ,c
+
+:
+
+νmc = λcνm 
+
+> glo ,c
+
++ (1 − λc)νm
+
+> proto ,c
+
+= λc
+
+1
+
+|B c|
+
+X
+
+> i∈B c
+
+(tm
+
+> shared ,i
+
+) + (1 − λc) 1
+
+|B c|
+
+X
+
+> i∈B c
+
+(pm
+
+> shared ,i
+
+),
+
+(6) where Bc = {i | yi,c = 1 } the index set of positive samples in the mini-batch, and λc balances global- and prototype-level cues. Rather than using a fixed λc, a gating mechanism adaptively learns the relative importance of two prototype types, which is defined as: 
+
+λc = σ  w⊤ νm 
+
+> glo ,c
+
+; νm
+
+> poto ,c
+
+ , (7) where σ(·) is the sigmoid function, w ∈ R2D is a learn-able gating vector, and [·; ·] denotes concatenation. For each modality, we then derive the class-aware similarity distribution by calculating the cosine similarity between the aggregated shared prototype ( e.g. , pimg shared ) and all class prototypes. Then, prototype-to-class semantic consistency is defined as: 
+
+Lcali = 1
+
+|C| 
+
+X
+
+> c∈C
+
+cos( pimg shared , ν img  
+
+> c
+
+) − cos( ptab shared , ν tab  
+
+> c
+
+) 22
+
+, (8) where C denotes the set of all classes present in the mini-batch. The overall PFA loss Lpfa is obtained as the sum of 
+
+Lpali and Lcali , jointly enforcing fine-grained distributional and semantic consistency in shared–specific and class prototype spaces, respectively, to improve cross-modal reasoning under missing modalities. 
+
+D. Class-aware Multi-scale Aggregation (CMA) 
+
+In heterogeneous image-tabular learning, modality impor-tance is often sample- and class-dependent. For example, in clinical diagnosis, different diseases may rely on different combinations of imaging evidence and structured patient at-tributes [2]. Existing shared-specific modeling methods typi-cally fuse disentangled representations through concatenation [17] or cross-attention [1], but they usually overlook class-dependent modality preferences. Different from [2], which builds queries and class-wise keys from disentangled fea-tures, we introduce learnable class queries that directly attend to different representation types (shared/specific) and scales (global/prototype). In this way, CMA adaptively integrates global- and prototype-level shared/specific cues according to class-related requirements, thereby improving robustness under missing-modality scenarios. Specifically, as the extracted shared prototypes encode modality-invariant semantic information, we construct a fused shared prototype to aggregate the available modality cues. Given the modality availability indicator m, the fused shared prototype is defined as: 
+
+ptab-img shared =
+
+
+
+(ptab shared + pimg shared )/2 , if m = [1 , 1] 
+
+ptab shared , if m = [0 , 1] 
+
+pimg shared , if m = [1 , 0] ,
+
+(9) where the shared prototypes are averaged when both modal-ities are available; otherwise, the prototype of the available 6
+
+modality is directly adopted. Similarly, we can get the fused global feature ttab-img shared by Eq. (9). We then construct a complete multi-scale representation H ∈ R6×D as: 
+
+H =
+
+h
+
+timg spec ; pimg spec ; ttab-img shared ; ptab-img shared ; ttab spec ; ptab spec 
+
+i
+
+. (10) Given the multi-scale representation H and the learnable class queries Qclass ∈ RC×D , we perform masked cross-attention to obtain class-aware features. Specifically, Qclass 
+
+serves as the query, while H serves as both the key and value. The attention process is formulated as: 
+
+Q = Qclass WQ, K = HW K , V = HW V ,
+
+Z = softmax 
+
+ QK ⊤
+
+√D + M
+
+
+
+V, (11) where WQ, WK , and WV are learnable projection matrices. The modality-aware mask M ∈ RC×6 is broadcast from the modality availability indicator, where entries corresponding to missing-modality representations are set to -∞ and others are set to 0. In this way, the softmax operation assigns zero attention weights to unavailable representations, preventing them from contributing to the class-aware aggregation. The class-aware features Z are then passed to a linear classifier for the final prediction ˆy using binary cross-entropy 
+
+Lcls = − 1
+
+C
+
+> C
+
+X
+
+> c=1
+
+[yc log ˆ yc + (1 − yc) log(1 − ˆyc)] . (12) Finally, the overall training objective to be minimized is defined as follows: 
+
+Ltotal = Lcls + αLcssm + β(Ldiv + Lpdis ) + γLpfa , (13) where α, β, γ are hyper-parameters balancing the contribution of each component. Following [17], the losses associated with the missing modality are omitted during training. More training and inference details are provided in Supp. A.IV. E XPERIMENT 
+
+Datasets and Evaluation Metrics. We evaluate the proposed DFPL on three different types of image–tabular datasets: MIMIC [48], ADNI [49], and DVM [11]. MIMIC comprises time-series tabular data (EHR) and paired chest radiographs for multi-label disease prediction across 25 diagnostic cate-gories. Following the preprocessing in [2], we extract paired image–EHR samples within the first 48 hours of ICU ad-mission, where each temporal sequence contains 17 clinical variables. After preprocessing, the dataset is split into 7,637 training, 857 validation, and 2,136 testing samples. Model per-formance is evaluated using the area under the precision–recall curve (PRAUC). ADNI aims to investigate the diagnosis and progression of Alzheimer’s disease. Following [31], [50], we mainly collect 1,913 MRI–tabular pairs, where each tabular record contains 43 clinical variables. The subjects span three categories of cognitive status: cognitive normal (CN), mild cognitive impairment (MCI), and dementia (DE). We perform a subject-level random split into 1,531, 191, and 191 subjects for training, validation, and testing, respectively. Since each subject may have multiple longitudinal MRI scans, this split results in 5,880, 783, and 642 scan-level samples for the three sets. The DVM dataset is used for a car model classification task with 283 categories, where each sample contains an RGB image and 17 tabular attributes. The dataset is divided into 70,565 training, 17,642 validation, and 88,207 testing samples. Model performance on ADNI and DVM is evaluated using top-1 classification accuracy (ACC). 
+
+Implementation Details. ResNet-50 [51] is used as the image encoder, and different transformer-based encoders are adopted for EHR and static tabular data, respectively, following [2], [12]. The hidden dimension of image and tabular representa-tions is set to 256 for MIMIC and 512 for both ADNI and DVM. The hyper-parameters are set as α = 1 , β = 0 .1,
+
+γ = 0.1, and δ = 0.2. The number of prototypes K is set to 5. All experiments are conducted with batch sizes of 16 (MIMIC and ADNI) and 256 (DVM). For the missing-modality setting, we replace the input with a zero-filled tensor. For a fair comparison, all baseline models follow the same data pre-processing and training protocols. Specifically, the images are resized to 224 × 224 and 128 × 128 for the MIMIC and DVM datasets, respectively. For the ADNI dataset, the 3D MRI scans ( i.e. , T1) are resized to 128 ×128 ×128 . All models are trained on two NVIDIA A100 GPUs for 100 epochs using the Adam optimizer. Additional implementation details are provided in Supp. B.
+
+Missing Modality Setting During Training and Testing. We define the missing rate η% as the proportion of incomplete samples in the dataset. For each dataset, we consider three cases: (i) tabular missing and (ii) image missing , where η%
+
+of the samples contain only one modality and the remaining 
+
+1 − η% contain both; and (iii) both missing , where η 
+
+> 2
+
+% of the samples contain only tabular, η 
+
+> 2
+
+% contain only images, and the remaining 1 − η% are complete. 
+
+A. Comparison with State-of-the-art Methods 
+
+We compare our proposed DFPL with seven representative methods, including complete-modality methods: TIP [12], and missing-modality methods: IF-MMIN [18], ShaSpec [17], IM-Fuse [52], STiL [1], DMRNet [53] and DrFuse [2]. Exten-sive experiments are conducted to thoroughly evaluate the robustness and effectiveness of DFPL under different missing-modality scenarios. Further implementation details for all baseline methods are provided in Supp. B.As shown in Table I, DFPL achieves the highest PRAUC on MIMIC under all missing-modality settings. It outperforms the complete-modality baseline TIP by 4% PRAUC when 70% of tabular inputs are missing, highlighting its effectiveness in han-dling incomplete modalities. When compared with missing-modality approaches, our method also demonstrates consistent superiority, surpassing the strongest recent competitor, i.e. ,DrFuse, by 1.33%, 1.58%, and 1.42% under 30%, 50%, and 70% both-modality-missing scenarios, respectively. Notably, the recent IM-Fuse, which employs Mamba [54] to directly process sparse inputs, performs suboptimally in the highly het-erogeneous image–tabular learning setting. These results indi-cate that fine-grained disentanglement and alignment, together with class-aware multi-scale aggregation, enable our model 7
+
+TABLE I COMPARISON RESULTS ON THE MIMIC, ADNI, AND DVM DATASETS UNDER VARIOUS MISSING -MODALITY CASES WITH DIFFERENT MISSING RATES APPLIED TO BOTH TRAINING AND TESTING PHASES . T HE BOLD NUMBER INDICATES THE BEST PERFORMANCE .Datasets Missing rate η Train/Test Method Image Tabular TIP IF-MMIN STiL IM-Fuse DMRNet ShaSpec DrFuse Ours MIMIC (PRAUC) 
+
+30% 100% 70% 37.72 38.45 38.95 37.88 38.20 38.94 39.30 40.63 
+
+70% 100% 40.10 40.76 41.00 40.61 40.77 41.21 41.60 42.73 
+
+85% 85% 39.23 40.04 40.12 39.39 39.91 40.14 40.34 41.67 
+
+50% 100% 50% 34.56 35.09 35.70 35.11 35.10 35.84 36.42 38.43 
+
+50% 100% 39.93 40.34 40.95 40.30 40.33 40.96 41.22 42.25 
+
+75% 75% 36.34 37.10 37.45 36.98 36.90 37.13 38.64 40.22 
+
+70% 100% 30% 32.00 33.07 33.80 32.34 33.51 33.89 34.50 36.00 
+
+30% 100% 39.02 40.00 40.54 39.48 39.64 40.67 41.11 42.06 
+
+65% 65% 34.01 34.56 35.28 34.23 34.56 35.64 36.20 37.62 
+
+ADNI (ACC) 
+
+30% 100% 70% 72.59 73.53 74.30 72.12 73.21 74.14 74.61 75.86 
+
+70% 100% 86.45 86.60 86.92 85.20 86.14 86.76 86.60 87.07 
+
+85% 85% 77.57 78.35 78.82 77.10 78.19 79.13 79.91 80.84 
+
+50% 100% 50% 62.31 63.40 64.02 61.68 62.93 63.71 64.49 65.89 
+
+50% 100% 86.14 85.83 86.29 85.20 85.36 86.14 86.29 86.92 
+
+75% 75% 72.90 73.52 74.61 72.12 73.05 74.30 74.61 76.48 
+
+70% 100% 30% 55.14 55.30 55.76 54.83 55.45 56.54 57.17 59.03 
+
+30% 100% 85.83 85.51 85.98 84.89 85.05 86.14 86.14 86.76 
+
+65% 65% 70.09 71.18 71.96 69.47 70.56 71.81 72.59 74.45 
+
+DVM (ACC) 
+
+30% 100% 70% 87.64 88.45 89.01 87.98 88.87 89.55 90.52 95.54 
+
+70% 100% 95.11 95.80 95.88 95.60 95.65 96.04 96.48 98.23 
+
+85% 85% 89.78 90.21 91.45 90.31 90.89 91.90 92.91 96.24 
+
+50% 100% 50% 86.01 86.26 86.89 85.73 86.45 87.76 89.03 93.43 
+
+50% 100% 94.89 95.44 95.50 94.90 95.45 95.52 96.00 97.66 
+
+75% 75% 89.00 89.34 89.74 89.12 89.40 90.04 91.01 94.50 
+
+70% 100% 30% 84.94 85.14 85.56 85.16 85.24 86.46 87.80 92.59 
+
+30% 100% 94.00 94.62 94.89 94.26 94.40 95.01 95.33 97.50 
+
+65% 65% 86.86 87.12 87.34 86.96 86.91 87.65 89.16 92.63 
+
+to effectively capture complementary information even when one modality is largely absent. On the ADNI dataset, DFPL consistently achieves the best accuracy across all missing-modality settings. We further observe a consistent asymmetric robustness pattern on both MIMIC and ADNI: performance degradation is more pronounced when tabular inputs are missing than when images are missing. This phenomenon is expected, as clinical tabular variables often provide more direct and label-relevant cues, while imaging features may contain more heterogeneous variations that are not always tightly coupled with the target labels. Importantly, despite the more challenging tabular-missing scenarios, DFPL maintains clear superiority over competing methods, demonstrating its ability to effectively exploit the remaining modality through disentangled fine-grained prototype learning. On the DVM dataset, DFPL significantly outperforms all competing approaches. With 30% missing tabular data, it reaches 95.54% accuracy, exceeding DrFuse by 5%. Moreover, the superiority of our method remains consistent across more challenging scenarios. For instance, with 50% and 70% miss-ing rates, our approach still achieves 93.45% and 92.59% accu-racy, respectively, exceeding the closest baseline by more than 4.0%. These improvements can be attributed to the enhanced learning of shared and modality-specific representations. 
+
+Generalizability Analysis. Fig. 3(a) and (b) show the results on the MIMIC dataset under different training-time miss-ing rates, evaluated on a 90% missing test set. Specifically, Fig. 3(a) corresponds to the setting where both modalities are missing during training, while Fig. 3(b) represents the scenario 
+
+Fig. 3. Generalization analysis on the MIMIC dataset under different training-time missing rates in terms of PRAUC. (c) Robustness analysis on the MIMIC dataset under different test-time missing rates in terms of PRAUC. 
+
+where only the tabular modality is missing. DFPL consistently outperforms all baselines across all training-time missing rates, showing superior generalization ability in the presence of incomplete modalities. In particular, when the missing rate increases from 20% to 60%, our method maintains a relatively stable performance with only a slight decline, whereas com-peting methods degrade substantially. These results highlight DFPL’s strong generalizability, which can be attributed to its ability to effectively align cross-modal distributional and semantic cues. 
+
+Robustness Analysis. Fig. 4 presents the robustness results on MIMIC with models trained under 50% both-modality miss-8                                  
+
+> Fig. 4. Robustness analysis on the MIMIC dataset under different test-time missing rates in terms of PRAUC. TABLE II ABLATION STUDY ON THREE DIFFERENT COMPONENTS FOR MIMIC AND
+> DVM DATASETS UNDER 50% BOTH -MODALITY MISSING .Modules MIMIC ADNI DVM SSPM PFA CMA PRAUC (%) ACC (%) ACC (%)
+> ✗✗✗37.70 74.14 89.67
+> ✓✗✗38.40 74.77 91.32
+> ✓✓✗39.50 75.70 93.47
+> ✓✓✓40.22 76.48 94.50
+
+ing and tested at different missing rates. DFPL consistently achieves the highest PRAUC across all test-time missing rates from 10% to 90%. As the missing rate increases, the perfor-mance of all methods inevitably declines, yet DFPL degrades more gracefully. This clearly showcases the robustness of our method to various missing patterns. 
+
+B. Ablation Studies 
+
+Efficacy of Key Components. We demonstrate the effec-tiveness of three proposed components in DFPL: SSPM (Sec. III-B), PFA (Sec. III-C), and CMA (Sec. III-D). To achieve this, we establish a baseline where only coarse-grained disentanglement and alignment are employed for shared–specific representation learning, followed by a simple concatenation of shared and specific representations for clas-sification. We then progressively incorporate each proposed component into the baseline. Table II showcases that each component consistently improves performance on the MIMIC, ADNI, and DVM datasets. Incorporating SSPM yields anoticeable gain on the two datasets, verifying the benefit of fine-grained shared–specific prototype modeling. Adding PFA further boosts performance, highlighting its effective-ness in enhancing cross-modal semantic and distributional consistency. Finally, CMA brings additional improvements by adaptively aggregating multi-scale representations, leading to the best performance. Overall, compared with the baseline, DFPL achieves an absolute improvement of 2.52% PRAUC  
+
+> Fig. 5. Visualization of cross-attention weights in CMA on the MIMIC dataset.
+
+on MIMIC, 2.34% ACC on ADNI, and 4.83% ACC on DVM, confirming the complementary effect of all three components. 
+
+Ablation Study on SSPM. To study the effect of the diversity regularization loss and the number of prototypes in SSPM, we conduct experiments on the DVM dataset under 50% missing rate, as shown in Table III. Incorporating the diversity loss 
+
+Ldiv leads to a clear improvement, indicating its effectiveness in encouraging diverse prototype learning and preventing redundancy. We further vary the number of prototypes K to analyze its impact. The best performance is achieved at K = 5 ,whereas too few ( K = 3 ) or too many ( K = 10 , 15 ) prototypes lead to degradation. The main reason can be that a small K
+
+limits representational capacity, while a large K introduces redundancy and noise. Therefore, we adopt K = 5 as the default setting in all subsequent experiments. 
+
+Ablation Study on PFA. In Table IV, we investigate the effect of the prototype-level and prototype-to-class alignment losses. Using either Lpali or Lcali alone leads to a performance gain, while combining them achieves the best result of 93.47%, demonstrating their complementary roles. We then analyze the type of class prototypes (CP). Employing global- or prototype-level class prototypes alone results in 92.23% and 92.52% accuracy, respectively. When integrated through the proposed gating mechanism, the performance improves substantially, which can be attributed to the richer semantic cues provided by multi-level class prototypes for alignment. 
+
+Ablation Study on CMA. We further analyze the effect of different shared-specific fusion strategies, as summarized in Table V. Compared with simple feature fusion methods such as concatenation or addition, CMA achieves a signifi-cant improvement. We also examine the impact of fusion at different scales. Compared with aggregation at the global and prototype levels, multi-scale aggregation yields improvements of 1.26% and 0.83%, respectively. These results show that CMA effectively leverages multi-scale information through class-aware aggregation, thereby producing more discrimina-tive representations. 
+
+Qualitative results. Fig. 5 visualizes the cross-attention weights in CMA when the tabular modality is completely missing at test time. For each disease class, we average atten-tion over samples with a prediction probability greater than 0.5. The attention patterns reveal that global- and prototype-level features provide complementary cues. When tabular data 9
+
+TABLE III ABLATIONS FOR THE SSPM. Configurations ACC (%) w/o Ldiv 90.50 w/ Ldiv 91.32 
+
+K = 3 89.25 
+
+K = 5 91.32 
+
+K = 10 90.34 
+
+K = 15 89.61 TABLE IV ABLATIONS FOR THE PFA. Configurations ACC (%) w/ Lpali 92.72 w/ Lcali 93.10 w/ Lpali and Lcali 93.47 
+
+w/ global-level CP 92.23 w/ prototype-level CP 92.52 w/ both 93.10 
+
+TABLE V ABLATIONS FOR THE CMA. Configurations ACC (%) Concatenation 93.47 Addition 92.50 CMA 94.50 
+
+CMA (global) 93.24 CMA (prototype) 93.67 CMA (multi-scale) 94.50 
+
+Fig. 6. t-SNE visualization of class-related representations learned by DrFuse and our method. We show 10 classes on the DVM dataset in different colors. 
+
+is absent, shared representations can offer valuable cues. No-tably, for most disease classes, prototype-level shared features contribute more than global-level ones, highlighting the impor-tance of prototype-level shared representations. We can also observe that different diseases rely on different feature levels. For example, the diagnosis of lower respiratory disease ap-pears to depend more on global-level image-specific features, whereas pneumonia relies heavily on prototype-level image-specific and shared representations. These findings further val-idate the necessity of learning prototype-level representations. To further examine the learned representations, we visualize class-related embeddings on the DVM validation set using t-SNE, as shown in Fig. 6. Compared with DrFuse (left), where the clusters remain relatively scattered and partially overlapping, our method (right) produces much clearer inter-class boundaries and more compact intra-class clusters. This indicates that DFPL is more effective at learning class-discriminative representations. Additional results are provided in Supp. C .V. C ONCLUSION 
+
+In this paper, we address the missing-modality challenge in heterogeneous image–tabular learning with a novel framework, DFPL. We first propose SSPM to extract compact and diverse shared and modality-specific prototypes from token-level fea-tures and disentangle them in the prototype space. We then introduce PFA to jointly align prototype-level distributions and prototype-to-class semantics, preserving fine-grained cross-modal distributional and semantic consistency. Finally, we design CMA to generate robust class-related information by adaptively fusing shared and specific information across global and prototype levels. Extensive experiments on three differ-ent kinds of image-tabular datasets demonstrate that DFPL achieves state-of-the-art performance under various missing-modality settings. Our current alignment strategy relies on paired modalities, leaving unpaired samples underutilized. Future work will investigate leveraging unpaired modalities for cross-modal knowledge transfer. Moreover, extending DFPL to other multimodal combinations beyond image–tabular data, such as image–text or audio–video, warrants further investiga-tion. REFERENCES [1] S. Du, X. Luo, D. P. O’Regan, and C. Qin, “Stil: Semi-supervised tabular-image learning for comprehensive task-relevant information ex-ploration in multimodal classification,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 15 549–15 559. 1, 4, 5, 6 [2] W. Yao, K. Yin, W. K. Cheung, J. Liu, and J. Qin, “Drfuse: Learning disentangled representation for clinical multi-modal fusion with missing modality and modal inconsistency,” in Proceedings of the AAAI confer-ence on artificial intelligence , vol. 38, no. 15, 2024, pp. 16 416–16 424. 1, 3, 4, 5, 6 [3] J. Zhang, J. Huang, S. Jin, and S. Lu, “Vision-language models for vision tasks: A survey,” IEEE transactions on pattern analysis and machine intelligence , vol. 46, no. 8, pp. 5625–5644, 2024. 1 [4] H. Yan, X. Yang, L. Bai, J. Li, and J. Liang, “Multi-grained vision-and-language model for medical image and text alignment,” IEEE Transactions on Multimedia , 2025. 1 [5] Y. Zhuang, Y. Zhang, J. Deng, and F. Ren, “Intra-sample and intra-modal enhancement for multimodal sentiment analysis with missing modalities,” IEEE Transactions on Multimedia , 2025. 1 [6] X. Jiang, L. He, F. Gao, K. Zhang, J. Li, and X. Gao, “Boosting modal-specific representations for sentiment analysis with incomplete modalities,” IEEE Transactions on Multimedia , 2025. 1 [7] A. Dong, Y. Cai, L. Wang, J. Xu, G. Lv, and G. Zhao, “Multimodal multi-graph fusion learning for alzheimer’s disease diagnosis,” IEEE Transactions on Multimedia , 2025. 1 [8] Z. Qiu, P. Yang, C. Xiao, S. Wang, X. Xiao, J. Qin, C.-M. Liu, T. Wang, and B. Lei, “3d multimodal fusion network with disease-induced joint learning for early alzheimer’s disease diagnosis,” IEEE Transactions on Medical Imaging , vol. 43, no. 9, pp. 3161–3175, 2024. 1 [9] B. Borsos, C. G. Allaart, and A. van Halteren, “Predicting stroke outcome: a case for multimodal deep learning methods with tabular and ct perfusion data,” Artificial Intelligence in Medicine , vol. 147, p. 102719, 2024. 1 [10] W. Bai, H. Suzuki, J. Huang, C. Francis, S. Wang, G. Tarroni, F. Guitton, N. Aung, K. Fung, S. E. Petersen et al. , “A population-based phenome-wide association study of cardiac and aortic structure and function,” 
+
+Nature Medicine , 2020. 1 [11] J. Huang, B. Chen, L. Luo et al. , “DVM-CAR: A large-scale automotive dataset for visual marketing research and applications,” in 2022 IEEE International Conference on Big Data (Big Data) . IEEE, 2022. 1, 6 [12] S. Du, S. Zheng, Y. Wang, W. Bai, D. P. O’Regan, and C. Qin, “TIP: Tabular-image pre-training for multimodal classification with incomplete data,” in ECCV , 2024. 1, 2, 6 [13] T. N. Wolf, S. Pölsterl, C. Wachinger, A. D. N. Initiative et al. , “DAFT: a universal module to interweave tabular data and 3d images in CNNs,” 
+
+NeuroImage , 2022. 1, 2 [14] P. Hager, M. J. Menten, and D. Rueckert, “Best of both worlds: Multimodal contrastive learning with tabular and imaging data,” in 
+
+CVPR , 2023. 1, 2 [15] D. Duenias, B. Nichyporuk, T. Arbel, T. R. Raviv et al. , “Hyperfusion: A hypernetwork approach to multimodal integration of tabular and medical imaging data for predictive modeling,” Medical Image Analysis , vol. 102, p. 103503, 2025. 1 10 
+
+[16] Y. Huang, B. Wittmann, O. Demler, B. Menze, and N. Davoudi, “Predicting stroke through retinal graphs and multimodal self-supervised learning,” in International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2024, pp. 223–234. 1, 2 [17] H. Wang, Y. Chen, C. Ma, J. Avery, L. Hull, and G. Carneiro, “Multi-modal learning with missing modality via shared-specific feature modelling,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2023, pp. 15 878–15 887. 2, 3, 4, 5, 6 [18] H. Zuo, R. Liu, J. Zhao, G. Gao, and H. Li, “Exploiting modality-invariant feature for robust multimodal emotion recognition with missing modalities,” in ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) . IEEE, 2023, pp. 1–5. 2, 3, 6 [19] Y. Chen, Y. Pan, Y. Xia, and Y. Yuan, “Disentangle first, then distill: A unified framework for missing modality imputation and alzheimer’s disease diagnosis,” IEEE Transactions on Medical Imaging , 2023. 2, 3 [20] C. Qian, S. Xing, S. Li, Y. Zhao, and Z. Tu, “Decalign: Hierarchical cross-modal alignment for decoupled multimodal representation learn-ing,” arXiv preprint arXiv:2503.11892 , 2025. 2 [21] H. Wang, C. Ma, J. Zhang, Y. Zhang, J. Avery, L. Hull, and G. Carneiro, “Learnable cross-modal knowledge distillation for multi-modal learning with missing modality,” in International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2023, pp. 216–226. 2, 3 [22] M. Li, D. Yang, X. Zhao, S. Wang, Y. Wang, K. Yang, M. Sun, D. Kou, Z. Qian, and L. Zhang, “Correlation-decoupled knowledge distillation for multimodal sentiment analysis with incomplete modalities,” in Pro-ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2024, pp. 12 458–12 468. 2, 3, 5 [23] Z. Zhao, J. Li, L. Wang, Y. Wang, and H. Lu, “Maskmentor: Unlock-ing the potential of masked self-teaching for missing modality rgb-d semantic segmentation,” in Proceedings of the 32nd ACM International Conference on Multimedia , 2024, pp. 1915–1923. 2, 3 [24] T. Shi, W. Feng, F. Shang, L. Wan et al. , “Deep correlated prompting for visual recognition with missing modalities,” Advances in Neural Information Processing Systems , vol. 37, pp. 67 446–67 466, 2024. 2, 3 [25] Y.-L. Lee, Y.-H. Tsai, W.-C. Chiu, and C.-Y. Lee, “Multimodal prompt-ing with missing modalities for visual recognition,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,2023, pp. 14 943–14 952. 2, 3 [26] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P. Mishkin, J. Clark et al. , “Learning transferable visual models from natural language supervision,” in International conference on machine learning . PmLR, 2021, pp. 8748–8763. 2 [27] S. Liu, L. Zhang, X. Yang, H. Su, and J. Zhu, “Query2label: Asimple transformer way to multi-label classification,” arXiv preprint arXiv:2107.10834 , 2021. 2 [28] S. Pölsterl, T. N. Wolf, and C. Wachinger, “Combining 3D image and tabular data via the dynamic affine feature map transform,” in MICCAI .Springer, 2021. 2 [29] C. Xue, S. S. Kowshik, D. Lteif, S. Puducheri, V. H. Jasodanand, O. T. Zhou, A. S. Walia, O. B. Guney, J. D. Zhang, S. T. Pham et al. , “AI-based differential diagnosis of dementia etiologies on multimodal data,” 
+
+Nature Medicine , 2024. 2 [30] F. Zhou, Z. Gao, H. Zhao, J. Xie, Y. Meng, Y. Zhao, G. Y. Lip, and Y. Zheng, “Glcp: Global-to-local connectivity preservation for tubular structure segmentation,” in International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2025, pp. 237–247. 2 [31] Y. Fu, Y. Zhao, Z. Zeng, C. Chen, and Y. Jin, “Unleashing the power of image-tabular self-supervised learning via breaking cross-tabular barriers,” arXiv preprint arXiv:2512.14026 , 2025. 2, 6 [32] C. Delgrange, O. V. Demler, S. Mora, bjoern menze, E. D. la Rosa, and N. Davoudi, “A self-supervised model for multi-modal stroke risk prediction,” in Advancements In Medical Foundation Models: Explainability, Robustness, Security, and Beyond , 2024. [Online]. Available: https://openreview.net/forum?id=ST72dbOvwx 2 [33] J. Luo, Y. Yuan, and S. Xu, “Time: Tabpfn-integrated multimodal engine for robust tabular-image learning,” arXiv preprint arXiv:2506.00813 ,2025. 2 [34] N. Hollmann, S. Müller, K. Eggensperger, and F. Hutter, “Tabpfn: A transformer that solves small tabular classification problems in a second,” arXiv preprint arXiv:2207.01848 , 2022. 2 [35] W. Kim, C. Song, and H. Kim, “Multimodalpfn: Extending prior-data fitted networks for multimodal tabular learning,” arXiv preprint arXiv:2602.20223 , 2026. 2 [36] S. Karimijafarbigloo, R. Azad, A. Kazerouni, S. Ebadollahi, and D. Mer-hof, “Mmcformer: Missing modality compensation transformer for brain tumor segmentation,” in Medical imaging with deep learning . PMLR, 2024, pp. 1144–1162. 2 [37] Z. Li, Y. Liu, C. Yang, Y. Zhou, and S. Hu, “Rosa: A robust self-adaptive model for multimodal emotion recognition with uncertain missing modalities,” IEEE Transactions on Multimedia , 2025. 2 [38] Y. Zhang, C. Peng, Q. Wang, D. Song, K. Li, and S. K. Zhou, “Unified multi-modal image synthesis for missing modality imputation,” IEEE Transactions on Medical Imaging , vol. 44, no. 1, pp. 4–18, 2024. 2 [39] Z. Zeng, Z. Peng, X. Yang, and W. Shen, “Missing as masking: arbitrary cross-modal feature reconstruction for incomplete multimodal brain tumor segmentation,” in International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2024, pp. 424–433. 2 [40] Z. Chen, X. Lin, Y. Cui, and Z. Yu, “Epe-p: Evidence-based parameter-efficient prompting for multimodal learning with missing modalities,” in ICASSP 2025 - 2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) , 2025, pp. 1–5. 3 [41] J. Snell, K. Swersky, and R. Zemel, “Prototypical networks for few-shot learning,” Advances in neural information processing systems , vol. 30, 2017. 4 [42] W. Luo, Y. Cao, H. Yao, X. Zhang, J. Lou, Y. Cheng, W. Shen, and W. Yu, “Exploring intrinsic normal prototypes within a single image for universal anomaly detection,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 9974–9983. 4 [43] C. Xie, B. Wang, F. Kong, J. Li, D. Liang, G. Zhang, D. Leng, and Y. Yin, “Fg-clip: Fine-grained visual and textual alignment,” in Forty-second International Conference on Machine Learning , 2025. 4, 5 [44] Z. Shui, J. Zhang, W. Cao, S. Wang, R. Guo, L. Lu, L. Yang, X. Ye, T. Liang, Q. Zhang et al. , “Large-scale and fine-grained vision-language pre-training for enhanced ct image understanding,” in The Thirteenth International Conference on Learning Representations , 2025. 4, 5 [45] M. Cuturi, “Sinkhorn distances: Lightspeed computation of optimal transport,” Advances in neural information processing systems , vol. 26, 2013. 5 [46] L. Chizat, P. Roussillon, F. Léger, F.-X. Vialard, and G. Peyré, “Faster wasserstein distance estimation with the sinkhorn divergence,” Advances in neural information processing systems , vol. 33, pp. 2257–2269, 2020. 5[47] T. T. Nguyen and A. T. Luu, “Improving neural cross-lingual abstractive summarization via employing optimal transport distance for knowledge distillation,” in Proceedings of the AAAI Conference on Artificial Intel-ligence , vol. 36, no. 10, 2022, pp. 11 103–11 111. 5 [48] A. E. Johnson, T. J. Pollard, S. J. Berkowitz, N. R. Greenbaum, M. P. Lungren, C.-y. Deng, R. G. Mark, and S. Horng, “Mimic-cxr, a de-identified publicly available database of chest radiographs with free-text reports,” Scientific data , vol. 6, no. 1, p. 317, 2019. 6 [49] C. R. Jack Jr, M. A. Bernstein, N. C. Fox, P. Thompson, G. Alexander, D. Harvey, B. Borowski, P. J. Britson, J. L. Whitwell, C. Ward et al. ,“The alzheimer’s disease neuroimaging initiative (adni): Mri methods,” 
+
+Journal of Magnetic Resonance Imaging: An Official Journal of the International Society for Magnetic Resonance in Medicine , vol. 27, no. 4, pp. 685–691, 2008. 6 [50] Y. Zhang, K. Sun, Y. Liu, F. Xie, Q. Guo, and D. Shen, “A modality-flexible framework for alzheimer’s disease diagnosis following clinical routine,” IEEE Journal of Biomedical and Health Informatics , vol. 29, no. 1, pp. 535–546, 2024. 6 [51] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in CVPR , 2016. 6 [52] V. Pipoli, A. Saporita, K. Marchesini, C. Grana, E. Ficarra, F. Bolelli 
+
+et al. , “Im-fuse: A mamba-based fusion block for brain tumor segmen-tation with incomplete modalities,” in Medical Image Computing and Computer Assisted Intervention–MICCAI 2025 , 2025. 6 [53] S. Wei, Y. Luo, Y. Wang, and C. Luo, “Robust multimodal learning via representation decoupling,” in European Conference on Computer Vision . Springer, 2024, pp. 38–54. 6 [54] A. Gu and T. Dao, “Mamba: Linear-time sequence modeling with selective state spaces,” arXiv preprint arXiv:2312.00752 , 2023. 6

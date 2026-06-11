@@ -1,0 +1,870 @@
+Title: Class-Specific Branch Attention for Mitigating Gradient Interference under Class Imbalance
+
+URL Source: https://arxiv.org/pdf/2606.05740v1
+
+Published Time: Fri, 05 Jun 2026 00:49:37 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Class-Specific Branch Attention for Mitigating Gradient Interference under Class Imbalance 
+
+Arush Singhal a, Dr. Umang Soni b
+
+> aThapar Institute of Engineering and Technology, Patiala, India
+> bNetaji Subhash University of Technology, New Delhi, India
+
+Abstract 
+
+Deep neural networks trained under severe class imbalance often exhibit degraded performance, typically attributed to statistical bias. In this work, we identify a complementary optimization-level pathology: inter-class gradient interference within shared representations, where gradients from majority classes suppress minority-class learning. To analyze this phenomenon, we introduce a diagnostic framework based on layer-wise gradient flow analysis and a Gradient Conflict Matrix, which quantifies interference using cosine similarity between class-specific gradients. Using this framework, we study multi-branch convolutional architectures and propose a lightweight modification, Class-Specific Branch Attention (CSBA), that enables branch-specific channel reweighting to reduce gradient coupling. This mechanism promotes implicit feature decoupling across branches while preserving architectural simplicity. Empirically, CSBA improves minority-class performance, increasing the F1 score for the Physical-Damage class from 0.261 to 0 .522 under severe imbalance, while maintaining comparable overall accuracy. These results indicate that mitigating gradient interference can directly enhance minority-class representation. Validation on CIFAR-10-LT confirms that this behavior generalizes across imbalanced visual recognition settings, with Macro-F1 improving from 0 .595 to 0 .655. More broadly, our findings highlight the importance of considering optimization dynamics alongside statistical methods when designing architectures for imbalanced learning. 
+
+Keywords: Class imbalance, Gradient interference, Multi-branch neural networks, Attention mechanisms, Deep learning optimization, Imbalanced visual recognition 
+
+1. Introduction 
+
+Class imbalance is a pervasive challenge in visual recogni-tion, arising whenever training data contains substantially more examples of some categories than others [ 1 , 2]. In real-world classification systems—spanning industrial inspection, medical imaging, and long-tailed recognition—minority classes are of-ten the most critical to identify correctly, yet standard training procedures systematically fail them [ 3, 4, 5 ]. The dominant approach has been to address imbalance at the data or loss level, through oversampling, cost-sensitive learning, or modified loss functions. However, these methods treat imbalance as a statis-tical phenomenon and do not account for how gradient signals propagate and interact within the network during training. Convolutional Neural Networks (CNNs) have shown strong performance in visual recognition by learning hierarchical fea-ture representations [ 6 , 7]. Among CNN-based models, multi-branch architectures have emerged as a promising paradigm for improving feature diversity and robustness [ 8 , 9]. By process-ing inputs through parallel pathways, these architectures learn complementary representations that capture di ff erent aspects of complex visual patterns. However, despite their representational strength, multi-branch CNNs degrade substantially under severe class imbalance. The summation-based fusion common to these architectures creates a structural pathology: gradient signals from majority classes accumulate across branches and dominate the shared representation, suppressing minority-class learning in a way that data-level and loss-level interventions do not directly address. In this work, we study this optimization-level failure mode sys-tematically. We evaluate our approach on photovoltaic (PV) fault detection [ 10 , 11 ], a domain characterized by severe real-world class imbalance, and additionally validate on CIFAR-10-LT [ 4 ]to confirm that the proposed framework generalizes broadly to any multi-branch architecture trained under imbalanced condi-tions. 
+
+Contributions:. 
+
+• We identify inter-class gradient interference as a key op-timization bottleneck in multi-branch architectures under class imbalance. 
+
+• We propose a diagnostic framework based on gradient co-sine similarity to quantify this interference. 
+
+• We introduce Class-Specific Branch Attention (CSBA) to reduce gradient conflict through branch-specific feature modulation. 
+
+• We empirically show that CSBA improves gradient geome-try while maintaining a favorable balance between branch specialization and parameter e ffi ciency. 
+
+• We provide empirical evidence that performance under data scarcity benefits from jointly considering optimization dynamics and model capacity. 
+
+> arXiv:2606.05740v1 [cs.AI] 4 Jun 2026
+
+In the following sections, we first present the proposed diagnos-tic framework for analyzing gradient interference, followed by the CSBA architecture. 
+
+2. Related Work 
+
+2.1. Imbalanced Visual Recognition 
+
+Class imbalance has been extensively studied in the context of visual recognition [ 1, 2]. Long-tailed distributions are common in real-world datasets spanning medical imaging [ 12 ], industrial inspection [ 10 ], and scene understanding [ 13 ]. Models trained under such conditions tend to prioritize majority classes and fail to generalize to minority categories, even when those categories are operationally critical. Data-level approaches such as oversampling and SMOTE attempt to rebalance the training distribution, while algorithm-level methods assign higher misclassification penalties to mi-nority classes. Loss-level modifications, including Focal Loss [ 3], class-balanced loss [ 5], LDAM [ 4], and centroid-based approaches for improving tail-class representation [ 14 ], have shown strong results by adjusting gradient magnitudes according to class frequency or sample di ffi culty.Despite these advances, a common limitation remains: these methods treat imbalance as a statistical problem and do not consider how gradient signals from di ff erent classes interact within shared network representations during backpropagation. 
+
+2.2. Multi-Branch Architectures for Visual Recognition 
+
+A wide range of deep learning architectures has been ex-plored for visual recognition under complex and imbalanced conditions, including classical CNNs, transfer-learning models, and segmentation-based frameworks. Pre-trained architectures such as VGG, ResNet, and Inception are commonly used be-cause of their strong feature-extraction capabilities [ 8 , 9 ]. These models leverage transfer learning to adapt knowledge from large-scale datasets, such as ImageNet, to PV-specific tasks, thereby improving performance under limited-data conditions. Segmentation-based approaches, particularly those based on U-Net and its variants, have been used to localize defects before classification, enabling more precise fault identification [ 15 ]. These methods are especially useful for detecting fine-grained defects such as cracks or localized damage, which may not be captured e ff ectively by global classification models. In addition to standard architectures, recent work has focused on improving performance through architectural modifications. Techniques such as residual connections, feature fusion, and attention mechanisms have been introduced to strengthen rep-resentation learning. Squeeze-and-Excitation (SE) blocks, for example, are widely used to recalibrate channel-wise feature responses and allow models to emphasize more informative features [ 16 , 17 , 18 , 12 ]. Similarly, multi-scale feature aggre-gation and hybrid architectures that combine convolutional and transformer-based modules have been explored to capture com-plex visual patterns. Multi-branch architectures constitute another important class of models, in which multiple parallel pathways process input fea-tures. These architectures aim to improve robustness by learning complementary representations across branches. By aggregat-ing features from di ff erent pathways, the model can capture diverse aspects of the input, which is particularly beneficial in complex visual tasks. However, most existing work assumes balanced training conditions and does not explicitly analyze how multi-branch structures behave under class imbalance. 
+
+2.3. Class Imbalance in Visual Recognition 
+
+Class imbalance is a fundamental challenge in visual recogni-tion because real-world datasets typically contain substantially more examples of common categories than rare but critical ones. This imbalance leads to biased learning, in which models pri-oritize majority classes and fail to recognize minority classes accurately [10, 2, 13]. To address this issue, a wide range of techniques has been proposed. Data-level methods include oversampling minority classes, undersampling majority classes, and generating syn-thetic samples with techniques such as SMOTE. Algorithm-level methods include cost-sensitive learning, in which higher penal-ties are assigned to the misclassification of minority classes. Loss-level modifications, such as Focal Loss, dynamically ad-just the contribution of each sample according to its di ffi culty, improving performance on hard examples [3, 5, 4, 19, 20, 21]. Although these approaches have improved classification per-formance, they primarily treat imbalance as a statistical problem. As a result, they focus on adjusting data distributions or loss functions without considering how imbalance a ff ects the internal optimization dynamics of deep networks. In particular, they do not address how gradient signals from di ff erent classes in-teract within shared feature representations, even though these interactions can strongly influence learning behavior. 
+
+2.4. Optimization Dynamics and Gradient Interference 
+
+Recent research has begun to examine the role of optimization dynamics in deep learning, particularly in settings involving multiple tasks or imbalanced data. In multi-task learning, it has been observed that gradients associated with di ff erent tasks may conflict, leading to suboptimal parameter updates and slower convergence. Various methods have been proposed to mitigate such conflicts, including gradient normalization, projection, and balancing techniques [22, 23]. However, these approaches are designed primarily for multi-task learning and are not directly tailored to single-task classifi-cation under class imbalance. In multi-branch architectures, a related phenomenon arises when gradients from di ff erent classes interact within shared layers. Under imbalanced conditions, gra-dients from majority classes dominate the optimization process, potentially suppressing or distorting contributions from minority classes. Despite its importance, this phenomenon—which we refer to as inter-class gradient interference—has received limited atten-tion in the context of visual classification under class imbalance. Existing studies focus primarily on improving accuracy through architectural complexity or loss design without explicitly analyz-ing gradient interactions. As a result, the underlying causes of performance degradation in imbalanced multi-branch networks remain poorly understood. 22.5. Summary and Research Gap 
+
+In summary, prior work on imbalanced visual recognition has made substantial progress using both classical machine learn-ing and deep learning techniques. However, several limitations remain. First, most approaches address class imbalance at the data or loss level without considering its e ff ect on optimiza-tion dynamics. Second, although advanced architectures such as multi-branch networks and attention-based models have im-proved feature representation, their behavior under imbalanced conditions remains poorly understood. Third, existing methods rarely provide a detailed analysis of how gradient interactions influence feature learning in deep networks. Existing approaches such as focal loss, LDAM, and Balanced Softmax primarily address class imbalance at the loss level [ 3 , 4,5, 20 ]. In contrast, our method targets the optimization dynamics within the network architecture, making it complementary to these approaches rather than directly competing with them. To the best of our knowledge, there is limited work that sys-tematically investigates inter-class gradient interference in multi-branch architectures or proposes structural mechanisms to mit-igate it. This gap motivates our work, in which we explicitly analyze gradient interactions using a diagnostic framework and introduce an attention-based architectural modification to en-able feature decoupling. By shifting the focus from statistical imbalance to optimization behavior, our approach o ff ers a new perspective on learning under imbalanced conditions and pro-vides practical design insights for real-world applications. 
+
+3. Methodology 
+
+We address multi-class fault classification in photovoltaic (PV) systems under severe class imbalance. Our methodol-ogy proceeds in four stages: (i) formal problem setup, (ii) a multi-branch baseline architecture, (iii) gradient conflict analy-sis to diagnose optimization pathologies, and (iv) Class-Specific Branch Attention (CSBA) to mitigate identified failure modes. Throughout, we maintain a dual focus on optimization geometry and parameter e ffi ciency, arguing that reducing gradient conflict must be balanced carefully against network capacity to maintain robustness in data-scarce settings. 
+
+3.1. Problem Formulation 
+
+Let D = {(xi, yi)}Ni=1 denote a labeled dataset where xi ∈
+
+RB×3×227 ×227 is an RGB image of a PV panel and yi ∈ { 1, . . . , C}
+
+is its fault class label, with C = 6 classes. The empirical class distribution p(y) is highly skewed, introducing systematic bias into gradient-based optimization. The objective is to learn a classifier fθ where predictions are obtained via: ˆy = Softmax( fθ(x)) (1) To counteract class imbalance at a fundamental level, training minimizes an explicitly class-weighted cross-entropy objective: 
+
+LCE = −
+
+> C
+
+X
+
+> c=1
+
+wc yc log ˆ yc (2) where wc is an inverse-frequency class weight com-puted directly from the training distribution (yielding [0 .759 , 0.748 , 0.687 , 1.542 , 2.290 , 1.239]): 
+
+wc = NC · Nc
+
+(3) The Physical-Damage class receives the largest class weight (wc = 2.29), constituting the primary statistical mitigation of class imbalance during training. 
+
+3.2. Baseline Multi-Branch Architecture 
+
+Our baseline model adopts a modified SqueezeNet-inspired architecture comprising a shared backbone followed by parallel classification branches. 
+
+3.2.1. Feature Extraction Backbone 
+
+Given input x, an initial stem block produces a low-level feature map: 
+
+Fstem = MaxPool  δ0.01 (BN(Conv 3×3(x)))  (4) where δ0.01 denotes the LeakyReLU activation (formally de-fined in Eq. 18), with negative slope α = 0.01. LeakyReLU prevents dead neuron pathologies that are particularly harmful for minority-class representations receiving extremely sparse gradient updates. The network then applies a sequence of exactly eight modified Fire modules ( M2 through M9). Formally, each transforms its input Fin as follows: 
+
+S = δ0.01 
+
+ BN(Conv 1×1(Fin ))  (5) 
+
+E1 = δ0.01 
+
+ BN(Conv 1×1(S ))  (6) 
+
+E2 = δ0.01 
+
+ BN(Conv 3×3(S ))  (7) 
+
+E3 = δ0.01 
+
+ BN(Conv 3×3(S ))  (8) Their outputs are linearly concatenated (Fout =
+
+Concat (E1, E2, E3)). After all eight modules, interspersed with max-pooling operations, the final shared representation is: 
+
+F9 ∈ RB×768 ×14 ×14 (9) 
+
+3.2.2. Multi-Branch Classification Head 
+
+The tensor F9 is routed into K = 3 parallel branches via dropout ( p = 0.5): 
+
+ok = Conv 1×1
+
+ Dropout 0.5(F9), k ∈ { 1, 2, 3} (10) Branch outputs are aggregated via element-wise summation (O = P3 
+
+> k=1
+
+ok), and O serves as the final logit tensor. As we show next, this symmetric structure implies that majority-class gradients can dominate and suppress minority representations. 33.3. Gradient Coupling Analysis 
+
+During backpropagation, gradients accumulate at the shared representation F9:
+
+∂L
+
+∂F9
+
+=
+
+> 3
+
+X
+
+> k=1
+
+∂L
+
+∂ok
+
+· ∂ok
+
+∂F9
+
+(11) Although class-weighted loss partially scales signal magni-tude, summation-based fusion functionally combines gradient directions for majority classes while attenuating minority-class signals. To quantify this interference rigorously, we compute pairwise gradient cosine similarities over flattened model param-eters: 
+
+S i j = g⊤ 
+
+> i
+
+g j
+
+∥gi∥2 ∥g j∥2 + ϵ (12) We organize these into a Gradient Conflict Matrix G, summa-rizing global interference geometry at convergence. For the baseline architecture, the global average over all C(C−
+
+1) = 30 class pairs yields S global = −0.077 ± 0.331, indicating the presence of destructive gradient interactions between class representations. When averaged over the six majority–minority pairs with the strongest interference (reported in Table 4), this statistic is S pairs = −0.236; we use this subset-specific value in the optimization–generalization analysis of Section 4.5 to highlight the worst-case interference regime. 
+
+3.4. Class-Specific Branch Attention (CSBA) 
+
+To mitigate gradient interference, we introduce Class-Specific Branch Attention (CSBA), applied directly before multi-branch routing. For each branch k ∈ { 1, 2, 3}, CSBA first computes a compact global descriptor from F9 via global average pooling: 
+
+z = GAP( F9) ∈ R768 (13) The attention vector ak is produced by a branch-specific two-layer bottleneck: 
+
+ak = σ Θk,2 · δ(Θk,1 z) (14) where Θk,1 ∈ R96 ×768 and Θk,2 ∈ R768 ×96 are branch-specific bias-free projection matrices, δ denotes ReLU, and σ denotes sigmoid. 
+
+Zero-Bias Constraint: The projection matrices Θk,1 and Θk,2
+
+are bias-free. Omitting bias terms encourages each module to respond to relative di ff erences in channel activation magnitudes rather than learning class-independent o ff sets, which would oth-erwise reduce the channel selectivity that drives branch special-ization. Applying Hadamard multiplication: 
+
+F′ 
+
+> k
+
+= F9 ⊙ Reshape( ak, [B, 768 , 1, 1]) (15) This channel-wise reweighting induces branch-specific Jaco-bians diag (ak) during backpropagation, formally analyzed in Section 4.                        
+
+> Hyperparameter Value
+> Optimizer Adam
+> β1, β 20.9,0.999 Initial LR η01×10 −4
+> LR Schedule StepLR ( γ=0.95, s=23 epochs) Early Stopping Patience =30 epochs Dropout rate p=0.5 per branch Loss function Class-weighted cross-entropy ( wc)Batch size 64 Max epochs 300 (subject to early stopping)
+> Table 1: Fixed training protocol used across all model variants to ensure consis-tent optimization conditions.
+
+3.4.1. Parameter Overhead 
+
+Each branch introduces exactly two bias-free projection ma-trices: (96 × 768) + (768 × 96) = 147 ,456 weights per branch, for a total overhead of 3 × 147 ,456 = 442 ,368 parameters. The resulting model sizes are: 
+
+|θbaseline | = 1.35M , |θCSBA | = 1.79M (16) This represents a 32 .6% increase relative to the baseline parame-ter count. 
+
+3.5. Optimization and Training Protocol 
+
+All model variants are trained under the same protocol, with weights initialized using Kaiming uniform initialization. 
+
+3.6. Optimization-Generalization Equilibrium 
+
+Architectures employing fully segregated pathways (e.g., Class-Specific Heads) achieve strong gradient isolation but at substantial parameter cost. Such approaches increase parameter counts from 1 .35M to prohibitive levels ( ≈ 7.50M), making deployment on resource-constrained devices impractical in in-dustrial environments. Our analysis shows that CSBA provides a favorable balance. Under CSBA, the global average conflict shifts to S global =
+
+−0.096 ±0.313. The reduction in standard deviation from ±0.331 to ±0.313 indicates a contraction of extreme pairwise conflicts across the class distribution, while the 32 .6% parameter over-head remains modest relative to the minority-class gains reported in Section 7. 
+
+4. Proposed Architectures and Optimization Formulations 
+
+To systematically study and mitigate inter-class gradient in-terference in shared-representation networks under severe class imbalance, we develop a comprehensive architectural framework grounded in both theoretical analysis and empirical validation. The framework proceeds in four stages. First, we formalize the shared backbone as a modified tri-path feature extractor and char-acterize the representational geometry of its output tensor. Sec-ond, we define the baseline multi-branch topology and show that its summation-based fusion structurally induces gradient cou-pling under class imbalance. Third, we introduce Class-Specific 4Branch Attention (CSBA), deriving its gradient decoupling prop-erties analytically. Fourth, we define three comparative ablation variants—class-specific heads, focal loss substitution, and Grad-Norm branch normalization—that together bound the space of possible interventions and allow us to isolate the contribution of each design choice. Table 2 provides a high-level summary of all architectural variants evaluated in this work. 
+
+4.1. Shared Backbone: The Modified Tri-Path Feature Extractor 
+
+Unlike traditional sequential networks that process features through a single computational path, our backbone relies on a densely aggregated, SqueezeNet-inspired [ 24 ] hierarchical de-sign that prioritizes representational width over depth. Wider intermediate representations provide richer subspaces for branch-specific attention mechanisms to select from, which is the prereq-uisite for the gradient decoupling we seek. The network accepts input tensors X ∈ RB×3×227 ×227 , where B denotes batch size. 
+
+4.1.1. The Convolutional Stem 
+
+The foundational spatial transformation is executed via a sin-gle convolutional stem block. This stem reduces initial spatial dimensionality while extracting low-level structural priors — edges, textures, and surface defect indicators — that serve as the building blocks for all higher-level fault representations. For-mally, the stem transformation is: 
+
+Fstem = MaxPool 3×3, s=2
+
+δ0.01 
+
+ BN( Wconv ∗ X) (17) where Wconv ∈ R64 ×3×3×3 operates with stride s = 2 and padding p = 0. The function BN (·) denotes 2D Batch Normal-ization with learnable a ffi ne parameters ( γ, β ), and δ0.01 is the LeakyReLU activation function: 
+
+δ0.01 (z) =
+
+
+
+z, z ≥ 00.01 z, z < 0 (18) The negative slope of 0 .01 prevents dead neuron pathologies that are particularly problematic for minority-class representa-tions, which receive sparse gradient updates. The concluding max-pooling operation employs ceiling mode to preserve spatial resolution, yielding: 
+
+Fstem ∈ RB×64 ×56 ×56 (19) 
+
+4.1.2. Tri-Path Fire Modules 
+
+The core feature extraction relies on sequentially stacked Fire modules {Mm}9
+
+> m=2
+
+. To maximize feature capacity prior to parallel branching, we introduce a modified three-path expansion phase within each module. The standard SqueezeNet Fire module employs a dual expansion path (one 1 ×1 and one 3 ×3 convolu-tion); our augmented tri-path configuration adds a second 3 ×3expansion branch, tripling topological capacity without propor-tionally increasing parameter count, since all paths share the same compressed squeeze representation. For any generic input tensor F(m)in entering module m, process-ing begins with a channel-compression squeeze mapping: 
+
+S(m) = δ0.01 
+
+BN  Conv 1×1(F(m)in ) (20) where the 1 ×1 convolution reduces the channel dimension according to module-specific squeeze ratios. This compressed representation is subsequently broadcast across three indepen-dent parallel expansion pathways: 
+
+E(m)1 = δ0.01 
+
+BN  Conv 1×1(S(m)) (21) 
+
+E(m)2 = δ0.01 
+
+BN  Conv 3×3, p=1(S(m)) (22) 
+
+E(m)3 = δ0.01 
+
+BN  Conv 3×3, p=1(S(m)) (23) Path E1 captures pointwise feature interactions; paths E2 and 
+
+E3 capture local spatial structure at 3 ×3 receptive fields. The two 3×3 paths are independently parameterized, providing stochastic diversity from random initialization and enabling specialization through gradient-driven di ff erentiation during training. The module output concatenates these sub-tensors along the channel dimension: 
+
+F(m)out = hE(m)1 , E(m)2 , E(m)3
+
+i 
+
+> channel
+
+(24) Table 3 details the squeeze and expansion channel counts for each module instantiation, along with spatial dimensions and the placement of intermediate pooling operations. The backbone terminates in a shared, high-dimensional fea-ture tensor: 
+
+F9 ∈ RB×768 ×14 ×14 (25) This tensor serves as the shared input to all downstream classi-fication branches. Its high channel dimensionality (768) is essen-tial: it provides su ffi cient channel subspace for branch-specific attention mechanisms to identify disjoint, fault-class-relevant feature directions, which is the representational prerequisite for gradient decoupling. 
+
+Representational Geometry of F9.. To motivate the subsequent architectural design, we characterize the geometry of F9 under class imbalance. Let μc ∈ R768 denote the mean activation vector (spatially averaged over 14 ×14) for class c, computed over all training examples of that class: 
+
+μc = 1
+
+Nc
+
+X
+
+> i:yi=c
+
+GAP( F(i)9 ) (26) Under severe imbalance, μc for minority classes is estimated from few samples and exhibits high variance. The pairwise angle between class mean representations: 
+
+ϕi j = arccos μ⊤ 
+
+> i
+
+μ j
+
+∥μi∥2 ∥μ j∥2 + ϵ
+
+!
+
+(27) quantifies how separable class representations are in F9. We use {ϕi j } as a diagnostic tool in Section 7 to verify that CSBA attention induces greater inter-class angular separation than the baseline. 5Model Intervention Params Grad. Decoupling Loss Modified                            
+
+> Baseline Summation fusion 1.35M None No CSBA SE attention per branch 1.79M Soft No Class Heads Per-class branch 7.50M Hard No Focal Loss Loss reweighting 1.35M None Yes GradNorm Learnable branch weights 1.37M Magnitude No Table 2: Summary of all architectural variants evaluated in this work. “Grad. Decoupling” characterizes the mechanism by which each variant addresses gradient interference: None indicates no structural intervention; Soft indicates channel-wise attention-based modulation; Hard indicates complete branch isolation; Magnitude
+> indicates scalar gradient reweighting without spatial di ff erentiation.
+
+Module Squeeze E1 E2 E3 Out Ch. Spatial 
+
+M2 16 64 64 64 192 56 ×56 
+
+M3 16 64 64 64 192 56 ×56 Pool — — — — 192 27 ×27 
+
+M4 32 128 128 128 384 27 ×27 
+
+M5 32 128 128 128 384 27 ×27 Pool — — — — 384 13 ×13 
+
+M6 48 192 192 192 576 13 ×13 
+
+M7 48 192 192 192 576 13 ×13 
+
+M8 64 256 256 256 768 13 ×13 
+
+M9 64 256 256 256 768 14 ×14      
+
+> Table 3: Backbone architecture configuration. Squeeze denotes the output channel count of the 1 ×1 squeeze convolution. E1,E2,E3denote the per-path expansion channel counts, which are equal across paths in all modules. Out Ch. is the concatenated output channel count. Spatial dimensions assume input 227 ×227; Pool rows denote 3 ×3 max-pool with stride 2.
+
+4.2. Implicitly Coupled Multi-Branch Topology (Baseline) 
+
+Upon extracting F9, the architecture projects predictions via a parallel multi-branch topology. The tensor F9 is routed identi-cally and without modification into K = 3 independent branches. Each branch applies an independent stochastic dropout map followed by a 1 ×1 convolution: 
+
+Hk(F9) = W(1 ×1)  
+
+> k
+
+∗ Dropout 0.5(F9), k ∈ { 1, 2, 3} (28) where W(1 ×1)  
+
+> k
+
+∈ RC×768 ×1×1 and Hk(F9) ∈ RB×C×14 ×14 .Branch outputs are unified via element-wise summation before global aggregation: 
+
+ˆY = Flatten 
+
+GAP 
+
+
+
+> 3
+
+X
+
+> k=1
+
+Hk(F9)
+
+ (29) where GAP denotes adaptive 1 ×1 global average pooling. 
+
+Formal Analysis of Gradient Coupling.. The pathology of this design is made explicit by tracing the backward pass. The gradient of the cross-entropy loss L with respect to the shared representation F9 is: 
+
+∂L
+
+∂F9
+
+=
+
+> 3
+
+X
+
+> k=1
+
+∂L
+
+∂Hk
+
+· ∂Hk
+
+∂F9
+
+=
+
+> 3
+
+X
+
+> k=1
+
+(W(1 ×1)  
+
+> k
+
+)⊤ ∗ ∂L
+
+∂Hk
+
+(30) Since F9 is identical across all branches, the Jacobian 
+
+∂Hk/∂ F9 = W(1 ×1)  
+
+> k
+
+for each k. The total gradient is thus a sum of three terms, each driven by the same input distribution. Under class imbalance, the per-sample loss L is dominated by majority-class examples, so each of the three terms in Eq. 30 is majority-biased. The summation over K = 3 branches amplifies this bias by a factor of K relative to a single-branch network—a structural amplification of the imbalance pathology rather than a mitigation. 
+
+Gradient Conflict Quantification.. To measure the severity of inter-class interference precisely, we define class-conditioned gradient vectors: 
+
+gc = ∇θ Lc, c ∈ { 1, . . . , C} (31) where Lc denotes the cross-entropy loss restricted to training examples of class c. Pairwise cosine similarity between class gradient vectors (as defined in Eq. 12): 
+
+S i j = g⊤ 
+
+> i
+
+g j
+
+∥gi∥2 ∥g j∥2 + ϵ (32) yields the Gradient Conflict Matrix G ∈ RC×C , where Gi j =
+
+S i j . Negative o ff -diagonal entries indicate destructive interfer-ence: optimizing for class i actively degrades class j’s represen-tation. The scalar summary statistic: 
+
+S = 1
+
+C(C − 1) 
+
+X 
+
+> i,j
+
+Gi j (33) characterizes the global conflict level. For the baseline, the global average is: 
+
+S global ,baseline = −0.077 ± 0.331 (34) indicating pervasive destructive interference across class pairs at convergence. 
+
+4.3. Proposed Model: Class-Specific Branch Attention (CSBA) 
+
+CSBA is designed to address the gradient coupling pathology identified above without modifying the loss function, adding separate training stages, or requiring class-to-branch supervi-sion. The core mechanism replaces the shared, undi ff erentiated 
+
+F9 received by each branch with a branch-specific, channel-reweighted representation F′
+
+> k
+
+, enabling each branch to implicitly specialize toward a distinct region of the fault-class manifold. 64.3.1. Channel-Wise Attention Computation 
+
+CSBA applies independent Squeeze-and-Excitation opera-tors [ 16 ] to each branch, parameterized independently. For branch k, the module first aggregates global spatial context from 
+
+F9 into a compact channel descriptor: 
+
+z = GAP( F9) ∈ R768 (35) A branch-specific two-layer MLP with bottleneck architecture maps this descriptor to a channel attention vector: 
+
+ak = σΘk,2 δ Θk,1 z (36) where Θk,1 ∈ R96 ×768 and Θk,2 ∈ R768 ×96 are branch-specific projection matrices without bias terms, δ denotes ReLU, and σ
+
+denotes sigmoid. The bottleneck dimension of 96 corresponds to a compression ratio of r = 8, balancing attention expressivity against parameter overhead. The sigmoid output constrains 
+
+ak ∈ (0 , 1) 768 , producing a continuous soft gating signal over channel dimensions. We emphasize that Θk,1 and Θk,2 are entirely independent across branches — there is no weight sharing. This indepen-dence is what enables gradient diversity across branches, as discussed in Section 4.3.3. 
+
+4.3.2. Feature Reweighting and Forward Pass 
+
+The attention vector is spatially broadcast and applied to F9
+
+via channel-wise Hadamard multiplication: 
+
+F′ 
+
+> k
+
+= F9 ⊙ Reshape( ak, [B, 768 , 1, 1]) (37) Each branch then operates on its individualized representa-tion: 
+
+ˆYCSBA = Flatten 
+
+GAP 
+
+
+
+> 3
+
+X
+
+> k=1
+
+W(1 ×1)  
+
+> k
+
+∗ Dropout 0.5(F′
+
+> k
+
+) (38) The aggregation structure is identical to the baseline (Eq. 29), preserving architectural compatibility and ensuring that any per-formance di ff erences are attributable solely to the attention mech-anism. 
+
+4.3.3. Gradient Decoupling Analysis 
+
+The key property of CSBA is that distinct attention vectors 
+
+{ak}3 
+
+> k=1
+
+induce structurally di ff erentiated gradient flows. Tracing the backward pass through Eq. 37: 
+
+∂F′
+
+> k
+
+∂F9
+
+= diag( ak) (39) where diag (ak) is the 768 ×768 diagonal matrix with ak on the diagonal (broadcast spatially). The total gradient at F9 under CSBA therefore becomes: 
+
+∂L
+
+∂F9
+
+=
+
+> 3
+
+X
+
+> k=1
+
+∂L
+
+∂F′
+
+> k
+
+· diag( ak) (40) Comparing Eq. 40 with the baseline Eq. 30, the critical struc-tural di ff erence is that each term in the sum is now modulated by 
+
+Class i Class j S baseline  
+
+> i j
+
+S CSBA 
+
+> i j
+
+Dust Physical-Damage −0.41 −0.29 Dust Electrical Fault −0.38 −0.25 Soiling Physical-Damage −0.31 −0.22 Shading Electrical Fault −0.27 −0.19 Clean Physical-Damage −0.19 −0.15 Dust Soiling −0.08 −0.06 
+
+Average −0.236 −0.174    
+
+> Table 4: Pairwise gradient cosine similarity Si j for selected fault class pairs. More negative values indicate stronger destructive interference. CSBA reduces conflict most substantially for majority–minority pairs (e.g., Dust vs. Physical-Damage), consistent with its design motivation.
+
+a distinct channel mask ak. If branches learn attention vectors that emphasize disjoint channel subsets — which gradient de-scent incentivizes because it reduces redundancy — then di ff er-ent fault classes drive gradient updates through di ff erent channel subspaces of the backbone. This soft channel partitioning re-duces the probability that majority-class gradients dominate the full 768 channel dimensions simultaneously, providing minority-class gradients a partially protected subspace. Formally, let Ck = {d : ak,d > 0.5} denote the set of chan-nels primarily attended to by branch k. If C1, C2, C3 are ap-proximately disjoint — a condition we verify empirically in Section 7 — then the gradient overlap between majority and minority classes is reduced to: Overlap CSBA ≈
+
+> 3
+
+X
+
+> k=1
+
+|C maj  
+
+> k
+
+∩ C min  
+
+> k
+
+|
+
+768 (41) which is bounded by the degree of attention overlap rather than being uniformly 1.0 as in the baseline. 
+
+Empirical Conflict Reduction.. Under CSBA, the average con-flict over the six most adversarial majority–minority class pairs (Table 4) reduces to: 
+
+S pairs ,CSBA = −0.174 (42) representing a reduction of ∆S = + 0.062 relative to the base-line pair-subset average of S pairs ,baseline = −0.236. Table 4 reports per-class-pair conflict values for all six selected fault combina-tions. 
+
+4.3.4. Branch Specialization Analysis 
+
+To verify that learned attention vectors induce meaningful spe-cialization, we compute per-branch gradient norms with respect to class-specific losses: 
+
+ρk,c = ∇ok Lc 2 (43) In the baseline, ρk,c is approximately uniform across k for each class c, confirming that all branches receive identical gra-dient information. Under CSBA, we observe that ρk,c varies substantially across branches for minority classes: branches whose attention vectors ak assign high weights to minority-class-relevant channels register disproportionately large ρk,c for 7Branch Dust Soiling Physical Electrical Shading Clean                           
+
+> k=10.38 0.29 0.61 0.57 0.31 0.22
+> k=20.52 0.48 0.24 0.19 0.41 0.35
+> k=30.41 0.37 0.31 0.28 0.55 0.49
+> Table 5: Normalized per-branch gradient norms ρk,c(Eq. 43) at convergence under CSBA. Values are normalized within each class column. Bold entries indicate the branch with the highest gradient norm for each class, revealing implicit branch specialization: Branch 1 specializes toward minority fault classes, Branch 2 toward majority classes, and Branch 3 toward intermediate classes.
+
+Physical-Damage and Electrical-Damage classes. This implicit specialization emerges without any supervision signal directing specific branches toward specific classes. Table 5 reports normalized ρk,c values for each branch and fault class at convergence. 
+
+4.3.5. Parameter Overhead 
+
+Each branch introduces two projection matrices without bias: 
+
+|Θk,1| + |Θk,2| = (96 × 768) + (768 × 96) = 147 ,456 per branch (44) The total parameter overhead across K = 3 branches is: 
+
+∆θCSBA = 3 × 147 ,456 = 442 ,368 parameters (45) yielding total model sizes of: 
+
+|θbaseline | = 1.35M , |θCSBA | = 1.79M (46) This 32.6% parameter increase introduces a generalization trade-o ff in low-data regimes analyzed in Section 4.5. 
+
+4.4. Architectural Ablations and Comparative Formulations 
+
+A central hypothesis of this study is that architectural gradient decoupling mechanisms present a fundamental optimization– generalization trade-o ff : reduced gradient conflict comes at the cost of increased parametric capacity, rendering models vulnera-ble to overfitting in data-scarce settings. To isolate and quantify this trade-o ff , we evaluate three contrastive variants spanning the space of possible interventions. 
+
+4.4.1. Variant I: Hard Decoupling via Class-Specific Heads 
+
+To assess whether soft attention-based decoupling is prefer-able to complete branch isolation, we develop a Class-Specific Heads variant that abandons branch merging entirely. The back-bone output F9 is routed into C fully parallel branches, one dedicated to each class: ˆyc = GAP W(1 ×1)  
+
+> c
+
+∗ Dropout 0.5(F9), c ∈ { 1, . . . , C} (47) The final prediction is obtained by concatenating per-class logits: 
+
+ˆYCH = [ˆ y1, ˆy2, . . . , ˆyC ] (48) This architecture achieves hard gradient isolation: backward signals from class c aff ect only Wc and never collide with gradi-ents from other classes prior to reaching F9. The gradient at the shared representation becomes: 
+
+∂L
+
+∂F9
+
+=
+
+> C
+
+X
+
+> c=1
+
+(W(1 ×1)  
+
+> c
+
+)⊤ ∗ ∂Lc
+
+∂ˆyc
+
+(49) While this eliminates inter-class head coupling, the summa-tion over all C classes in Eq. 49 still propagates majority-class-biased gradients into F9. Moreover, the expansion from K = 3to C = 6 heads increases parameters from 1 .79M (CSBA) to 7.5M, introducing acute overfitting risk in low-data regimes. 
+
+4.4.2. Variant II: Loss-Level Reweighting via Focal Loss 
+
+To verify that structural architectural changes are necessary — rather than simple loss reweighting — we benchmark CSBA against a Focal Loss [ 3] variant applied to the unmodified base-line topology. Focal Loss modulates the standard cross-entropy by a factor that downweights well-classified examples: 
+
+LFocal = −αt(1 − pt)γ log( pt) (50) where pt is the model’s estimated probability for the true class, 
+
+αt is an inverse-frequency class weight vector computed from the training distribution, and γ = 2.0 is the focusing parame-ter. The term (1 − pt)γ suppresses gradient contributions from high-confidence majority-class examples, implicitly amplifying gradient magnitude from minority classes. The key distinction between Focal Loss and CSBA is that Focal Loss operates exclusively on gradient magnitudes : it does not alter the direction of gradient flow through the shared back-bone. Under Focal Loss, the gradient conflict matrix G retains the same structural pattern as the baseline — the same class pairs exhibit destructive interference — but with rescaled magnitudes. CSBA, by contrast, modifies gradient directions through channel-selective attention, producing structurally di ff erent G patterns. This distinction allows us to disentangle magnitude-level and direction-level interventions in our experimental analysis. 
+
+4.4.3. Variant III: Dynamic Branch Reweighting via GradNorm 
+
+Finally, we implement a GradNorm-inspired [ 22 ] branch reweighting mechanism that addresses the K-fold gradient ampli-fication pathology of summation architectures through learned scalar weights, without introducing spatial feature modulation. We define a learnable weight vector ω ∈ R3, initialized to 1,with branch contributions normalized via softmax: 
+
+w′ 
+
+> k
+
+= Softmax( ω)k = eωk
+
+P3 
+
+> j=1
+
+eω j
+
+(51) Branch outputs are scaled prior to summation: out k = W(1 ×1)  
+
+> k
+
+∗ Dropout 0.5(F9) · w′ 
+
+> k
+
+(52) The final prediction follows the same aggregation as Eq. 29. The gradient at F9 under GradNorm becomes: 8Model S pairs ∆opt ∆gen Val. Acc.                                     
+
+> Baseline −0.236 0.000 ref ref CSBA −0.174 +0.062 ↑varies Class Heads −0.151 +0.085 ↑↑ degrades Focal Loss −0.221 +0.015 ≈improves GradNorm −0.198 +0.038 ↑varies
+> Table 6: Optimization–generalization trade-o ff across all variants. Spairs is the average pairwise cosine similarity over the six most conflicting majority– minority class pairs (Table 4); lower (more negative) indicates greater conflict.
+> ∆opt =Spairs ,variant −Spairs ,baseline ; higher is better. ∆gen qualitatively indicates generalization gap increase: ↑denotes moderate increase, ↑↑ severe increase. Exact validation accuracy values are reported in Section 7.
+
+∂L
+
+∂F9
+
+=
+
+> 3
+
+X
+
+> k=1
+
+w′ 
+
+> k
+
+· (W(1 ×1)  
+
+> k
+
+)⊤ ∗ ∂L
+
+∂out k
+
+(53) GradNorm modulates gradient amplitude at the branch level without di ff erentiating across channels or spatial positions. This makes it a scalar counterpart to CSBA’s vector-valued channel attention: GradNorm asks “how much should each branch con-tribute?” while CSBA asks “which channels should each branch focus on?” The parameter overhead is minimal — |ω| = 3 ad-ditional parameters — enabling clean isolation of the e ff ect of scalar vs. vector gradient modulation. 
+
+4.5. Optimization–Generalization Trade-o ff 
+
+A recurring theme across all variants is the tension between optimization improvement and generalization capacity. We for-malize this as follows. Let L∗ 
+
+> train
+
+and L∗ 
+
+> val
+
+denote training and validation loss at convergence. The generalization gap: 
+
+∆gen = L∗ 
+
+> val
+
+− L ∗ 
+
+> train
+
+(54) and the optimization improvement relative to the baseline: 
+
+∆opt = S pairs ,variant − S pairs ,baseline (55) Table 6 reports both quantities for all variants, revealing the fundamental trade-o ff between gradient conflict reduction and generalization degradation. The central finding is that gradient conflict reduction is mono-tonically achievable through architectural elaboration — more parameters, more branches, harder isolation — but generaliza-tion does not follow monotonically. In the low-data regime of PV fault detection, CSBA occupies the most favorable position on this trade-o ff frontier: it achieves meaningful conflict reduction (∆opt = + 0.062) with moderate capacity increase ( +32 .6% pa-rameters), while Class-Specific Heads achieves superior conflict reduction at the cost of severe overfitting ( +456% parameters). Focal Loss achieves minimal conflict reduction without capacity increase, confirming that magnitude-level interventions are insuf-ficient when gradient directions are fundamentally misaligned. 
+
+5. Dataset Details 
+
+The dataset used in this study is the Solar Panel Clean and Faulty Images dataset [ 25 ], consisting of RGB photovoltaic (PV) panel images grouped into six operational categories: Bird-drop, Clean, Dusty, Elec-Damage, Phys-Damage, and Snow-Covered. These categories capture both common surface conditions and rare but operationally significant failure modes. As reflected in the class-wise results, the distribution is strongly imbalanced, with minority classes such as Physical-Damage contributing substantially fewer examples than dominant classes associated with common surface contamination. From a learning perspective, this skewed distribution creates a particularly demanding test bed for multi-branch architectures. Models must maintain discrimination for rare fault classes while remaining stable on dominant categories. All samples are pro-cessed in a consistent image-based pipeline so that performance di ff erences can be attributed to architectural and optimization changes rather than di ff erences in data preprocessing. 
+
+5.1. CIFAR-10-LT 
+
+CIFAR-10-LT is constructed from the standard CIFAR-10 training set [ 7] by applying an exponential decay to per-class sample counts with imbalance ratio ρ = 100, following the pro-tocol of [ 4]. The resulting training set contains 10 classes with frequencies ranging from 5 ,000 (majority) to 50 (minority) sam-ples, for a total of approximately 12 ,406 training images. The standard CIFAR-10 test set (1 ,000 images per class, balanced) is used for evaluation without modification. Input images are resized to 227 × 227 to match the backbone input specification, and class weights wc are recomputed from the CIFAR-10-LT training distribution using Eq. 3. 
+
+6. Experimental Setup 
+
+To evaluate the e ff ect of gradient decoupling under class im-balance, we compare the baseline multi-branch model with four intervention strategies: Class-Specific Branch Attention (CSBA), Focal Loss, GradNorm-style branch reweighting, and Class-Specific Heads. The comparison is designed to be controlled: backbone design, branch topology, and evaluation protocol are kept as consistent as possible so that di ff erences in performance can be interpreted in terms of optimization behavior rather than unrelated implementation changes. Unless otherwise stated, all models are trained using the same optimization schedule described in Section 3, including identical hyperparameters, training duration, and regularization settings. Performance is evaluated using global accuracy together with class-sensitive metrics, including per-class F1 and Macro-F1, which better reflect performance under class imbalance. Partic-ular attention is given to the Physical-Damage category, which serves as a key indicator of whether a method can preserve minority-class structure under class imbalance. All experiments are conducted under identical data splits to ensure fair compari-son across methods. 97. Experimental Results 
+
+We evaluate the e ffi cacy of Class-Specific Branch Attention (CSBA) through a comprehensive empirical study focused on multi-class fault classification under severe class imbalance. 
+
+7.1. Evaluation Metrics and Macro-Boundary Protocol 
+
+In the presence of severe imbalance, global accuracy is a deceptive metric that obscures minority-class failure. To expose the optimization pathologies of the baseline, we adopt a macro-averaged evaluation framework. Given true positives ( T P c), false positives ( FP c), and false negatives ( FN c) for class c:
+
+Pc = T P c
+
+T P c + FP c
+
+, Rc = T P c
+
+T P c + FN c
+
+(56) The Per-Class F1-Score (F1,c) is the harmonic mean of preci-sion and recall, providing a balanced assessment of class-specific discriminative power: 
+
+F1,c = 2 · Pc · R c
+
+Pc + Rc
+
+(57) To assess global capability across the distribution, we compute the Macro-F1 Score :Macro-F1 = 1
+
+C
+
+> C
+
+X
+
+> c=1
+
+F1,c (58) Because the Physical-Damage class is the most heavily under-represented ( wc = 2.290), we designate F1,Physical as the primary diagnostic indicator of gradient interference e ff ects. 
+
+7.2. Main Comparative Results 
+
+We compare the performance of the unaltered Baseline against the CSBA architecture. Table 7 summarizes the performance across all six fault categories. Notably, the improvement is con-centrated in the minority class, while performance on majority classes remains stable, indicating that CSBA enhances minority-class representation without degrading dominant class accuracy. The baseline achieves an F1 score of 0 .261 for the Physical-Damage class, indicating limited performance on this minority category. Under shared representations, gradients from majority classes tend to dominate updates, which can suppress minority-class learning within the shared F9 tensor. CSBA introduces channel-wise attention via ak, enabling partial decoupling of gra-dient flow across branches. This results in an improvement in the Physical-Damage F1 score from 0 .261 to 0 .522, corresponding to a 100% relative gain. 
+
+7.3. Diagnostic Gradient Analysis 
+
+We quantify pairwise gradient conflict using the Gradient Conflict Matrix defined in Section 4.2. The cosine similarity between parameter gradients for classes i and j is given by Eq. 32.  
+
+> Figure 1: Complete training analysis for the baseline and CSBA models. The dashboard combines validation accuracy, training loss, and a compact summary of best validation accuracy, test accuracy, best epoch, and parameter count. It provides a concise overview of the optimization trade-o ff between the two architectures.
+> Figure 2: Per-class precision and recall comparison between the baseline model and CSBA. The largest relative gain remains concentrated in the Physical-Damage class, while the remaining classes exhibit smaller but interpretable shifts in precision–recall balance.
+
+The baseline global average conflict is S global = −0.077 ±
+
+0.331. The relatively high standard deviation indicates the pres-ence of strong outlier conflicts between class gradients, particu-larly involving majority–minority class pairs. Under CSBA, the global average shifts to S global = −0.096 ± 0.313. The reduction in standard deviation from ±0.331 to ±0.313 indicates a contrac-tion of extreme pairwise conflicts across the class distribution. Figure 3 visualizes these pairwise cosine-similarity patterns and provides an intuitive view of where destructive interference is concentrated. 
+
+7.4. Systematic Architectural Ablations 
+
+We compare CSBA to three alternatives: loss-level reweight-ing (Focal Loss), scalar branch weighting (GradNorm), and com-plete branch isolation (Class-Specific Heads). Table 9 reports classification results for Focal Loss, CSBA, and Class-Specific Heads; GradNorm’s conflict geometry is analyzed separately in Table 6. 10 Table 7: Comparative performance analysis of Baseline vs. Proposed CSBA architecture. CSBA achieves a 100% relative improvement in minority Physical-Damage detection while maintaining comparable global accuracy. 
+
+Baseline Proposed: CSBA Class ( c) Precision Recall F1 Precision Recall F1 Bird-drop 0.556 0.625 0.588 0.605 0.575 0.590 
+
+Clean 0.649 0.585 0.615 0.615 0.585 0.600 Dusty 0.744 0.727 0.736 0.618 0.773 0.687 Elec-Damage 0.682 0.789 0.732 0.750 0.789 0.769 
+
+Phys-Damage 0.300 0.231 0.261 0.600 0.462 0.522 
+
+Snow-Covered 0.760 0.760 0.760 0.850 0.680 0.756 
+
+Global Accuracy 0.648 0.654  
+
+> Figure 3: Gradient cosine-similarity analysis for the baseline and CSBA models. The left and center panels show the class-pair similarity matrices, while the right panel reports the di ff erence map (CSBA minus baseline), highlighting where interference is reduced or redistributed. Table 8: Gradient Similarity Analysis ( Si j ). CSBA reduces the magnitude of negative gradient similarity between key class pairs.
+
+Class Pair Baseline S i j CSBA S i j 
+
+Dust vs. Physical-Damage −0.41 −0.29 Soiling vs. Physical-Damage −0.31 −0.22 Clean vs. Electrical −0.19 −0.12 
+
+Focal Loss ( γ = 2.0) rescales gradient magnitudes but does not alter gradient directions; while it improves Electrical-Damage performance, it yields limited gains on the Physical-Damage class ( F1 = 0.320). Directing optimization solely via loss weighting is insu ffi cient to untangle the directional gradient conflicts identified in Section 4.2. Conversely, Class-Specific Heads achieve stronger gradient isolation but substantially in-crease parameter requirements to 7 .50 M , making deployment on resource-constrained devices impractical. CSBA provides superior Physical-Damage recovery using only 1 .79 M total pa-rameters. 
+
+7.5. Generalization to CIFAR-10-LT 
+
+To assess whether the gradient interference reduction ob-served in the PV fault detection setting generalizes to other imbalanced classification benchmarks, we evaluate CSBA on CIFAR-10-LT [ 4 ], a standard long-tailed benchmark with imbal-ance ratio 100 (see Section 5.1). All training hyperparameters are identical to those reported in Table 1. Table 10 reports per-class F1 scores for the Baseline and CSBA on CIFAR-10-LT. The pattern of improvement is con-sistent with the PV setting: CSBA yields the largest gains on 
+
+> Table 9: Ablation Study. CSBA provides a favorable balance between special-ization and parameter e ffi ciency.
+
+Variant Phys-F1 Elec-F1 Params Overhead 
+
+Baseline 0.261 0.732 1.35M —Focal Loss 0.320 0.812 1.35M +0% 
+
+CSBA 0.522 0.769 1.79 M +32 .6%Class-Heads 0.480 0.865 ≈ 7.50M +455% 
+
+minority classes (Ship and Truck, with as few as 78 and 50 training samples respectively) while majority class performance remains stable. Global accuracy improves from 0 .675 to 0 .681, while Macro-F1 improves from 0 .595 to 0 .655, reflecting con-centrated gains on minority categories. Table 11 reports gradient cosine similarity for the four most adversarial majority–minority class pairs. The average pair-wise conflict reduces from S pairs = −0.330 (baseline) to −0.185 (CSBA), a reduction of 44% in conflict magnitude. This is con-sistent with the 26% reduction observed on the PV dataset, and the stronger reduction reflects the more severe imbalance ratio (ρ = 100 vs the PV setting). These results indicate that the gradient interference phe-nomenon identified in Section 3.3 is not specific to the PV fault detection domain, but reflects a general property of multi-branch architectures trained under class imbalance. The consistent be-havior across two substantially di ff erent datasets strengthens the generalizability of both the diagnostic framework and the proposed CSBA mechanism. 
+
+7.6. Qualitative Analysis 
+
+Beyond the aggregate metrics, the class-wise results reveal a clear qualitative pattern. The baseline model performs competi-tively on visually dominant categories such as Dusty and Snow-Covered, but it is markedly weaker on the minority Physical-Damage class. CSBA changes this balance by preserving strong global behavior while substantially improving the minority de-cision boundary. This shift is consistent with the proposed interpretation that branch-specific attention reduces destructive interference in shared representations. A second qualitative observation is that CSBA does not im-prove every category uniformly. Instead, its largest gain is con-centrated on the rare class that is most vulnerable to majority-11 Table 10: Per-class F1 scores on CIFAR-10-LT (imbalance ratio 100). Classes are ordered by training frequency (majority to minority). CSBA improves minority-class F1 consistently while maintaining stable majority-class performance. 
+
+Baseline Proposed: CSBA Class P R F1 P R F1 
+
+Airplane (n =5000) 0.852 0.920 0.884 0.865 0.898 0.881 
+
+Automobile (n =2973) 0.831 0.901 0.864 0.840 0.885 0.862 
+
+Bird (n =1765) 0.748 0.822 0.783 0.761 0.804 0.782 
+
+Cat (n =1049) 0.680 0.650 0.664 0.695 0.678 0.686 
+
+Deer (n =623) 0.651 0.602 0.625 0.665 0.641 0.652 
+
+Dog (n =370) 0.615 0.548 0.579 0.638 0.615 0.626 
+
+Frog (n =220) 0.601 0.495 0.542 0.625 0.590 0.606 
+
+Horse (n =131) 0.552 0.351 0.429 0.581 0.485 0.528 
+
+Ship (n =78) 0.498 0.245 0.328 0.550 0.421 0.476 
+
+Truck (n =50) 0.445 0.182 0.258 0.521 0.398 0.451 Global Acc. 0.675 0.681 Macro-F1 0.595 0.655    
+
+> Table 11: Gradient cosine similarity Si j for selected majority–minority class pairs on CIFAR-10-LT. CSBA reduces conflict magnitude consistently across the most adversarial pairs, with an average reduction of 44%.
+
+Class i Class j S baseline  
+
+> i j
+
+S CSBA 
+
+> i j
+
+Airplane Truck −0.382 −0.215 Airplane Ship −0.345 −0.198 Automobile Truck −0.318 −0.182 Bird Horse −0.275 −0.145 
+
+Average −0.330 −0.185 
+
+> Figure 4: Test-set confusion matrices for the baseline model and CSBA. The figure exposes where errors are redistributed across classes and shows that the proposed attention mechanism changes the confusion structure rather than simply scaling confidence uniformly.
+
+class overwriting. This selective improvement is particularly notable: it indicates that the proposed attention mechanism is not merely increasing confidence globally, but is reallocating repre-sentational capacity toward classes that are otherwise suppressed under imbalanced optimization. Figure 4 makes this behavior more concrete by showing how the error structure changes across the full test-set confusion matrices. 
+
+7.7. Additional Tables 
+
+To complement the main comparison, Figure 2 together with Tables 12 and 13 summarizes class-wise changes induced by CSBA. These views provide a compact confusion-sensitive ac-
+
+> Table 12: Class-wise F1 change from Baseline to CSBA. The largest gain is concentrated in the minority Physical-Damage class.
+
+Class Baseline F1 CSBA F1 ∆F1 Bird-drop 0.588 0.590 +0.002 Clean 0.615 0.600 -0.015 Dusty 0.736 0.687 -0.049 Elec-Damage 0.732 0.769 +0.037 Phys-Damage 0.261 0.522 +0.261 Snow-Covered 0.760 0.756 -0.004 
+
+> Table 13: Class-wise precision and recall change from Baseline to CSBA. The largest joint gain appears in the minority Physical-Damage category.
+
+Class ∆Precision ∆Recall Bird-drop +0.049 -0.050 Clean -0.034 0.000 Dusty -0.126 +0.046 Elec-Damage +0.068 0.000 Phys-Damage +0.300 +0.231 Snow-Covered +0.090 -0.080 
+
+count of model behavior by showing where gains are concen-trated and how precision–recall balance shifts across classes. Taken together, these tables show that CSBA does not simply produce uniform improvement across all classes. Instead, it reallocates performance toward the classes most a ff ected by imbalance, which is precisely the behavior expected from a mechanism designed to reduce gradient interference in shared features. 
+
+7.8. Limitations 
+
+Despite the encouraging results, several limitations remain. First, while the proposed framework is validated on both a PV fault detection dataset and CIFAR-10-LT, evaluation across ad-ditional architectural families and domain-specific benchmarks such as medical imaging would further strengthen the general-izability claims.Second, the present analysis emphasizes opti-12 mization geometry and class-wise discrimination, but does not include deployment-oriented measurements such as inference latency, memory footprint under hardware constraints, or robust-ness to distribution shift. Third, although the reported results support the proposed interpretation of gradient interference, a richer qualitative error analysis over full confusion matrices and failure cases would further clarify where CSBA succeeds and where it still breaks down. Overall, the results indicate that CSBA primarily improves minority-class performance while maintaining comparable per-formance on majority classes. 
+
+8. Discussion and Conclusion 
+
+This work investigates the role of optimization dynamics in multi-branch neural networks under severe class imbalance. Our analysis identifies a key limitation of standard architectures: when multiple branches share upstream representations and are aggregated through summation, gradient updates from majority classes can dominate the optimization process. This e ff ect can suppress minority-class representations, leading to degraded performance on rare but critical fault categories. To address this issue, we proposed Class-Specific Branch At-tention (CSBA), a lightweight architectural modification that introduces branch-specific channel reweighting prior to feature aggregation. By enabling each branch to emphasize di ff erent subsets of feature channels, CSBA promotes partial decoupling of gradient flow without requiring explicit class-to-branch as-signment or substantial increases in model capacity. Empirical results demonstrate that CSBA improves minority-class performance, with the most notable gain observed in the Physical-Damage category, where the F1 score increases from 0.261 to 0 .522. At the same time, overall model accuracy re-mains comparable to the baseline. Gradient analysis further indicates a reduction in destructive interference between class-specific updates, supporting the proposed interpretation that channel-wise modulation can mitigate gradient conflict in shared representations. Importantly, these improvements are achieved with a modest increase in model size, maintaining a balance between represen-tational flexibility and parameter e ffi ciency. This makes CSBA suitable for deployment in resource-constrained settings, such as industrial inspection pipelines, where both accuracy and com-putational e ffi ciency are critical. More broadly, the results highlight the importance of consider-ing optimization behavior alongside statistical imbalance when designing neural architectures. While loss-level and data-level methods address imbalance from a distributional perspective, our findings suggest that structural interventions can play a com-plementary role by shaping how gradients propagate through the network. While the primary evaluation focuses on photovoltaic fault de-tection, validation on CIFAR-10-LT confirms that the proposed framework is not domain-specific. The underlying mechanism— reducing gradient interference in shared representations—is ap-plicable to a wide range of imbalanced classification settings, including medical imaging, defect detection, and long-tailed visual recognition. Future work should evaluate the generality of these findings across other datasets and architectural families, as well as ex-plore alternative mechanisms for controlling gradient interac-tions in shared representations. 
+
+Declaration on the Use of AI Tools 
+
+The authors used AI-assisted tools for language refinement and clarity improvements. All scientific content, methodology, and conclusions were developed and verified by the authors. 
+
+Declarations Competing Interests: The authors have no competing inter-ests to declare that are relevant to the content of this article. 
+
+Funding: No funding was received for conducting this study. 
+
+Data Availability: The dataset used in this study is publicly available at: https: // www.kaggle.com /datasets /pythonafroz /solar-panel-clean-and-faulty-images 
+
+References 
+
+[1] M. Buda, A. Maki, M. A. Mazurowski, A systematic study of the class imbalance problem in convolutional neural networks, Neural Networks 106 (2018) 249–259. [2] Y. Fu, L. Xiang, Y. Zahid, G. Ding, T. Mei, Q. Shen, J. Han, Long-tailed visual recognition with deep models: A methodological survey and evaluation, Neurocomputing 509 (2022) 290–309. doi:10.1016 /j.neucom.2022.08.031. [3] T.-Y. Lin, et al., Focal loss for dense object detection, in: ICCV, 2017, pp. 2980–2988. [4] K. Cao, C. Wei, A. Gaidon, N. Arechiga, T. Ma, Learning imbalanced datasets with label-distribution-aware margin loss, in: Advances in Neural Information Processing Sys-tems, 2019, pp. 1565–1576. [5] Y. Cui, M. Jia, T.-Y. Lin, Y. Song, S. Belongie, Class-balanced loss based on e ff ective number of samples, in: CVPR, 2019, pp. 9268–9277. [6] Y. LeCun, Y. Bengio, G. Hinton, Deep learning, Nature 521 (2015) 436–444. [7] A. Krizhevsky, I. Sutskever, G. Hinton, Imagenet classifica-tion with deep convolutional neural networks, in: NeurIPS, 2012, pp. 1097–1105. [8] C. Szegedy, et al., Going deeper with convolutions, in: CVPR, 2015, pp. 1–9. [9] K. He, et al., Deep residual learning for image recognition, in: CVPR, 2016, pp. 770–778. [10] R. Pamungkas, et al., Pv fault classification challenges under imbalance, Energy Reports (2023). 13 [11] Y. Hu, et al., Maintenance strategies for photovoltaic sys-tems, Solar Energy (2016). [12] J.-X. Zhuang, J. Cai, J. Zhang, W.-S. Zheng, R. Wang, Class attention to regions of lesion for imbalanced medical image recognition, Neurocomputing 542 (2023) 126577. doi:10.1016 /j.neucom.2023.126577. [13] Q. Chen, Q. Liu, E. Lin, A knowledge-guide hierarchical learning method for long-tailed image classification, Neurocomputing 469 (2022) 36–45. doi:10.1016 /j.neucom.2021.10.029. [14] A. M. Tiong, J. Li, G. Lin, B. Li, C. Xiong, S. C. Hoi, Im-proving tail-class representation with centroid contrastive learning, Pattern Recognition Letters 168 (2023) 123–130. [15] R. Ramaneti, et al., Solar panel fault detection using deep learning, IEEE Access (2021). [16] J. Hu, L. Shen, G. Sun, Squeeze-and-excitation networks, in: CVPR, 2018, pp. 7132–7141. [17] S. Woo, J. Park, J.-Y. Lee, I. S. Kweon, Cbam: Convo-lutional block attention module, in: Proceedings of the European Conference on Computer Vision (ECCV), 2018, pp. 3–19. [18] Z. Niu, G. Zhong, H. Yu, A review on the attention mecha-nism of deep learning, Neurocomputing 452 (2021) 48–62. doi:10.1016 /j.neucom.2021.03.091. [19] M. K. I. Hossain, A. Hemmati, J. Lee, Dual focal loss to address class imbalance in seman-tic segmentation, Neurocomputing 462 (2021) 69–87. doi:10.1016 /j.neucom.2021.08.107. [20] L. Xiang, Y. Ding, Y. Xu, X. Wang, T. Mei, J. Han, Curricular-balanced long-tailed learning, Neurocomputing 571 (2024) 127121. doi:10.1016 /j.neucom.2023.127121. [21] R. Peng, C. Zhao, X. Chen, Z. Wang, Y. Liu, Y. Liu, X. Lan, A causality guided loss for imbalanced learning in scene graph generation, Neurocomputing 598 (2024) 128042. doi:10.1016 /j.neucom.2024.128042. [22] Z. Chen, V. Badrinarayanan, C.-Y. Lee, A. Rabinovich, Gradnorm: Gradient normalization for adaptive loss bal-ancing in deep multitask networks, in: Proceedings of the 35th International Conference on Machine Learning, 2018, pp. 794–803. [23] T. Yu, S. Kumar, A. Gupta, S. Levine, K. Hausman, C. Finn, Gradient surgery for multi-task learning, in: Advances in Neural Information Processing Systems, Vol. 33, 2020, pp. 5824–5836. [24] F. N. Iandola, M. W. Moskewicz, K. Ashraf, S. Han, W. J. Dally, K. Keutzer, Squeezenet: Alexnet-level accuracy with 50x fewer parameters and <0.5mb model size, arXiv preprint arXiv:1602.07360 (2016). [25] P. Afroz, Solar panel clean and faulty images, Kaggle (2023). URL https://www.kaggle.com/datasets/pythonafroz/sol 
+
+14
