@@ -6,29 +6,30 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-12
-- 运行时间：2026-06-12 22:16:28 UTC
+- 最新运行日期：2026-06-13
+- 运行时间：2026-06-13 21:28:55 UTC
 - 运行状态：成功
 - 本次总论文数：3
-- 精读区：2
-- 速读区：1
+- 精读区：0
+- 速读区：3
 
 ### 今日简报（AI）
-今日精读2篇医学AI代理与技能增强研究，速读1篇无标签多标签识别模型。最值得关注两篇8分论文：自进化技能记忆实现通用化医学推理，以及融合临床知识增强AI代理在NSCLC转录组分析中的表现。建议普通读者留意如何通过技能模块提升医学AI的可解释性与泛化能力。
-- 详情：[/202606/12/README](/202606/12/README)
+今日速读三篇论文，聚焦可控光照变化下的表示学习、异常检测中的无标签验证集模型选择，以及未训练卷积网络在结构MRI特征提取中的应用。最值得关注的是照明感知表示学习和基于伪AUC的模型选择方法，两者均为6.0分。建议普通读者优先了解光照变化鲁棒性及无标签验证集的实际价值，这两项技术对计算机视觉和医疗影像领域有直接启发。
+- 详情：[/202606/13/README](/202606/13/README)
 
 ### 精读区论文标签
-1. [Experience Makes Skillful: Enabling Generalizable Medical Agent Reasoning via Self-Evolving Skill Memory](/202606/12/2606.09365v1-experience-makes-skillful-enabling-generalizable-medical-agent-reasoning-via-self-evolving-skill-memory)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：医疗AI智能体，具备自演化技能记忆用于临床推理
-2. [Skill-Augmented AI Agents for Medical Research Analysis: An Exploratory Multi-Model Human Evaluation in an NSCLC Transcriptomic Biomarker Task](/202606/12/2606.11830v1-skill-augmented-ai-agents-for-medical-research-analysis-an-exploratory-multi-model-human-evaluation-in-an-nsclc-transcriptomic-biomarker-task)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：技能增强AI代理用于医学研究分析，直接对应医疗中的代理系统
+- 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Adapting Vision-Language Models from Iconic to Inclusive for Multi-Label Recognition Without Labels](/202606/12/2606.11626v1-adapting-vision-language-models-from-iconic-to-inclusive-for-multi-label-recognition-without-labels)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：无监督多标签识别方法，与眼底多类分类相关
+1. [Lighting-Aware Representation Learning under Controllable Lighting Variation](/202606/13/2606.06899v1-lighting-aware-representation-learning-under-controllable-lighting-variation)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：光照感知表示学习用于视觉任务
+2. [AUCp: Pseudo-AUC for Inference Model Selection with Unlabeled Validation Data in Abnormality Detection](/202606/13/2606.08742v1-aucp-pseudo-auc-for-inference-model-selection-with-unlabeled-validation-data-in-abnormality-detection)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：提出一种用于无监督异常检测的指标，可用于青光眼检测
+3. [Untrained Convolutional Neural Networks as Feature Extractors for Structural MRI](/202606/13/biorxiv-10-64898-2026-06-07-730652-v1-untrained-convolutional-neural-networks-as-feature-extractors-for-structural-mri)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：未训练CNN作为特征提取器，可用于眼底图像分类
 
 
 <div class="dpr-home-promo-card">

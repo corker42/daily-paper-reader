@@ -1,0 +1,486 @@
+Title: AUCp: Pseudo-AUC for Inference Model Selection with Unlabeled Validation Data in Abnormality Detection
+
+URL Source: https://arxiv.org/pdf/2606.08742v1
+
+Published Time: Tue, 09 Jun 2026 01:23:18 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+## AUCp: Pseudo-AUC for Inference Model Selection with Unlabeled Validation Data in Abnormality Detection 
+
+Md Mahfuzur Rahman Siddiquee 1,∗, Fazle Rafsani 1, Jay Shah 1, Teresa Wu 1,Catherine D Chong 2, Todd J Schwedt 2, Baoxin Li 11School of Computing and Augmented Intelligence, Arizona State University, Tempe, AZ 85281 
+
+{mrahmans, frafsani, jgshah1, teresa.wu, baoxin.li}@asu.edu 
+
+> 2
+
+Mayo Clinic, Arizona {chong.catherine, schwedt.todd}@mayo.edu 
+
+> ∗
+
+Corresponding author ( mrahmans@asu.edu ). Manuscript received April 3, 2025; accepted April 10, 2026. Supported by DoD W81XWH-15-1-0286 & W81XWH1910534, NIH K23NS070891, NIH-NINDS 1R61NS113315-01, and Amgen ISS 20187183. 
+
+Published in: Md Mahfuzur Rahman Siddiquee, F. Rafsani, J. Shah, T. Wu, C. D. Chong, T. J. Schwedt, and B. Li, “AUCp: Pseudo-AUC for Inference Model Selection with Unlabeled Validation Data in Abnormality Detection,” IEEE Transactions on Medical Imaging , pp. 1–1, 2026. doi: 10.1109/TMI.2026.3684946 .
+
+Abstract 
+
+Abnormality detection is a crucial yet challenging task in medical image analysis. Distinguishing abnormalities from normal data by learning to reconstruct normal-only data alleviates the reliance on labeled datasets. However, many studies, even if unsupervised, rely on a labeled validation set to select the best model for inference from multiple training iterations. For many diseases labeled data are unavailable and substantially time consuming to obtain. To address this, AU C p - a novel metric that supports abnormality detection for unsupervised and self-supervised methods is proposed. Instead of evaluating the realism of reconstructed images to select the best of model for inference, it focuses on actual detection performance and without re-quiring an annotated test set. Assuming the pseudo ground truth of all unannotated samples in the test set as abnormal/positive and using traditional AU C calculation, 
+
+AU C p scores are derived. Given a large and representative training set of normal samples, we show mathematical and empirical evidence that model selection using 
+
+AU C p scores improves disease detection in terms of unsupervised and self-supervised methods over conventional metrics. Using two unsupervised methods for neuro-logic disease detection and self-supervised methods on diverse datasets, our results demonstrate that the AU C p score effectively identifies the optimal model for infer-ence, significantly enhancing abnormality and disease detection. The corresponding implementations are available in https://github.com/mahfuzmohammad/AUCp .
+
+1 
+
+> arXiv:2606.08742v1 [cs.CV] 7 Jun 2026 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026
+
+Keywords: Abnormality detection; model selection; validation metric; unsupervised anomaly detection; self-supervised anomaly detection. 
+
+# 1 Introduction 
+
+Detecting anomalies is challenging, as the lack of labeled data makes training models difficult. Selecting a well-trained and generalized model for inference is also difficult because of the absence of labeled normal and abnormal samples in the validation dataset. As a result, many studies assume that an annotated validation dataset is available [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], while some select models using synthetic abnormalities [11, 12]. Although these evaluation methods work only to compare the methods for research purposes, they keep the abnormality detection methods proposed unusable for real-life deployment. Many studies also select the inference model based on the best training loss. In [13] the authors studied such abnormality detection methods and compared the performance of autoencoder models that trained and selected inference models using l1,
+
+l2, SSIM (structure similarity index) and perceptual loss. They found that no metric consistently outperforms the others in multiple datasets. This is expected since these metrics aim to achieve the best reconstruction of the input image, not the best abnormality detection. In [14] and [15], the authors introduced methods to use unlabeled datasets that in-cluded normal images and abnormal images during training to improve the detection of unsupervised disease/abnormality at the patient level. In the context of abnormality de-tection, self-supervised learning methodologies generally involve defining a pretext task that facilitates the model’s learning of significant features from the data, independently of any annotated instances similar to the unsupervised setting. In this methodology, the model acquires the ability to produce pseudo-labels by utilizing the intrinsic structures present within the data. Though these methods produce promising results, one of the ma-jor issues was unaddressed in these methods: selecting a well-trained generalized model for inference. Since the training objective in both of these methods is to generate the most realistic images possible of healthy anatomy, the model was selected based on the realism of the images generated using the Fréchet inception distance (FID) [16]. It is one of the most popular metrics in the generative adversarial network (GAN) literature to measure the realism of the generated image. However, FID does not select the inference model based on its ability to detect abnormality; it is observed that the FID metric does not have a strong correlation with the underlying detection performance of the model based on its capability of abnormality detection (see Sec. 4.1.4). 2Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Since labeled abnormal instances are not available, one cannot simply follow the val-idation steps of traditional supervised learning to select parameters for the model that maximize the objective function of abnormality detection. As a solution, a new metric, pseudo-AUC ( AU C p) is proposed to select a suitable model for inference when the labeled validation dataset is unavailable. Given a training dataset Dtrain and a testing/evaluation dataset Dtest (Fig. 1), AU C p assumes the label for each unlabeled instance in Dtest is “abnormal” while the labels for normal instances in Dtrain are known. Using these imper-fect labels as pseudo ground truths in the traditional AU C calculation results in AU C p
+
+scores. Sec. 2 provides the details of AU C p calculation and mathematically show that with a large amount of representative normal instances in Dtrain , the AU C p scores are very close to the actual AU C scores. The idea of using a pseudo-AUC ( AU C p) for inference-time model selection was first introduced in Brainomaly [14], where it was employed as a practical heuristic to select a checkpoint within a specific GAN-based unsupervised disease-detection pipeline. How-ever, that work neither provided a formal definition or theoretical analysis of AU C p,nor examined its behavior beyond the Brainomaly setting or in comparison to alterna-tive selection criteria. In contrast, the present study formalizes the AU C p metric and establishes its theoretical relationship to the true AUC under realistic assumptions on the training data. We further provide a comprehensive empirical evaluation of AU C p across multiple unsupervised and self-supervised abnormality-detection paradigms and diverse medical imaging datasets. In addition, we explicitly compare AU C p-based inference-time model selection with commonly used heuristics such as reconstruction-error-based selection, demonstrating that AU C p yields more stable and reliable performance across methods and datasets. In this study, HealthyGAN[15] and Brainomaly[14] are chosen as baseline methods to empirically show improvement in baseline disease detection performance using the proposed metric. Since Brainomaly, which is an extension of HealthyGAN, outperforms existing state-of-the-art unsupervised disease detection methods on a public Alzheimer’s disease (AD) dataset and an institutional dataset for headache detection, both of them are used as reference methods to compare performance with the proposed metric. Moreover, experiments on seven distinct publicly accessible datasets are conducted using four self-supervised abnormality detection approaches to evaluate the effectiveness of the proposed metric for inference model selection. In summary, this research makes five contributions: .
+
+• A new metric, AU C p is proposed for selecting a suitable model for inference when a labeled validation dataset is unavailable. 3Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+• Mathematical proof is provided to show the proposed AU C p metric provides scores close to the actual AU C scores when there is a large number of representative normal instances available in the training set by proving the pseudo-ground truths used in the AU C p calculation are equivalent to the actual ground truth used in the calculation AU C .
+
+• Empirical experiments are conducted to demonstrate that AU C p better correlates with the models’ underlying disease detection performances and selects a higher-performing model than a model chosen by FID, commonly used in GAN model development. 
+
+• Empirical experiments are conducted to demonstrate that AU C p further improves baseline unsupervised (HealthyGAN [15] and Brainomaly [14]) and self-supervised (CutPaste [17], Foreign Patch Interpolation (FPI) [18], Poisson Image Interpolation (PII) [19], and Natural Synthetic Anomalies (NSA) [20]) abnormality detection. 
+
+• The Brainomaly inference model selected by AU C p is evaluated in both transduc-tive and inductive settings to match real-world scenarios and found improved disease detection performance compared to the model previously selected by FID. In the following sections, the mathematical formulation of the AU C p metric is dis-cussed in Sec. 2 followed by the experimental setup for both unsupervised and supervised abnormality detection methods, along with the datasets used in the experiments in Sec. 3. Finally, the results obtained in different settings are presented and analyzed. 
+
+# 2 The Proposed Metric: Pseudo-AUC ( AU C p)
+
+Let’s assume a general medical abnormality detection scenario where the training set 
+
+Dtrain contains n − k instances of normal anatomies for training an abnormality detection method. The set Dtrain should be comprehensive to learn the variation in the normal anatomies well. The test set Dtest contains k + d samples on which one will apply the abnormality detection method once trained. Here, k is the number of instances of normal anatomies, and d is the number of instances of abnormal anatomies. The total number of normal instances from both the training and testing datasets is n. Let assume the test set contains at least 1 such instance of abnormal anatomies ( d > = 1 ). Please note that the actual label and the distribution of the instances in the test set, being from normal and abnormal anatomies, are unknown. The objective of the abnormality detection method, such as HealthyGAN [15] and Brainomaly [14], is to train a model that can separate the 4Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Figure 1: A visualization of the general dataset settings in abnormality detection prob-lems. Usually, a set Dtrain of n − k instances of normal anatomies is provided for training. The trained model is then applied to a testing Dtest set of k + d instances to detect abnor-malities where k is the number of instances from normal anatomies, and d is the number of instances from abnormal anatomies. Please note that the labels of the instances in the test set are unknown. Table 1: Notation Summary 
+
+Dtrain Training dataset containing n − k normal instances 
+
+Dtest Unlabeled test dataset with k normal and d abnormal instances 
+
+n Total number of normal instances across both datasets 
+
+d Number of abnormal instances in Dtest 
+
+GT True labels (unknown in practice) GT p Pseudo-labels used for AUCp 
+
+P Model-generated anomaly scores AUC Conventional AUC with true labels AUC p Pseudo-AUC computed with GT p
+
+M (·; θ) Abnormality detection method with parameters θf (·) Feature extractor instances of abnormal anatomies from the normal ones in the test set Dtest . A schema of the dataset is provided in Fig. 1. To calculate the AU C p metric, pseudo-labels ( GT p) are first introduced. The negative instances in the GT p come from the given set of instances from normal/healthy anatomies, Dtrain . Since no annotated positive instance (instances of diseased/abnormal anatomies) is available, we utilize the assumption in the problem settings that the test set Dtest contains at least 1 abnormal instances, and we assume all the instances in the Dtest are positive/abnormal. With this, the test instances with a partially correct positive label assignment are considered as the positive instances in the 
+
+GT p. Given GT p, the AU C p for a model’s prediction P is defined in Eq. 1. 
+
+AU C p(GT p, P ) = AU C (GT p, P ) (1) 5Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Here, the AU C means the area under the receiver operating characteristics curve when the actual label ( GT ) of the instances is known. 
+
+Proposition 1. For a large set of instances from healthy/normal anatomies, Dtrain , GT p
+
+is almost equivalent to GT . Here, GT would be the actual labels with n negative/normal and d positive/abnormal samples if labels of the test set Dtest were available during inference model selection. In other word, when n → ∞ , AU C (GT , GT p) → 1.
+
+Figure 2: An illustration of ROC curve. 
+
+Proof. Using the trapezoidal rule on the ROC curve in Fig. 2, the area under the curve (AUC) can be written as 
+
+AUC = 12
+
+X
+
+> i
+
+ FPR i − FPR i−1
+
+  TPR i + TPR i−1
+
+, (2) where FPR i = FP i/n and TPR i = TP i/d , with n and d denoting the numbers of negative and positive instances, respectively. Computing AUC(GT , GT p) yields two trapezoids (thresholds 0 → 0.5 and 0.5 → 1): 
+
+AUC(GT , GT p) = 12
+
+ FPR 0 − FPR 0.5
+
+  TPR 0 + TPR 0.5
+
+
+
++ 12
+
+ FPR 0.5 − FPR 1
+
+  TPR 0.5 + TPR 1
+
+. (3) Let k be the number of negatives assigned positive in GT p. Then 
+
+FPR 0.5 − FPR 1 = kn − kn = 0 , (4) 6Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+so the second term in (3) vanishes and 
+
+AUC(GT , GT p) = 12
+
+FP 0 − FP 0.5
+
+n
+
+ TP 0 + TP 0.5
+
+d
+
+
+
+= 12
+
+n − kn
+
+ d + dd
+
+
+
+= 1 − kn. (5) If k = 0 , then GT = GT p. More generally, as n → ∞ with fixed k, AUC(GT , GT p) →
+
+1.Consider a special scenario in which a model predicts the normal instances in the training set are normal, but the normal instances in the test set are abnormal. Math-ematically, our AU C p should provide a perfect score of 1. Such a model seems to get picked by our AU C p over a model correctly identifying normal instances in both the training and the test set. However, if the training set contains large enough instances representative of features in negative instances, then Lemma 1 shows that the scenario when a model correctly identifies the negative instances in the training set but mislabels the negative instances in the test as positive cannot occur. 
+
+Lemma 1. If Dtrain is large and represents the universal feature set of negative instances (assuming Dtrain as universal negatives), then M (f (N T ) ∩ f (Dtrain ); θ) = M (f (N T ); θ)
+
+where M is the medical abnormality detection method with the learned weight θ, N T is the set of normal instances ( k instances and k > 0) in the test set Dtest , and f is a feature extractor from the input instances. 
+
+Proof. Let’s assume M (f (N T ) ∩ f (Dtrain ); θ)̸ = M (f (N T ); θ), which means the abnor-mality detection provides different predictions for each case. It is only possible in two cases: 
+
+Case 1: f (N T ) ∩ f (Dtrain ) = ∅. However, it is impossible as Dtrain is not empty and represents the universal feature set of negative instances. Hence, f (N T ) ⊆ f (Dtrain )
+
+and f (N T ) ∩ f (Dtrain )̸ = ∅.
+
+Case 2: |f (N T ) ∩ f (Dtrain )| < |f (N T )|. Similar to Case 1 , this is also impossible as 
+
+Dtrain represents the universal feature set of negative instances. Therefore, f (N T )∩f (Dtrain ) = f (N T ) which implies M (f (N T )∩f (Dtrain ); θ) = M (f (N T ); θ).7Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Figure 3: Overview of the proposed AU C p metric calculation using Brainomaly. An example of AU C p calculation using the Brainomaly method is provided in Fig. 3. Brainomaly learns from the given T1-weighted brain MRIs by iteratively going over the entire dataset. Here, the Dtrain contains T1-weighted MRI of healthy brains, and Dtest 
+
+contains an unlabeled mixture of T1-weighted images of both healthy and diseased brains. During training, Brainomaly produces a model after a fixed set of iterations. AU C p scores for each model are calculated and the model producing the highest score is selected as the inference model. To calculate AU C p, the disease detection scores , as discussed in [14], for each model is generated. Since it is known that the set Dtrain contains only healthy brain MRIs, we assume the labels for MRIs in the unannotated mixed brain MRI set, Dtest . Using these imperfect annotations as ground truths GT p along with the 
+
+disease detection scores in the traditional AU C calculation, AU C p scores (Eq. 1) are calculated. In Sec. 4.1.4, it is shown that AU C p selects a better-performing model for inference compared to FID, commonly used in existing works [15]. 
+
+# 3 Experiment Design 
+
+## 3.1 Datasets for Unsupervised Methods 
+
+The same datasets as [14] is used for evaluation. The description of each dataset is provided below. 
+
+3.1.1 Alzheimer’s Disease Dataset 
+
+This dataset is obtained from the ADNI database (adni.loni.usc.edu), which is a large-scale public repository of clinical, neuropsychological, behavioral, genetic, and neuroimaging 8Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+data to track the progression of Alzheimer’s disease dementia. Using data from 3 studies that ADNI offers, ADNI-1, ADNI-2, and ADNI-GO, T1 MRI scans of 536 Alzheimer’s disease patients and 1271 healthy controls are collected and processed. For Dtrain , 501 MRIs from healthy controls are randomly selected. Two unlabeled mixed brain MRI sets ( Dtest ): AD DS1 and AD DS2 , meaning two instances of Dtest , are created. Each contains 268 MRIs from patients with Alzheimer’s disease and 385 MRIs from healthy controls. Having two instances of Dtest helps evaluate the performance of Brainomaly’s model selected by AU C p for Alzheimer’s disease detection in both trans-ductive and inductive settings in Sec. 4.1.3. All 3D MRIs in this dataset are registered to the MNI152 1mm template and skull stripped. The 3D MRIs are saved as 2D sagittal slices because all the competing meth-ods perform prediction for each 2D slice. The slice-level predictions are aggregated by averaging them for patient-level predictions during evaluation. 
+
+3.1.2 Headache Dataset 
+
+The institutional dataset includes MRIs of 96 individuals with migraine, 48 with acute post-traumatic headache (APTH), and 49 with persistent post-traumatic headache (PPTH), diagnosed according to the International Classification of Headache Disorders (ICHD)[21] diagnostic criteria. In addition MRIs of 104 healthy controls are collected. The institu-tional dataset is extended by including additional MRIs of 428 healthy controls from the publicly available IXI dataset [22] for a fair comparison with [23]. For the experiments, the model is trained by combining all headache types into one group first and then investigated each subgroup’s performance separately. Total 232 MRIs of healthy controls are randomly selected as Dtrain . Similiar to the Alzheimer’s disease experiment, two sets of unlabeled mixed brain MRI sets ( Dtest ): HEAD DS1 and HEAD DS2 are created. Each contains an equal number of MRIs for migraine (n = 48), APTH (n = 24), and healthy controls (n = 150). 24 out of 49 MRIs of those with PPTH were included in HEAD DS1 and the rest in HEAD DS2 . In addition, two sets of Dtest are created to evaluate the performance of Brainomaly’s model selected by the AU C p for headache detection in both transductive and inductive settings in Sec. 4.1.3. All 3D MRIs in this dataset were registered to the MNI152 1mm template and skull stripped. Like the Alzheimer’s disease dataset, the 3D MRIs are converted and saved as 2D sagittal slices. And the slice-level predictions are aggregated by averaging them for patient-level predictions during evaluation. 9Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+## 3.2 Datasets for Self-supervised & Reconstruction-Based Meth-ods 
+
+3.2.1 Pulmonary Disease Dataset: RSNA, VinDr-CXR 
+
+The RSNA dataset [24] used in the experiments consists of a large collection of chest X-ray images with two distinct classes: normal images and images showing lung opacities. Lung opacities are areas of increased radiographic density that may indicate pneumonia or other pulmonary pathologies, making them a clinically significant marker for abnormality detection. In this study, the dataset comprised of 8851 normal images and 6012 X-rays with lung opacities. For the purpose of abnormality detection, the model was trained exclusively on normal images. Specifically, 3851 normal X-rays are used to construct the training dataset Dtrain . This training approach allows the model to learn the underlying distribution of healthy lung patterns, ensuring that any deviation from these learned features in test images can be flagged as anomalous. For evaluation, a balanced test set 
+
+Dtest consisting of 1000 normal images and 1000 lung opacity images is used. VinDr-CXR [25] is a comprehensive chest X-ray dataset featuring richly annotated images that capture a broad spectrum of pulmonary conditions through expert evalua-tions of 14 distinct abnormalities comprising of 10,606 normal and 4,394 abnormal chest X-rays. This diverse imaging resource supports clinical research by providing high-quality radiological data that reflect both typical and pathological findings in the lungs. In the experiments, we implement a one-class learning approach by training solely on healthy examples using 4000 normal images as our training dataset Dtrain so the model can in-ternalize the subtle patterns of normal lung anatomy. The model’s abnormality detection capabilities are then rigorously evaluated on a test set Dtest consisting of 1000 normal images and 1000 abnormal images. 
+
+3.2.2 Brain Tumor Dataset: Brain, BraTS21 
+
+The Brain dataset [26] comprises 2000 MRI slices devoid of tumors, 1621 exhibiting glioma, and 1645 displaying meningioma. Images that are devoid of tumors are sourced from Br35H5 [27] and Saleh et al. [28], while the images depicting glioma and meningioma are derived from Saleh et al. [28] and Cheng et al. [29]. For this study, 1000 images that do not show any cancer are used as Dtrain and 600 images that do show cancer along with 600 images that show cancer (300 with glioma and 300 with meningioma) as Dtest .The Brats2021 [30] dataset offers 1251 MRI instances with a resolution of 155 × 240 ×
+
+240, along with appropriate voxel-level annotations for tumor areas. Each example com-prises many modalities: T1, contrast enhanched T1, T2, and FLAIR. FLAIR is studied 10 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+in experiments due to its heightened sensitivity to tumor locations. During preprocessing, the scans are subjected to a central cropping operation to eliminate the vacant corners, yielding dimensions of 70 × 208 × 208. Total 1051 images are used for training slice ex-traction and the remaining 200 scans for testing slice extraction. To create Dtrain , equally sample slices from the original normal axial slices devoid of malignancies in the scans are used, assuring balanced representation. Furthermore, superfluous slices are removed to maintain a minimum interval of five slices between each sampled slice, ensuring adequate content diversity among adjacent slices. A total of 4,211 normal 2D axial slices have been taken from 1,051 FLAIR images. In accordance with the same idea, 828 normal and 1948 tumor slices from the remaining 200 FLAIR images are extracted to construct Dtest .
+
+3.2.3 Retinal Fundus Dataset: LAG 
+
+The LAG dataset [31] comprises 5,824 color retinal fundus images obtained from Bei-jing Tongren Hospital, including 2,392 confirmed positive and 3,432 negative glaucoma samples. Each image is rigorously diagnosed by qualified glaucoma specialists who eval-uate both morphological and functional aspects such as intra-ocular pressure, visual field loss, and manual optic disc assessment to establish a gold standard binary label for glau-coma. In accordance with the Helsinki Declaration and owing to the retrospective, fully anonymized nature of the dataset, patient consent was not required. Additionally, an innovative eye-tracking experiment was conducted: each initially blurred fundus image is presented to ophthalmologists, who use mouse clicks to successively clear circular regions (with a fixed radius of 40 pixels on 500 × 500 images) to reveal regions of interest. The order and coordinates of these clearings are then used to generate an attention map via a 2D Gaussian filter ( σ = 25 ), capturing the diagnostic focus of the specialists. In the experiments, 1500 normal images are used as Dtrain , and 811 normal and 811 anomalous images as Dtest .
+
+3.2.4 Skin Lesion Dataset: ISIC2018 
+
+The ISIC 2018 dataset [32], provided as part of Task 3 of the ISIC 2018 challenge, is a large-scale, publicly available collection of dermoscopic images curated for skin lesion analysis. It comprises seven lesion categories, with the nevus (NV) class designated as the normal category, while the remaining six categories represent various abnormal lesions such as melanoma, basal cell carcinoma, and others. The dataset features high-quality annotations from expert dermatologists, ensuring that each image is accurately labeled for clinical relevance. In the experiments, 6705 normal (NV) images from the official training 11 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+set are used as Dtrain to model the typical features of benign lesions. For evaluation, a test set Dtest consisting of 909 normal (NV) images along with 603 abnormal images drawn from the six non-NV categories is constructed, providing a balanced framework to assess the performance of the proposed abnormality detection approach. 
+
+3.2.5 Lymph Node Metastasis Dataset: Camelyon16 
+
+A refined version of Camelyon16 [33] for Alzheimer’s disease (AD) as provided by Bao et al.[34], merging their validation and testing sets is used as Dtest . Whole slide images (WSIs) are segmented into 256 × 256 patches at 40x magnification, which are randomly chosen to create an image dataset for AD. In the experiment, 5088 normal images are used as Dtrain , and 1120 normal images along with 1113 abnormal images as Dtest .
+
+## 3.3 Evaluation Methods for Application of AU C p
+
+For an empirical analysis of AU C p, we have applied it to the reference abnormality de-tection methods, HealthyGAN and Brainomaly. First, the abnormality detection perfor-mance of both the methods for Alzheimer’s disease (Sec. 4.1.1) and headache (Sec. 4.1.2) detection are evaluated. The detection performance of their models selected by the AU C p
+
+with their models previously selected by FID in [15] and [14] are compared, respectively. Five state-of-the-art unsupervised abnormality detection methods are included as the benchmark. Among these, DDAD [35], HealthyGAN [15], and Brainomaly [14] utilize unlabeled instances during training. On the other hand, ALAD [36], ALOOC [37], f-AnoGAN [38], and Ganomaly [39] learn only from images of healthy subjects. In addi-tion, we compared the proposed AU C p metric with FID (Sec. 4.1.4) using models selected from Brainomaly and analyzed Brainomaly’s performance in transductive and inductive learning settings (Sec. 4.1.3) using the model selected by AU C p.For the self-supervised methods namely CutPaste [17], Foreign Patch Interpolation (FPI) [18], Poisson Image Interpolation (PII) [19], and Natural Synthetic Anomaly (NSA) [20] model performance using the AU C metric, following the approach described in [13] is evaluated. We also evaluated different image-reconstruction based methods (AE-U [40], MemAE [41], AE, AE-L1, AE-SSIM [42], and AE-Perceptual [9]) and feature-reconstruction methods (FAE-SSIM, FAE-MSE [43]) which are also described in [13]. However, unlike [13], where the inference model is selected after training for a fixed number of epochs, a dynamic selection strategy is adopted. Specifically, the inference model is chosen based on the highest AU C p score observed across all training epochs, ensuring that the selected model represents the optimal performance achieved during training. 12 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+The evaluations of these self-supervised and reconstruction-based methods across seven publicly available datasets (Sec. 3.2) and the results are presented in Sec. 4.2 
+
+## 3.4 Implementation Details 
+
+Similar to [15] and [14], all the models operate on 2D MRI slices (sagittal slices) for all experiments. A central crop is performed to remove empty regions outside the brain, resulting in 192 × 192 sagittal slices for both datasets. For training HealthyGAN and Brainomaly, λid = 1 and a batch size of 16. For HealthyGAN, λgp = 10 , λrec = 1 ,
+
+λf = 0 .1, λf z = 1 , and λf s = 1 . Both HealthyGAN and Brainomaly are trained for 400,000 iterations and saved a model for AU C p calculation after every 10,000 iterations. Adam optimizer is used for both methods with a learning rate of 1e−4. The learning rate has been decayed for the last 100,000 iterations. Following [13], we implemented seven one-stage self-supervised approaches that learn from synthetically generated anomalies and are then applied to real anomalies: CutPaste-Normal, CutPaste-3way, and CutPaste (variants implemented as in [17]); Foreign Patch Interpolation (FPI) [18], which replaces a local patch with one from another normal im-age; FPI-Poisson, which augments FPI by blending pasted patches via Poisson editing as in [19]; Poisson Image Interpolation (PII) [19], which directly uses Poisson blending to create seamless synthetic anomalies; and Natural Synthetic Anomalies (NSA) [20], which injects structured perturbations to produce diverse, realistic pseudo-anomalies. We include two feature-space autoencoder baselines, FAE-SSIM and FAE-MSE, which recon-struct deep features of normal images and score anomalies by the residual between original and reconstructed features (measured with SSIM or MSE, respectively). We assess six image-reconstruction based autoencoders: a vanilla AE, its loss-specific variants AE-L1 and AE-SSIM, a perceptual variant AE-Perceptual, the MemAE model with a memory module that constrains reconstruction to normal patterns, and AEU, which incorporates uncertainty to modulate reconstruction error. All image-reconstruction models are trained on normal data; anomaly scores are derived from pixel/feature residuals consistent with prior work. For every method, performance is reported with the AU C metric. 13 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Table 2: Comparing Alzheimer’s disease and headache detection performance of Healthy-GAN and Brainomaly’s models selected by AU C p and FID with five state-of-the-art abnormality detection methods. The models used to report the number in DS1 columns used DS2 as the unlabeled mixed data for training and AU C p calculation, but the detec-tion performance was calculated on DS1 . Therefore, the detection performances reported in this table are from an inductive setting, which means the models were applied to test data that was not part of the training process. We also report the detection performance of the model when trained and tested on DS2 , known as transductive setting, in Sec. 4.1.3. Similarly, the columns DS2 report detection performance on DS2 split in an inductive set-ting. Numbers in boldface indicate the best results, and underlined numbers indicate the second-best results. As seen, our AU C p metric helps both HealthyGAN and Brainomaly improve their detection performances. Methods Alzheimer’s Dataset Headache Dataset 
+
+AD DS1 AD DS2 Avg HEAD DS1 HEAD DS2 Avg 
+
+ALAD [36] 0.5127 0.5222 0.5175 0.6920 0.6990 0.6955 ALOOC [37] 0.4746 0.4670 0.4708 0.6566 0.3044 0.4805 f-AnoGAN [38] 0.6093 0.5946 0.6020 0.3925 0.4354 0.4071 Ganomaly [39] 0.6048 0.5864 0.5956 0.6514 0.7313 0.6913 DDAD [35] 0.5955 0.5897 0.5926 0.6431 0.6128 0.6280 HealthyGAN 0.4598 0.5222 0.4910 0.7410 0.7979 0.7695 + AU C p 0.5905 0.6034 0.5970 0.8276 0.7899 0.8088 Brainomaly 0.6389 0.6453 0.6421 0.9002 0.8589 0.8796 
+
++ AU C p 0.6452 0.6648 0.6550 0.9041 0.8878 0.8960 
+
+14 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+# 4 Results and Analyses 
+
+## 4.1 Unsupervised Methods 
+
+4.1.1 Alzheimer’s Disease Detection 
+
+Tab. 2 compares Alzheimer’s disease (AD) detection performance of models from both HealthyGAN and Brainomaly selected using FID and AU C p with five state-of-the-art methods: ALAD [36], ALOOC [37], f-AnoGAN [38], GANomaly [39], DDAD [35]. The models used to report the number in AD DS1 column used AD DS2 as the unlabeled mixed data for training and AU C p calculation, but the detection performance was calcu-lated on AD DS1 . Therefore, the detection performances reported in Tab. 2 are from an inductive setting, which means the models were applied to test data that were not part of the training process. The detection performance of the model when trained and tested on AD DS2 , known as transductive setting, in Sec. 4.1.3 are also reported. Similarly, the column AD DS2 reports detection performance on AD DS2 split in an inductive set-ting. As seen, the AU C p improved Alzheimer’s disease detection performance for both HealthyGAN and Brainomaly. The margin of improvement is much higher for Healthy-GAN, improving by +21.59% on average for AD detection. Models selected by AU C p for Brainomaly improved its AD detection performance by +2.01% on average, keeping it the best-performing method in this benchmark. Among the competing five state-of-the-art abnormality detection methods, f-AnoGAN performs the best AD detection with an AUC score of 0.6020. Brainomaly’s model selected by AU C p outperforms f-AnoGAN for AD detection by a large +8.8% margin. 
+
+4.1.2 Headache Detection 
+
+Tab. 2 also provides a comprehensive analysis of the efficacy of HealthyGAN and Braino-maly’s model selected using FID and AU C p in detecting headaches, juxtaposed against five state-of-the-art methods. The headache detection performances showcased in the 
+
+HEAD DS1 column were trained using HEAD DS2 as the source for unlabeled mixed data, facilitating training and AU C p calculation. However, the ultimate assessment of detection performance was conducted on the HEAD DS1 dataset, thereby reflecting an inductive setting where models were confronted with unseen test data. The detailed evaluation extends to the transductive setting as well, elaborated upon in Sec. 4.1.3, where models were trained and tested on the HEAD DS2 dataset. Corre-spondingly, the column HEAD DS2 reports detection performance on HEAD DS2 split in an inductive setting. 15 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Notably, the adoption of AU C p significantly enhances the detection prowess of both HealthyGAN and Brainomaly, albeit with varying degrees of improvement. While Healthy-GAN exhibits a remarkable advancement, with an average enhancement of +5.11% in headache detection, Brainomaly experiences a more modest increase of +1.86%, yet it continues to assert its dominance as the top-performing method in this benchmark. Among the competing state-of-the-art methods, ALAD emerges as a standout per-former in headache detection with an AUC score of 0.6955. However, the model selected by AU C p from Brainomaly eclipses ALAD’s performance by a substantial margin of +28.83%. 
+
+4.1.3 Transductive vs. Inductive Learning 
+
+Using an unlabeled set of mixed brain MRIs (Fig. 3) allows Brainomaly to operate in transductive and inductive learning modes. In [14], it is shown that Brainomaly performs statistically similar in both operating settings. Here, the model’s performance selected by 
+
+AU C p in both transductive and inductive settings are evaluated and compared with the model previously selected by FID. Please note that for the transductive learning setting, both AD and headache detection on the unlabeled mixed brain MRI set used during training are evaluated. In contrast, for the inductive learning setting, an additional unseen test sets for AD detection and headache detection evaluation are utilized. Please also note that the performance reported in Tab. 2 and analyzed in the previous two subsections were in inductive settings. Tab. 3 summarizes the performance of Brainomaly’s models when selected using FID and AU C p metrics for Alzheimer’s disease and headache detection in both transductive and inductive operating settings. For Alzheimer’s disease and headache detection, it is observed the model’s performance is slightly influenced by the random split of the unannotated set of mixed brain MRIs used during the training. For example, the AUCs are slightly higher for AD DS2 compared to AD DS1 and similarly for HEAD DS1 compared to HEAD DS2 . However, the overall performance of Brainomaly’s models, irrespective of model selection metrics, for AD and headache detection is statistically the same ( p-value >
+
+0.005) in both transductive and inductive operating settings. Please note that the model selected by AU C p consistently outperforms the model selected by FID. These results show that Brainomaly generalizes well on unseen test data, and using AU C p metric can help to select a higher performing model without any additional labeling cost. 16 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Table 3: An ablation study investigating the efficacy of Brainomaly in transductive and inductive learning settings. The study assesses the performance, measured by the AUC metric for Alzheimer’s Disease and Headache detection datasets. The table demonstrates that Brainomaly’s performance fluctuates across different datasets, as expected in data-driven methods. However, it reveals a statistically insignificant difference ( p-value >
+
+0.005) in Brainomaly’s performance between the transductive and inductive learning set-tings. The models selected by the AU C p metric consistently produce higher detection rates across datasets and operating settings. 
+
+> FID  selected Models
+
+Alzheimer’s Disease Dataset 
+
+Settings AD DS1 AD DS2 Avg. p-value Transductive 0.6180 0.6771 0.6476 0.8714 Inductive 0.6389 0.6453 0.6421 
+
+Headache Dataset 
+
+Settings HEAD DS1 HEAD DS2 Avg. p-value Transductive 0.8807 0.9120 0.8964 0.5832 Inductive 0.9002 0.8589 0.8796 
+
+> AU C p selected models
+
+Alzheimer’s Disease Dataset 
+
+Settings AD DS1 AD DS2 Avg. p-value Transductive 0.6526 0.6825 0.6676 0.5553 Inductive 0.6452 0.6648 0.6550 
+
+Headache Dataset 
+
+Settings HEAD DS1 HEAD DS2 Avg. p-value Transductive 0.9182 0.8633 0.8908 0.8726 Inductive 0.9041 0.8878 0.8960 Table 4: Pearson correlation of FID and the proposed AU C p metric with the actual AUC metric. AU C p has a stronger correlation with the actual AUC. Therefore, in a situation like ours, AU C p is a superior measure to FID for choosing the inference model. The correlation numbers are in absolute terms. Numbers in boldface indicate the best correlation. The metrics are calculated in a transductive setting. 
+
+Alzheimer’s Disease Dataset 
+
+Metric AD DS1 AD DS2 
+
+FID 0.5701 0.4773 
+
+AU C p (Our) 0.9583 0.9656 Headache Dataset 
+
+Metric HEAD DS1 HEAD DS2 
+
+FID 0.5227 0.3187 
+
+AU C p (Our) 0.9528 0.5986 
+
+17 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Figure 4: Correlation of FID scores and actual abnormality detection performance of Brainomaly’s models in AUC on headache ( HEAD DS1 ) dataset. The X-axis shows the training iteration numbers when the models were saved. In [15] and [14], FID is used for selecting the inference model. FID selects a generative model based on how realistic images (lowest FID score) the model can produce. In our case, FID selected models for inference that could produce the most realistic images of normal or healthy anatomies. However, our objective is not to generate realistic images of healthy anatomies. Rather, we aim to achieve the best abnormality detection performance. Since FID does not select an inference model directly based on our abnormality detection objective, it often selects a sub-optimal model for abnormality detection. More in Sec. 4.1.4. Table 5: Performance comparison of the final models selected by FID and the proposed 
+
+AU C p metrics. As shown in Tab. 4, AU C p strongly correlates with the actual AUC metric. This table shows that the model selected by the AU C p outperforms the model selected by FID. Numbers in boldface indicate the best AUCs. 
+
+Alzheimer’s Disease Dataset 
+
+Setting Metric AD DS1 AD DS2 
+
+Transductive FID 0.618 0.6771 
+
+AU C p (Our) 0.6526 0.6825 
+
+Inductive FID 0.6389 0.6453 
+
+AU C p (Our) 0.6452 0.6648 Headache Dataset 
+
+Setting Metric HEAD DS1 HEAD DS2 
+
+Transductive FID 0.8807 0.9120 
+
+AU C p (Our) 0.9182 0.8633 Inductive FID 0.9002 0.8589 
+
+AU C p (Our) 0.9041 0.8878 
+
+18 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+4.1.4 Model Selection for Inference: FID vs. AU C p
+
+In [15] and [14], FID is used for selecting the inference model. FID selects a generative model based on how realistic the images are (lowest FID score), here, realistic images of normal anatomies. However, the objective is not to generate realistic images of healthy anatomies but to achieve the best abnormality detection performance. Since FID does not select an inference model directly based on the abnormality detection objective, we find that it often selects a sub-optimal model for abnormality detection. Fig. 4 shows such phenomenon. In this section, we formally compare (Tab. 4) the correlation of models’ FID and AU C p scores with models’ actual abnormality detection performance. In Tab. 5, we also contrast the abnormality detection performances among the best models selected by each competing metric. In Tab. 4, it is shown that AU C p score in Sec. 2 has a stronger correlation with the actual (when all the annotations are available) AUC scores. Therefore, the proposed 
+
+AU C p metric renders itself a better metric than FID for selecting the model for inference. To further validate, we have provided the AUC scores obtained by the best models ac-cording to FID and the AU C p scores in both transductive and inductive learning settings for each dataset in Tab. 5. The models selected by AU C p metric dominate in detection performance over the models selected by FID. Table 6: Performance comparison of the final (last) models versus the models selected by the proposed AU C p metric across multiple image reconstruction, feature-reconstruction and self-supervised methods on seven datasets. The “Last” column reports the AU C 
+
+achieved by the model at the end of training, while the “AUCp” column indicates the AUC from the epoch that achieved the highest AU C p score. The results show that 
+
+AU C p-based selection generally improves performance across methods, with only a few exceptions, underscoring both the effectiveness of AU C p under specific conditions. Category RSNA VIN ISIC LAG C16 Brain Brats21 Method Last AUCp Last AUCp Last AUCp Last AUCp Last AUCp Last AUCp Last AUCp Self-sup CutPaste-Normal 0.7253 0.7314 0.5705 0.6064 0.7442 0.7704 0.6052 0.6391 0.4289 0.5792 0.9161 0.9167 0.5190 0.5576                                                                                                                                                                                                      
+
+> CutPaste-3way 0.7671 0.7422 0.6123 0.6157 0.7231 0.7606 0.6095 0.6191 0.4279 0.5413 0.7642 0.7717 0.5385 0.7419
+> Anapaste 0.8882 0.8862 0.7107 0.7143 0.8180 0.8195 0.7304 0.7364 0.5574 0.6214 0.9435 0.9436 0.7469 0.7497
+> CutPaste 0.6117 0.7320 0.5459 0.6722 0.5442 0.6806 0.4892 0.6890 0.6418 0.7058 0.2208 0.8277 0.4650 0.6013
+> FPI 0.4937 0.7067 0.4746 0.6914 0.6749 0.7524 0.5995 0.6994 0.6301 0.6468 0.2932 0.8881 0.5142 0.7645
+> FPI-Poisson 0.8124 0.8204 0.5670 0.7612 0.4655 0.5737 0.3934 0.6701 0.3719 0.6546 0.2425 0.7809 0.8420 0.8736
+> NSA 0.8054 0.8673 0.4999 0.7622 0.6439 0.7114 0.6180 0.7540 0.6083 0.6604 0.7853 0.9186 0.8734 0.8123 Image-rec AEU 0.7835 0.8763 0.6833 0.7334 0.6926 0.7098 0.8173 0.8442 0.5991 0.6209 0.9042 0.9380 0.8153 0.8375
+> MemAE 0.6572 0.6963 0.5465 0.5681 0.7014 0.7410 0.7583 0.7995 0.3665 0.3807 0.6030 0.8435 0.8095 0.8217
+> AE 0.6702 0.6629 0.4696 0.5061 0.7301 0.7494 0.8214 0.8308 0.3645 0.3682 0.8515 0.8655 0.8248 0.8248
+> AE-L1 0.6689 0.6837 0.5596 0.5623 0.7482 0.7534 0.7513 0.7728 0.3404 0.3433 0.8330 0.8330 0.7851 0.8221
+> AE-SSIM 0.6426 0.6472 0.4477 0.4577 0.7688 0.7704 0.6802 0.6802 0.3949 0.3949 0.9217 0.9355 0.8010 0.7985
+> AE-Perceptual 0.8649 0.8669 0.6988 0.7027 0.6904 0.6877 0.8549 0.8562 0.7580 0.7586 0.9558 0.9558 0.8568 0.8572
+> Feature-rec FAE-SSIM 0.9053 0.9053 0.6671 0.6704 0.7875 0.7875 0.8342 0.8342 0.4857 0.4958 0.9205 0.9205 0.7620 0.7620
+> FAE-MSE 0.7423 0.7423 0.5309 0.5309 0.7473 0.7473 0.7349 0.7349 0.4473 0.4473 0.8273 0.8301 0.7870 0.7918
+
+19 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Table 7: Performance comparison of reconstruction-based anomaly detection methods using standard reconstruction loss versus the proposed AUCp-based inference model se-lection across multiple medical imaging datasets. The Rec_Loss column reports the image-level AUC obtained when the inference model is selected using reconstruction loss, while the AUCp column indicates the AUC achieved by the model selected based on the proposed AUCp criterion.                                                                                                         
+
+> Method RSNA VIN ISIC LAG C16 Brain Brats21
+> Rec_Loss AUCp Rec_Loss AUCp Rec_Loss AUCp Rec_Loss AUCp Rec_Loss AUCp Rec_Loss AUCp Rec_Loss AUCp AEU 0.8692 0.8763 0.7141 0.7334 0.7011 0.7098 0.8365 0.8442 0.5642 0.6209 0.9416 0.9380 0.8124 0.8375
+> MemAE 0.6751 0.6963 0.5484 0.5681 0.7353 0.7410 0.7789 0.7995 0.3416 0.3807 0.8296 0.8435 0.7371 0.8217
+> AE 0.6421 0.6629 0.5603 0.5061 0.7500 0.7494 0.8103 0.8308 0.3645 0.3682 0.8614 0.8655 0.8248 0.8248 AE-L1 0.6648 0.6837 0.5614 0.5623 0.7481 0.7534 0.7513 0.7728 0.3403 0.3433 0.8184 0.8330 0.8088 0.8221
+> AE-SSIM 0.6505 0.6472 0.4574 0.4577 0.7687 0.7704 0.6802 0.6802 0.3948 0.3949 0.9217 0.9355 0.8010 0.7985 AE-Perceptual 0.8645 0.8669 0.7090 0.7027 0.6904 0.6877 0.8549 0.8562 0.7586 0.7586 0.9558 0.9558 0.8568 0.8572
+
+## 4.2 Self-supervised & Reconstruction Based Method 
+
+The AU Cp method demonstrates significant advancements in the detection of various medical conditions by enhancing the performance of self-supervised, image-reconstruction, and feature reconstruction based abnormality detection methods. These improvements are observed across multiple datasets which is presented in Tab. 6 and 7, leading to more reliable and accurate disease detection, which is critical for clinical applications. 
+
+4.2.1 Chest/Pulmonary Abnormality Detection 
+
+Chest and pul- monary abnormality detection, such as identifying lung opaci- ties, is cru-cial for diagnosing diseases like pneumonia and other pulmonary pathologies. The RSNA dataset, which contains X- rays showing lung opacities, has seen significant improvements when the AU C p method was applied. For example, CutPaste’s AUC increases from 61.17% to 73.20%, showing a notable improvement in its ability to detect pulmonary anomalies. Similarly, FPI’s AUC rise from 49.37% to 70.67%, while NSA has seen an increase from 80.54% to 86.73%. The VIN dataset, which also focuses on chest-related anomalies like viral infections, demonstrate similar improvements. Here, CutPaste’s AUC increase from 54.59% to 67.22%, FPI’s from 47.46% to 69.14%, and NSA’s performance jumps from 49.99% to 76.22%. Turning to image-reconstruction baselines, RSNA shows clear improvements for AEU (78.35% to 87.63%), MemAE (65.72% to 69.63%), AE-L1 (66.89% to 68.37%), and AE-SSIM (64.26% to 64.72%), with AE-Perceptual nudging up (86.49% to 86.69%) and vanilla AE slightly down (67.02% to 66.29%). On VIN, AEU (68.33% to 73.34%), AE-Perceptual (69.88% to 70.27%), MemAE (54.65% to 56.81%), AE (46.96% to 50.61%), AE-L1 (55.96% to 56.23%), and AE-SSIM (44.77% to 45.77%) all benefit to varying degrees. Feature-reconstruction methods are largely insensitive to the selection rule: FAE-SSIM stays at 90.53% (the best absolute score on RSNA), and 20 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+FAE-MSE remains at 74.23%; on VIN, FAE-SSIM moves marginally (66.71% to 67.04%) while FAE-MSE is unchanged (53.09%). Overall, AU C p improves most self-supervised and image-reconstruction models, yielding the strongest VIN gains for NSA/FPI-Poisson and the largest RSNA gain for AEU, while feature-space reconstruction remains near a ceiling on RSNA. We also evaluate the effectiveness of AU C p as an inference criterion relative to stan-dard reconstruction loss for chest and pulmonary abnormality detection. As summarized in Tab. 7, AU C p-based inference consistently matches or outperforms reconstruction loss across most image-reconstruction methods on both RSNA and VIN datasets. On RSNA, 
+
+AU C p improves inference performance for AEU, MemAE, AE-L1, and AE-SSIM, while maintaining comparable performance for AE-Perceptual and exhibiting only minor degra-dation for vanilla AE. A similar pattern is observed on VIN, where AU C p yields higher AUC for AEU, MemAE, AE, AE-L1, and AE-SSIM, with AE-Perceptual remaining largely stable. These findings indicate that, even in chest X-ray data where reconstruction er-ror can be effective, AU C p provides a more reliable and consistent inference signal than reconstruction loss, particularly for models sensitive to background anatomical variability. 
+
+4.2.2 Brain Tumor Detection 
+
+Brain tumor detection is an essential area in medical imaging, as early detection can significantly improve patient outcomes. The Brain dataset, which focuses on detecting brain tumors, demonstrates the significant impact of AU C p on model performance. For instance, FPI’s AU C rises from 29.32% to 88.81%, a clear indication of the method’s ability to select an inference model for better tumor detection accuracy. Similarly, NSA improves from 78.53% to 91.86%, marking a strong boost in its ability to identify brain abnormalities. Additional self-supervised methods also benefit: CutPaste increases from 22.08% to 82.77%, FPI-Poisson from 24.25% to 78.09%, CutPaste-3way from 76.42% to 77.17%, CutPaste-Normal from 91.61% to 91.67%, and Anapaste from 94.35% to 94.36%. Reconstruction baselines follow the same trend: among image-reconstruction methods, AEU improves from 90.42% to 93.80%, MemAE from 60.30% to 84.35%, AE from 85.15% to 86.55%, AE-L1 remains at 83.30%, AE-SSIM increases from 92.17% to 93.55%, and AE-Perceptual remains at 95.58% (the best overall on Brain). In feature-reconstruction, FAE-SSIM remains at 92.05%, while FAE-MSE increases from 82.73% to 83.01%. The Brats21 dataset, focused specifically on brain tumor detection, also benefits from 
+
+AU C p. CutPaste’s AU C rises from 46.50% to 60.13%, while FPI-Poisson increases from 84.20% to 87.36%. The remaining self-supervised methods show consistent patterns: FPI rises from 51.42% to 76.45%, CutPaste-3way from 53.85% to 74.19%, CutPaste-Normal 21 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+from 51.90% to 55.76%, Anapaste from 74.69% to 74.97%, and NSA decreases from 87.34% to 81.23%. Reconstruction methods also improve in most cases: AEU rises from 81.53% to 83.75%, MemAE from 80.95% to 82.17%, AE-L1 from 78.51% to 82.21%, and AE-Perceptual from 85.68% to 85.72%, while AE remains at 82.48% and AE-SSIM changes from 80.10% to 79.85%. Feature-reconstruction methods show small changes, with FAE-SSIM remaining at 76.20% and FAE-MSE increasing from 78.70% to 79.18%. Despite some smaller gains in Brats21, these improvements are still meaningful, particularly for detecting complex brain tumors where precision is critical for treatment planning. We further analyze the role of AU C p as an inference criterion for image reconstruction-based methods by comparing it directly against standard reconstruction loss. As shown in Tab. 7, AU C p-based inference consistently yields equal or higher AU C across most image-reconstruction models on both Brain and Brats21 datasets. On the Brain dataset, AU C p
+
+improves performance for AEU, MemAE, AE, AE-L1, and AE-SSIM, while maintaining the already strong performance of AE-Perceptual. Similar trends are observed on Brats21, where AU C p leads to notable gains for AEU, MemAE, AE-L1, and AE-Perceptual, with only marginal changes for AE and AE-SSIM. These results indicate that, even when the training epoch is fixed, reconstruction loss alone may not provide a reliable anomaly scoring signal for complex brain tumor data, whereas AU C p offers a more robust and consistent inference strategy. 
+
+4.2.3 Retinal Fundus Detection 
+
+Retinal fundus imaging is critical for detecting abnormalities in the retina, such as diabetic retinopathy, macular degeneration, and other eye conditions. The LAG dataset, which contains retinal fundus images, demonstrates significant improvements in disease detection when the AU C p method is applied. Specifically, CutPaste’s AU C increases from 48.92% to 68.90%, indicating a substantial improvement in detecting retinal anomalies. FPI also shows improvement, with its AU C rising from 59.95% to 69.94%. NSA, which starts at 61.80%, reaches 75.40%, reflecting a notable enhancement in the ability to detect subtle retinal issues. Additional self-supervised methods follow the same trend: FPI-Poisson improves from 39.34% to 67.01%, CutPaste-Normal from 60.52% to 63.91%, CutPaste-3way from 60.95% to 61.91%, and Anapaste from 73.04% to 73.64%. Reconstruction baselines also benefit: among image-reconstruction methods, AEU increases from 81.73% to 84.42%, MemAE from 75.83% to 79.95%, AE from 82.14% to 83.08%, AE-L1 from 75.13% to 77.28%, AE-SSIM remains at 68.02%, and AE-Perceptual rises from 85.49% to 85.62%. Feature-reconstruction methods are unchanged on LAG, with FAE-SSIM at 83.42% and FAE-MSE at 73.49%. Overall, these results indicate that AU C p consistently 22 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+selects stronger inference checkpoints for both self-supervised and reconstruction-based paradigms on retinal fundus imaging. Tab 7 further shows that AU C p serves as a more reliable inference model selection method than reconstruction loss for retinal fundus imaging. On the LAG dataset, AU C p
+
+improves AUC for most image-reconstruction methods, including AEU, MemAE, AE, and AE-L1, while preserving the strong performance of AE-Perceptual and showing minimal change for AE-SSIM. These results indicate that, in relatively structured retinal imagery, 
+
+AU C p provides consistent yet stable gains without introducing sensitivity to reconstruc-tion artifacts. 
+
+4.2.4 Lymph Node Metastasis Detection 
+
+The Camelyon16 dataset, which focuses on images related to lymph node metastasis, is also benefited significantly from the AU C p method. In this dataset, CutPaste’s AU C 
+
+improves from 64.18% to 70.58%, showing a clear boost in the selected inference model’s ability to detect metastatic spread. FPI’s AU C increases from 63.01% to 70.46%, and FPI-Poisson rises from 54.68% to 71.31%. Similarly, NSA’s AU C improves from 60.83% to 66.04%. The remaining self-supervised variants also gain: CutPaste-Normal improves from 42.89% to 57.92%, CutPaste-3way from 42.79% to 54.13%, and Anapaste from 55.74% to 62.14%. Reconstruction-based baselines follow the same overall trend. Among image-reconstruction methods, AEU improves from 59.91% to 62.09%, MemAE from 36.65% to 38.07%, AE from 36.45% to 36.82%, AE-L1 from 34.04% to 34.33%, AE-SSIM remains at 39.49%, and AE-Perceptual increases from 75.80% to 75.86%. In feature recon-struction, FAE-SSIM moves from 48.57% to 49.58%, while FAE-MSE remains at 44.73%. Collectively, these results indicate that AU C p refining inference-time checkpoint selection for both self-supervised and reconstruction-based paradigms on Camelyon16, improving reliability for metastasis detection. We further compare reconstruction loss and AU C p as inference criteria for lymph node metastasis detection on Camelyon16. As shown in Tab. 7, AU C p-based infer-ence yields modest but consistent improvements over reconstruction loss for most image-reconstruction methods, including AEU, MemAE, AE, and AE-L1, while maintaining the strong performance of AE-Perceptual and showing negligible change for AE-SSIM. These results suggest that, in histopathology images with high structural variability, AU C p pro-vides a more stable inference signal than reconstruction error alone, contributing to more reliable metastasis detection. 23 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+4.2.5 Skin Lesion Detection 
+
+Skin lesion detection, particularly for skin cancers such as melanoma, is an area where accurate abnormality detection is critical for improving patient outcomes. The ISIC dataset, which focuses on detecting skin lesions, shows notable improvements with the 
+
+AU C p method. CutPaste’s AU C improves from 54.42% to 68.06%, while FPI’s per-formance rises from 67.49% to 75.24%. FPI-Poisson’s AU C , though initially lower, in-creases from 46.55% to 57.37%, and NSA’s AU C improves from 64.39% to 71.14%. Addi-tional self-supervised variants show consistent behavior: CutPaste-Normal increases from 74.42% to 77.04%, CutPaste-3way from 72.31% to 76.06%, and Anapaste from 81.80% to 81.95%. Reconstruction baselines also benefit. Among image-reconstruction methods, AEU changes from 69.26% to 70.98%, MemAE from 70.14% to 74.10%, AE from 73.01% to 74.94%, AE-L1 from 74.82% to 75.34%, and AE-SSIM from 76.88% to 77.04%, while AE-Perceptual shows a slight decrease from 69.04% to 68.77%. In feature-reconstruction, FAE-SSIM remains at 78.75% and FAE-MSE remains at 74.73%. These results indicate that AU C p consistently selects stronger inference checkpoints for both self-supervised and reconstruction-based paradigms on ISIC, which is particularly important for early, accurate skin-cancer detection. To further analyze inference behavior on skin lesion detection, we compare reconstruc-tion loss with AU C p as the scoring criterion for reconstruction-based methods on ISIC. As summarized in Tab. 7, AU C p-based inference generally improves or preserves AUC across most image-reconstruction models, including AEU, MemAE, AE, AE-L1, and AE-SSIM, while the performance of AE-Perceptual remains comparable. 
+
+## 4.3 Analysis of AUCp: Cost and Correlation with AUC 
+
+A central goal of this work is to use AU C p as a label–free criterion for choosing the inference checkpoint across training epochs. This section represents practical aspects that determine whether AU C p is viable in real deployments: its computational cost and its correlation with the AU C .
+
+4.3.1 AUCp Runtime Cost Analysis 
+
+The computational cost of calculating AUCp is essentially the same as that of a standard AUC computation. Given n samples with anomaly scores si and binary labels yi ∈ 0, 1,the ROC curve is constructed by thresholding at each unique score. Since the ROC curve only changes at observed score values, the number of thresholds is at most the number of unique scores, i.e., |T | ≤ n. The main steps are: 24 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+• Extracting unique thresholds: O(n)
+
+• Sorting scores in descending order: O(n log n)
+
+• Computing cumulative sums and the ROC integral: O(n)
+
+Thus, the overall time complexity is O(n log n) with space complexity O(n), which is identical to conventional AUC computation. Importantly, AUCp introduces no additional asymptotic complexity beyond standard AUC, and in practice the sorting step remains negligible compared to the cost of model inference, even for large-scale or high-resolution datasets. 
+
+4.3.2 Calculating AUC from AUCp 
+
+Let s(·) denote the anomaly score function, where higher values indicate greater abnor-mality. The true area under the ROC curve (AUC) is defined as AUC = Pr {s(A) > s (Nte )}, (6) where A represents abnormal samples and Nte denotes true normal test samples. In practice, the pseudo-AUC (AUCp) compares training normals Ntr against the pseudo-positive test set, which is a mixture of abnormals and normals: AUC p = Pr {s(U ) > s (Ntr )}, U ∼ (1 − ρ)A ∪ ρN te , (7) where ρ = |Nte ||Nte |+|A| is the contamination fraction of true normals in the pseudo-positive set. Applying the law of total probability, AUCp decomposes as AUC p = (1 − ρ) Pr {s(A) > s (Ntr )} + ρ Pr {s(Nte ) > s (Ntr )}. (8) If the training and test normals are identically distributed (i.e., no covariate shift), then 
+
+Pr {s(Nte ) > s (Ntr )} = 0 .5, (9) and furthermore 
+
+Pr {s(A) > s (Ntr )} = Pr {s(A) > s (Nte )} = AUC . (10) Therefore, under the no-shift assumption, we obtain a closed-form relationship between 25 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+the pseudo-AUC and the true AUC: AUC p = (1 − ρ) AUC + ρ · 0.5. (11) Rearranging gives an unbiased estimator of the true AUC from AUCp: AUC ≈ AUC p − 0.5ρ
+
+1 − ρ . (12) This expression demonstrates that AUCp shrinks linearly toward 0.5 as the contami-nation fraction ρ increases, but can be corrected if ρ is estimated using mixture proportion estimation (MPE) methods developed in the positive–unlabeled learning literature, such as Kernel Mean Embedding MPE [44], AlphaMax [45], or TIcE [46]. 
+
+4.3.3 Correlation between AU C p and AU C 
+
+The correlation between AU C p and AU C across different self-supervised abnormality detection methods (CutPaste, FPI, FPI Poisson, and NSA) is analyzed, as shown in the Tab. 8. We have these methods as they showed the best improvement after applying the 
+
+AU C p method, and for each dataset, the results demonstrate a strong positive correlation between AU C p and AU C for most datasets, indicating that AU C p is an effective criterion for selecting high-performing models. For example, the correlation for the RSNA dataset is particularly high, with values of 0.9788 for CutPaste, 0.9846 for FPI, and 0.9960 for NSA, suggesting that AU C p consistently identifies models that achieve superior AU C 
+
+performance. Similarly, strong correlations were observed in the VIN (0.9701 for CutPaste, 0.9838 for FPI) and ISIC (0.9243 for CutPaste, 0.9274 for FPI) datasets. However, for datasets such as C16 and Brats21, the correlation was somewhat lower, particularly for FPI Poisson (0.8695 for C16 and 0.8101 for Brats21). Overall, the findings reinforce that AU C p is a reliable model-selection method, showing a strong alignment with AU C 
+
+across a range of self-supervised methods and medical datasets. 
+
+# 5 Discussion & Limitations 
+
+The proposed AU C p metric does not guarantee the selection of the best possible model for inference on any dataset as it uses imperfect labels. While, it is mathematically showed that the proposed AU C p can rank the inference models similarly to AUC when actual labels are available, this holds only when the training dataset Dtrain is large and repre-sentative enough of normal instances. The experimental results verify that it generally 26 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Table 8: This table shows the correlation between AU C p and AU C of the trained models for all the datasets. The best-performing methods are selected to calculate the correlation. It demonstrates that AU C p has a high correlation with AU C across different methods. Dataset Cut Paste FPI FPI Poisson NSA RSNA 0.9788 0.9846 0.9465 0.9960 VIN 0.9701 0.9838 0.9847 0.9799 ISIC 0.9243 0.9274 0.7643 0.9500 LAG 0.9480 0.9731 0.9451 0.8642 C16 0.6627 0.7931 0.8695 0.9190 Brain 0.9840 0.9957 0.9887 0.9898 Brats21 0.6689 0.4067 0.8101 0.7882 selects a better inference model than the popular FID metric. We conducted empirical simulations to assess the performance of AU C p varying both the size of the normal training set Dtrain and the prevalence of abnormal samples in the test set Dtest . The results show that when Dtrain is small or biased, AU C p performance degrades due to inaccurate characterization of the normal distribution. Conversely, en-larging Dtrain improves stability, and as the training set grows, the AU C p values asymp-totically approach those obtained with the true ground truth. Furthermore, when the prevalence of abnormal samples in Dtest approaches zero, AU C p deteriorates sharply, converging to 0.5, which is equivalent to random guessing. This sensitivity is consistent with Proposition 2, where the reliability of AU C p depends on n ≫ k. Our empirical analysis confirms that both factors: the representativeness of Dtrain and the presence of sufficient abnormal samples in Dtest are critical for robust model selection. The detailed output of the empirical simulation is demonstrated in Fig. 5. Though AU C p is proposed for abnormality detection from medical images, it can be utilized in abnormality detection tasks beyond medical images as long as (1) there is availability of a large and representative set of normal instances and (2) an unlabeled test set with at least one abnormal instance is present in it. If these conditions hold, 
+
+AU C p will satisfy Proposition 1 and Lemma 1 for any abnormality detection methods, irrespective of the domain. It is important to acknowledge that several other unsupervised model selection approaches have been explored in the literature, including methods based on model uncertainty, stability of learned representations, and pseudo-labeling strategies. Our formulation of AU C p is complementary to these approaches: since it operates di-rectly on inference outputs, it can, in principle, be combined with uncertainty estimation or stability analysis to further enhance model selection in scenarios without labeled val-idation data. This positions AU C p not as a replacement, but as a flexible and general 27 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+Figure 5: This figure reports empirical simulation results of AU C p under different con-ditions. We vary the percentage of abnormal samples in the test set and the size of the normal-only training set and measure both AU C and AU C p. As predicted by the the-ory, when the test-set anomaly rate is very small, AU C p approaches 0.5 (i.e., random guess) due to the pseudo-labeling assumption that marks all test samples as abnormal. Increasing the number of normal samples in the training set raises AU C p in tandem with 
+
+AU C , reflecting improved separability under the pseudo-label regime. criterion that can be integrated with existing model selection paradigms across domains. Although AU C p provides a principled and effective strategy for inference-time model selection in the absence of labeled validation data, several practical considerations should be noted. Computing AU C p requires evaluating anomaly scores for all samples in the unlabeled evaluation set at each candidate checkpoint, analogous to standard AU C -based evaluation protocols. Consequently, the computational cost scales approximately linearly with the number of checkpoints considered and the size of the evaluation set. Importantly, this cost is not unique to AU C p but is shared by any approach that relies on AU C computation for model selection or validation. In practice, this overhead can be mitigated by checkpoint subsampling or early stopping strategies, and our empirical results demonstrate that AU C p remains feasible and effective across diverse abnormality detection paradigms and dataset scales commonly encountered in medical imaging. 28 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+# 6 Conclusion 
+
+In the realm of abnormality detection, the absence of labeled abnormal data poses a significant challenge, extending beyond mere model training. The complexity is further compounded when selecting a well-trained and generalized model for inference, especially in the absence of labeled normal and abnormal samples in the validation dataset. While some studies rely on annotated validation datasets, others resort to synthetic abnormali-ties, both of which fall short of real-world applicability. Complicating matters, selecting the inference model solely based on the best training loss yields inconsistent results across different evaluation metrics. Our exploration into this challenge led us to propose a novel metric, AU C p. By assuming imperfect labels for unlabeled instances in the test set as “ab-normal” and leveraging known labels for normal instances in the training set, AU C p offers a practical means of model selection in the absence of labeled validation data. Through mathematical analysis, we substantiate the efficacy of AU C p, demonstrating its proxim-ity to actual AUC scores with representative training data. Through extensive empirical validation, we illustrate the superior correlation of AU C p with the performance of un-derlying disease detection compared to traditional metrics such as FID and approaches such as selecting a model with the best training loss. Moreover, it significantly improves the detection capabilities of abnormality detection methods of both unsupervised and self-supervised methods, extending the boundaries of existing state-of-the-art methods. The proposed metric can improve both unsupervised and self-supervised disease detection performance and provide a way for more reliable and effective abnormality detection in medical imaging and beyond. 
+
+# References 
+
+[1] Tiange Xiang, Yixiao Zhang, Yongyi Lu, Alan Yuille, Chaoyi Zhang, Weidong Cai, and Zongwei Zhou. Exploiting structural consistency of chest anatomy for unsu-pervised anomaly detection in radiography images. IEEE Transactions on Pattern Analysis and Machine Intelligence , 2024. [2] Igor Zingman, Birgit Stierstorfer, Charlotte Lempp, and Fabian Heinemann. Learn-ing image representations for anomaly detection: application to discovery of histo-logical alterations in drug development. Medical Image Analysis , 92:103067, 2024. [3] Alexander Frotscher, Jaivardhan Kapoor, Thomas Wolfers, and Christian F Baum-gartner. Unsupervised anomaly detection using aggregated normative diffusion. arXiv 
+
+29 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+preprint arXiv:2312.01904 , 2023. [4] Mariana-Iuliana Georgescu. Masked autoencoders for unsupervised anomaly detec-tion in medical images. Procedia Computer Science , 225:969–978, 2023. [5] Junya Sato, Yuki Suzuki, Tomohiro Wataya, Daiki Nishigaki, Kosuke Kita, Kazuki Yamagata, Noriyuki Tomiyama, and Shoji Kido. Anatomy-aware self-supervised learning for anomaly detection in chest radiographs. Iscience , 26(7), 2023. [6] Tiange Xiang, Yixiao Zhang, Yongyi Lu, Alan L Yuille, Chaoyi Zhang, Weidong Cai, and Zongwei Zhou. Squid: Deep feature in-painting for unsupervised anomaly detection. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 23890–23901, 2023. [7] Marcel Bengs, Finn Behrendt, Max-Heinrich Laves, Julia Krüger, Roland Opfer, and Alexander Schlaefer. Unsupervised anomaly detection in 3d brain mri using deep learning with multi-task brain age prediction. In Medical Imaging 2022: Computer-Aided Diagnosis , volume 12033, pages 305–309. SPIE, 2022. [8] Byungjai Kim, Kinam Kwon, Changheun Oh, and Hyunwook Park. Unsupervised anomaly detection in mr images using multicontrast information. Medical Physics ,48(11):7346–7359, 2021. [9] Nina Shvetsova, Bart Bakker, Irina Fedulova, Heinrich Schulz, and Dmitry V Dylov. Anomaly detection in medical imaging with deep perceptual autoencoders. IEEE Access , 9:118571–118583, 2021. [10] Yiming Che, Fazle Rafsani, Jay Shah, Md Mahfuzur Rahman Siddiquee, and Teresa Wu. Anofpdm: Anomaly detection with forward process of diffusion models for brain mri. In Proceedings of the Winter Conference on Applications of Computer Vision ,pages 1113–1122, 2025. [11] Clement Fung, Chen Qiu, Aodong Li, and Maja Rudolph. Model selection of anomaly detectors in the absence of labeled validation data. arXiv preprint arXiv:2310.10461 ,2023. [12] Sergio Naval Marimont and Giacomo Tarroni. Harder synthetic anomalies to improve ood detection in medical images. arXiv preprint arXiv:2308.01412 , 2023. [13] Yu Cai, Weiwen Zhang, Hao Chen, and Kwang-Ting Cheng. Medianomaly: A comparative study of anomaly detection in medical images. arXiv preprint arXiv:2404.04518 , 2024. 30 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+[14] Md Mahfuzur Rahman Siddiquee, Jay Shah, Teresa Wu, Catherine Chong, Todd J Schwedt, Gina Dumkrieger, Simona Nikolova, and Baoxin Li. Brainomaly: Unsuper-vised neurologic disease detection utilizing unannotated t1-weighted brain mr images. 
+
+arXiv preprint arXiv:2302.09200 , 2023. [15] Md Mahfuzur Rahman Siddiquee, Jay Shah, Teresa Wu, Catherine Chong, Todd Schwedt, and Baoxin Li. Healthygan: Learning from unannotated medical images to detect anomalies associated with human disease. In International Workshop on Simulation and Synthesis in Medical Imaging , pages 43–54. Springer, 2022. [16] Martin Heusel, Hubert Ramsauer, Thomas Unterthiner, Bernhard Nessler, and Sepp Hochreiter. Gans trained by a two time-scale update rule converge to a local nash equilibrium. Advances in neural information processing systems , 30, 2017. [17] Chun-Liang Li, Kihyuk Sohn, Jinsung Yoon, and Tomas Pfister. Cutpaste: Self-supervised learning for anomaly detection and localization. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 9664–9674, 2021. [18] Jeremy Tan, Benjamin Hou, James Batten, Huaqi Qiu, and Bernhard Kainz. De-tecting outliers with foreign patch interpolation. arXiv preprint arXiv:2011.04197 ,2020. [19] Jeremy Tan, Benjamin Hou, Thomas Day, John Simpson, Daniel Rueckert, and Bern-hard Kainz. Detecting outliers with poisson image interpolation. In Medical Image Computing and Computer Assisted Intervention–MICCAI 2021: 24th International Conference, Strasbourg, France, September 27–October 1, 2021, Proceedings, Part V 24 , pages 581–591. Springer, 2021. [20] Hannah M Schlüter, Jeremy Tan, Benjamin Hou, and Bernhard Kainz. Natural syn-thetic anomalies for self-supervised anomaly detection and localization. In European Conference on Computer Vision , pages 474–489. Springer, 2022. [21] Headache Classification Committee of the International Headache Society (IHS). The international classification of headache disorders, 3rd edition. Cephalalgia , 38(1):1– 211, January 2018. [22] Ixi dataset. https://brain-development.org/ixi-dataset/ .31 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+[23] Md Mahfuzur Rahman Siddiquee, Jay Shah, Catherine Chong, Simona Nikolova, Gina Dumkrieger, Baoxin Li, Teresa Wu, and Todd J Schwedt. Headache classifica-tion and automatic biomarker extraction from structural mris using deep learning. 
+
+Brain Communications , 5(1):fcac311, 2023. [24] MD Anouk Stein, Carol Wu, Chris Carr, George Shih, Jamie Dulkowski, kalpathy, Leon Chen, Luciano Prevedello, MD Marc Kohli, Mark McDonald, Peter, Phil Culliton, Safwan Halabi MD, and Tian Xia. Rsna pneumonia detection challenge. 
+
+https://kaggle.com/competitions/rsna-pneumonia-detection-challenge ,2018. Kaggle. [25] Duc Nguyen, DungNB, Ha Q. Nguyen, Julia Elliott, NguyenThanhNhan, and Phil Culliton. Vinbigdata chest x-ray abnormalities detection. https://kaggle.com/ competitions/vinbigdata-chest-xray-abnormalities-detection , 2020. Kag-gle. [26] Msoud Nickparvar. Brain tumor mri dataset, 2021. [27] Ahmed Hamada. Brain tumor detection. https://www.kaggle.com/datasets/ ahmedhamada0/brain-tumor-detection , 2021. [28] Ahmad Saleh, Rozana Sukaik, and Samy S. Abu-Naser. Brain tumor classification using deep learning. In 2020 International Conference on Assistive and Rehabilitation Technologies (iCareTech) , pages 131–136, 2020. [29] Jun Cheng, Wei Huang, Shuangliang Cao, Ru Yang, Wei Yang, Zhaoqiang Yun, Zhijian Wang, and Qianjin Feng. Enhanced performance of brain tumor classification via tumor region augmentation and partition. PLOS ONE , 10(10):1–13, 10 2015. [30] Ujjwal Baid, Satyam Ghodasara, Suyash Mohan, Michel Bilello, Evan Calabrese, Errol Colak, Keyvan Farahani, Jayashree Kalpathy-Cramer, Felipe C Kitamura, Sarthak Pati, et al. The rsna-asnr-miccai brats 2021 benchmark on brain tumor seg-mentation and radiogenomic classification. arXiv preprint arXiv:2107.02314 , 2021. [31] Liu Li, Mai Xu, Xiaofei Wang, Lai Jiang, and Hanruo Liu. Attention based glaucoma detection: A large-scale database and cnn model. In 2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 10563–10572, 2019. [32] Noel C. F. Codella, Veronica Rotemberg, Philipp Tschandl, M. Emre Celebi, Stephen W. Dusza, David A. Gutman, Brian Helba, Aadi Kalloo, Konstantinos Li-opyris, Michael A. Marchetti, Harald Kittler, and Allan Halpern. Skin lesion analysis 32 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+toward melanoma detection 2018: A challenge hosted by the international skin imag-ing collaboration (ISIC). CoRR , abs/1902.03368, 2019. [33] Babak Ehteshami Bejnordi, Mitko Veta, Paul Johannes Van Diest, Bram Van Gin-neken, Nico Karssemeijer, Geert Litjens, Jeroen AWM Van Der Laak, Meyke Hermsen, Quirine F Manson, Maschenka Balkenhol, et al. Diagnostic assessment of deep learning algorithms for detection of lymph node metastases in women with breast cancer. Jama , 318(22):2199–2210, 2017. [34] Jinan Bao, Hanshi Sun, Hanqiu Deng, Yinsheng He, Zhaoxiang Zhang, and Xingyu Li. Bmad: Benchmarks for medical anomaly detection. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 4042– 4053, 2024. [35] Yu Cai, Hao Chen, Xin Yang, Yu Zhou, and Kwang-Ting Cheng. Dual-distribution discrepancy for anomaly detection in chest x-rays. arXiv preprint arXiv:2206.03935 ,2022. [36] Houssam Zenati, Manon Romain, Chuan-Sheng Foo, Bruno Lecouat, and Vijay Chandrasekhar. Adversarially learned anomaly detection. In 2018 IEEE Interna-tional conference on data mining (ICDM) , pages 727–736. IEEE, 2018. [37] Mohammad Sabokrou, Mohammad Khalooei, Mahmood Fathy, and Ehsan Adeli. Adversarially learned one-class classifier for novelty detection. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 3379–3388, 2018. [38] Thomas Schlegl, Philipp Seeböck, Sebastian M Waldstein, Georg Langs, and Ursula Schmidt-Erfurth. f-anogan: Fast unsupervised anomaly detection with generative adversarial networks. Medical Image Analysis , 2019. [39] Samet Akcay, Amir Atapour-Abarghouei, and Toby P Breckon. Ganomaly: Semi-supervised anomaly detection via adversarial training. In Asian conference on com-puter vision , pages 622–637. Springer, 2018. [40] Yifan Mao, Fei-Fei Xue, Ruixuan Wang, Jianguo Zhang, Wei-Shi Zheng, and Hong-mei Liu. Abnormality detection in chest x-ray images using uncertainty predic-tion autoencoders. In International Conference on Medical Image Computing and Computer-Assisted Intervention , pages 529–538. Springer, 2020. [41] Dong Gong, Lingqiao Liu, Vuong Le, Budhaditya Saha, Moussa Reda Mansour, Svetha Venkatesh, and Anton van den Hengel. Memorizing normality to detect 33 Rahman Siddiquee et al.: AUCp IEEE Transactions on Medical Imaging, 2026 
+
+anomaly: Memory-augmented deep autoencoder for unsupervised anomaly detection. In Proceedings of the IEEE/CVF international conference on computer vision , pages 1705–1714, 2019. [42] Paul Bergmann, Sindy Löwe, Michael Fauser, David Sattlegger, and Carsten Ste-ger. Improving unsupervised defect segmentation by applying structural similarity to autoencoders. arXiv preprint arXiv:1807.02011 , 2018. [43] Felix Meissen, Johannes Paetzold, Georgios Kaissis, and Daniel Rueckert. Unsu-pervised anomaly localization with structural feature-autoencoders. In International MICCAI Brainlesion Workshop , pages 14–24. Springer, 2022. [44] Harish Ramaswamy, Clayton Scott, and Ambuj Tewari. Mixture proportion estima-tion via kernel embeddings of distributions. In International conference on machine learning , pages 2052–2060. PMLR, 2016. [45] Shantanu Jain, Martha White, and Predrag Radivojac. Estimating the class prior and posterior from noisy positives and unlabeled data. Advances in neural information processing systems , 29, 2016. [46] Jessa Bekker and Jesse Davis. Estimating the class prior in positive and unlabeled data through decision tree induction. In Proceedings of the AAAI conference on artificial intelligence , volume 32, 2018. 34
