@@ -6,30 +6,41 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-13
-- 运行时间：2026-06-13 21:28:55 UTC
+- 最新运行日期：2026-06-14
+- 运行时间：2026-06-14 20:27:11 UTC
 - 运行状态：成功
-- 本次总论文数：3
-- 精读区：0
-- 速读区：3
+- 本次总论文数：7
+- 精读区：1
+- 速读区：6
 
 ### 今日简报（AI）
-今日速读三篇论文，聚焦可控光照变化下的表示学习、异常检测中的无标签验证集模型选择，以及未训练卷积网络在结构MRI特征提取中的应用。最值得关注的是照明感知表示学习和基于伪AUC的模型选择方法，两者均为6.0分。建议普通读者优先了解光照变化鲁棒性及无标签验证集的实际价值，这两项技术对计算机视觉和医疗影像领域有直接启发。
-- 详情：[/202606/13/README](/202606/13/README)
+今日重点测评了LLM在误导性医疗场景下的知识韧性，并快速浏览了统计分类、多语言医疗推理和脊柱MRI报告生成等工具。最值得关注的是精读论文揭示的大模型在误导医疗信息下的脆弱性，以及速读中面向印度语言的医疗推理多智能体框架。建议读者优先精读MedMisBench，理解大模型的鲁棒性短板；如果关注多语言医疗，可进一步探索ArogyaSutra。
+- 详情：[/202606/14/README](/202606/14/README)
 
 ### 精读区论文标签
-- 本次无精读推荐。
+1. [MedMisBench: Measuring Epistemic Resilience of LLMs Under Misleading Medical Context](/202606/14/biorxiv-10-64898-2026-05-25-727671-v3-medmisbench-measuring-epistemic-resilience-of-llms-under-misleading-medical-context)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：用于医学上下文中LLM韧性评估的基准，直接涉及LLM在诊断中的应用
 
 ### 速读区论文标签
-1. [Lighting-Aware Representation Learning under Controllable Lighting Variation](/202606/13/2606.06899v1-lighting-aware-representation-learning-under-controllable-lighting-variation)  
-   标签：评分：6.0/10、query:fundus-class
-   evidence：光照感知表示学习用于视觉任务
-2. [AUCp: Pseudo-AUC for Inference Model Selection with Unlabeled Validation Data in Abnormality Detection](/202606/13/2606.08742v1-aucp-pseudo-auc-for-inference-model-selection-with-unlabeled-validation-data-in-abnormality-detection)  
-   标签：评分：6.0/10、query:fundus-class
-   evidence：提出一种用于无监督异常检测的指标，可用于青光眼检测
-3. [Untrained Convolutional Neural Networks as Feature Extractors for Structural MRI](/202606/13/biorxiv-10-64898-2026-06-07-730652-v1-untrained-convolutional-neural-networks-as-feature-extractors-for-structural-mri)  
-   标签：评分：6.0/10、query:fundus-class
-   evidence：未训练CNN作为特征提取器，可用于眼底图像分类
+1. [HNPclassifier: An R Package for Hierarchical Neyman-Pearson Classification](/202606/14/2606.13523v1-hnpclassifier-an-r-package-for-hierarchical-neyman-pearson-classification)  
+   标签：评分：7.0/10、query:fundus-mc
+   evidence：有序多分类方法可迁移至眼底病分级
+2. [ArogyaSutra: A Multi-Agent Framework for Multimodal Medical Reasoning in Indic Languages](/202606/14/2606.13572v1-arogyasutra-a-multi-agent-framework-for-multimodal-medical-reasoning-in-indic-languages)  
+   标签：评分：7.0/10、query:retina-agent
+   evidence：基于大语言模型的多智能体医疗推理
+3. [A multi-agent system for spine MRI report generation from multi-sequence imaging](/202606/14/2606.08897v1-a-multi-agent-system-for-spine-mri-report-generation-from-multi-sequence-imaging)  
+   标签：评分：6.0/10、query:retina-agent
+   evidence：用于医疗报告生成的多智能体系统
+4. [A Controlled Audit of Pretraining Contamination in Public Medical Vision-Language Benchmarks](/202606/14/2606.10066v1-a-controlled-audit-of-pretraining-contamination-in-public-medical-vision-language-benchmarks)  
+   标签：评分：6.0/10、query:retina-agent
+   evidence：审计医学视觉语言模型的预训练污染
+5. [Analyzing and Improving Fine-grained Preference Optimization in Medical LVLMs](/202606/14/2606.12590v1-analyzing-and-improving-fine-grained-preference-optimization-in-medical-lvlms)  
+   标签：评分：6.0/10、query:retina-agent
+   evidence：医学视觉语言模型对齐辅助诊断
+6. [OpenMedQ: Broad Open Pretraining for Medical Vision-Language Models](/202606/14/2606.12953v1-openmedq-broad-open-pretraining-for-medical-vision-language-models)  
+   标签：评分：6.0/10、query:retina-agent
+   evidence：跨模态的广泛医学视觉语言模型预训练
 
 
 <div class="dpr-home-promo-card">
