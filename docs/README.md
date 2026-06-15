@@ -6,41 +6,39 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-14
-- 运行时间：2026-06-14 20:27:11 UTC
+- 最新运行日期：2026-06-15
+- 运行时间：2026-06-15 22:54:40 UTC
 - 运行状态：成功
-- 本次总论文数：7
+- 本次总论文数：5
 - 精读区：1
-- 速读区：6
+- 速读区：4
 
 ### 今日简报（AI）
-今日重点测评了LLM在误导性医疗场景下的知识韧性，并快速浏览了统计分类、多语言医疗推理和脊柱MRI报告生成等工具。最值得关注的是精读论文揭示的大模型在误导医疗信息下的脆弱性，以及速读中面向印度语言的医疗推理多智能体框架。建议读者优先精读MedMisBench，理解大模型的鲁棒性短板；如果关注多语言医疗，可进一步探索ArogyaSutra。
-- 详情：[/202606/14/README](/202606/14/README)
+今日精读一篇高分论文，速读四篇涉及医学幻觉缓解、分类器机制、生物医学工具包及医学影像检测。
+
+最值得关注：通过对抗审计与多智能体反馈缓解医学幻觉的方法，以及对全局平均池化作为多实例学习器的重新思考。
+
+建议优先精读《Trust but Verify》，再结合速读中自监督Vision Transformer在颞下颌关节骨关节炎检测的应用拓展思路。
+- 详情：[/202606/15/README](/202606/15/README)
 
 ### 精读区论文标签
-1. [MedMisBench: Measuring Epistemic Resilience of LLMs Under Misleading Medical Context](/202606/14/biorxiv-10-64898-2026-05-25-727671-v3-medmisbench-measuring-epistemic-resilience-of-llms-under-misleading-medical-context)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：用于医学上下文中LLM韧性评估的基准，直接涉及LLM在诊断中的应用
+1. [Trust but Verify: Mitigating Medical Hallucinations via Post-Hoc Adversarial Auditing and Multi-Agent Feedback Loops](/202606/15/2606.14149v1-trust-but-verify-mitigating-medical-hallucinations-via-post-hoc-adversarial-auditing-and-multi-agent-feedback-loops)  
+   标签：评分：9.0/10、query:retina-agent
+   evidence：多智能体系统减轻医疗大语言模型幻觉
 
 ### 速读区论文标签
-1. [HNPclassifier: An R Package for Hierarchical Neyman-Pearson Classification](/202606/14/2606.13523v1-hnpclassifier-an-r-package-for-hierarchical-neyman-pearson-classification)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：有序多分类方法可迁移至眼底病分级
-2. [ArogyaSutra: A Multi-Agent Framework for Multimodal Medical Reasoning in Indic Languages](/202606/14/2606.13572v1-arogyasutra-a-multi-agent-framework-for-multimodal-medical-reasoning-in-indic-languages)  
-   标签：评分：7.0/10、query:retina-agent
-   evidence：基于大语言模型的多智能体医疗推理
-3. [A multi-agent system for spine MRI report generation from multi-sequence imaging](/202606/14/2606.08897v1-a-multi-agent-system-for-spine-mri-report-generation-from-multi-sequence-imaging)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：用于医疗报告生成的多智能体系统
-4. [A Controlled Audit of Pretraining Contamination in Public Medical Vision-Language Benchmarks](/202606/14/2606.10066v1-a-controlled-audit-of-pretraining-contamination-in-public-medical-vision-language-benchmarks)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：审计医学视觉语言模型的预训练污染
-5. [Analyzing and Improving Fine-grained Preference Optimization in Medical LVLMs](/202606/14/2606.12590v1-analyzing-and-improving-fine-grained-preference-optimization-in-medical-lvlms)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：医学视觉语言模型对齐辅助诊断
-6. [OpenMedQ: Broad Open Pretraining for Medical Vision-Language Models](/202606/14/2606.12953v1-openmedq-broad-open-pretraining-for-medical-vision-language-models)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：跨模态的广泛医学视觉语言模型预训练
+1. [Rethinking Global Average Pooling: Your Classifier Is Secretly a Multi-Instance Learner](/202606/15/2606.14555v1-rethinking-global-average-pooling-your-classifier-is-secretly-a-multi-instance-learner)  
+   标签：评分：7.0/10、query:fundus-class
+   evidence：将分类器重新解释为多实例学习器，该方法可应用于眼底图像分类
+2. [A Web-based software toolkit for accessible and best-practice machine learning analyses in biomedical research](/202606/15/biorxiv-10-64898-2026-06-05-730487-v1-a-web-based-software-toolkit-for-accessible-and-best-practice-machine-learning-analyses-in-biomedical-research)  
+   标签：评分：7.0/10、query:fundus-class
+   evidence：用于生物医学图像分类的基于网络的机器学习工具包
+3. [Self-Supervised Vision Transformers for CBCT-Based Detection of Temporomandibular Joint Osteoarthritis](/202606/15/2606.08364v1-self-supervised-vision-transformers-for-cbct-based-detection-of-temporomandibular-joint-osteoarthritis)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：自监督ViT用于医学CBCT分类，可迁移至眼底图像分析
+4. [Learning Task-Aware Sampling with Shared Saliency through Density-Equalizing Mappings](/202606/15/2606.12869v1-learning-task-aware-sampling-with-shared-saliency-through-density-equalizing-mappings)  
+   标签：评分：6.0/10、query:fundus-class
+   evidence：任务自适应采样方法，用于医学图像高效特征提取
 
 
 <div class="dpr-home-promo-card">
