@@ -1,0 +1,383 @@
+Title: Input-Dependent Fisher Information for Local Sensitivity Analysis of Medical Image Classifiers
+
+URL Source: https://arxiv.org/pdf/2606.16362v1
+
+Published Time: Tue, 16 Jun 2026 02:22:07 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+> 1
+
+# Input-Dependent Fisher Information for Local Sensitivity Analysis of Medical Image Classifiers 
+
+Sourya Sengupta and Mark A. Anastasio Fellow, IEEE 
+
+Abstract —Deep neural networks have achieved strong per-formance in medical image classification, but often work like black-box. Commonly used post-hoc interpretation methods often provide heuristic visualizations whose relationship to the classi-fier’s predictive distribution is indirect. This work introduces a local sensitivity analysis framework based on the input-dependent Fisher Information Matrix (iFIM) of a trained classifier. The iFIM characterizes how the classifier’s predictive distribution changes under infinitesimal perturbations of the input image. By using a Gram-matrix formulation, the nonzero eigenspectrum of the iFIM can be recovered without explicitly forming the full image-dimensional Fisher matrix. The leading iFIM eigenspace is then used to project an input image into a high local-sensitivity component and its orthogonal component. These components provide a model-intrinsic description of local predictive sensitiv-ity, rather than a conventional pixel-wise attribution heatmap or a causal segmentation of task-relevant anatomy. The framework is evaluated on controlled and clinical medical image classification tasks using multiple classifier architectures. Perturbation-based experiments show that high-sensitivity iFIM components are more strongly coupled to changes in predictive confidence and classification performance than lower-sensitivity complementary components. The results support the iFIM framework as aprincipled tool for analyzing local decision sensitivity and for complementing existing attribution-based interpretability meth-ods in medical imaging. 
+
+Index Terms —Interpretability, Input-dependent Fisher infor-mation, Medical image classification, class activation maps 
+
+I. I NTRODUCTION 
+
+Deep learning-based classifiers have achieved strong per-formance across a wide range of medical imaging tasks, but methods for interpreting their decisions remain limited. Most widely used post-hoc approaches produce attribution or localization maps that indicate which image regions are associated with the model output, but the quantities they visualize are often heuristic and may vary across architectures, implementations, or perturbations. As a result, these methods can be useful for inspection, yet they do not always provide a principled characterization of how the predictive distribution of the classifier responds to changes in the input. 
+
+This work was supported in part by NIH Awards EB031772 (subproject 6366), EB031585 and EB034249. Research reported in this publication was supported by the National Institute Of Biomedical Imaging And Bioengineer-ing of the National Institutes of Health under Award Number T32EB019944. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institutes of Health. Sourya Sengupta is with the Department of Electrical and Computer Engineering, University of Illinois Urbana–Champaign, Urbana, IL 61801 USA (e-mail: souryas2@illinois.edu). Mark A. Anastasio is with the Mallinckrodt Institute of Radiology and Department of Electrical & Systems Engineering, Washington University in St. Louis, St. Louis, MO 63110 USA (e-mail: maa@illinois.edu). 
+
+In this work, we propose an information-theoretic frame-work for analyzing how a classifier’s predictive distribution changes locally under input perturbations. The framework is based on the input-dependent Fisher Information Matrix (iFIM), which quantifies the local sensitivity of the predictive distribution to input perturbations. By spectrally decomposing the iFIM, the input image is partitioned into components associated with directions of relatively high and low local predictive sensitivity. Henceforth, these are referred to as the task-sensitive and task-insensitive components, respectively, in a relative and local sense. Rather than serving as a replacement for attribution heatmaps, the proposed framework provides a complementary, model-intrinsic representation of how pertur-bations near a given input influence the classifier output. The major contributions of this work are as follows:  
+
+> •
+
+We formulate an input-dependent Fisher Information Ma-trix framework for characterizing the local sensitivity of a trained medical image classifier’s predictive distribution to input perturbations.  
+
+> •
+
+We use a Gram-matrix factorization to recover the nonzero iFIM eigenspectrum without constructing the full image-dimensional Fisher matrix, enabling tractable computation for image-scale inputs.  
+
+> •
+
+We define a projection-based decomposition of an input image into a high local-sensitivity component and its orthogonal complement, and clarify the interpretation of this decomposition for low-rank settings such as binary classification.  
+
+> •
+
+We evaluate the resulting sensitivity components across controlled and clinical medical image classification tasks using perturbation-based analyses and architecture com-parisons. II. B ACKGROUND 
+
+Existing approaches to interpretability in deep learning can be broadly divided into post-hoc attribution methods and inher-ently interpretable model designs. Post-hoc methods, including gradient saliency maps, SmoothGrad, integrated gradients, and class activation map (CAM) variants such as Grad-CAM, Grad-CAM++, Score-CAM, and Eigen-CAM, are commonly used to visualize image regions associated with a model’s output [1]–[12]. These methods can be useful for qualitative inspection and spatial localization, but the quantities they visualize are often heuristic and may depend on gradient flow, feature-map selection, or implementation choices. Con-sequently, attribution maps do not always provide a clear or principled characterization of how the predictive distribution of the classifier changes under perturbations of the input. 
+
+> arXiv:2606.16362v1 [eess.IV] 15 Jun 2026 2
+
+A different line of work seeks interpretability through archi-tectural design. Examples include concept bottleneck models, self-explaining neural networks, prototype-based networks, and related approaches that constrain the model to expose in-terpretable intermediate representations [13]–[18]. Such meth-ods can provide explanations that are more tightly coupled to model structure, but they typically require architectural mod-ification or additional supervision and may reduce flexibility relative to unconstrained high-capacity classifiers [19], [20]. In many medical imaging settings, it is therefore desirable to have tools that can analyze the behavior of standard trained classifiers without redesigning the predictive model itself. These considerations motivate the need for a model-intrinsic way to characterize how a trained classifier depends on its input. In this work, we adopt a local view of this depen-dence by examining how the classifier’s predictive distribution changes under small perturbations of the input. The Fisher Information Matrix (FIM) provides a principled measure of the local sensitivity of a probability distribution to such per-turbations. When defined with respect to the input rather than the model parameters, the resulting input-dependent Fisher Information Matrix (iFIM) characterizes the local sensitivity of a classifier’s predictive distribution in input space. This makes the iFIM a natural foundation for analyzing local decision geometry without modifying the classifier architecture. Fisher information has been used in deep learning in several other contexts, including natural-gradient-based optimization, spectral and trainability analyses of network parameter spaces, pruning and compression, and robustness analysis [21]–[24]. In contrast, the present work focuses on the iFIM of the predictive distribution and uses its spectral structure to con-struct an orthogonal decomposition of the input image into components associated with relatively high and low local predictive sensitivity. In the following section, we show how the spectral decom-position of the iFIM can be used to identify directions of relatively high and low local predictive sensitivity, and thereby to construct a corresponding decomposition of the input image. This perspective complements conventional attribution-based analyses by focusing not on pixel-wise importance scores, but on the local sensitivity structure of the predictive distribution induced by the trained classifier. III. M ETHOD 
+
+The proposed method takes as input a trained probabilistic classifier and an image, and returns a pair of orthogonal projections of the image associated with different levels of local predictive sensitivity. Specifically, the input-dependent Fisher Information Matrix (iFIM) of the classifier’s predictive distribution is evaluated at the image, its leading nonzero eigenvectors are computed through a tractable Gram-matrix formulation, and the image is projected onto the correspond-ing high-sensitivity eigenspace and its orthogonal component. These projected components provide a local sensitivity-based representation of model behavior near the given image. They should be interpreted as projections onto directions of higher and lower local sensitivity of the predictive distribution, rather than as a spatial partition of semantically relevant and irrele-vant anatomy. 
+
+A. Input-Dependent Fisher Information and Gram Factoriza-tion 
+
+Let x ∈ Rd denote an input image represented as a vector, and let y ∈ { 1, . . . , C } denote the class label. Consider a trained classifier fθ : Rd → RC , where fθ (x)c is the logit for class c. The predictive distribution is 
+
+pθ (y = c | x) = exp( fθ (x)c)
+
+PCj=1 exp( fθ (x)j ) . (1) To characterize local changes in this predictive distribution with respect to the input, we define the input-dependent Fisher Information Matrix (iFIM) as 
+
+F(x) = Ey∼pθ (·| x)
+
+∇x log pθ (y | x)∇x log pθ (y | x)⊤ . (2) The iFIM is symmetric positive semidefinite and characterizes the local sensitivity of the predictive distribution to infinitesi-mal input perturbations. Let 
+
+gc(x) = ∇x log pθ (y = c | x). (3) Then the iFIM can be written as 
+
+F(x) = 
+
+> C
+
+X
+
+> c=1
+
+pθ (y = c | x) gc(x)gc(x)⊤. (4) Define 
+
+G(x) = 
+
+hp pθ (y = 1 | x) g1(x), . . . , 
+
+ppθ (y = C | x) gC (x)
+
+i
+
+∈ Rd×C .
+
+(5) With this definition, 
+
+F(x) = G(x)G(x)⊤. (6) Directly constructing F(x) ∈ Rd×d is generally impractical for image-scale inputs. We therefore work with the smaller Gram matrix 
+
+K(x) = G(x)⊤G(x) ∈ RC×C . (7) Because F(x) = G(x)G(x)⊤ and K(x) = G(x)⊤G(x), their nonzero eigenvalues coincide. Let 
+
+K(x)vi = λivi, λi > 0, (8) where λ1 ≥ λ2 ≥ · · · ≥ λR > 0, the eigenvectors {vi}Ri=1 
+
+are orthonormal, and R = rank( F(x)) ≤ C − 1. The corresponding unit-norm eigenvector of F(x) is 
+
+ui = G(x)vi
+
+√λi
+
+. (9) Collecting the nonzero eigenvectors as UR = [ u1, . . . , uR],with V = [ v1, . . . , vR] and Λ = diag( λ1, . . . , λ R), gives 
+
+UR = G(x)VΛ −1/2, (10) and hence the nonzero eigendecomposition 
+
+F(x) = URΛU ⊤ 
+
+> R
+
+. (11) 3
+
+As an illustrative example, consider the binary classification case. When C = 2 , define the logit-difference function 
+
+s(x) = fθ (x)1 − fθ (x)2,
+
+and let p1 = pθ (y = 1 | x) and p2 = pθ (y = 2 | x). Then 
+
+∇x log p1 = p2∇xs(x), ∇x log p2 = −p1∇xs(x),
+
+and the iFIM becomes 
+
+F(x) = p1p2 ∇xs(x)∇xs(x)⊤. (12) Thus, in the binary softmax case, the iFIM has rank one, and its nonzero eigendirection is aligned with the local sensitivity direction of the logit difference. The iFIM and the associated Gram-matrix factorization provide the basis for the image decomposition introduced next. 
+
+B. iFIM-Based Image Decomposition 
+
+The methodological contribution of this work is to use the spectral structure of the iFIM to define an orthogonal projection of the input image onto subspaces associated with different levels of local predictive sensitivity. Let {ui}di=1 denote an orthonormal eigenbasis of F(x), with eigenvalues ordered as 
+
+λ1 ≥ λ2 ≥ · · · ≥ λR > 0, λR+1 = · · · = λd = 0 .
+
+The eigenvectors associated with the nonzero eigenvalues are given by the columns of UR, while the remaining eigenvectors span the nullspace of F(x).We select the smallest K ≤ R such that 
+
+PKi=1 λi
+
+PRi=1 λi
+
+≥ ρ, (13) where ρ ∈ (0 , 1] is a prescribed energy threshold. Let 
+
+UK = [ u1, . . . , u K ].
+
+The high-sensitivity projection is defined as 
+
+Psens = UK U⊤ 
+
+> K
+
+=
+
+> K
+
+X
+
+> i=1
+
+uiu⊤ 
+
+> i
+
+, (14) while the complementary projection is 
+
+Pcomp = I − Psens . (15) Accordingly, the input image can be decomposed as x =
+
+xsens + xcomp , where 
+
+xsens = Psens x, xcomp = Pcomp x. (16) By construction, xsens and xcomp are orthogonal. The component xsens lies in the span of the leading iFIM eigenvectors and is therefore associated with directions of relatively high local predictive sensitivity. The complemen-tary component xcomp contains both lower-sensitivity nonzero eigendirections and, when present, directions in the nullspace of F(x). Thus, xcomp should be interpreted as the component orthogonal to the selected high-sensitivity subspace, rather than as a collection of globally irrelevant or causally unin-volved image features. Although the decomposition is defined in the full input space, computing xsens only requires the leading K eigen-vectors recovered from the Gram-matrix formulation. The complementary component is then obtained as 
+
+xcomp = x − xsens , (17) without explicitly computing the remaining d − K eigenvec-tors. For visualization and pixel-perturbation experiments, the projected components are reshaped to the spatial dimensions of the input image. 
+
+C. Local Perturbation Interpretation of the iFIM 
+
+Let pθ (· | x) denote the predictive distribution of a trained classifier at input x, and let F(x) be the corresponding iFIM. For a small perturbation δ ∈ Rd, local changes in the predictive distribution can be quantified by 
+
+KL( pθ (· | x) ∥ pθ (· | x + δ)) .
+
+At points where the predictive distribution is locally twice differentiable with respect to the input, a second-order Taylor expansion gives 
+
+KL( pθ (· | x) ∥ pθ (· | x + δ)) = 12 δ⊤F(x) δ + o(∥δ∥22). (18) Thus, to leading order, the iFIM determines the local sensitiv-ity of the predictive distribution to input perturbations [25]. Let 
+
+F(x) = UΛU ⊤ (19) be a full eigendecomposition of the symmetric positive semidefinite iFIM, where U = [ u1, . . . , u d] is an orthonormal basis and Λ = diag( λ1, . . . , λ d), with λ1 ≥ λ2 ≥ · · · ≥ λd ≥
+
+0. Although this full basis is useful for interpretation, only the nonzero eigenvectors need to be computed in practice using the Gram-matrix formulation described above. Any perturbation can be written as 
+
+δ =
+
+> d
+
+X
+
+> i=1
+
+aiui, ai = u⊤ 
+
+> i
+
+δ, ∥δ∥22 =
+
+> d
+
+X
+
+> i=1
+
+a2 
+
+> i
+
+. (20) Since U⊤δ = ( a1, . . . , a d)⊤, the quadratic form becomes 
+
+δ⊤F(x)δ =
+
+> d
+
+X
+
+> i=1
+
+λia2 
+
+> i
+
+. (21) Therefore, the local KL sensitivity decomposes into orthogonal contributions weighted by the iFIM eigenvalues. Directions in the nullspace of F(x), for which λi = 0 , do not contribute to this second-order approximation. If ∥δ∥2 ≤ ϵ, then 
+
+δ⊤F(x)δ ≤ λ1
+
+> d
+
+X
+
+> i=1
+
+a2 
+
+> i
+
+≤ λ1ϵ2. (22) Equality is achieved by δ = ϵu 1 when the leading eigenvalue is simple, or more generally by any perturbation of norm ϵ lying in the eigenspace associated with λ1. Thus, under an ℓ2-norm constraint, the leading iFIM eigenspace gives the direction or directions that maximize the leading-order change in the 4
+
+predictive distribution. Equivalently, among perturbations of equal norm, larger iFIM eigenvalues correspond to greater local predictive sensitivity. This interpretation is strictly local. It orders perturbation directions according to their leading-order effect on the pre-dictive distribution near x, but it does not imply a global, semantic, or causal ordering of image features. For finite perturbations, directions with larger projections onto high-eigenvalue eigenspaces are expected to produce larger changes in the predictive distribution when perturbations are suffi-ciently small. However, changes in confidence or classification performance need not be monotonic, because they also depend on perturbation sign, class margins, and nonlinear classifier behavior beyond the local quadratic approximation. 
+
+D. Computational Complexity of iFIM-map Computation 
+
+Direct construction of the full iFIM F(x) ∈ Rd×d is infeasible for image-scale inputs because it requires storing 
+
+O(d2) entries and performing spectral computations in the ambient input dimension. The proposed formulation avoids this by working with G(x) ∈ Rd×C and the corresponding Gram matrix K(x) = G(x)⊤G(x) ∈ RC×C .The dominant cost is the computation of the class-wise gradients gc(x) = ∇x log pθ (c | x), which requires one input-gradient evaluation per class. Once these gradients are available, forming K(x) requires O(dC 2) operations and its eigendecomposition requires O(C3), which is negligible when 
+
+C is small. In typical medical imaging classification problems, where d may be on the order of 10 4–10 6 and C is often relatively small ( C = 2 for binary tasks), the Gram-matrix formulation makes the spectral step tractable while preserving the nonzero spectral information of the iFIM. 
+
+E. Relation to Post-hoc Attribution Methods 
+
+The proposed framework differs from conventional post-hoc attribution methods in the quantity it seeks to characterize. Attribution methods typically produce pixel-wise importance or localization maps derived from gradients, feature activa-tions, or related heuristics. These maps are primarily used to visualize spatial regions that influence a model’s output. In contrast, the iFIM-based analysis characterizes the local sensitivity structure of the predictive distribution in input space. Its output is therefore not a conventional attribution heatmap, but a set of orthogonal directions and projected im-age components associated with relatively high and low local predictive sensitivity. The task-sensitive and task-insensitive components defined in this work should accordingly be in-terpreted as components of local predictive sensitivity, rather than as definitive segmentations of semantically or causally relevant image content. For this reason, the proposed framework is best viewed as complementary to localization-based explanation methods rather than as a direct replacement for them. It provides a geometric description of how perturbations near a given input affect the predictive distribution of the trained classifier, whereas standard attribution methods are primarily designed to visualize spatial regions associated with model output. A TABLE I: Comparison between conventional post-hoc attri-bution methods and the proposed iFIM-based analysis frame-work.                         
+
+> Post-hoc Attribution Meth-ods iFIM-based Analysis
+> Typically output pixel-wise importance or localization maps Outputs orthogonal directions and projected image compo-nents associated with relatively high and low local predictive sensitivity Often derived from gradients, feature activations, or related heuristics Derived from the input-dependent Fisher Information Matrix of the predictive distribution Primarily used for spatial lo-calization and qualitative vi-sualization Primarily used to analyze the local sensitivity structure of the predictive distribution in input space Interpretation varies with the design of the attribution method Interpretation is theoretically grounded and describes the lo-cal perturbation sensitivity of the predictive distribution Provides a spatial view of re-gions associated with model output Provides a geometric view of how perturbations near a given input affect model output
+
+comparison between these perspectives and conventional post-hoc attribution methods is summarized in Table I. IV. N UMERICAL STUDIES 
+
+This section evaluates the proposed framework as a method for analyzing local predictive sensitivity in image classifiers. The experiments are designed to demonstrate that the iFIM-based decomposition identifies image components that are more strongly coupled to perturbation-induced changes in the predictive distribution and classifier performance. To this end, we consider controlled and real-world medical imaging tasks, examine qualitative decompositions across architectures, and evaluate the resulting task-sensitive and task-insensitive components using perturbation-based protocols. These studies are intended to assess local sensitivity and model behavior, rather than to establish a complete semantic or causal account of task-relevant image content. 
+
+A. Tasks and Datasets 
+
+Three distinct classification tasks were examined in this study. 
+
+Normal vs. drusen vs. CNV classification using retinal OCT images: A three-class classification problem involv-ing normal retina, Drusen, and choroidal neovascularization (CNV) was conducted using optical coherence tomography (OCT) images of the human retina with spatial dimensions of 256 × 256 pixels [26]. Drusen corresponds to the accu-mulation of extracellular material between the retinal pigment epithelium (RPE) layer and Bruch’s membrane in the human retina. These deposits can be clearly visualized in retinal OCT scans. The training dataset consisted of 2000 images from each class, the validation and test sets each contained 100 images per class. 5
+
+Cardiomegaly detection using chest X-ray images: Acardiomegaly detection task was performed using chest X-ray images of size 1024 × 1024 . Cardiomegaly refers to an enlargement of the heart and is commonly used as an indicator of underlying cardiovascular disease. The images were obtained from a publicly available NIH dataset [27]. Image labels were generated through text-mining techniques applied to radiology reports written by clinicians. The training data consisted of 800 images from each class. The validation data consisted of 50 images from each class, and the test data consisted of 70 images from each class. 
+
+SKS/BKS task with MRI: The images were gener-ated using a stylized MRI simulation under signal-known-statistically/background-known-statistically (SKS/BKS) con-ditions. Background images were derived from the Human Connectome Project dataset [28]. Gaussian signals with am-plitudes ranging from 0.1 to 0.35 were randomly embedded within white matter regions to create signal-present images, with each image containing at most one signal. The resulting dataset consisted of 11,130 images in total, including 8,904 training samples, 1,113 validation samples, and 1,113 testing samples. Each image had spatial dimensions of 256 × 256 
+
+pixels. 
+
+B. Classifier Performance 
+
+For all classification tasks, two backbone classifiers were employed: VGG16 and ResNet18. Each model was trained under the same protocol with cross-entropy loss, the Adam optimizer [29], and early stopping based on validation perfor-mance. Their evaluation metrics are summarized in Table II. Having established that the classifiers achieve reasonable task performance, the following analyses examine whether the iFIM decomposition reveals image components that are more strongly coupled to perturbation-induced changes in model behavior. Models were trained with an initial learning rate of 3×10 −5,and a learning-rate scheduler (step size = 8 , decay factor 
+
+= 0 .9). The model checkpoint with the lowest validation loss after epoch 10 was retained. Each experiment was repeated over 10 random initializations. Unless otherwise stated, re-ported values are mean ± standard deviation across these runs. 
+
+C. Visualization of iFIM-based sensitivity components 
+
+Before presenting results on the more complex clinical tasks, we first considered a stylized SKS/BKS MRI task using a shallow convolutional neural network composed of three convolutional layers with ReLU activations. The task-sensitive and task-insensitive iFIM-maps for examples of input images are shown in Fig. 1. In this controlled setting, the task-sensitive component is concentrated near the known signal region, while the task-insensitive component predominantly captures background variation. This provides an intuitive baseline ex-ample in which the iFIM decomposition aligns with a known signal structure under conditions where the target is spatially localized, and the classifier is relatively simple. Task-sensitive iFIM-maps of the CNN for the remaining two tasks are shown in Appendix A. 
+
+Fig. 1: Task-sensitive and task-insensitive iFIM decomposition for a shallow CNN in a controlled MRI setting with a spatially localized signal. The task-sensitive component concentrates around the true signal region, while the task-insensitive com-ponent captures background variations. Red bounding boxes show the signal location. Figure 2 presents representative task-sensitive and task-insensitive iFIM-maps for deeper architectures, namely VGG16 and ResNet18, on the OCT and chest X-ray tasks. In representative retinal OCT examples (Drusen, CNV), the task-sensitive maps visually align with pathology-bearing retinal layers, including drusen-associated elevations at the retinal pigment epithelium/Bruch’s membrane complex and neovascular sub-/intra-retinal alterations. In chest X-ray car-diomegaly, the task-sensitive maps highlight regions near the enlarged cardiac silhouette. The task-insensitive component can retain pixels within pathology-bearing regions, consistent with the fact that not all pixels in such regions necessarily lie in directions of highest local predictive sensitivity. For both VGG16 and ResNet18, the mean iFIM-map from 10 different runs of the model is shown. 
+
+D. Dependence on classifier architecture 
+
+A key aspect of the proposed framework is that the resulting decomposition can depend on the classifier used to model the predictive distribution. This dependence arises because the iFIM captures the local sensitivity structure induced by the classifier, which in turn is shaped by the architecture and training dynamics of the model. Fig. 2 illustrates represen-tative task-sensitive and task-insensitive iFIM-maps obtained using two different classifiers, VGG16 and ResNet18, for cardiomegaly detection from chest X-ray images. Although both models achieve comparable predictive per-formance, the spatial distribution of the high-sensitivity com-ponent differs across architectures. In the representative exam-ples, the VGG16-based component is more concentrated near the cardiac borders, whereas the ResNet18-based component is more spatially distributed. These observations indicate that iFIM-based projections can reveal architecture-dependent dif-ferences in local predictive sensitivity, even when competing classifiers achieve similar aggregate performance. However, these differences should be interpreted as differences in local model behavior rather than as direct evidence that one archi-tecture uses more clinically appropriate features. 6
+
+TABLE II: Mean ± standard deviation of precision and recall across three tasks. X-ray OCT MRI Model Precision Recall Precision Recall Precision Recall VGG16 0.77 ± 0.03 0.78 ± 0.03 0 .98 ± 0.01 0 .98 ± 0.01 0 .97 ± 0.01 0 .96 ± 0.01 
+
+ResNet18 0.80 ± 0.01 0.79 ± 0.03 0 .98 ± 0.01 0 .98 ± 0.01 0 .97 ± 0.01 0 .97 ± 0.01 
+
+Fig. 2: Task-sensitive and task-insensitive iFIM-maps for deeper architectures (VGG16 and ResNet18) across MRI, OCT and chest X-ray tasks. The results are averaged over 10 independent runs. The maps are overlaid on the original images using a contrast-adjusted jet colormap for visualization. 
+
+E. Impact of Contrastive Pixel Perturbations 
+
+Sensitivity under targeted pixel perturbation was evalu-ated using a contrastive perturbation protocol based on the task-sensitive iFIM-map and task-insensitive iFIM-map. Let 
+
+S(x) ∈ RH×W denote the task-sensitive iFIM-map and 
+
+I(x) ∈ RH×W denote the task-insensitive iFIM-map for input image x. For a perturbation fraction α ∈ (0 , 1] , define 
+
+k ≡ ⌈ αHW ⌉ .
+
+The task-sensitive iFIM-map perturbation set was selected as the k pixels with the larger magnitude in S(x), while the task-insensitive iFIM-map perturbation set was selected as the k
+
+pixels with smaller magnitude in I(x):
+
+KS
+
+> high
+
+(x, α ) = TopK( |S(x)|, k ) , (23) 
+
+KI
+
+> low
+
+(x, α ) = BottomK( |I(x)|, k ) . (24) The corresponding perturbed images were constructed as 
+
+˜xS
+
+> high
+
+(p) = 
+
+(
+
+η(p), p ∈ K S
+
+> high
+
+(x, α ),x(p), otherwise , (25) 
+
+˜xI
+
+> low
+
+(p) = 
+
+(
+
+η(p), p ∈ K I
+
+> low
+
+(x, α ),x(p), otherwise . (26) 7
+
+Fig. 3: Contrastive pixel-perturbation analysis comparing per-turbations selected from the task-sensitive iFIM-map with per-turbations selected from the complementary task-insensitive iFIM-map. The plotted value is the ratio of F1 score af-ter task-insensitive iFIM-map perturbation to F1 score after task-sensitive iFIM-map perturbation. Larger values indicate greater performance degradation when perturbing pixels se-lected from the high-sensitivity component. where p indexes spatial pixel locations and η(p) denotes the perturbation value (e.g., a random draw from a noise distribution). The same pixel index sets are used consistently for perturbation at the specified fraction α. The two sets of perturbed images were passed through the trained model, and the resulting F1 scores were compared with the F1 score obtained on the unperturbed images. The F1 scores obtained after perturbing the task-insensitive and task-sensitive pixel sets were computed separately, and their ratio, defined as the task-insensitive perturbation F1 score divided by the task-sensitive perturbation F1 score, was used as the evaluation metric. A method that more accurately captures the sensitivity of the predictive distribution is expected to yield a higher F1-score ratio, because perturbing its highest-ranked pixels should cause a large reduction in F1 score, whereas perturb-ing its task-insensitive pixels should produce a substantially smaller reduction. In this work, 1% , 2% , and 3% of image pixels were selected according to each attribution map, and the corresponding pixel values were replaced with Gaussian noise drawn from a fixed distribution. For each perturba-tion level, the performance degradation caused by perturbing 
+
+Fig. 4: Correlation between maps computed from clean and adversarially perturbed inputs. Lower correlation indicates greater change in the representation under the specified ad-versarial perturbation. Task-sensitive iFIM-map showed the lowest correlation among all, especially for chest X-ray and OCT tasks, the correlation was almost close to 0 for task-sensitive iFIM-map. high-magnitude entries of the task-sensitive iFIM-map was compared with the degradation caused by perturbing low-magnitude entries of the complementary task-insensitive iFIM-maps. This contrastive protocol evaluates whether the two projected components identify pixel sets with different effects on classifier performance. A comparative analysis of the same has also been performed with other post-hoc attribution maps of DeepSHAP, EigenCAM, GradCAM, GradCAM++, ScoreCAM, xGradCAM as shown in Fig. 3. For these methods without an explicit sensitive–insensitive decomposition, the highest- and lowest-ranked pixel locations were selected from the same attribution map. As shown in Fig. 3, the iFIM achieved the highest ratio among all evaluated methods across all classifiers and tasks. 
+
+F. Impact of adversarial perturbations 
+
+To evaluate how strongly different representations respond to decision-altering perturbations, the sensitivity of different representations to adversarial perturbations was examined. Prior work has shown that explanation and saliency repre-sentations can exhibit substantial sensitivity to adversarial perturbations, motivating the study of adversarial robustness and stability in interpretability methods [30], [31]. Let fθ (x)
+
+denote a trained classifier with parameters θ, input image 
+
+x ∈ Rd, and loss function L(fθ (x), y ) with respect to ground-truth label y. For each test sample, an adversarial example was 8
+
+generated using the Fast Gradient Sign Method (FGSM) [32], defined as 
+
+xadv = x + ϵ sign( ∇xL(fθ (x), y )) , (27) where ϵ controls the perturbation magnitude and sign( ·) is applied elementwise. This formulation corresponds to a first-order approximation of the loss, maximizing L within an ℓ∞-ball of radius ϵ around x.For each interpretability method, maps were computed for both the clean and adversarially perturbed inputs, denoted by M (x) and M (xadv ), respectively. The Pearson correlation coefficient between the clean and adversarial maps was then computed. Mean correlations over the test set were reported for the task-sensitive iFIM-map, the complementary task-insensitive iFIM-map, and competing post-hoc methods. Lower correla-tion indicates that the corresponding representation changes more strongly under the specified adversarial perturbation. This experiment assesses how strongly each representation changes under perturbations that alter the classifier input in an adversarial direction. Because the iFIM is defined from the local predictive distribution and characterizes local predictive sensitivity, perturbations that alter the classifier’s local decision geometry are expected to affect the iFIM-derived representa-tions. However, low clean/adversarial correlation should be interpreted as sensitivity to the specified perturbation, not as standalone evidence of semantic or causal faithfulness. As shown in Fig. 4, the task-sensitive iFIM-map exhibited the lowest clean/adversarial correlation than the compared methods across the examined tasks and architectures. For OCT and Chest X-ray task correlation was almost close to 0 for the task-sensitive iFIM. Taken together, the results support the proposed framework as a principled method for analyzing local predictive sen-sitivity in image classifiers. In the controlled MRI testbed, the decomposition aligns with the known signal structure, while in the clinical imaging tasks it yields task-sensitive components that are more strongly coupled to perturbation-induced changes in predictive confidence and classification performance than the compared attribution baselines. The architecture-dependent differences in the resulting decomposi-tions further indicate that the framework can reveal aspects of model behavior that are not captured by aggregate performance metrics alone. At the same time, these experiments primarily support a local sensitivity-based interpretation of the method; stronger claims regarding semantic or causal task relevance would require additional validation against independent ref-erence standards, such as expert annotations or controlled ground-truth localization analyses. A qualitative comparison with post-hoc attribution methods has also been shown in Appendix B. V. D ISCUSSION AND CONCLUSION 
+
+This work presents an iFIM-based framework for analyzing the local predictive sensitivity of medical image classifiers. By exploiting the spectral structure of the input-dependent Fisher information matrix, the proposed method projects an input image onto a high-sensitivity eigenspace and its orthogonal component. The resulting components characterize how the predictive distribution of a trained classifier responds locally to perturbations around a given input image. Thus, the framework is best viewed as a local Fisher-geometric analysis tool that complements conventional post-hoc attribution methods. A key feature of the proposed framework is that it is tied to a single model-intrinsic quantity: the iFIM of the predictive distribution. Unlike many post-hoc attribution methods, which may require method-specific choices such as layer selection, activation weighting, or attribution variants, the iFIM-based analysis follows a uniform computational procedure across classifier architectures. This makes it useful for comparing local sensitivity structure across trained models, even when those models achieve similar aggregate performance. The numerical studies support the utility of the framework as a local sensitivity analysis method. In the controlled MRI experiment, the high-sensitivity component was concentrated near the known signal region, while the complementary com-ponent primarily captured background variation. In the OCT and chest X-ray tasks, the high-sensitivity components were more strongly associated with perturbation-induced changes in classifier performance than the complementary lower-sensitivity components and the compared attribution baselines. The results also showed that iFIM-derived components can differ across classifier architectures, suggesting that the frame-work can reveal differences in local model behavior that are not captured by aggregate performance metrics alone. The relevance of local perturbation sensitivity for per-sample interpretation is that a trained classifier defines a local response surface around every input image. Although the observed image itself is fixed, hypothetical perturbations probe how strongly the current predictive distribution depends on different directions in input space. In this sense, the proposed framework does not model actual physical variation in the image, but rather analyzes the local behavior of the classifier at that image. The projected components therefore provide a principled local notion of model dependence, while remaining distinct from stronger claims about global, semantic, or causal task relevance. Beyond the experiments considered here, the framework may enable several useful directions for studying medical image classifiers. It can be used to investigate whether dif-ferent architectures rely on different locally sensitive im-age components, whether robustness interventions alter the local sensitivity structure of the predictive distribution, and whether high-sensitivity components align with pathology-bearing regions or instead reflect spurious cues. Future work should pursue such validation and extend the framework to additional medical imaging tasks, more recent architectures in-cluding transformer-based and hybrid models, and multimodal classifiers, where iFIM-based analysis may help characterize how local predictive sensitivity is distributed across input modalities. ACKNOWLEDGMENTS 
+
+This work was supported in part by NIH Awards P41EB031772 (sub-project 6366), R01EB034249, 9
+
+R01CA233873, R01CA287778, and R56DE033344. The authors would like to acknowledge useful discussions with Drs. Frank Brooks and Rucha Deshpande. REFERENCES [1] D. Tang, J. Chen, L. Ren, X. Wang, D. Li, and H. Zhang, “Reviewing cam-based deep explainable methods in healthcare,” Applied Sciences ,vol. 14, no. 10, p. 4124, 2024. [2] K. Simonyan, A. Vedaldi, and A. Zisserman, “Deep inside convolutional networks: Visualising image classification models and saliency maps,” 
+
+arXiv preprint arXiv:1312.6034 , 2014. [3] R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, “Grad-cam: Visual explanations from deep networks via gradient-based localization,” in Proceedings of the IEEE International Conference on Computer Vision (ICCV) , 2017. [4] A. Chattopadhyay, A. Sarkar, P. Howlader, and P. P. Balasubramanian, “Grad-cam++: Improved visual explanations for deep convolutional net-works,” in Proceedings of the IEEE Winter Conference on Applications of Computer Vision (WACV) , 2018. [5] H. Wang, Z. Wang, M. Du, F. Yang, Z. Zhang, S. Ding, P. Mardziel, and X. Hu, “Score-cam: Score-weighted visual explanations for convolu-tional neural networks,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW) , 2020. [6] M. B. Muhammad and M. Yeasin, “Eigen-cam: Class activation map using principal components,” arXiv preprint arXiv:2008.00299 , 2020. [7] D. Smilkov, N. Thorat, B. Kim, F. Vi´ egas, and M. Wattenberg, “Smoothgrad: removing noise by adding noise,” arXiv preprint arXiv:1706.03825 , 2017. [8] S. Bach, A. Binder, G. Montavon, F. Klauschen, K.-R. M¨ uller, and W. Samek, “On pixel-wise explanations for non-linear classifier deci-sions by layer-wise relevance propagation,” PLOS ONE , vol. 10, no. 7, p. e0130140, 2015. [9] A. Shrikumar, P. Greenside, and A. Kundaje, “Learning important features through propagating activation differences,” in Proceedings of the 34th International Conference on Machine Learning (ICML) , 2017. [10] B. Zhou, A. Khosla, A. Lapedriza, A. Oliva, and A. Torralba, “Learning deep features for discriminative localization,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , 2016. [11] H. Hu, R. Wang, H. Lin, and H. Yu, “Unioncam: enhancing cnn interpretability through denoising, weighted fusion, and selective high-quality class activation mapping,” Frontiers in Neurorobotics , vol. 18, p. 1490198, 2024. [12] T. Yamauchi, “Spatial sensitive grad-cam++: Improved visual explana-tion for object detectors via weighted combination of gradient map,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 8164–8168, 2024. [13] S. Jain, S. Wiegreffe, Y. Pinter, and B. C. Wallace, “Learning to faithfully rationalize by construction,” arXiv preprint arXiv:2005.00115 , 2020. [14] D. Alvarez Melis and T. Jaakkola, “Towards robust interpretability with self-explaining neural networks,” Advances in Neural Information Processing Systems , vol. 31, 2018. [15] P. W. Koh, T. Nguyen, Y. S. Tang, S. Mussmann, E. Pierson, B. Kim, and P. Liang, “Concept bottleneck models,” in International Conference on Machine Learning , pp. 5338–5348, PMLR, 2020. [16] C. Chen, O. Li, D. Tao, A. Barnett, C. Rudin, and J. K. Su, “This looks like that: deep learning for interpretable image recognition,” Advances in Neural Information Processing Systems , vol. 32, 2019. [17] R. Agarwal, L. Melnick, N. Frosst, X. Zhang, B. Lengerich, R. Caruana, and G. E. Hinton, “Neural additive models: Interpretable machine learning with neural nets,” Advances in Neural Information Processing Systems , vol. 34, pp. 4699–4711, 2021. [18] S. Sengupta and M. A. Anastasio, “A test statistic estimation-based approach for establishing self-interpretable cnn-based binary classifiers,” 
+
+IEEE Transactions on Medical Imaging , 2024. [19] Y. Wang and X. Wang, “Self-interpretable model with transformation equivariant interpretation,” Advances in Neural Information Processing Systems , vol. 34, pp. 2359–2372, 2021. [20] S. Mohammadjafari, M. Cevik, M. Thanabalasingam, and A. Basar, “Using protopnet for interpretable alzheimer’s disease classification.,” in Canadian Conference on AI , 2021. [21] J. Martens and R. Grosse, “Optimizing neural networks with kronecker-factored approximate curvature,” in International conference on machine learning , pp. 2408–2417, PMLR, 2015. [22] R. Karakida, S. Akaho, and S.-i. Amari, “Universal statistics of fisher information in deep neural networks: Mean field approach,” in The 22nd International Conference on Artificial Intelligence and Statistics ,pp. 1032–1041, PMLR, 2019. [23] T. Hayase and R. Karakida, “The spectrum of fisher information of deep networks achieving dynamical isometry,” in International Conference on Artificial Intelligence and Statistics , pp. 334–342, PMLR, 2021. [24] M. Picot, F. Messina, M. Boudiaf, F. Labeau, I. B. Ayed, and P. Pi-antanida, “Adversarial robustness via fisher-rao regularization,” IEEE Transactions on Pattern Analysis and Machine Intelligence , vol. 45, no. 3, pp. 2698–2710, 2022. [25] S.-i. Amari and H. Nagaoka, Methods of information geometry , vol. 191. American Mathematical Soc., 2000. [26] D. S. Kermany, M. Goldbaum, W. Cai, C. C. Valentim, H. Liang, S. L. Baxter, A. McKeown, G. Yang, X. Wu, F. Yan, et al. , “Identifying medical diagnoses and treatable diseases by image-based deep learning,” 
+
+Cell , vol. 172, no. 5, pp. 1122–1131, 2018. [27] X. Wang, Y. Peng, L. Lu, Z. Lu, M. Bagheri, and R. M. Summers, “Chestx-ray8: Hospital-scale chest x-ray database and benchmarks on weakly-supervised classification and localization of common thorax diseases,” in Proceedings of the IEEE conference on computer vision and pattern recognition , pp. 2097–2106, 2017. [28] Human Connectome Project, “1200 subjects data release,” 2024. [Ac-cessed: 2024-07-01]. [29] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,” 
+
+arXiv preprint arXiv:1412.6980 , 2014. [30] A. Ghorbani, A. Abid, and J. Zou, “Interpretation of neural networks is fragile,” in Proceedings of the AAAI conference on artificial intelligence ,vol. 33, pp. 3681–3688, 2019. [31] C. Etmann, S. Lunz, P. Maass, and C.-B. Sch¨ onlieb, “On the connection between adversarial robustness and saliency map interpretability,” arXiv preprint arXiv:1905.04172 , 2019. [32] I. J. Goodfellow, J. Shlens, and C. Szegedy, “Explaining and harnessing adversarial examples,” arXiv preprint arXiv:1412.6572 , 2014. 
+
+APPENDIX 
+
+A. Task-sensitive iFIM-map and task-insensitive iFIM-map for CNN 
+
+Similar to Sec. IV.C, additional task-sensitive and task-insensitive iFIM-maps for the OCT and chest X-ray classifica-tion tasks for shallow CNN classifier are shown in Fig. 5. Sim-ilar to the SKS/BKS example, the task-sensitive component highlights pixels that are more relevant to the model prediction, while the task-insensitive component captures comparatively less relevant pixels. 
+
+Fig. 5: Task-sensitive and task-insensitive iFIM-map for Drusen class of OCT classification task (top row) and Car-diomegaly class of chest X-ray classification task (bottom row). 10 
+
+B. Qualitative comparison with CAM-based post-hoc methods 
+
+Fig. 6: Qualitative comparison of five CAM-based attribution methods—Grad-CAM, Grad-CAM++, Score-CAM, XGrad-CAM, and Eigen-CAM—on a representative cardiomegaly case. Although all methods are applied to the same trained model and input image, the resulting attribution maps exhibit substantial variability in both localization and spatial extent. While some methods partially highlight regions near the cardiac silhouette, others produce diffuse or misplaced activa-tions, including attention on irrelevant anatomical regions such as lung fields or image boundaries. The maps are overlaid on the original images using a contrast-adjusted jet colormap for visualization. Although the proposed iFIM-based framework is not di-rectly comparable to conventional post-hoc attribution meth-ods, a qualitative example is presented to illustrate how commonly used CAM-based techniques can yield substantially different attribution patterns for the same input and trained model. Specifically, a representative case from a cardiomegaly classification task is considered, where the presence of an enlarged cardiac silhouette is the defining diagnostic feature. Five widely used CAM-based methods—Grad-CAM, Grad-CAM++, Score-CAM, XGrad-CAM, and Eigen-CAM—are applied to the same trained model and input image. The resulting attribution maps are shown in Fig. 6. As observed in Fig. 6, the different CAM-based methods produce substantially varying attribution patterns for the same input. While some methods partially highlight regions near the cardiac silhouette, others exhibit diffuse or misplaced acti-vations, including attention to irrelevant anatomical structures such as lung fields or image boundaries. This example illus-trates the variability that can arise across attribution methods even under identical model and data conditions. Although not directly comparable to the proposed framework, such variability motivates the use of complementary analysis tools that characterize model behavior through different quantities.

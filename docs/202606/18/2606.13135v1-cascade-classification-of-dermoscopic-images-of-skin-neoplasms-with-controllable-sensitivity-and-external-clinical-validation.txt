@@ -1,0 +1,494 @@
+Title: Cascade Classification of Dermoscopic Images of Skin Neoplasms with Controllable Sensitivity and External Clinical Validation
+
+URL Source: https://arxiv.org/pdf/2606.13135v1
+
+Published Time: Fri, 12 Jun 2026 00:45:36 GMT
+
+Number of Pages: 28
+
+Markdown Content:
+UDC 616.5-006:004.852 Cascade Classification of Dermoscopic Images of Skin Neoplasms with Controllable Sensitivity and External Clinical Validation Kozachok E. S. 1, Seregin S. S. 2, Kozachok A. V. 1, Latyshev I. P. 1,
+
+Samovarov O. I. 11Ivannikov Institute for System Programming of the Russian Academy of Sciences (ISP RAS), Moscow, Russia 
+
+> 2
+
+Orel Oncological Dispensary, Orel, Russia                
+
+> Information about the authors:
+> Kozachok Elena Sergeevna — specialist, ISP RAS; ORCID: 0009-0007-9432-1663; e-mail: e.kozachok@ispras.ru (corresponding author) .
+> Seregin Sergey Sergeevich — Cand. Sci. (Med.), oncologist, Orel Oncological Dispen-sary, Orel; ORCID: 0000-0002-7248-402X; e-mail: serega_s2004@mail.ru.
+> Kozachok Aleksandr Vasilyevich — Dr. Sci. (Eng.), Professor, Head of Laboratory, ISP RAS; ORCID: 0000-0002-6501-2008; AuthorID: 732431; Scopus ID: 57195216999; e-mail: a.kozachok@ispras.ru.
+> Latyshev Ilya Petrovich — Researcher, ISP RAS; ORCID: 0009-0004-2485-485X; e-mail: i.latyshev@ispras.ru.
+> Samovarov Oleg Ilgisovich — Cand. Sci. (Eng.), Scientific Secretary, ISP RAS; ORCID: 0000-0002-7006-7193; AuthorID: 17230; Scopus ID: 6508083834; e-mail: samov@ispras.ru.
+
+Abstract. Purpose of research. To compare deep learning architectures and classi-fication schemes for automatic analysis of dermoscopic images of skin neo-plasms and to assess their generalization when transferred from open inter-national datasets to independent clinical datasets of Russian practice. 
+
+Methods. Four architectures — Vision Transformer (ViT-B/16), Swin-S, ConvNeXt-S and EfficientNetV2-S — were compared in three clas-sification schemes: binary (malignant / benign), single-stage four-class (be-nign, melanoma — MEL, squamous cell carcinoma — SCC, basal cell carci-noma — BCC), and a two-stage cascade (stage 1 — binary triage, stage 2 — three-class differentiation of the malignant type MEL / SCC / BCC). All mod-els were initialised with ImageNet-pretrained weights (transfer learning with full fine-tuning) and trained on an aggregation of open ISIC Archive datasets with a single augmentation protocol, then evaluated on an internal held-out sample and two independent clinical datasets (the Melanoscope AI mobile system and a dataset from Sechenov University). 
+
+1
+
+> arXiv:2606.13135v1 [cs.CV] 11 Jun 2026
+
+Results. On the internal held-out sample the binary stage at-tains ROC-AUC 0.952–0.966 for all architectures; when transferred to the Sechenov University clinical dataset, ROC-AUC drops to 0.797–0.893, sen-sitivity to 0.53–0.67, and the expected calibration error rises from 0.02 to 0.27–0.39 with underestimation of malignancy, quantifying the generaliza-tion gap in both ranking and calibration. Paired significance tests confirm a single inter-architecture result on clinical data — the deficit of ViT-B/16 at the binary triage stage ( 𝑝 < 0.05 ); at the three-class malignant-type dif-ferentiation stage no architecture has a statistically proven advantage. The cascade scheme numerically increases macro F1 over single-stage four-class classification for most architectures, but the gain is statistically significant only for ViT-B/16 — by recovering malignant lesions that the single-stage model assigns to the dominant benign class. On the external ISIC MILK10k benchmark, direct 11-class classification yields a mean-class sensitivity of 0.525, confirming the limitation of the single-stage multiclass scheme for rare clinically prioritized classes. 
+
+Conclusion. Cascade decomposition of the pipeline with a tunable triage threshold provides control over the sensitivity of the end-to-end decision-support system that is not attainable in standard single-stage clas-sification assigning the image to the most probable class without additional thresholding logic, and better reproduces the clinical logic of differential diag-nosis of skin neoplasms. The persistent generalization gap on external clini-cal datasets — in both ranking and calibration — mandates external clinical validation and recalibration prior to deployment. Keywords: deep learning, dermoscopy, skin neoplasms, cascade classification, external validation, medical informatics. 
+
+# Introduction 
+
+Deep-learning-based automated analysis of dermoscopic images has reached specialist-level diagnostic accuracy on a number of tasks [1, 2, 3]. International open datasets — primarily HAM10000 and the ISIC Archive datasets [4, 5] — have become the standard training base for most published systems. At the same time, when models trained on these datasets are trans-ferred to clinical practice, a drop in metrics is observed, caused by differences between the distributions of the training and test data [6, 7, 8]. From the standpoint of building a medical information system, the de-sign of an ML pipeline for dermoscopy raises two independent engineering questions. The first is the choice of architecture. In recent years the range of architectures has expanded substantially: convolutional networks (Con-2vNeXt, EfficientNet) have been joined by transformer architectures (ViT, Swin) with a fundamentally different image-processing mechanism. Their comparative effectiveness on a single dataset under identical training con-ditions is insufficiently studied, and published results are often incompara-ble because of differences in data and protocols. The second is the choice of classification scheme. Standard single-stage multiclass classification opti-mizes the overall accuracy across all classes and, under strong imbalance, systematically sacrifices sensitivity to rare but clinically prioritized classes (melanoma, squamous cell carcinoma). In clinical practice the physician’s decision is hierarchical: first — “is there a risk of a malignant neoplasm?”, and only then — refinement of the nosological type [9]. The two-stage cascade scheme reproduces this logic. 
+
+The aim of this work is to compare four deep-learning architectures (ViT-B/16, Swin-S, ConvNeXt-S, EfficientNetV2-S) and three classification schemes (binary, single-stage four-class, and cascade) for dermoscopic images and to assess their generalization when transferred from open datasets to independent clinical datasets of Russian practice. 
+
+The scientific novelty of the work: 1. It is shown that cascade decomposition of the pipeline (binary triage with a tunable threshold → nosological differentiation) provides con-trol over the sensitivity of the end-to-end system that is not attain-able in standard single-stage classification by the maximum-posterior-probability rule (assigning the image to the most probable class) with-out additional thresholding logic, and statistically significantly (paired bootstrap and McNemar test) improves classification consistency for the architecture least robust at the binary boundary, recovering malig-nant lesions absorbed by the dominant benign class. 2. The generalization gap on transfer to independent clinical datasets of Russian practice is quantitatively characterized in two dimensions — ranking ability (ROC-AUC) and probability calibration — separating the component correctable by recalibration (prior-distribution shift) from the irreducible one (feature shift). 3. A comparison of four modern architectures (two transformer and two convolutional) under identical conditions is performed with paired sig-nificance tests (DeLong, McNemar, bootstrap with multiplicity correc-tion); it is established that on clinical data only the deficit of ViT-B/16 at the binary triage stage is reliably confirmed, whereas fine ranking of architectures at the differentiation stage is not statistically substanti-ated — which is itself a result that limits the field’s typical conclusions about the “best” architecture. 3Relation to the authors’ previous publications. The methodol-ogy for forming the clinically verified dataset used in this work as the clinical test set is described in [10]; the earlier dataset with annotation of clinically significant features — in [11]. The mobile-dermoscopy screening methodology in which the two-stage cascade classification was first applied to the authors’ own dataset and the ISIC-2019 repository is described in [12]. In contrast to [12], where the cascade is used as a ready screening tool, the present work for the first time carries out a systematic comparison of four architectures under identical conditions and contrasts the cascade scheme with the single-stage one on identical test sets. Clinical validation of the decision-support system based on the considered pipeline is presented in a separate publica-tion by the authors [13]. 
+
+Modern architectures. The pioneering work of Esteva et al. [1] showed that a convolutional neural network (CNN) attains dermatologist-level diag-nostic accuracy in skin-neoplasm classification. Subsequent studies confirmed the consistent superiority of convolutional architectures over specialists in bi-nary and multiclass classification [2, 3]; the ISIC benchmarks [5, 8] became standard venues for method comparison. Vision Transformer (ViT) [14] and Swin-S [15] differ from CNNs in the mechanism of global self-attention. This property is clinically relevant for dermoscopy: diagnostically significant patterns (atypical pigment net-work, blue-white veil, vascular structures) are often distributed across the whole image and require integration of global context. ConvNeXt [16] is a modernized CNN whose training structure is brought closer to trans-formers; EfficientNetV2-S [17] is a scalable CNN with progressive training. Dermoscopy-specific transformers are also being developed: DermViT [18] adapts the ViT architecture to dermoscopic images and reports an advan-tage over standard ViT and convolutional networks (accuracy ≈92.5 %, ROC-AUC ≈0.98 in a four-class task). However, such results are obtained mostly on internal (in-domain) test sets; their robustness on transfer to independent clinical datasets is, as a rule, not assessed, which is one of the emphases of the present work. A direct comparison of the four listed architectures under identical conditions with a generalization assessment is one of the objectives of this work. 
+
+Generalization and cascade schemes. A drop in quality when a model is transferred to new clinical conditions is a well-known generalization problem of ML systems in medicine [6, 7]. Its quantitative assessment requires valida-tion on independent datasets different from the training distribution; in this work two clinical datasets of Russian practice are used for this purpose. A cascade scheme — a hierarchical splitting of the task into stages with different objective functions — reproduces the clinical logic of the diagnostic 4process [9]. A conceptually close hierarchical approach is proposed in HPDT (Hierarchical Prototypical Decision Tree) [19]: diagnosis is organized as a hi-erarchy of prototypical decisions, and on the large clinical Molemap dataset (235k images, 65 classes) the advantage of hierarchical decomposition over flat multiclass classification is shown. In contrast to such works, which are oriented toward maximizing accuracy on a large internal dataset, the present work makes control of triage-stage sensitivity via a tunable threshold and the assessment of generalization on transfer to independent clinical datasets the load-bearing elements. In single-stage multiclass classification, optimiza-tion of mean-class metrics under strong imbalance systematically reduces sensitivity to clinically prioritized classes; the MILK10k benchmark results (Section 2.6) quantitatively confirm this regularity. 
+
+# 1 Materials and methods 
+
+1.1 Datasets 
+
+Training set. The models were trained on an aggregation of nine open ISIC Archive sub-datasets: BCN20000, Derm12345, Derm7pt, HIBA, BALD, HAM10000, ISIC 2016–2020, MILK10k, and a group of other datasets. The split was performed at the image level in a 70 / 10 / 20 ratio (train-ing / validation / internal held-out control); for the malignant classes, only verified cases were selected into validation and test. The resulting sizes and class distribution are given in Table 1. The sample is substantially imbal-anced: benign lesions make up ≈81 % (benign / malignant ratio ≈4.5:1), and among the malignant nosologies the rarest class is squamous cell carcinoma (≈10 % of malignant). This imbalance explains the gap between the high accuracy and the more modest macro-F1 values on the multiclass tasks and was compensated by class weighting during training.                      
+
+> Table 1. Training-data sizes and class distribution (aggregated ISIC Archive sub-datasets)
+> Class Training Validation Internal held-out Total Benign 71 780 8 324 16 352 96 456 Melanoma (MEL) 7 902 884 1 953 10 739 Squamous cell carcinoma (SCC) 1 691 192 347 2 230 Basal cell carcinoma (BCC) 6 569 668 1 401 8 638
+> Total 87 942 10 068 20 053 118 063
+
+The internal held-out sample (column of Table 1) serves as a quality 5control in a distribution close to the training one; in the binary task the malignant classes are merged. 
+
+Clinical test sets. To assess generalization, two independent clinical datasets not overlapping with the training data were used: 
+
+• Melanoscope — a clinically verified dataset obtained with the Melanoscope AI mobile dermoscopy system (the rights holder of the software com-plex is ISP RAS, certificate of state registration of a computer program No. 2026664695). The full dataset contains 1 026 images from 443 patients, of which 39 are malignant (MEL — 18, BCC — 15, SCC — 6, all histo-logically verified); the methodology of its formation and composition are described in detail in [10] and are not repeated here. For the ML eval-uation, a subsample of 472 images was used (450 benign, 22 malignant: MEL — 14, SCC — 1, BCC — 7) that passed quality control and were suitable for binary and cascade evaluation. 
+
+• Sechenov University — an independent external validation dataset formed at Sechenov First Moscow State Medical University and used in this work solely for testing: 77 images (20 benign, 57 malignant: MEL — 28, SCC — 6, BCC — 23). All malignant lesions are histologically verified; the an-notation and confirmation of diagnoses were performed by university spe-cialists. The dataset was not published in open repositories and does not overlap with the training data. It is enriched with malignant lesions (the oncological profile of referrals), which makes it a strict test of sensitivity. 
+
+Justification of the evaluation subsample. The use of a subsam-ple of the Melanoscope dataset for the ML evaluation is a deliberate quality-control procedure, not a selection by result. The criteria for forming the subsample are set independently of the model and rely on the dataset’s ser-vice fields [10]: images with a low image_quality_score (capture artifacts, defocus, foreign objects in the frame) and records that did not reach the required verification_stage were excluded. The subsample preserves all three nosological classes of malignant lesions (MEL, SCC, BCC) and the be-nign / malignant proportion characteristic of the outpatient flow, and there-fore remains representative of the target scenario. The metrics in all tables are computed strictly on this fixed subsample; its size is stated explicitly. The small size of the malignant part of the clinical datasets (especially SCC) determines the wide confidence intervals of the metrics and is taken into account when interpreting the results (Section 3.4). 
+
+1.2 Classification schemes 
+
+Three schemes were compared (Figure 1): 6• Binary (2 classes): malignant / benign. Used both as a standalone scheme and as stage 1 of the cascade. 
+
+• Single-stage four-class (4 classes): benign, MEL, SCC, BCC — a single classifier without splitting into stages (the baseline comparison scheme). 
+
+• Two-stage cascade (the proposed pipeline): stage 1 — binary triage by the malignancy probability 𝑃 (mal. ) with a tunable threshold 𝜃 (default value 𝜃 = 0 .50 ); images for which 𝑃 (mal. ) ≥ 𝜃 are routed to stage 2 — three-class differentiation MEL / SCC / BCC trained on malignant lesions. Benign lesions filtered out by stage 1 are output directly. As stage 1, in all cascade variants a single fixed binary classifier based on ConvNeXt-S was used — the most robust binary model on the internal sample (Table 3); only the stage-2 differentiator varied. This choice isolates the contribution of the nosological differentiator and provides all cascade variants with the same strong input triage stage. Separating the objective functions between stages makes it possible to tune the sensitivity threshold of stage 1 independently of the trade-offs of joint multiclass optimization. In a screening scenario the threshold can be lowered (e.g., to 𝜃 = 0 .15 ) to increase sensitivity; this principle is con-sistent with the mobile-dermoscopy screening methodology [12] and is used in the three-zone patient-routing algorithm in the clinical validation of the system [13].           
+
+> Dermoscopic image
+> Stage 1 binary classifier
+> 𝑃 (mal. )
+> ≥𝜃 ?
+> Stage 2 3-class MEL / SCC / BCC
+> Benign
+> Malignancy type
+> yes
+> no
+> Figure 1. Two-stage cascade classification scheme. Stage 1 triages by 𝑃 (malignancy )
+> with a tunable threshold 𝜃 ; stage 2 is activated at 𝑃 (malignancy )≥𝜃 and outputs the nosological class MEL / SCC / BCC. Stage 2 in the standalone (3-class) scheme is applied only to malignant lesions
+
+1.3 Compared architectures and training protocol 
+
+Four architectures were compared (Table 2), initialized with ImageNet-pretrained weights. 7Table 2. Compared architectures          
+
+> Architecture Backbone (torchvision )Type Key feature ViT-B/16 [14] vit_b_16 Trans-former Global self-attention; 16 ×16 patch tokens Swin-S [15] swin_s Trans-former Hierarchical attention in shifted windows ConvNeXt-S [16] convnext_small Convolu-tional Modernized CNN, aligned with transformers EfficientNetV2-S [17]
+> efficientnet_v2_s Convolu-tional Scalable CNN with progressive training
+
+Transfer learning. All four architectures were initialized with ImageNet-pretrained weights (transfer learning): the convolutional or trans-former backbone is transferred from the general image-recognition task, while the classification head for the target number of classes is initialized randomly and trained from scratch. The backbone is not frozen — all layers of the net-work are fine-tuned (full fine-tuning), which allows low-level features to be adapted to the specifics of dermoscopic images. Training from scratch (with-out pretraining) on the available amount of data is not competitive for such large models, so transferring ImageNet features is a standard and obligatory element of the methodology. 
+
+Training protocol (identical for all architectures and schemes). A unified head was placed on top of each backbone: Linear (𝑑 features →
+
+512 ) → BatchNorm1d (512) → Linear (512 → num_classes), dropout = 0 . The optimizer is AdamW (lr = 10 −4, weight decay = 10 −2); the learning-rate schedule is a linear warm-up (10 000 steps, SequentialLR ) followed by co-sine annealing (Figure 2); 30 epochs, batch size 16, mixed precision bf16 ,fixed random seed = 42 , a single NVIDIA A100 GPU; the final model is the best checkpoint by the validation metric val/f1_macro . The loss function is cross-entropy; the image size is 224 × 224 pixels; normalization by the training-set statistics; a single set of augmentations (geometric — transpose, flips, rotations; photometric — ColorJitter, PlanckianJitter, Ran-domGamma, CLAHE; noise and blur — GaussNoise, GaussianBlur, Median-Blur; CoarseDropout). The class imbalance was compensated by weighting. Training and testing were carried out in 2026 on ISP RAS resources. 
+
+Metrics and statistical analysis. ROC-AUC, sensitivity, specificity, F-measure — for the binary stage; per-class and macro ROC-AUC, accuracy, macro-F1 — for the multiclass schemes. Owing to the small size of the ma-lignant part of the clinical datasets, exact 95 % Clopper–Pearson confidence intervals are given for sensitivity and specificity. For a formal comparison of architectures, the probabilistic predictions of each model for each image were stored, which made it possible to perform paired significance tests on identi-8cal samples. The difference in binary-stage ROC-AUC between architecture pairs was assessed with the DeLong test (two-sided; the 95 % AUC confi-dence intervals are also built on it); the difference in accuracy — with the exact McNemar test on paired predictions. For the stage-2 multiclass metrics (macro-F1, macro ROC-AUC), to which the DeLong test is inapplicable, the significance of differences and the 95 % confidence intervals were obtained by a paired stratified bootstrap (bootstrap — a resampling method by drawing with replacement; 5000 iterations, resampling preserving class sizes, common indices for all models). Additionally, the calibration of the binary-stage prob-abilities was assessed — the Brier score and the expected calibration error (ECE). The significance level is 𝛼 = 0 .05 ; for multiple pairwise comparisons, Holm-corrected 𝑝 -values are additionally reported. 0 5 10 15 20 25 30 
+
+> Epoch
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Learning rate, ×10  4
+> linear
+> warm-up
+> cosine annealing
+
+Figure 2. Learning-rate schedule: linear warm-up followed by cosine annealing (AdamW, peak value 10 −4)
+
+Training dynamics. The training curves for the four architectures (stage 2, three-class task) are shown in Figure 3. Owing to initialization with ImageNet weights, the validation macro-F1 reaches 0.70–0.81 already within the first 3–5 epochs — direct evidence of the effectiveness of feature transfer. After ≈the 7th epoch the validation loss begins to grow while the training loss continues to decrease (the classical overfitting regime), so the final model is selected by the best validation checkpoint rather than by the last epoch. The transformer and convolutional architectures show similar dynamics; Swin-S and ConvNeXt-S reach a somewhat higher validation plateau. 90 5 10 15 20 25 30 
+
+> Epoch
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> Loss
+
+(a) loss: train (solid) / val (dashed)       
+
+> 0510 15 20 25 30
+> Epoch
+> 0.650
+> 0.675
+> 0.700
+> 0.725
+> 0.750
+> 0.775
+> 0.800
+> 0.825
+> Validation macro F1
+
+(b) validation macro F1 
+
+> ViT-B/16
+> Swin-S
+> ConvNeXt-S
+> EfficientNetV2-S
+
+Figure 3. Learning curves (stage 2, MEL / SCC / BCC): (a) training (solid) and validation (dashed) loss; (b) validation macro F1. The vertical dotted line marks the onset of overfitting ( ≈epoch 7) 
+
+# 2 Results 
+
+2.1 Stage 1: binary classification 
+
+The binary-stage metrics (malignant / benign) are given in Table 3; the ROC curves with the areas under them and 95 % confidence intervals (DeLong) for all architectures and datasets are shown in Figure 4. 
+
+Table 3. Binary classification metrics (malignant / benign) by architecture and test set 
+
+Architecture AUC Sens. Spec. F1 
+
+Internal held-out set 
+
+ViT-B/16 0.952 0.710 0.955 0.746 Swin-S 0.966 0.802 0.956 0.805 
+
+ConvNeXt-S 0.965 0.782 0.955 0.792 EfficientNetV2-S 0.960 0.789 0.958 0.801 
+
+Melanoscope 
+
+ViT-B/16 0.956 0.591 0.971 0.542 Swin-S 0.951 0.727 0.973 0.640 ConvNeXt-S 0.959 0.727 0.987 0.727 
+
+EfficientNetV2-S 0.946 0.773 0.973 0.667 
+
+Sechenov University 
+
+ViT-B/16 0.797 0.526 1.000 0.690 Swin-S 0.891 0.614 1.000 0.761 ConvNeXt-S 0.858 0.667 0.950 0.792 
+
+EfficientNetV2-S 0.893 0.561 1.000 0.719 
+
+On the internal held-out sample all four architectures show similar 10 quality (ROC-AUC 0.952–0.966), with a slight advantage of Swin-S. On the Melanoscope dataset the quality is preserved (ROC-AUC 0.946–0.959), but on the Sechenov University dataset a noticeable decline is observed: ROC-AUC drops to 0.797–0.893, and sensitivity to 0.53–0.67. This is direct quan-titative evidence of the generalization gap between the training distribution and independent clinical practice. Notably, on the most difficult external dataset the convolutional and window-transformer architectures (ConvNeXt-S, EfficientNetV2-S, Swin-S) outperform ViT-B/16 in ROC-AUC, i.e., at the binary triage stage the advantage of global self-attention does not manifest. 0.0 0.5 1.0           
+
+> 1Specificity (FPR)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Sensitivity (TPR)
+> (a) Internal held-out set
+> n= 20602 (malignant 3899)
+> AUC [95% CI]
+> ViT-B/16: 0.952 [0.95 0.96]
+> Swin-S: 0.966 [0.96 0.97]
+> ConvNeXt-S: 0.965 [0.96 0.97]
+> EfficientNetV2-S: 0.960 [0.96 0.96]
+> 0.0 0.5 1.0
+> 1Specificity (FPR)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> (b) Melanoscope
+> n= 472 (malignant 22)
+> AUC [95% CI]
+> ViT-B/16: 0.956 [0.92 0.99]
+> Swin-S: 0.951 [0.89 1.00]
+> ConvNeXt-S: 0.959 [0.92 0.99]
+> EfficientNetV2-S: 0.946 [0.90 1.00]
+> 0.0 0.5 1.0
+> 1Specificity (FPR)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> (c) Sechenov University
+> n= 77 (malignant 57)
+> AUC [95% CI]
+> ViT-B/16: 0.797 [0.70 0.89]
+> Swin-S: 0.891 [0.82 0.96]
+> ConvNeXt-S: 0.858 [0.77 0.94]
+> EfficientNetV2-S: 0.893 [0.82 0.96]
+
+Figure 4. Binary-stage ROC curves (malignant / benign) for four architectures on three test sets; the legend shows the area under the curve with its 95 % DeLong confidence interval. The generalization gap on the Sechenov University dataset is visible: the curves drop and the confidence intervals widen as the sample size decreases 
+
+Owing to the small size of the malignant part of the clinical datasets, Table 4 gives exact 95 % (Clopper–Pearson) confidence intervals for the sensi-tivity and specificity of the binary stage. The sensitivity confidence intervals are wide (the malignant sample sizes are 22 and 57, respectively), so the inter-architecture differences in sensitivity overlap; what is robust at the level of individual metrics is the systemic conclusion — the decline in sensitivity on both clinical datasets compared with the internal sample. Specificity is esti-mated on a large number of benign lesions and has narrow intervals. A formal significance test of the differences in ROC-AUC and accuracy is given below. 11 Table 4. Binary-stage sensitivity and specificity on the clinical datasets with exact 95 % Clopper–Pearson confidence intervals                           
+
+> Architecture Sens. [95 % CI] Spec. [95 % CI]
+> Melanoscope (malignant 𝑛 = 22 , benign 𝑛 = 450 )
+> ViT-B/16 0.591 [0.364–0.793] 0.971 [0.951–0.985] Swin-S 0.727 [0.498–0.893] 0.973 [0.954–0.986] ConvNeXt-S 0.727 [0.498–0.893] 0.987 [0.971–0.995] EfficientNetV2-S 0.773 [0.546–0.922] 0.973 [0.954–0.986]
+> Sechenov University (malignant 𝑛 = 57 , benign 𝑛 = 20 )
+> ViT-B/16 0.526 [0.390–0.660] 1.000 [0.832–1.000] Swin-S 0.614 [0.476–0.740] 1.000 [0.832–1.000] ConvNeXt-S 0.667 [0.529–0.786] 0.950 [0.751–0.999] EfficientNetV2-S 0.561 [0.424–0.693] 1.000 [0.832–1.000]
+
+Statistical significance of differences between architectures. 
+
+To separate robust differences from sample noise, a pairwise comparison of architectures was performed with the DeLong test (ROC-AUC) and the ex-act McNemar test (accuracy) on identical samples. The results for the most difficult external dataset (Sechenov University) are given in Table 5. On this dataset ViT-B/16 is statistically significantly inferior in ROC-AUC to two architectures — Swin-S ( ΔAUC = 0 .094 , 𝑝 = 0 .006 ) and EfficientNetV2-S (ΔAUC = 0 .096 , 𝑝 = 0 .035 ); the gap from ConvNeXt-S has the same di-rection but does not reach significance ( 𝑝 = 0 .087 ). At the same time, the differences within the top three (Swin-S, ConvNeXt-S, EfficientNetV2-S) are not statistically confirmed: in particular, the formally noticeable superiority of Swin-S 0.891 over ConvNeXt-S 0.858 is not significant ( ΔAUC = 0 .033 ,
+
+𝑝 = 0 .15 ) and should be treated as sample noise. Thus, what is statisti-cally proven is precisely the systemic conclusion — at the binary triage stage on a difficult external dataset ViT-B/16 is inferior to the convolutional and window-transformer architectures, whereas the ranking within the latter is not substantiated. On the Melanoscope dataset (only 22 malignant lesions) none of the pairwise ROC-AUC differences are significant (all 𝑝 > 0.3). On the internal held-out sample ( 𝑛 = 20 ,602 ) all inter-architecture differ-ences are significant owing to the large size, but are small in magnitude (ΔAUC ≤ 0.013 ) and of no practical importance. 12 Table 5. Pairwise architecture comparison at the binary stage, Sechenov University dataset ( 𝑛 = 77 ): ΔROC-AUC with DeLong 𝑝 -value, and exact McNemar 𝑝 -value for accuracy. Significant differences ( 𝑝 < 0.05 ) are shown in bold                        
+
+> Architecture pair ΔAUC 𝑝 (DeLong) 𝑝 (McNemar) ViT-B/16 / Swin-S −0.094 0.006 0.180 ViT-B/16 / ConvNeXt-S −0.061 0.087 0.039
+> ViT-B/16 / EfficientNetV2-S −0.096 0.035 0.791 Swin-S / ConvNeXt-S +0 .033 0.154 0.754 Swin-S / EfficientNetV2-S −0.002 0.952 0.607 ConvNeXt-S / EfficientNetV2-S −0.035 0.292 0.227
+
+The given 𝑝 -values relate to individual comparisons and are not corrected for multiplicity. After the Holm correction over six pairs, the only difference that remains significant is for the pair ViT-B/16 / Swin-S (DeLong, corrected 𝑝 = 0.036 ); the borderline results (DeLong ViT-B/16 / EfficientNetV2-S and McNemar ViT-B/16 / ConvNeXt-S, raw 𝑝 ≈
+
+0.04 ) do not retain significance after correction. This is consistent with a con-servative reading: the statistically most robust effect is precisely the deficit of ViT-B/16 relative to Swin-S at the binary triage stage. 
+
+2.2 Calibration of binary-stage probabilities 
+
+ROC-AUC characterizes only the ranking ability of a model and is in-variant to a monotone transformation of probabilities. However, the cascade scheme makes its decision by the absolute value of 𝑃 (mal. ) relative to the threshold 𝜃 , so calibration — the correspondence of predicted probabilities to actual frequencies — is of practical importance. Calibration was assessed by the Brier score and the expected calibration error (ECE, expected calibration error; the deviation of the mean predicted probability from the actual frac-tion, averaged over 10 bins); the results are given in Table 6, the reliability diagrams — in Figure 5. 
+
+Table 6. Binary-stage probability calibration: Brier score and expected calibration error (ECE). Lower is better                                 
+
+> Architecture Internal Melanoscope Sechenov Univ. Brier ECE Brier ECE Brier ECE ViT-B/16 0.067 0.016 0.038 0.062 0.311 0.386 Swin-S 0.057 0.030 0.027 0.022 0.258 0.296 ConvNeXt-S 0.056 0.015 0.027 0.046 0.216 0.271
+> EfficientNetV2-S 0.057 0.025 0.030 0.028 0.285 0.333
+
+On the internal sample and the Melanoscope dataset the models are well calibrated (ECE 0.015–0.062). On the Sechenov University dataset cali-13 bration sharply degrades: ECE rises to 0.27–0.39, the Brier score — to 0.22– 0.31. The reliability diagrams (Figure 5) show that on this dataset the curves lie above the diagonal: at a low predicted probability of malignancy the ac-tual fraction of malignant lesions turns out to be substantially higher — the models systematically underestimate malignancy. The calibration error has a clinically unfavorable direction: at a fixed threshold 𝜃 some truly malignant lesions receive 𝑃 (mal. ) < 𝜃 and are filtered out, which is directly related to the observed drop in sensitivity (Section 2.1). The source of this error should be separated. A significant part of it is a shift of the prior class distribution (in the Sechenov University dataset 74 % of lesions are malignant versus ≈21 % in training), correctable by base-rate correction: correcting the logits for the difference in class prior probabilities reduces the ECE roughly by half (for ViT-B/16 from 0.386 to 0.184, for ConvNeXt-S from 0.271 to 0.102). This means that part of the calibration gap is a consequence of the composition of the clinical sample rather than a feature-distribution shift, and is removable by tuning the threshold and the class prior probabilities on the target data. However, even after correcting the prior distribution a residual calibration error remains (0.10–0.19), and single-parameter temperature scaling hardly removes it; in parallel, the drop in ranking ability persists (ROC-AUC from 0.95–0.97 to 0.80–0.89), invari-ant to any monotone recalibration. Thus, the generalization gap is composed of a correctable component (prior-distribution shift) and a component irre-ducible by recalibration (residual calibration error and ROC-AUC decline); the practical conclusion is that before clinical deployment both recalibra-tion on the target distribution and separate tuning of the stage-1 threshold (Section 2.5) are mandatory, but they remove the gap only partially. 14 0.00 0.25 0.50 0.75 1.00 
+
+Predicted P(malignant)     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Observed malignant fraction  (a) Internal held-out set
+> ViT-B/16 (ECE=0.02)
+> Swin-S (ECE=0.03)
+> ConvNeXt-S (ECE=0.02)
+> EfficientNetV2-S (ECE=0.02)
+> 0.00 0.25 0.50 0.75 1.00
+
+Predicted P(malignant)     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> (b) Melanoscope
+> ViT-B/16 (ECE=0.06)
+> Swin-S (ECE=0.02)
+> ConvNeXt-S (ECE=0.05)
+> EfficientNetV2-S (ECE=0.03)
+> 0.00 0.25 0.50 0.75 1.00
+
+Predicted P(malignant) 
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> (c) Sechenov University
+> ViT-B/16 (ECE=0.39)
+> Swin-S (ECE=0.30)
+> ConvNeXt-S (ECE=0.27)
+> EfficientNetV2-S (ECE=0.33)
+
+Figure 5. Binary-stage reliability diagrams: observed malignant fraction vs predicted 
+
+𝑃 (malignancy ) (grouped into 5 bins for display; the ECE values in the legend and in Table 6 use 10 bins). Perfect calibration is the diagonal. On the Sechenov University dataset the curves lie above the diagonal (malignancy is underestimated) 
+
+2.3 Stage 2: three-class differentiation of malignant le-sions 
+
+The metrics of three-class differentiation (MEL / SCC / BCC) on ma-lignant lesions are given in Table 7. The confusion matrix of ViT-B/16 on the Sechenov University dataset is shown in Figure 6. 
+
+Table 7. Malignant-type differentiation (MEL / SCC / BCC): macro ROC-AUC, accuracy, macro F1 
+
+Architecture macro AUC Accuracy macro F1 
+
+Internal held-out set 
+
+ViT-B/16 0.949 0.860 0.794 Swin-S 0.963 0.890 0.841 ConvNeXt-S 0.966 0.895 0.845 
+
+EfficientNetV2-S 0.953 0.873 0.816 
+
+Melanoscope, 𝑛 = 22 
+
+ViT-B/16 1.000 0.955 0.965 
+
+Swin-S 0.849 0.818 0.574 ConvNeXt-S 0.835 0.773 0.564 EfficientNetV2-S 0.943 0.773 0.552 
+
+Sechenov University, 𝑛 = 57 
+
+ViT-B/16 0.944 0.790 0.749 Swin-S 0.952 0.877 0.823 
+
+ConvNeXt-S 0.941 0.790 0.744 EfficientNetV2-S 0.928 0.790 0.740 
+
+In nosological-type differentiation the picture differs from the binary 15 stage. On the Melanoscope dataset ViT-B/16 formally shows the highest con-sistency (macro-F1 = 0.965 versus 0.55–0.57 for the other architectures), but this value cannot be regarded as a reliable estimate: the dataset contains only 
+
+𝑛 = 22 malignant lesions, of which a single SCC case, so macro-averaging over three classes is extremely unstable (one correct SCC prediction gives a perfect contribution of that class). On the larger-by-malignant Sechenov University dataset ( 𝑛 = 57 ) Swin-S numerically leads (macro-F1 0.823 [95 % bootstrap CI 0.704–0.930] versus 0.749 [0.643–0.855] for ViT-B/16), but the paired bootstrap does not confirm the significance of the difference ( ΔF1 = 0 .074 ,
+
+𝑝 = 0 .16 ); none of the pairwise differences in macro-F1 or macro ROC-AUC between the four architectures on this dataset reaches 𝑝 < 0.05 . Conse-quently, on clinical data no architecture has a statistically proven advantage at the nosological-type differentiation stage. The main source of errors is the erroneous assignment of basal cell carcinoma to melanoma and squamous cell carcinoma (Figure 6): of 23 BCC cases, 13 are correctly classified, whereas melanoma and squamous cell carcinoma are recognized almost without error. MEL SCC BCC        
+
+> Predicted class
+> MEL
+> SCC
+> BCC
+> True class
+> 26 02
+> 060
+> 4613
+> 0
+> 5
+> 10
+> 15
+> 20
+> 25
+> Figure 6. Confusion matrix of ViT-B/16 in three-class differentiation (MEL / SCC / BCC) on the Sechenov University dataset ( 𝑛 = 57 )
+
+The per-class stage-2 metrics on the Sechenov University dataset are given in Table 8. Melanoma and squamous cell carcinoma are recognized with high sensitivity (recall 0.86–1.00) for all architectures; the bottleneck is basal cell carcinoma (recall 0.52–0.78), which is consistent with the confusion matrix (Figure 6): part of BCC is erroneously assigned to melanoma and squamous cell carcinoma. The low precision for the SCC class is due to the small number of cases of this class ( 𝑛 = 6 ). 16 Table 8. Per-class stage-2 metrics (recall / precision) on the Sechenov University dataset. Class sizes: MEL — 28, SCC — 6, BCC — 23                                 
+
+> Architecture MEL SCC BCC recall prec. recall prec. recall prec. ViT-B/16 0.93 0.87 1.00 0.50 0.57 0.87 Swin-S 0.96 0.96 0.83 0.56 0.78 0.90 ConvNeXt-S 0.96 0.84 1.00 0.50 0.52 0.92 EfficientNetV2-S 0.86 0.96 0.83 0.45 0.70 0.76
+
+2.4 Cascade scheme versus single-stage classification 
+
+The end-to-end comparison of the cascade scheme (binary triage 
+
+→ three-class differentiation) with single-stage four-class classification by macro-F1 on the clinical datasets is given in Table 9 and Figure 7. 
+
+Table 9. Cascade (binary → 3-class) vs. single-stage 4-class classification: macro F1 on the clinical datasets                      
+
+> Architecture Melanoscope Sechenov Univ. single-stage cascade single-stage cascade ViT-B/16 0.517 0.836 0.514 0.622
+> Swin-S 0.550 0.564 0.607 0.652
+> ConvNeXt-S 0.598 0.552 0.581 0.603
+> EfficientNetV2-S 0.491 0.538 0.526 0.575
+
+The cascade scheme increases macro-F1 for most architecture × dataset combinations; the most pronounced gain is for ViT-B/16 (on the Melanoscope dataset 0.517 → 0.836). The exception is ConvNeXt-S on the Melanoscope dataset, where the single-stage scheme is slightly higher (0.598 versus 0.552). The advantage of the cascade is explained by the fact that stage 2 is trained to differentiate only the malignant types and is not forced to simultaneously hold the boundary with the numerous benign class. A paired significance test of the gain (macro-F1 — stratified bootstrap; accuracy — exact McNemar test on paired correctness on identical images) shows that the cascade gain is statistically significant only for ViT-B/16. Ro-bust is the result on the Sechenov University dataset ( ΔF1 = +0 .107 ; boot-strap 𝑝 = 0 .024 ; McNemar 𝑝 = 0 .039 ; the malignant class sizes are sufficient for the estimate). On the Melanoscope dataset formally ΔF1 = +0 .319 , but this value is inflated by the degenerate structure of the subsample: about 0.25 
+
+of the macro-F1 gain is contributed by a single SCC case ( 𝑛 = 1 ), which the single-stage scheme assigns to benign and the cascade — correctly; there-fore the magnitude of the gain on Melanoscope should not be interpreted quantitatively. For Swin-S, ConvNeXt-S, and EfficientNetV2-S the cascade 17 gain is small ( |ΔF1 | ≤ 0.05 ) and does not reach significance on any dataset (𝑝 ≥ 0.2). The mechanism of the gain on the Sechenov University dataset can be traced through the end-to-end confusion matrices. In the single-stage regime ViT-B/16 erroneously assigns to benign 30 of 57 malignant lesions — the largest fraction among the architectures (Swin-S — 22, ConvNeXt-S — 23, EfficientNetV2-S — 29), which is consistent with its least robust binary boundary (Section 2.1). In the cascade the triage task is solved not by the architecture itself but by the single fixed binary ConvNeXt-S (stage 1, Sec-tion 1.2), which at 𝜃 = 0 .50 passes 38 of 57 malignant lesions to differentiation (erroneously filters out 19); on the input it has filtered, the ViT-B/16 differ-entiator correctly recognizes 10 melanomas of 28 (versus 6 in the single-stage regime) and 12 basal cell carcinomas of 23 (versus 8). Thus, the cascade gain for ViT-B/16 is due not to an improvement in fine differentiation (at stage 2 this architecture does not outperform the others, Section 2.3), but to the replacement of its own weak binary separation by a common strong input triage stage that recovers the malignant lesions that the single-stage model “absorbs” into the dominant benign class. Since stage 1 is the same in all cascade variants, the gain is naturally concentrated in the architecture least robust at the binary boundary in the single-stage regime (ViT-B/16); for architectures already strong in binary separation, the common input triage stage yields no significant gain. ViT-B/16          
+
+> Swin-S
+> ConvNeXt-S
+> EfficientNetV2-S
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Macro F1
+> 0.52 0.55 0.60
+> 0.49
+> 0.84
+> 0.56 0.55 0.54
+> Melanoscope
+> ViT-B/16
+> Swin-S
+> ConvNeXt-S
+> EfficientNetV2-S
+> 0.51
+> 0.61 0.58
+> 0.53
+> 0.62 0.65 0.60 0.57
+> Sechenov University
+> Single-stage 4-class
+> Cascade (binary 3-class)
+
+Figure 7. Comparison of macro F1 of single-stage four-class and cascade (binary → 3-class) schemes across four architectures on two clinical datasets 
+
+The end-to-end operation of the cascade is illustrated by the combined 
+
+4 × 4 confusion matrix (Figure 8): the rows are the true class (benign, MEL, SCC, BCC), the columns are the final system decision (benign — the direct output of stage 1; MEL / SCC / BCC — the stage-2 class). It is seen that the 18 main loss of sensitivity occurs at stage 1: part of the melanomas and basal cell carcinomas ( 𝑃 (mal. ) < 𝜃 ) is filtered into benign before differentiation; among the lesions that passed the threshold, the nosological type is determined correctly in most cases. This confirms that to increase the sensitivity of the end-to-end system the primary lever is the stage-1 threshold rather than the stage-2 accuracy (Section 2.5). Benign MEL SCC BCC              
+
+> Predicted class
+> Benign
+> MEL
+> SCC
+> BCC
+> True class
+> 19 100
+> 16 10 02
+> 0060
+> 33512
+> 0.0
+> 2.5
+> 5.0
+> 7.5
+> 10.0
+> 12.5
+> 15.0
+> 17.5
+> Figure 8. End-to-end cascade confusion matrix, Sechenov University dataset ( 𝜃 = 0 .50 ). Stage 1 is a fixed ConvNeXt-S binary classifier (the “Benign” column is its direct output), stage 2 is the ViT-B/16 differentiator (columns MEL / SCC / BCC). Rows — true class, columns — final system decision
+
+2.5 Tuning the stage-1 operating point 
+
+The tunable threshold 𝜃 of stage 1 (the fixed binary ConvNeXt-S) makes it possible to control the sensitivity/specificity trade-off of the end-to-end system. On the Sechenov University dataset, lowering the threshold from the neutral 𝜃 = 0 .50 to 𝜃 = 0 .15 raises the sensitivity of malignant-lesion triage from 0.667 to 0.789 at the cost of a specificity decrease from 0.950 to 0.900; on the Melanoscope dataset — from 0.727 to 0.909 with a specificity decrease from 0.987 to 0.898. This confirms that separate tuning of the stage-1 threshold is a standard mechanism for adapting the system to the required safety level (priority of sensitivity in the screening regime), not attainable in a standard single-stage multiclass model that assigns the image to the most probable class without additional thresholding logic. The sensitivity values given in Table 3 correspond to the neutral operating point 𝜃 = 0 .50 ; lowering the threshold is consistent with the results of the clinical validation, where at 19 a lowered routing threshold no false-negative cases for malignant neoplasms were recorded [13]. 
+
+2.6 External benchmark: direct 11-class classification on ISIC MILK10k 
+
+For an independent assessment of the quality ceiling of direct multi-class classification, the results of the ISP RAS team (rank 27) on the open ISIC MILK10k benchmark [20] (EfficientNetV2-S architecture) are consid-ered. The evaluation was performed by the competition server on the closed (hidden) test part of MILK10k, which is not included in the publicly avail-able part of the dataset; therefore, although the publicly available MILK10k images are present in the training set (Section 1.1), the overlap of the train-ing data with the benchmark’s test part is excluded by the design of the competition itself. The full results are given in Table 10. 
+
+Table 10. 11-class EfficientNetV2-S on the ISIC MILK10k benchmark (Ivannikov ISP RAS, rank 27)                                                               
+
+> Metric Mean AKIEC BCC BEN BKL DF INF MAL MEL NV SCCKA VASC AUC 0.860 0.867 0.957 0.745 0.818 0.959 0.858 0.603 0.933 0.935 0.912 0.875 Accuracy 0.934 0.896 0.887 0.987 0.839 0.975 0.977 0.979 0.946 0.950 0.856 0.983 Sensitivity 0.525 0.606 0.934 0.143 0.310 0.667 0.273 0.100 0.667 0.635 0.846 0.600 Specificity 0.962 0.946 0.880 1.000 0.979 0.979 0.994 0.998 0.970 0.988 0.859 0.987 BMA 0.527 —
+
+Classes: AKIEC — actinic keratosis/intraepithelial carcinoma; BCC — basal cell carci-noma; BEN — other benign; BKL — benign keratosis; DF — dermatofibroma; INF — infectious; MAL — other malignant; MEL — melanoma; NV — nevus; SCCKA — squa-mous cell carcinoma/keratoacanthoma; VASC — vascular. BMA — balanced multiclass accuracy. 
+
+In direct 11-class classification, the high overall accuracy (0.934) is combined with a low mean-class sensitivity (0.525) and balanced multiclass accuracy (BMA = 0.527): the high accuracy masks the unsatisfactory de-tectability of rare classes. This illustrates the general drawback of the single-stage multiclass scheme and justifies the separation of a binary triage stage with a tunable threshold. 
+
+# 3 Discussion 
+
+3.1 The architecture depends on the stage 
+
+The only statistically confirmed inter-architecture difference on clinical data relates to the binary triage stage: on the most difficult external dataset 20 (Sechenov University) ViT-B/16 is significantly inferior in ROC-AUC to the window-transformer Swin-S and the convolutional EfficientNetV2-S (DeLong test, 𝑝 = 0 .006 and 𝑝 = 0 .035 ; the gap from ConvNeXt-S is of the same di-rection, 𝑝 = 0 .087 ). At the same time, the differences within the top three are not significant (e.g., Swin-S 0.891 versus ConvNeXt-S 0.858, 𝑝 = 0 .15 ), so the data do not allow ranking these three architectures relative to one an-other. At the nosological-type differentiation stage (MEL / SCC / BCC) on the clinical datasets, no architecture has a statistically significant advantage in macro-F1 or macro ROC-AUC (paired bootstrap, all 𝑝 ≥ 0.05 ); the nu-merically higher value of ViT-B/16 on the Melanoscope dataset is due to the degenerate structure of the subsample (a single SCC case) and is not reproduced on the Sechenov University dataset. Thus, only the deficit of ViT-B/16 at the binary triage stage on difficult external data is reliably es-tablished — possibly because the “malignant / benign” triage relies on local features, whereas the global self-attention of ViT performs worse than hierar-chical and convolutional models under a distribution shift. This result deter-mines the engineering decision in the proposed pipeline: at the triage stage, where the inter-architecture differences are significant, the most robust bi-nary model (ConvNeXt-S) is fixed, whereas at the differentiation stage, where no architecture has a proven advantage, the choice of the second stage is not critical and may be determined by other considerations (speed, model size). The thesis of separately assigning the “optimal” architecture to each stage should be treated as a design principle rather than a proven result: signifi-cance is established only for the deficit of ViT-B/16 at the binary boundary, while confirmation of fine ranking at the differentiation stage requires larger clinical samples. 
+
+3.2 Cascade versus single-stage classification 
+
+The gain of the cascade scheme is architecture-specific. Although nu-merically macro-F1 grows for most combinations (Table 9), the paired tests (bootstrap for macro-F1, McNemar test for accuracy) confirm the significance of the gain only for ViT-B/16 (Sechenov University dataset, 𝑝 < 0.05 ); for Swin-S, ConvNeXt-S, and EfficientNetV2-S the gain does not exceed sample noise. This result should not be interpreted as a universal benefit of cas-cading — it points to a specific mechanism. ViT-B/16 in the single-stage four-class regime systematically loses on the “malignant / benign” separation (Section 2.1, where it is significantly inferior in ROC-AUC) and therefore assigns to benign the largest fraction of malignant lesions among the archi-tectures. The cascade moves the binary boundary into a separate stage with its own decision rule, removing the competition of malignant subtypes with 21 the numerous benign class, and thereby recovers exactly the deficit that man-ifests in ViT-B/16. Architectures already robust at the binary boundary do not have this structural defect, and separating an independent triage stage yields them no significant macro-F1 gain — although the sensitivity-control mechanism via a tunable threshold (Section 2.5) remains useful for all archi-tectures regardless of the F1 gain. The MILK10k benchmark (Section 2.6) shows the flip side of the single-stage approach — a drop in mean-class sensi-tivity to 0.525 at a high overall accuracy. The cascade scheme with a tunable stage-1 threshold (Section 2.5) provides an engineering mechanism for sensi-tivity control that is not directly attainable in a standard single-stage model that selects the most probable class without additional thresholding logic. 
+
+3.3 The generalization gap 
+
+The decline in binary-stage ROC-AUC from 0.95–0.97 on the internal sample to 0.80–0.89 on the Sechenov University dataset and the drop in sensi-tivity to 0.53–0.67 is a quantitative characterization of the generalization gap when a model trained on open international datasets is transferred to inde-pendent clinical practice. The gap also manifests in the second dimension — probability calibration: the expected calibration error rises from 0.02 on the internal sample to 0.27–0.39 on the Sechenov University dataset (Section 2.2), and in a clinically unfavorable direction — the models underestimate malig-nancy. These two dimensions have a different nature: the ROC-AUC decline reflects a feature-distribution shift and is invariant to recalibration, whereas the calibration gap is partly explained by a shift of the base class rate in the clinical sample (correctable by prior-distribution correction, Section 2.2) and only in the residual part — by calibration error proper. The single aug-mentation protocol during training plays the role of regularization but does not remove the ranking gap. The obtained result is consistent with known observations of the decline of dermatological ML systems on independent clinical data [7, 8] and underscores the obligatory nature of external clinical validation before deployment. 
+
+3.4 Limitations 
+
+The main limitation is the small size of the clinical samples and the limited statistical power. The Melanoscope subsample contains only 22 ma-lignant lesions (including a single SCC case), the Sechenov set — 57. At such sizes the per-class and macro metrics have wide confidence intervals, and individual values are unstable: the macro-F1 = 0.965 of ViT-B/16 on Melanoscope is technically achievable with a single correct prediction for the 22 SCC class ( 𝑛 = 1 ) and is not a reliable estimate. The paired tests performed (DeLong for ROC-AUC, exact McNemar for accuracy, stratified bootstrap for the multiclass metrics) make it possible to separate robust differences from noise, but their power is limited: at the nosological-type differentiation stage the differences between architectures do not reach significance, and it cannot be excluded that some of them are real but not detected at the cur-rent sizes (type II error). What is confirmed is only the deficit of ViT-B/16 at the binary triage stage on the Sechenov University dataset and the systemic decline of metrics on transfer to clinical data. In view of this, the obtained estimates on the clinical datasets should be regarded as a preliminary exter-nal validation rather than as a sufficient basis for clinical deployment without further prospective multicenter verification. 
+
+Multiplicity of comparisons and power. After the Holm correction over six pairwise comparisons, only the difference ViT-B/16 / Swin-S at the binary triage stage remains robust (Section 2.1); the borderline results ( 𝑝 ≈ 0.04 ) do not retain significance. Given the small size of the clinical samples, a type II error for real but undetected differences cannot be excluded. Expanding the clinical samples (a multicenter dataset) and pre-registering the set of com-parisons are subjects of further work. Other limitations. The comparison is limited to two clinical datasets — generalization to other institutions and regions requires multicenter verifica-tion. A single training protocol and a fixed set of augmentations were used; per-architecture hyperparameter tuning could change the relative order. The MILK10k benchmark was obtained on a different class nomenclature and serves only as an illustration of the limit of the single-stage multiclass scheme rather than a direct comparison with the proposed pipeline. 
+
+# Conclusion 
+
+This work carried out a systematic comparison of four deep-learning architectures (ViT-B/16, Swin-S, ConvNeXt-S, EfficientNetV2-S) and three classification schemes for dermoscopic images on identical training data and identical test sets, including two independent clinical datasets of Russian practice. 
+
+Main results: 
+
+1. The relative advantage of an architecture depends on the stage, but only the deficit of ViT-B/16 at the binary triage stage on the most difficult external dataset (Sechenov University) is statistically reliably established: it is significantly inferior in ROC-AUC to Swin-S and EfficientNetV2-S (DeLong, 𝑝 < 0.05 ), whereas the differences within 23 the top three are not significant. At the nosological-type differentiation stage no architecture has a statistically proven advantage on clinical data. Therefore, in the proposed pipeline the triage stage is fixed on the most robust binary model (ConvNeXt-S), and the choice of the dif-ferentiator architecture is not critical; the separate assignment of the “optimal” architecture to the stages remains a design principle rather than a proven result. 2. The benefit of the cascade scheme (binary triage → three-class differen-tiation) is architecture-specific: a statistically significant macro-F1 gain over single-stage four-class classification is confirmed only for ViT-B/16 (Sechenov University dataset, ΔF1 = +0 .107 , 𝑝 < 0.05 , bootstrap and McNemar test), whereas for Swin-S, ConvNeXt-S, and EfficientNetV2-S the gain is not statistically confirmed. The mechanism is the recovery of malignant lesions that the single-stage model assigns to the dominant benign class: the cascade is most useful to the architecture that sepa-rates malignant and benign worst of all. Regardless of the F1 gain, the cascade provides all architectures with a sensitivity-control mechanism via the tunable stage-1 threshold. 3. The generalization gap is quantitatively characterized in two dimen-sions: the binary-stage ROC-AUC declines from 0.95–0.97 on the in-ternal sample to 0.80–0.89 on the Sechenov University dataset (feature shift, irreducible by recalibration), and the calibration error (ECE) rises from 0.02 to 0.27–0.39 with underestimation of malignancy (partly ex-plained by a base class-rate shift and correctable by recalibration on the target distribution). This justifies the obligatory nature of external validation and recalibration before deployment. 4. The external ISIC MILK10k benchmark (rank 27) additionally illus-trates the limitation of direct 11-class classification in sensitivity to rare clinically prioritized classes (mean-class sensitivity 0.525 at a high overall accuracy). 
+
+Practical significance. Comparing architectures and schemes un-der identical conditions provides reproducible guidelines for designing ML pipelines for skin-neoplasm diagnosis in medical information systems. The cascade scheme with separate tuning of the triage stage provides sensitivity control — an obligatory condition for safe clinical use. The persistent gen-eralization gap on external clinical datasets determines the need for clinical validation before deployment. 24 Ethics 
+
+The study is retrospective and was performed on de-identified dermo-scopic images: the data were processed in anonymized form that does not allow patient identification and were used for research purposes only. The work was conducted in accordance with the principles of the Declaration of Helsinki of the World Medical Association. The clinical-dataset images were obtained during routine diagnostic examination; no personal data were included in the analysis. 
+
+# Funding 
+
+The work was carried out within the research plan of the Ivannikov Institute for System Programming of the Russian Academy of Sciences; the study had no external funding. 
+
+# Conflict of interests 
+
+The authors declare no conflict of interests related to the publication of this article. 
+
+# References References 
+
+[1] Esteva A., Kuprel B., Novoa R. A., Ko J., Swetter S. M., Blau H. M., Thrun S. Dermatologist-level classification of skin can-cer with deep neural networks. Nature . 2017;542(7639):115–118. https://doi.org/10.1038/nature21056. [2] Brinker T. J., Hekler A., Enk A. H., Berking C., Haferkamp S., Hauschild A., Weichenthal M., Klode J., Schadendorf D., Holland-Letz T., von Kalle C., Fröhling S., Schilling B., Utikal J. S. Deep learn-ing outperformed 136 of 157 dermatologists in a head-to-head dermo-scopic melanoma image classification task. European Journal of Cancer .2019;113:47–54. https://doi.org/10.1016/j.ejca.2019.04.001. [3] Maron R. C., Weichenthal M., Utikal J. S., Hekler A., Berk-ing C., Hauschild A., Enk A. H., Haferkamp S., Klode J., Schaden-dorf D., Jansen P., Holland-Letz T., Schilling B., von Kalle C., 25 Fröhling S., Gaiser M. R., Hartmann D., Gesierich A., Käm-merer U., Brinker T. J. Systematic outperformance of 112 derma-tologists in multiclass skin cancer image classification by convolu-tional neural networks. European Journal of Cancer . 2019;119:57–65. https://doi.org/10.1016/j.ejca.2019.06.013. [4] Tschandl P., Rosendahl C., Kittler H. The HAM10000 dataset, a large collection of multi-source dermatoscopic images of com-mon pigmented skin lesions. Scientific Data . 2018;5:180161. https://doi.org/10.1038/sdata.2018.161. [5] Codella N., Rotemberg V., Tschandl P., Celebi M. E., Dusza S., Gut-man D., Helba B., Kalloo A., Liopyris K., Marchetti M., Kittler H., Halpern A. Skin lesion analysis toward melanoma detection 2018: A chal-lenge hosted by the International Skin Imaging Collaboration (ISIC). arXiv:1902.03368. 2019. https://doi.org/10.48550/arXiv.1902.03368. [6] Kouw W. M., Loog M. An introduction to domain adaptation and trans-fer learning. arXiv:1812.11806. 2018. [7] Daneshjou R., Vodrahalli K., Novoa R. A., Jenkins M., Liang W., Rotemberg V., Ko J., Swetter S. M., Bailey E. E., Gevaert O., Mukherjee P., Phung M., Yekrang K., Fong B., Sahasrabudhe R., Allerup J. A. C., Okata-Karigane U., Zou J., Chiou A. S. Dis-parities in dermatology AI performance on a diverse, cu-rated clinical image set. Science Advances . 2022;8(31):eabq6147. https://doi.org/10.1126/sciadv.abq6147. [8] Combalia M., Codella N., Rotemberg V., Carrera C., Dusza S., Gutman D., Helba B., Kittler H., Kurtansky N. R., Liopyris K., Marchetti M. A., Podlipnik S., Puig S., Rinner C., Tschandl P., We-ber J., Halpern A., Malvehy J. Validation of AI prediction mod-els for skin cancer diagnosis using dermoscopy images: the 2019 ISIC grand challenge. The Lancet Digital Health . 2022;4(5):e330–e339. https://doi.org/10.1016/S2589-7500(22)00021-8. [9] Rotemberg V., Kurtansky N., Betz-Stablein B. et al. A patient-centric dataset of images and metadata for identifying melanomas using clinical context. Scientific Data . 2021;8(1):34. https://doi.org/10.1038/s41597-021-00815-z. [10] Kozachok E. S. Methodology for Creating a Clinically Verified Der-moscopic Image Dataset. Preprint. 2026. arXiv:2605.25168 [cs.CV]. https://doi.org/10.48550/arXiv.2605.25168. 26 [11] Kozachok E. S. [A dermoscopic image dataset with high-quality an-notation of clinically significant features for diagnosis of melanocytic skin lesions]. Izvestiya Yugo-Zapadnogo gosudarstvennogo universiteta .2025;15(3):93–111. (In Russ.) https://doi.org/10.21869/2223-1536-2025-15-3-93-111. [12] Kozachok E. S., Seregin S. S., Kozachok A. V., Eletskiy K. V., Samovarov O. I. [Screening methodology for early differ-ential diagnosis of skin lesions using mobile dermoscopy]. 
+
+Vrach i informatsionnye tekhnologii . 2025;(3):50–64. (In Russ.) https://doi.org/10.25881/18110193_2025_3_50. [13] Kozachok E. S., Seregin S. S. [Clinical Validation of the Melanoscope AI Mobile Dermoscopy Clinical Decision Support System]. Preprint. 2026. arXiv:2605.27561 [cs.CV]. (In Russ.) https://doi.org/10.48550/arXiv.2605.27561. [14] Dosovitskiy A., Beyer L., Kolesnikov A., Weissenborn D., Zhai X., Unterthiner T., Dehghani M., Minderer M., Heigold G., Gelly S., Uszkoreit J., Houlsby N. An image is worth 16 ×16 words: Trans-formers for image recognition at scale. Proceedings of ICLR . 2021. https://doi.org/10.48550/arXiv.2010.11929. [15] Liu Z., Lin Y., Cao Y., Hu H., Wei Y., Zhang Z., Lin S., Guo B. Swin Transformer: hierarchical vision transformer using shifted windows. Proceedings of IEEE/CVF ICCV . 2021:10012–10022. https://doi.org/10.1109/ICCV48922.2021.00986. [16] Liu Z., Mao H., Wu C.-Y., Feichtenhofer C., Darrell T., Xie S. A Con-vNet for the 2020s. Proceedings of IEEE/CVF CVPR . 2022:11976– 11986. https://doi.org/10.1109/CVPR52688.2022.01167. [17] Tan M., Le Q. EfficientNetV2: smaller models and faster training. Pro-ceedings of ICML . 2021;139:10096–10106. [18] Zhang X., Liu Y., Ouyang G., Chen W., Xu A., Hara T., Zhou X., Wu D. DermViT: Diagnosis-Guided Vision Transformer for Robust and Efficient Skin Lesion Classification. Bioengineering . 2025;12(4):421. https://doi.org/10.3390/bioengineering12040421. [19] Yu Z., et al. Hierarchical skin lesion image classification with prototypical decision tree. npj Digital Medicine . 2025;8:26. https://doi.org/10.1038/s41746-024-01395-z. 27 [20] ISIC MILK10k Challenge. International Skin Imaging Col-laboration. 2024. Available from: https://challenge.isic-archive.com/leaderboards/milk10k/. 28

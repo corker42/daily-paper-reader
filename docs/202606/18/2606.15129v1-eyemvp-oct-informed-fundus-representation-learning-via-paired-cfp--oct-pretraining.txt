@@ -1,0 +1,558 @@
+Title: EyeMVP: OCT-Informed Fundus Representation Learning via Paired CFP–OCT Pretraining
+
+URL Source: https://arxiv.org/pdf/2606.15129v1
+
+Published Time: Tue, 16 Jun 2026 00:28:12 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+> IEEE XXX 1
+
+# EyeMVP: OCT-Informed Fundus Representation Learning via Paired CFP–OCT Pretraining 
+
+Zhuo Deng *, Ruiheng Zhang *, Ziheng Zhang, Weihao Gao, Yitong Li, Qian Wang, Lei Shao, Jiaoyue Dong, Zhixi Zeng, Lijian Fang, Haibo Wang, Xiaobin Lin, Tao Liu, Zhicheng Du, Zhengwei Zhang, Lin Yang, Zheng Gong, Xinyu Zhao, Zhenquan Wu, Fang Li, Zhiguang Zhou, Guoming Zhang, Sun Jing, Han Lv, Wenbin Wei †, and Lan Ma †
+
+Abstract — Color fundus photography (CFP) is the main-stay for large-scale retinal screening, yet its diagnostic capacity is constrained by the lack of depth-resolved struc-tural information. Optical coherence tomography (OCT) provides cross-sectional retinal anatomy, but is less ac-cessible in population-level screening. Here, we present EyeMVP, a cross-modal retinal foundation model that uses paired CFP–OCT pretraining to learn OCT-informed CFP representations. EyeMVP is pretrained on 674,893 strict same-eye same-day paired CFP–OCT image triples from 112,642 patients across eight hospitals in China. The model uses cross-modal masked reconstruction to enrich CFP representations with OCT-associated supervision, while requiring only CFP images at inference. To accommo-date the non-aligned imaging geometry between en-face CFP and cross-sectional OCT, EyeMVP combines source-constrained cross-attention with CFP-derived structural masks. Across 16 downstream tasks, including classifica-tion, segmentation, few-shot adaptation, and cross-modal retrieval, EyeMVP outperforms representative retinal foun-dation models and shows consistent gains on tasks involv-ing macular and optic nerve structure. For CFP-challenging macular diseases, EyeMVP achieves an AUROC of 0.948 for macular edema (vs. 0.852 for EyeCLIP) and 0.825 for myopic 
+
+> ∗
+
+Zhuo Deng and Ruiheng Zhang contributed equally to this work. 
+
+> †
+
+Corresponding authors: Wenbin Wei (weiwenbintr@163.com) and Lan Ma (malan@sz.tsinghua.edu.cn). Z. Deng, Z.H. Zhang, W.H. Gao, Z.C. Du, Z. Gong, F. Li, and L. Ma are with Shenzhen International Graduate School, Tsinghua University, Shenzhen, China. R. Zhang, Y. Li, Q. Wang, L. Shao, J. Dong, Z.X. Zeng, and W. Wei are with Beijing Tongren Eye Center, Beijing Tongren Hospital, Capital Medical University, Beijing, China. L. Fang is with Liangxiang Hospital of Beijing Fangshan District, Capital Medical University, Beijing, China. H. Wang is with The Third People’s Hospital of Dalian, Dalian, China. X. Lin, L. Yang, and Z.G. Zhou are with the National Clinical Research Center for Endocrine and Metabolic Diseases, The Second Xiangya Hospital of Central South University, Changsha, China. T. Liu is with The Central Hospital of Baoji City, Baoji, China. Z.W. Zhang is with Wuxi No.2 People’s Hospital, Affiliated Wuxi Clinical College of Nantong University, Wuxi, China. X. Zhao, Z.Q. Wu, and G. Zhang are with Shenzhen Eye Hospital, Southern Medical University, Shenzhen, China. S. Jing and H. Lv are with Beijing Friendship Hospital, Capital Medical University, Beijing, China. This work was supported by Development and Reform Commission of Shenzhen Municipality (F-2024-Z99-503929), Shenzhen Medical Re-search Fund (C2401007), National Natural Science Foundation of China (82220108017, 82141128), The Capital Health Research and Develop-ment of Special (2024-1-2052), Science & Technology Project of Beijing Municipal Science & Technology Commission (Z201100005520045), and Sanming Project of Medicine in Shenzhen (SZSM202311018). 
+
+macular schisis. In an exploratory reader study, EyeMVP exceeds junior and intermediate ophthalmologist groups but does not reach senior ophthalmologist performance on macular edema, while showing numerically higher bal-anced accuracy than all reader groups on myopic macular schisis. These results suggest that pixel-level cross-modal reconstruction can enrich CFP representations with OCT-associated supervision, providing a practical route toward stronger CFP-based retinal analysis in screening settings. 
+
+Index Terms — Foundation model, cross-modal learning, optical coherence tomography, Color fundus photography. 
+
+I. I NTRODUCTION 
+
+# COLOR fundus photography (CFP) is the mainstay of large-scale retinal screening because it is inexpen-sive, rapid, and widely available. However, CFP is a two-dimensional en-face projection of the retinal surface and therefore provides only indirect information about depth-resolved retinal structure. Many clinically important abnor-malities, including macular edema, myopic macular schisis, intraretinal fluid, and optic nerve head deformation, are defined or confirmed by cross-sectional anatomy rather than by sur-face appearance alone. Optical coherence tomography (OCT) provides this layer-resolved structural information and has become central to modern retinal diagnosis, but its availability in population-level screening and resource-limited settings remains more restricted than CFP [1]–[3]. This gap motivates a practical representation learning question: can paired CFP– OCT data be used during pretraining to enrich CFP represen-tations with OCT-associated supervision, while requiring only CFP images at inference? Recent retinal foundation models have shown that self-supervised pretraining can substantially improve the transfer-ability of ophthalmic image representations [4]–[6]. Unimodal masked autoencoders such as RETFound [7] learn strong CFP features from large-scale fundus collections and gener-alize across multiple downstream tasks. Nevertheless, models trained only on CFP are limited by the information available in the input modality. They can learn rich appearance and texture patterns, but they receive no direct learning signal from cross-sectional retinal anatomy. This is particularly limiting for CFP-challenging diseases whose visual signs are subtle, indirect, or partially occult in fundus photographs.  
+
+> arXiv:2606.15129v1 [cs.CV] 13 Jun 2026 2IEEE XXX
+
+A natural strategy is to incorporate OCT during pretraining. Existing multimodal ophthalmic models, including VisionFM [8], EyeCLIP [9], Eyefound [10], and MIRAGE [11], have explored multimodal representation learning across retinal imaging modalities. Many of these approaches rely on image-level contrastive alignment or related global objectives, fol-lowing the broader success of contrastive image-language pretraining [12]. Such objectives are effective for learning semantic correspondence between modalities, but they do not explicitly exploit the pixel- or patch-level structural in-formation available in paired CFP–OCT data. For diseases whose diagnostic evidence depends on localized macular or optic nerve structure, global alignment may underuse the most informative cross-modal supervision. Masked reconstruction provides a more direct way to use cross-modal supervision between modalities. In principle, reconstructing OCT from CFP tokens can encourage the model to encode CFP features that are predictive of underly-ing retinal structure. However, applying standard multimodal masked autoencoding to CFP–OCT pairs is not straightfor-ward. Frameworks such as MAE [13] and MultiMAE [14] assume that modalities share a common spatial grid, as in RGB-depth or RGB-segmentation pairs. CFP and OCT violate this assumption: CFP represents the retinal surface in an en-face coordinate system, whereas OCT samples cross-sectional depth structure. A CFP patch and an OCT patch with the same image index do not correspond to the same physical retinal lo-cation. This non-aligned imaging geometry makes naive patch-level cross-modal reconstruction prone to learning superficial correlations rather than useful structural correspondence. In this work, we present EyeMVP, a cross-modal retinal foundation model designed to learn OCT-informed CFP rep-resentations from strict same-eye same-day paired CFP–OCT images. EyeMVP uses cross-modal masked reconstruction as the pretraining signal, but adapts it to the non-aligned geometry of CFP and OCT through two design choices. First, a source-constrained cross-attention decoder restricts cross-modal reconstruction to source-modality features, creating an information bottleneck that discourages local texture shortcuts. Second, CFP-derived structural masks provide anatomical an-chors, including the optic disc, macular region, and major vessels, to ground cross-modal learning without requiring explicit patch-level CFP–OCT registration. We pretrain EyeMVP on 674,893 strict same-eye same-day paired CFP–OCT image triples from 112,642 patients across eight hospitals in China. The pretrained CFP encoder is evaluated on 16 downstream tasks, including retinal disease classification, dense segmentation, few-shot adaptation, and cross-modal retrieval. Across these tasks, EyeMVP improves over representative retinal foundation models, with the largest gains on macular and optic nerve tasks where structural infor-mation is clinically important. For CFP-challenging macular disease classification, EyeMVP achieves an AUROC of 0.948 for macular edema and 0.825 for myopic macular schisis. An exploratory reader study further suggests that the learned CFP representation may provide useful support for macular conditions that are difficult to assess from fundus photographs alone. The main contributions of this work are:  
+
+> •
+
+We propose EyeMVP, an OCT-informed CFP representa-tion learning framework that uses paired CFP–OCT data during pretraining while requiring only CFP images at downstream inference.  
+
+> •
+
+We introduce a cross-modal masked reconstruction strat-egy tailored to the non-aligned imaging geometry of CFP and OCT, using source-constrained cross-attention to encourage prediction from the source modality rather than target-modality shortcuts.  
+
+> •
+
+We incorporate CFP-derived anatomical masks as struc-tural layout guidance during pretraining, providing coarse fundus landmarks without requiring explicit patch-level CFP–OCT registration.  
+
+> •
+
+We pretrain EyeMVP on 674,893 strict same-eye same-day CFP–OCT image triples from 112,642 patients and evaluate it across 16 downstream settings, showing con-sistent gains over representative retinal foundation mod-els, especially on macular and optic nerve tasks. 
+
+II. R ELATED WORK 
+
+A. OCT-Enhanced Fundus Image Analysis 
+
+CFP and OCT provide complementary views of retinal disease. CFP is widely available and captures en-face retinal appearance, whereas OCT provides cross-sectional structural information that is often required to confirm or quantify macular and optic nerve abnormalities [3], [15]. A line of prior work has therefore investigated whether OCT-derived labels or measurements can improve fundus-based analysis. Varadarajan et al. [16] trained deep learning models to predict OCT-derived center-involved diabetic macular edema and retinal fluid from fundus photographs, showing that CFP can contain indirect visual cues associated with OCT-defined disease. Similarly, Medeiros et al. [17] used OCT retinal nerve fiber layer measurements to supervise a model that predicts glaucomatous structural damage from optic disc photographs. These studies established the feasibility of learning OCT-associated informa-tion from CFP, but they were primarily task-specific supervised models rather than general-purpose pretraining frameworks. More recent work has explored cross-modal knowledge transfer between fundus and OCT images. MultiEYE and OCT-CoDA [18] formulate an OCT-enhanced disease recogni-tion setting in which OCT information is used during training to improve fundus-only inference, including through concept-based distillation from OCT to CFP. This direction is closely aligned with the practical motivation of our work: OCT should enrich fundus representations during model development, but downstream deployment should remain compatible with CFP-only screening. EyeMVP differs in two respects. First, it learns from strict same-eye same-day paired CFP–OCT im-ages through pixel-level cross-modal masked reconstruction rather than task-specific disease distillation. Second, it aims to produce a reusable CFP encoder for classification, segmen-tation, few-shot adaptation, and retrieval, rather than a model specialized to one disease recognition benchmark. DENG et al. : EYEMVP: OCT-INFORMED FUNDUS REPRESENTATION LEARNING VIA PAIRED CFP–OCT PRETRAINING 3
+
+B. Retinal Foundation Models 
+
+Foundation models have recently become an important direction in ophthalmic image analysis. RETFound [7] demon-strated that masked autoencoding on large-scale retinal images can produce transferable representations for disease detection and segmentation. VisionFM [8] further scaled ophthalmic pretraining across multiple image modalities, tasks, disease categories, devices, and demographic groups, supporting a generalist ophthalmic AI setting. Vision-language models such as FLAIR [19] and EyeCLIP [9] incorporate textual super-vision or multimodal contrastive learning to improve zero-shot, few-shot, retrieval, and long-tail disease performance. Eyefound [10] and MIRAGE [11] also expand foundation modeling toward broader ophthalmic or retinal modality cov-erage. Despite this progress, most existing retinal foundation mod-els are optimized for either unimodal representation learning or global multimodal alignment. Unimodal CFP models can learn strong appearance features but do not receive direct supervision from cross-sectional retinal structure. Multimodal contrastive or vision-language models improve semantic align-ment across images and text, but their objectives usually oper-ate at the image or report level and therefore do not explicitly exploit the local structural correspondence available in paired CFP–OCT data. EyeMVP is complementary to these efforts: it focuses on using paired OCT as a pretraining signal to enrich CFP representations with structural information while retaining CFP-only inference. 
+
+C. Multimodal Masked Reconstruction Pretraining 
+
+Masked autoencoders have provided a simple and scalable framework for self-supervised visual representation learning [4]. MAE [13] trains a vision transformer to reconstruct randomly masked image patches and has been widely adopted in medical imaging because reconstruction encourages the model to capture fine-grained spatial structure. MultiMAE [14] extends this idea to multimodal and multitask settings by reconstructing multiple outputs, such as RGB, depth, and semantic segmentation, from partially visible modality tokens. Related cross-modal masked reconstruction methods have also been explored in broader multimodal pretraining settings [20], and in medical vision-language pretraining; for example, M3AE [21] reconstructs masked image and text tokens to learn cross-modal medical representations. However, existing multimodal masked autoencoding frame-works are most natural when modalities share a common spatial coordinate system or can be treated as aligned to-ken sequences. This assumption holds for many RGB-depth-segmentation settings, but it is violated by CFP–OCT pairs. CFP is an en-face projection of the retinal surface, whereas OCT samples cross-sectional depth structure; therefore, patch indices across the two modalities do not denote the same physical retinal location. Naively applying multimodal masked reconstruction to CFP–OCT can encourage shortcut correla-tions or unstable cross-modal optimization rather than robust structural representation learning. EyeMVP adapts masked reconstruction to this asymmetric imaging geometry through source-constrained cross-attention and CFP-derived structural anchors. 
+
+III. M ETHODS 
+
+A. Pretraining Dataset Construction 
+
+Raw multimodal retinal imaging data were collected from eight tertiary hospitals and two population-based cohort stud-ies across China between August 2015 and December 2025. The archive contained 3,058,942 images from 112,642 par-ticipants (59,187 females and 53,455 males; mean age 57.5 years, SD 14.6, range 1–95; all of Chinese ethnicity). CFP images were acquired using five platforms, including Zeiss CLARUS 500, Canon CR-2, Topcon TRC, SYSEYE, and Airdoc systems. OCT volumes were acquired using Zeiss CIRRUS, Heidelberg Spectralis, and SVision systems. Site-level ethics approval was coordinated by the lead center, Beijing Tongren Hospital, and all data were fully de-identified before analysis. CFP examinations included both optic-disc-centered and macula-centered fundus photographs. OCT examinations in-cluded both optic nerve head and macular scan protocols, reflecting routine clinical imaging for glaucoma and macular disease assessment. CFP and OCT examinations were linked using patient identifier, eye laterality, and acquisition date. A valid pair required CFP and OCT to be acquired from the same eye on the same calendar day and to pass metadata and image-quality checks. We refer to this criterion as strict same-eye same-day pairing. Eye laterality was determined from DICOM metadata and checked against fundus image orientation. For each retained patient-eye visit, representative OCT B-scans were sampled from the corresponding OCT volume and linked to the CFP image from the same visit. CFP-derived structural masks were used to provide coarse fundus-layout information during pretraining. A four-stage quality control pipeline was applied. First, each raw image was screened using an automated image quality assessment algorithm [22]; images with severe blur, motion artifacts, under- or over-exposure, pupil occlusion, incomplete retinal field, or poor OCT signal were removed. Second, same-day same-eye CFP–OCT examinations were identified from DICOM timestamps and laterality tags. Third, candidate pairs with missing or inconsistent metadata, implau-sible acquisition timestamps, insufficient retinal coverage, or laterality mismatch were excluded. Fourth, patients included in private downstream evaluation datasets were excluded from the pretraining pool to reduce data leakage risk. For each eligible patient-eye visit, CFP images were paired with representative B-scans from the corresponding OCT volume. Rather than using only a single central B-scan, we sampled 3–4 representative B-scans from each retained OCT volume to provide limited spatial coverage of the acquired scan region. This produced 189,801 eligible patient-eyes and 674,893 final CFP–OCT image triples, with a mean of 3.56 OCT frames per patient-eye. Each triple consisted of a CFP image, a paired OCT B-scan, and a CFP-derived structural mask. A random 5% subset of the constructed triples was manually reviewed by clinicians to verify same-eye pairing, image quality, and segmentation plausibility. 4 IEEE XXX 
+
+All CFP and OCT images were resized to 512 × 512 . OCT B-scans were represented as three-channel grayscale images to use the same reconstruction interface as CFP. CFP-derived structural masks were resized to 256 × 256 and encoded as discrete anatomical labels. A site-level breakdown of the pretraining data and imaging equipment is provided in Table I. 
+
+B. CFP-Derived Structural Masks 
+
+CFP-derived structural masks (CFP-Seg) were used as an auxiliary input during pretraining. Each mask contains four classes: background, optic disc, foveal region, and major retinal vessels. The masks were generated offline from CFP images using task-specific segmentation networks, including U-Net [23] for optic disc and foveal region segmentation, and UNet++ or Attention U-Net [24]–[26] for retinal vessel segmentation. These networks were trained on public fundus segmentation datasets [27] and fine-tuned on held-out in-house annotations that were not included in pretraining or down-stream evaluation. The segmentation outputs were binarized and merged into a single four-class mask for each CFP image. CFP-Seg does not provide disease labels. Its role is to provide coarse anatomical layout information from the CFP image itself. Because CFP and OCT are acquired in different imaging geometries, CFP-Seg supplies explicit fundus land-marks that help condition cross-modal reconstruction on the observed CFP field. In this setting, CFP-Seg helps identify the optic disc, foveal region, and major vessel trajectories in the CFP image, providing structural context about the current fundus field and spatial layout. CFP-Seg is used only during pretraining and is discarded during downstream inference. Its contribution is evaluated by removing this auxiliary input in ablation experiments. 
+
+C. EyeMVP Architecture 
+
+EyeMVP uses three input modalities during pretraining: CFP, OCT, and CFP-Seg. Each modality is divided into non-overlapping patches and projected into token embeddings by a modality-specific patch embedding layer. CFP and OCT inputs use patch size 32 × 32 , and CFP-Seg uses patch size 16 × 16 .The token sequences are then processed by a shared ViT-L encoder [28]. Thus, different modalities have separate input projections but share the same encoder parameters. The framework contains five lightweight decoders. Three are intra-modal reconstruction decoders for CFP, OCT, and CFP-Seg: 
+
+C → C, O → O, S → S. 
+
+These decoders reconstruct masked patches of their own modality from encoded token features and are used throughout pretraining. The remaining two decoders are cross-modal reconstruction decoders: 
+
+C → O, O → C. 
+
+They are introduced only in the second training stage. The CFP-to-OCT decoder uses CFP encoded tokens to reconstruct OCT patches, and the OCT-to-CFP decoder uses OCT encoded tokens to reconstruct CFP patches. These decoders provide an explicit cross-modal prediction objective, which is not guaranteed by intra-modal reconstruction alone. 
+
+D. Dirichlet Masking Strategy 
+
+During pretraining, we use a Dirichlet masking strategy to sample visible token allocation across modalities. For each training sample, modality-wise visible token proportions are drawn from a Dirichlet distribution: 
+
+(rC , r O , r S ) ∼ Dirichlet( αC , α O , α S ), (1) where rC , rO , and rS denote the visible token proportions for CFP, OCT, and CFP-Seg. Given the total visible token budget, visible tokens are sampled within each modality according to these proportions, and the remaining tokens are masked. This strategy exposes the shared encoder to variable modal-ity availability. Compared with using a fixed masking ratio for each modality, Dirichlet masking provides a broader range of reconstruction conditions and reduces dependence on a single fixed modality configuration. During Stage II, the sampling is constrained to retain sufficient visible tokens from the source modality so that CFP-to-OCT and OCT-to-CFP reconstruction receive stable source information. 
+
+E. Source-Constrained Cross-Modal Decoding 
+
+Intra-modal reconstruction alone does not guarantee that the shared encoder learns useful CFP–OCT correspondence. When CFP is reconstructed from CFP features and OCT from OCT features, the model can solve the pretext task largely through within-modality cues. For high-capacity encoders and lightweight decoders, local texture and modality-specific appearance statistics can often support good reconstruction. Thus, a shared encoder with multiple intra-modal heads may encourage feature sharing, but it does not explicitly require CFP features to predict OCT structure. To encourage cross-modal interaction, EyeMVP introduces CFP-to-OCT and OCT-to-CFP reconstruction in Stage II. A naive cross-modal decoder may still exploit shortcuts if target-modality visible tokens or mixed multimodal tokens are avail-able during decoding. In the CFP–OCT setting, such shortcuts are undesirable because the modalities are not patch-wise registered; local texture correlations may reduce reconstruction loss without learning useful structural correspondence. We therefore use source-constrained cross-attention. For CFP-to-OCT reconstruction, OCT positional tokens are used as Queries, while CFP encoded tokens are used as Keys and Values: 
+
+Attn C→O = softmax 
+
+ QO K⊤
+
+> C
+
+√d
+
+
+
+VC . (2) For OCT-to-CFP reconstruction, CFP positional tokens are used as Queries, while OCT encoded tokens are used as Keys and Values: 
+
+Attn O→C = softmax 
+
+ QC K⊤
+
+> O
+
+√d
+
+
+
+VO . (3) In both directions, the target modality provides only posi-tional query tokens and does not provide target visible tokens DENG et al. : EYEMVP: OCT-INFORMED FUNDUS REPRESENTATION LEARNING VIA PAIRED CFP–OCT PRETRAINING 5input 
+
+projection 
+
+input 
+
+projection 
+
+input 
+
+projection 
+
+> ...
+
+Shared 
+
+ViT 
+
+Encoder 
+
+> CFP Recon.
+> Decoder (Intra)
+> OCT Recon.
+> Decoder (Intra)
+> CFP -Seg Recon.
+> Decoder (Intra)
+> CFP2OCT Recon.
+> Decoder (Cross)
+> OCT2CFP Recon.
+> Decoder (Cross)
+> CFP
+> OCT
+> CFP -Seg
+
+Dirichlet 
+
+CFP Image 
+
+OCT Image 
+
+CFP -Seg Image 
+
+Dynamic Sampling & Masking  Task -Specific Decoders Inputs 
+
+Transformer Block( ×24) 
+
+> +
+> +
+> Layer  Norm
+> Layer  Norm
+> Multi -Head
+> Self -Attention
+> FFN
+
+Transformer Block( ×24) 
+
+Transformer Block( ×24) 
+
+Transformer Block( ×24) 
+
+Fig. 1. Overview of the EyeMVP pretraining framework. Each pretraining sample contains a CFP image, a paired OCT B-scan, and a CFP-derived structural mask (CFP-Seg). Dirichlet sampling dynamically assigns visible token ratios across modalities, and modality-specific input projections map the visible tokens into a shared ViT encoder. Stage I uses three intra-modal decoders to reconstruct CFP, OCT, and CFP-Seg targets. Stage II introduces two source-constrained cross-modal decoders for CFP-to-OCT and OCT-to-CFP reconstruction. CFP and OCT reconstruction losses use mean-squared error, whereas CFP-Seg reconstruction uses cross-entropy. The lower panel shows the transformer block used in the shared encoder. TABLE I PER -CENTER BREAKDOWN OF THE PRETRAINING DATASET . C OMPLETE PER -CENTER STATISTICS ARE PROVIDED IN THE SUPPLEMENTARY .
+
+Site Patients CFP OCT Beijing Tongren Hospital 57,830 CLARUS/CR-2/SYSEYE/Airdoc Spectralis/SVision Fangshan District Hospital 26,239 CR-2 Spectralis/SVision Dalian No.3 Hospital 9,826 CR-2 Spectralis Baoji Central Hospital 5,837 CR-2 Spectralis Wuxi No.2 Hospital 5,408 TRC/CR-2 CIRRUS/Spectralis Shenzhen Eye Hospital 3,647 CR-2/TRC Spectralis Second XiangYa Hospital 2,653 TRC/CR-2 CIRRUS/Spectralis Beijing Friendship Hospital 1,202 CR-2 Spectralis 
+
+Total 112,642 5 platforms 3 platforms 
+
+to the cross-modal decoder. Therefore, the decoder must use source-modality features to predict the target modality. This design encourages cross-modal prediction while reducing the tendency to rely on target-modality shortcuts. 
+
+F. Two-Stage Pretraining 
+
+We adopt a two-stage schedule to stabilize optimization. In Stage I, from epoch 0 to 400, only the three intra-modal reconstruction objectives are optimized. CFP, OCT, and CFP-Seg tokens are randomly masked, encoded by the shared encoder, and reconstructed by their corresponding intra-modal decoders. This stage provides a basic initialization for the shared encoder and allows the model to learn CFP appearance, OCT structure, and CFP-derived anatomical layout. Stage I is not intended to enforce CFP–OCT alignment. Since each modality is reconstructed from its own encoded features, the model can solve the task largely using within-modality information. Thus, Stage I learns useful basic rep-resentations, but does not explicitly require CFP features to predict OCT structure or OCT features to predict CFP appearance. In Stage II, from epoch 401 to 800, the two source-constrained cross-modal decoders are introduced. The model continues to optimize the three intra-modal reconstruction 6 IEEE XXX 
+
+losses and additionally optimizes CFP-to-OCT and OCT-to-CFP reconstruction losses. This stage preserves within-modality reconstruction while adding an explicit cross-modal prediction objective. 
+
+1) Training Objectives: The Stage I objective is a weighted sum of per-modality masked reconstruction losses: 
+
+Lintra = λC LMSE (IC , ˆIC )+ λO LMSE (IO , ˆIO )+ λS LCE (IS , ˆIS ),
+
+(4) where IC , IO , IS denote CFP, OCT, and CFP-Seg patches; 
+
+ˆ· denotes reconstructed counterparts; and λC , λ O , λ S balance modality contributions. Losses are computed over the masked token index set M (N =|M| ): 
+
+LMSE (x, ˆx) = 1
+
+N
+
+X
+
+> i∈M
+
+∥xi − ˆxi∥22, (5) 
+
+LCE (y, ˆy) = − 1
+
+N
+
+X
+
+> i∈M
+> C
+
+X
+
+> c=1
+
+yi,c log ˆ yi,c . (6) The Stage II cross-modal objective reconstructs each modal-ity conditioned on the encoded features of the other: 
+
+Lcross = λC→O LMSE (IO , ˆIO←C ) + λO→C LMSE (IC , ˆIC←O ),
+
+(7) where ˆIO←C denotes OCT patches reconstructed from CFP features via the source-constrained decoder. The overall train-ing objective is: 
+
+L = λintra Lintra + λcross Lcross . (8) 
+
+G. Downstream Adaptation 
+
+After pretraining, only the CFP branch is used for down-stream evaluation. The OCT input, CFP-Seg input, and all reconstruction decoders are discarded. For classification, the pretrained CFP encoder is frozen and a linear classifier is trained. For dense segmentation, a lightweight decoder is at-tached to the frozen CFP encoder. For few-shot evaluation, the same protocol is repeated with limited labeled examples per class. For cross-modal retrieval, CFP and OCT representations are extracted from the pretrained encoders and compared using cosine similarity. 
+
+IV. E XPERIMENTS AND RESULTS 
+
+A. Implementation Details 
+
+The shared encoder is a ViT-L model with embedding dimension d=1024 , 24 transformer layers, and 16 attention heads. It is initialized from ImageNet MAE weights [13], [29]. Pretraining uses AdamW [30] with β1=0 .9, β2=0 .95 , weight decay 0.05 , cosine learning rate decay from 10 −4 to 10 −6,and a 40-epoch linear warmup. The batch size is 256. Data augmentation includes random horizontal flipping and random rotation. Loss weights are set to λC =λO =1 .0 and λS =0 .5 for intra-modal reconstruction. In Stage II, λC→O =λO→C =0 .5 is used for the two cross-modal reconstruction losses. Pretraining is performed for 800 epochs, with Stage I occupying the first 400 epochs and Stage II the remaining 400 epochs.                                                        
+
+> TABLE II SUMMARY OF DOWNSTREAM EVALUATION DATASETS . T HE BENCHMARK INCLUDES 11 CLASSIFICATION SETTINGS ,FOUR SEGMENTATION SETTINGS ,AND ONE CROSS -MODAL RETRIEVAL SETTING .
+> Task Dataset Source Samples DR cls Messidor-2 [31] Public 1,748 PDR cls IDRID [32] Public 516 AMD cls IChallenge-AMD [33] Public 400 Glaucoma cls ORIGA-650 [34] Public 650 Glaucoma cls REFUGE [35] Public 800 PM cls PALM-2 [36] Public 800 RVO cls Private Private 1,067 CSR cls Private Private 590 Multi-disease cls ODIR5K [37] Public 10,000 ME cls Private Private 600 MS cls Private Private 300 Disc/cup seg REFUGE [35] Public 1,200 Vessel seg DRIVE [38] Public 40 HE seg IDRID [32] Public 80 EX seg e opthaEX [39] Public 48 CFP–OCT retrieval Beijing Eye Study Cohort 140
+> DR: diabetic retinopathy; PDR: proliferative diabetic retinopathy; AMD: age-related macular degeneration; PM: pathological myopia; RVO: retinal vein occlusion; CSR: central serous retinopathy; ME: macular edema; MS: myopic macular schisis; HE: hemorrhage; EX: hard exudate.
+
+B. Downstream Evaluation Datasets 
+
+The downstream benchmark comprises 16 dataset-level evaluation settings across three categories: CFP-based clas-sification, dense segmentation, and cross-modal retrieval. All downstream evaluation cases were excluded from the pretrain-ing pool. For CFP-based classification, we evaluated EyeMVP on 11 dataset-level settings. These included common retinal and optic nerve disease classification tasks: Messidor-2 for diabetic retinopathy [31], IDRID for proliferative diabetic retinopa-thy [32], IChallenge-AMD for age-related macular degenera-tion [33], ORIGA-650 and REFUGE for glaucoma [34], [35], PALM-2 for pathological myopia [36], ODIR5K for multi-disease recognition [37], and a private retinal vein occlusion cohort. We also evaluated three macular-disease cohorts that are difficult to assess from CFP alone: private OCT-confirmed datasets for macular edema, myopic macular schisis, and central serous retinopathy. For dense segmentation, we used four CFP-based datasets: REFUGE for optic disc/cup segmentation [35], DRIVE for retinal vessel segmentation [38], IDRID for hemorrhage seg-mentation [32], and e opthaEX for hard exudate segmentation [39]. For cross-modal retrieval, we used 140 paired CFP– OCT samples from the Beijing Eye Study, covering seven categories: diabetic retinopathy, glaucoma, cataract, patholog-ical myopia, age-related macular degeneration, retinal vein occlusion, and healthy controls. All private classification labels were assigned by two inde-pendent senior ophthalmologists, using OCT as the reference standard when applicable. Disagreements were resolved by a third adjudicating ophthalmologist. A concise summary of the downstream evaluation datasets is provided in Table II; detailed device information, image resolutions, and label dis-tributions are provided in the Supplementary Materials. DENG et al. : EYEMVP: OCT-INFORMED FUNDUS REPRESENTATION LEARNING VIA PAIRED CFP–OCT PRETRAINING 7
+
+C. Evaluation Protocols 
+
+After pretraining, only the CFP branch was used for down-stream evaluation, except in the cross-modal retrieval experi-ment. For the private downstream classification datasets, each patient contributed only one study eye, and patients included in these datasets were excluded from the pretraining pool. For full-data classification, the pretrained CFP encoder was frozen and a linear classifier was trained on the extracted CFP features. Results were evaluated using five-fold cross-validation and reported as mean ± SD across folds. AUROC, balanced accuracy (BAcc), and average precision (AP) were reported. For few-shot evaluation, K ∈ {4, 8, 16 } labeled samples per class were sampled, and results were averaged over five random seeds. For dense segmentation, the pretrained CFP encoder was frozen and a ConvNeXt-based decoder [40] was trained to predict pixel-wise masks. Full-data segmentation results were also evaluated using five-fold cross-validation and reported as mean ± SD across folds. Dice coefficient and intersection-over-union (IoU) were reported. For cross-modal retrieval, CFP and OCT representations were extracted from the pre-trained encoders without fine-tuning and ranked using cosine similarity. Recall@ K was reported for K = 1 , 5, 10 .Baseline models were evaluated following their publicly described settings and available checkpoints. We do not claim that all baselines are parameter-matched: in particular, the public VisionFM report describes its large-scale multimodal pretraining data [8] but does not specify an exact ViT-B/ViT-L backbone size. The comparisons should therefore be interpreted as model-level comparisons under a common downstream protocol rather than as strictly size-matched ar-chitecture comparisons. 
+
+D. Classification Performance 
+
+Table III summarizes the full-data and few-shot classifica-tion AUROC across 11 dataset-level evaluation settings, cover-ing common retinal diseases, optic nerve disease, and macular conditions that are difficult to identify from CFP alone. Under the full-data linear probing protocol, EyeMVP achieves the highest AUROC on all evaluated datasets compared with RETFound [7], VisionFM [8], and EyeCLIP [9]. The largest improvements are observed on IChallenge-AMD ( 94 .21% vs. 
+
+85 .10% for EyeCLIP), ORIGA-650 glaucoma ( 93 .97% vs. 
+
+81 .30% ), REFUGE glaucoma ( 97 .23% vs. 90 .65% ), macular edema ( 94 .82% vs. 85 .15% ), and myopic macular schisis (82 .48% vs. 73 .50% ). On near-saturated tasks such as PALM pathological myopia, the improvement is smaller ( 99 .84% vs. 
+
+99 .15% ), consistent with a ceiling effect. A similar pattern is observed in the few-shot setting. With only K=4 , 8, or 16 labeled samples per class, EyeMVP achieves higher AUROC than the competing foundation mod-els across all datasets. At K=16 , EyeMVP obtains AUROC values of 90 .56% on IChallenge-AMD, 90 .13% on REFUGE glaucoma, 88 .05% on macular edema, and 79 .88% on myopic macular schisis, outperforming EyeCLIP by 13 .71 , 8.14 , 7.91 ,and 10 .46 percentage points, respectively. These results indi-cate that the proposed cross-modal pretraining strategy yields (a)CFP  (b ) RETFound  (c ) VisionFM  (d ) EyeCLIP  (e)EyeMVP  (f)GT        
+
+> Vessel Seg OC OD Seg EX Seg HE Seg
+> Fig. 2. Qualitative comparison of full-data segmentation results. Columns show the input CFP image, predictions from RETFound, VisionFM, EyeCLIP, EyeMVP, and the ground truth annotation. Rows correspond to retinal vessel segmentation, optic disc/cup segmentation, hard exudate segmentation, and hemorrhage segmentation. EyeMVP produces segmentation masks that are generally closer to the ground truth, particularly for small lesion regions and fine vascular structures.
+
+CFP representations with improved linear separability and data efficiency under limited annotation. 
+
+E. Dense Segmentation Performance 
+
+Table IV summarizes the full-data and few-shot segmenta-tion results on four CFP-based dense prediction tasks, includ-ing optic disc/cup, retinal vessel, hemorrhage, and hard exu-date segmentation. All methods are evaluated using the same protocol, with a frozen encoder and a trainable ConvNeXt decoder. In the full-data setting, EyeMVP achieves the highest Dice and IoU on all four datasets. The improvements are more evident on lesion segmentation tasks, where the target re-gions are small and often have heterogeneous appearance. On IDRID hemorrhage segmentation, EyeMVP achieves Dice/IoU of 70 .86% /68 .54% , compared with 61 .18% /55 .38% for Vi-sionFM. On e opthaEX hard exudate segmentation, EyeMVP achieves 82 .98% /76 .20% , compared with 67 .50% /62 .05% for VisionFM. Qualitative examples in Fig. 2 show a similar pattern: EyeMVP better preserves fine vascular structures and produces lesion masks that are more consistent with the ground-truth annotations, whereas the baseline models tend to miss small lesion regions or produce fragmented predictions. The few-shot segmentation results show a similar trend un-der limited annotation. At K=16 , EyeMVP obtains Dice/IoU of 91 .71% /85 .58% on REFUGE disc/cup segmentation and 
+
+90 .66% /86 .63% on DRIVE vessel segmentation. For lesion segmentation, EyeMVP reaches 67 .92% /61 .40% on IDRID hemorrhage segmentation and 67 .44% /64 .89% on e opthaEX hard exudate segmentation, outperforming the competing foundation models under the same few-shot protocol. These results suggest that EyeMVP provides CFP representations that are useful for dense prediction tasks, including settings with limited pixel-level annotations. 8 IEEE XXX 
+
+TABLE III FULL -DATA AND FEW -SHOT CLASSIFICATION AUROC (%). F ULL -DATA RESULTS ARE FROM LINEAR PROBING WITH THE FULL TRAINING SET .FEW -SHOT RESULTS ARE REPORTED AT K=4 , 8, 16 LABELED SAMPLES PER CLASS . V ALUES ARE MEAN ± SD. BOLD : BEST PERFORMANCE . AP  
+
+> AND
+
+BA CC ARE REPORTED IN THE SUPPLEMENTARY MATERIAL .
+
+Task Dataset Setting RETFound VisionFM EyeCLIP EyeMVP 
+
+DR cls Messidor-2 [31] Full 90.25 ± 1.12 90.22 ± 0.34 91.10 ± 0.99 92.56 ± 0.62 
+
+K=4 72.58 ± 1.85 72.62 ± 1.83 73.65 ± 1.85 77.52 ± 1.52 
+
+K=8 77.73 ± 1.32 77.68 ± 1.30 78.81 ± 1.32 80.65 ± 1.14 
+
+K=16 83.26 ± 0.98 83.31 ± 0.99 84.35 ± 0.98 88.24 ± 0.75 
+
+PDR cls IDRID [32] Full 74.45 ± 0.80 74.48 ± 0.75 76.50 ± 0.79 83.25 ± 0.69 
+
+K=4 52.21 ± 1.12 52.25 ± 1.14 53.28 ± 1.12 64.38 ± 0.84 
+
+K=8 55.77 ± 1.05 55.81 ± 1.07 56.82 ± 1.05 65.52 ± 0.79 
+
+K=16 61.89 ± 1.24 61.94 ± 1.26 63.96 ± 1.24 70.20 ± 0.91 
+
+AMD cls IChallenge-AMD [33] Full 82.85 ± 0.50 82.82 ± 0.36 85.10 ± 0.41 94.21 ± 0.71 
+
+K=4 65.74 ± 2.48 66.21 ± 2.46 66.81 ± 2.48 78.11 ± 1.82 
+
+K=8 68.43 ± 1.82 68.38 ± 1.80 69.51 ± 1.82 82.44 ± 1.35 
+
+K=16 75.78 ± 1.25 75.82 ± 1.27 76.85 ± 1.25 90.56 ± 0.84 
+
+Glaucoma cls ORIGA-650 [34] Full 78.95 ± 0.44 78.98 ± 0.47 81.30 ± 0.37 93.97 ± 0.40 
+
+K=4 56.14 ± 1.08 56.76 ± 1.06 57.22 ± 1.03 67.91 ± 0.82 
+
+K=8 64.36 ± 0.95 64.93 ± 0.92 65.54 ± 0.84 75.83 ± 0.76 
+
+K=16 71.06 ± 0.88 71.81 ± 0.92 71.93 ± 1.00 83.34 ± 0.65 
+
+REFUGE [35] Full 88.50 ± 0.98 88.48 ± 1.31 90.65 ± 0.90 97.23 ± 0.72 
+
+K=4 66.14 ± 0.85 66.14 ± 0.88 66.95 ± 0.70 78.21 ± 0.68 
+
+K=8 73.42 ± 0.74 73.20 ± 0.76 74.29 ± 0.78 84.26 ± 0.55 
+
+K=16 80.67 ± 0.62 80.61 ± 0.59 81.99 ± 0.62 90.13 ± 0.41 
+
+PM cls PALM-2 [36] Full 98.65 ± 0.19 98.68 ± 0.15 99.15 ± 0.08 99.84 ± 0.14 
+
+K=4 90.03 ± 0.68 90.45 ± 0.70 91.40 ± 0.53 94.28 ± 0.45 
+
+K=8 94.88 ± 0.52 95.66 ± 0.51 95.70 ± 0.58 97.51 ± 0.31 
+
+K=16 97.21 ± 0.34 97.85 ± 0.39 98.40 ± 0.43 99.15 ± 0.18 
+
+RVO cls Private Full 87.81 ± 0.85 86.24 ± 0.91 89.77 ± 0.76 92.45 ± 0.55 
+
+K=4 69.88 ± 1.66 68.47 ± 1.89 73.57 ± 1.78 75.05 ± 1.68 
+
+K=8 72.49 ± 1.46 71.87 ± 1.49 75.66 ± 1.38 79.31 ± 1.28 
+
+K=16 78.31 ± 1.16 79.48 ± 1.19 82.33 ± 0.88 86.81 ± 0.98 
+
+CSR cls Private Full 77.20 ± 0.55 77.35 ± 0.58 79.85 ± 0.45 84.38 ± 0.45 
+
+K=4 68.84 ± 1.92 68.52 ± 1.94 74.25 ± 1.85 76.12 ± 1.94 
+
+K=8 71.46 ± 1.52 71.15 ± 1.54 76.56 ± 1.54 78.08 ± 1.28 
+
+K=16 76.15 ± 0.92 76.22 ± 0.84 79.12 ± 1.01 83.34 ± 0.78 
+
+Multi-disease cls ODIR5K [37] Full 68.25 ± 1.33 68.28 ± 0.75 69.80 ± 1.12 71.65 ± 0.88 
+
+K=4 53.36 ± 2.48 54.03 ± 2.50 54.68 ± 1.66 63.28 ± 1.05 
+
+K=8 56.22 ± 2.15 56.71 ± 2.09 57.17 ± 1.53 64.88 ± 0.92 
+
+K=16 63.55 ± 0.98 63.79 ± 1.00 64.61 ± 0.91 68.46 ± 0.78 
+
+ME cls Private Full 82.95 ± 1.48 82.92 ± 0.85 85.15 ± 1.18 94.82 ± 0.54 
+
+K=4 51.43 ± 1.92 51.38 ± 1.91 52.31 ± 1.97 62.90 ± 1.35 
+
+K=8 56.93 ± 1.58 57.01 ± 1.55 57.64 ± 1.44 72.49 ± 1.12 
+
+K=16 79.01 ± 0.92 78.92 ± 0.88 80.14 ± 0.88 88.05 ± 0.74 
+
+MS cls Private Full 70.85 ± 1.77 70.88 ± 1.77 73.50 ± 1.12 82.48 ± 1.28 
+
+K=4 57.89 ± 2.45 58.03 ± 2.47 59.25 ± 2.49 63.55 ± 1.98 
+
+K=8 63.34 ± 2.28 63.45 ± 1.84 64.05 ± 1.75 71.02 ± 1.65 
+
+K=16 68.21 ± 2.05 68.13 ± 1.77 69.42 ± 1.59 79.88 ± 1.54 
+
+DR: diabetic retinopathy; PDR: proliferative diabetic retinopathy; AMD: age-related macular degeneration; PM: pathological myopia; RVO: retinal vein occlusion; CSR: central serous retinopathy; ME: macular edema; MS: myopic macular schisis. 
+
+F. Cross-Modal Retrieval 
+
+Table V reports zero-shot cross-modal retrieval performance on the Beijing Eye Study subset, which includes 140 paired CFP–OCT samples from seven disease categories. CLIP [12], BioCLIP [41], and EyeCLIP [9] are included as retrieval baselines. No retrieval-specific fine-tuning was applied. Eye-MVP achieves the highest Recall@ K among all compared models for both patient-level and disease-level retrieval. For patient-level retrieval, EyeMVP obtains Recall@1, Recall@5, and Recall@10 of 19 .0% , 44 .0% , and 71 .0% , respectively, compared with 9.0% , 25 .0% , and 57 .0% for EyeCLIP. For disease-level retrieval, EyeMVP reaches 27 .0% , 57 .0% , and 
+
+82 .0% at Recall@1, Recall@5, and Recall@10, respectively, compared with 16 .0% , 42 .0% , and 67 .0% for EyeCLIP. These results provide preliminary evidence that EyeMVP learns a CFP–OCT representation space amenable to cross-modal matching without retrieval-specific supervision. 
+
+G. Reader Study 
+
+We conducted an exploratory reader study on an indepen-dent test set of 150 cases, including 50 myopic macular schisis, 50 macular edema, and 50 control eyes. The test set was not used for pretraining, model selection, or downstream fine-tuning. Nine ophthalmologists independently evaluated the CFP images and were stratified by clinical experience into junior ( <5 years), intermediate (5–10 years), and senior ( >10 years) groups, with three readers in each group. Balanced accuracy (BAcc) was computed for each reader and averaged within each experience group. EyeMVP was evaluated on the same test set using CFP images only. DENG et al. : EYEMVP: OCT-INFORMED FUNDUS REPRESENTATION LEARNING VIA PAIRED CFP–OCT PRETRAINING 9
+
+TABLE IV FULL -DATA AND FEW -SHOT SEGMENTATION PERFORMANCE . F ULL -DATA RESULTS ARE OBTAINED WITH A FROZEN ENCODER AND A TRAINABLE 
+
+CONV NEXT DECODER . F EW -SHOT RESULTS ARE REPORTED AT K=4 , 8, 16 LABELED SAMPLES . D ICE AND IOU ARE REPORTED IN PERCENTAGE .
+
+BOLD : BEST PERFORMANCE .
+
+Dataset (Task) Setting Metric RETFound VisionFM EyeCLIP EyeMVP 
+
+REFUGE [35] (Disc/Cup) Full Dice 88.44 ± 0.50 91.15 ± 0.42 91.13 ± 0.41 94.48 ± 0.36 
+
+IoU 80.29 ± 0.62 84.37 ± 0.49 84.34 ± 0.49 85.82 ± 0.36 
+
+K=4 Dice 71.69 ± 3.12 74.36 ± 2.85 75.56 ± 2.24 84.33 ± 1.95 
+
+IoU 62.80 ± 3.45 67.66 ± 3.10 69.27 ± 2.44 78.76 ± 2.20 
+
+K=8 Dice 79.59 ± 2.21 81.45 ± 1.95 83.37 ± 1.88 89.51 ± 1.15 
+
+IoU 68.77 ± 2.45 71.02 ± 2.15 73.45 ± 2.05 82.23 ± 1.40 
+
+K=16 Dice 86.32 ± 1.45 90.31 ± 1.12 89.55 ± 1.52 91.71 ± 0.85 
+
+IoU 77.24 ± 1.68 83.09 ± 1.34 81.92 ± 1.25 85.58 ± 0.95 
+
+DRIVE [38] (Vessels) Full Dice 85.10 ± 0.45 87.66 ± 0.38 86.91 ± 0.40 91.90 ± 0.25 
+
+IoU 76.80 ± 0.52 79.54 ± 0.45 78.55 ± 0.46 87.25 ± 0.32 
+
+K=4 Dice 78.90 ± 2.15 84.49 ± 1.82 81.48 ± 1.95 88.65 ± 1.25 
+
+IoU 69.35 ± 2.40 75.35 ± 2.05 71.85 ± 2.15 83.74 ± 1.45 
+
+K=8 Dice 79.88 ± 1.65 84.71 ± 1.42 81.07 ± 1.50 89.12 ± 0.95 
+
+IoU 70.42 ± 1.88 75.71 ± 1.65 71.42 ± 1.72 83.96 ± 1.12 
+
+K=16 Dice 81.05 ± 1.10 84.73 ± 0.95 80.62 ± 1.02 90.66 ± 0.65 
+
+IoU 71.98 ± 1.25 75.75 ± 1.10 77.39 ± 1.18 86.63 ± 0.78 
+
+IDRID [32] (HE) Full Dice 59.50 ± 1.25 61.18 ± 1.15 56.85 ± 1.30 70.86 ± 0.95 
+
+IoU 53.55 ± 1.35 55.38 ± 1.22 52.72 ± 1.42 68.54 ± 1.10 
+
+K=4 Dice 49.90 ± 2.15 50.80 ± 2.45 49.50 ± 1.82 58.28 ± 1.45 
+
+IoU 45.30 ± 2.41 46.12 ± 2.55 47.75 ± 1.65 52.85 ± 1.72 
+
+K=8 Dice 52.48 ± 1.85 53.78 ± 1.64 51.20 ± 1.75 63.09 ± 1.25 
+
+IoU 47.62 ± 2.05 48.80 ± 1.85 48.10 ± 1.54 57.12 ± 1.45 
+
+K=16 Dice 55.96 ± 1.35 56.85 ± 1.20 53.75 ± 1.28 67.92 ± 0.85 
+
+IoU 50.75 ± 1.52 51.55 ± 1.42 50.15 ± 1.48 61.40 ± 1.05 
+
+e opthaEX [39] (EX) Full Dice 63.90 ± 0.93 67.50 ± 0.92 60.10 ± 0.39 82.98 ± 0.75 
+
+IoU 56.79 ± 0.98 62.05 ± 0.76 58.68 ± 0.41 76.20 ± 0.88 
+
+K=4 Dice 51.26 ± 2.52 53.83 ± 2.15 49.18 ± 2.65 63.67 ± 1.25 
+
+IoU 46.55 ± 2.80 48.34 ± 2.40 48.38 ± 1.92 58.59 ± 1.55 
+
+K=8 Dice 54.75 ± 1.85 58.34 ± 1.65 53.21 ± 2.05 64.38 ± 0.85 
+
+IoU 49.68 ± 2.10 54.38 ± 2.92 51.08 ± 1.30 59.54 ± 1.15 
+
+K=16 Dice 59.18 ± 1.20 62.65 ± 1.10 56.85 ± 1.55 67.44 ± 0.67 
+
+IoU 53.65 ± 1.45 56.55 ± 1.30 54.86 ± 1.78 64.89 ± 0.45 
+
+HE: hemorrhage; EX: hard exudate. 
+
+TABLE V ZERO -SHOT CROSS -MODAL RETRIEVAL RECALL @K (%) ON THE 
+
+BEIJING EYE STUDY SUBSET . T HE EVALUATION INCLUDES 140 PAIRED 
+
+CFP–OCT SAMPLES FROM SEVEN DISEASE CATEGORIES AND IS AVERAGED OVER 100 TRIALS . BOLD : BEST PERFORMANCE .
+
+Task K CLIP BioCLIP EyeCLIP EyeMVP 
+
+Patient level @1 2.0 2.0 9.0 19.0 
+
+@5 18.0 21.0 25.0 44.0 
+
+@10 36.0 41.0 57.0 71.0 
+
+Mean 18.7 21.3 30.3 44.7 
+
+Disease level @1 2.0 4.0 16.0 27.0 
+
+@5 20.0 22.0 42.0 57.0 
+
+@10 37.0 42.0 67.0 82.0 
+
+Mean 19.7 22.7 41.7 55.3 
+
+As shown in Table VI, EyeMVP ( 86 .37% ) exceeded the junior ( 74 .08% ) and intermediate ( 82 .10% ) groups but did not reach the performance of senior ophthalmologists ( 90 .12% )on macular edema. For myopic macular schisis, EyeMVP achieved a BAcc of 61 .46% , compared with 44 .04% , 50 .00% ,and 55 .36% for the junior, intermediate, and senior groups, respectively. These exploratory results suggest that EyeMVP may provide complementary CFP-based information for mac-ular conditions that are difficult to assess from fundus pho-
+
+TABLE VI READER STUDY ON BALANCED ACCURACY (BA CC , %) FOR MYOPIC MACULAR SCHISIS (MS) AND MACULAR EDEMA (ME). N INE OPHTHALMOLOGISTS WERE STRATIFIED BY EXPERIENCE LEVEL (n=3 
+
+> PER GROUP
+
+) AND COMPARED WITH EYE MVP ON THE SAME 150-CASE INDEPENDENT TEST SET .
+
+Reader group MS ME Junior ( <5 years) 44.04 74.08 Intermediate (5–10 years) 50.00 82.10 Senior ( >10 years) 55.36 90.12 
+
+EyeMVP 61.46 86.37 
+
+tographs alone. Given the limited size of the reader study, these findings should be interpreted as preliminary and require validation in larger multi-reader cohorts. 
+
+H. Ablation Studies 
+
+Table VII reports component ablations on three tasks where retinal or macular structure is expected to be important: ORIGA-650 glaucoma, macular edema, and myopic macular schisis. Each ablation removes one pretraining component while using the same CFP encoder architecture and otherwise matched pretraining and downstream linear probing condi-tions. We report representative ablations in the main text; 10 IEEE XXX                        
+
+> TABLE VII COMPONENT ABLATION AUROC (%) ON STRUCTURALLY RELEVANT CLASSIFICATION TASKS . V ALUES IN PARENTHESES DENOTE ABSOLUTE
+> AUROC DROP (∆)RELATIVE TO THE FULL MODEL . M EAN VALUES REPORTED ; SD ≤2.77% ACROSS ALL ENTRIES .
+> Configuration ORIGA-650 ME MS w/o OCT modality 86.08 ( −7.89) 86.99 ( −7.83) 71.53 ( −10.95) w/o Stage-II cross recon. 88.76 ( −5.21) 91.48 ( −3.34) 74.76 ( −7.72) w/o CFP-Seg 88.06 ( −5.91) 91.33 ( −3.49) 78.65 ( −3.83)
+> EyeMVP (full) 93.97 94.82 82.48
+
+complete ablation results across all downstream classification tasks are provided in the Supplementary Materials. Removing the OCT modality from pretraining leads to the largest performance decrease across the three tasks, with AUROC drops of 7.89 , 7.83 , and 10 .95 percentage points on ORIGA-650, macular edema, and myopic macular schisis, respectively. This result supports the role of paired CFP– OCT data in providing useful cross-modal supervision for CFP representation learning. The Stage-I-only variant retains the shared encoder and the three intra-modal reconstruction decoders, but removes the source-constrained CFP-to-OCT and OCT-to-CFP reconstruc-tion objectives introduced in Stage II. This setting corresponds to a shared-encoder multimodal masked autoencoding base-line, where each modality is reconstructed primarily from its own visible tokens. Compared with the full two-stage model, Stage-I-only pretraining reduces AUROC by 5.21 , 3.34 , and 
+
+7.72 percentage points on ORIGA-650, macular edema, and myopic macular schisis, respectively. These results indicate that explicit cross-modal reconstruction provides additional su-pervision beyond shared-encoder intra-modal reconstruction. To further examine this component, we visualize CFP-to-OCT reconstruction under a source-constrained setting in Fig. 3, where all OCT tokens are masked and only partial CFP tokens are provided. Compared with the Stage-I-only variant, EyeMVP produces reconstructions with clearer OCT-like retinal contours and layer-related contrast. These visual-izations illustrate the pretraining objective and are not intended to represent diagnostic OCT synthesis. Removing the CFP-Seg branch decreases AUROC by 5.91 
+
+percentage points on ORIGA-650 and 3.83 percentage points on myopic macular schisis. This suggests that CFP-derived anatomical masks provide useful spatial guidance during pre-training by supplying coarse fundus-layout context for cross-modal reconstruction. Overall, the ablation results show that the paired OCT modality, Stage-II cross-modal reconstruction, and CFP-derived structural masks each contribute to the final EyeMVP performance. 
+
+V. D ISCUSSION 
+
+This study presents EyeMVP, a cross-modal retinal founda-tion model that uses paired CFP–OCT data to improve CFP-based representation learning. Across classification, segmen-tation, few-shot learning, cross-modal retrieval, and reader-study evaluations, EyeMVP shows consistent gains over rep-resentative retinal foundation models. The improvements are CFP Masked input EyeMVP OCT Stage I only       
+
+> OCT Masked input CFP
+> (a) Visualization of cross-modal OCT reconstruction from CFP
+> (b) Visualization of cross-modal CFP reconstruction from OCT
+> EyeMVP Stage I only
+> Fig. 3. Qualitative visualization of bidirectional cross-modal reconstruc-tion during pretraining. (a) OCT reconstruction from partially visible CFP tokens. Columns show the CFP image, masked CFP input, Stage-I-only reconstruction, EyeMVP reconstruction with source-constrained cross-modal decoding, and the paired OCT target. (b) CFP reconstruction from partially visible OCT tokens, shown in the reverse direction with the paired fundus image as the target reference. Compared with the Stage-I-only variant, EyeMVP recovers sharper modality-specific structures, including OCT-like retinal contours and more fundus-like vascular and disc appearance. These visualizations illustrate the cross-modal pre-training objective and are not intended to represent diagnostic OCT or CFP synthesis.
+
+most evident on tasks in which retinal or macular structure is clinically relevant but not directly resolved in CFP, such as glaucoma, macular edema, and myopic macular schisis. These findings support the value of using OCT as a structural supervisory signal during CFP pretraining, while retaining the practical advantage that only CFP images are required at inference. The design of EyeMVP reflects several practical challenges in CFP–OCT pretraining. CFP and OCT are acquired in different imaging geometries, and their image tokens do not share a common spatial grid. A purely intra-modal masked au-toencoding objective may therefore learn modality-specific re-construction shortcuts without sufficiently encouraging cross-DENG et al. : EYEMVP: OCT-INFORMED FUNDUS REPRESENTATION LEARNING VIA PAIRED CFP–OCT PRETRAINING 11 
+
+modal interaction. EyeMVP addresses this issue using source-constrained cross-modal decoding, which requires one modal-ity to predict the other from source-modality representations. The CFP-Seg branch provides coarse anatomical guidance for the fundus image, and the Dirichlet masking strategy exposes the model to variable modality availability during pretraining. Ablation results and reconstruction visualizations suggest that these components contribute complementary benefits. We use the two-stage schedule as an implementation choice to stabi-lize optimization rather than as an independent methodological contribution. EyeMVP should not be interpreted as a replacement for OCT. The model does not measure retinal depth or synthesize diagnostic OCT images; instead, it learns CFP representations that are informed by statistical associations with paired OCT data. This distinction is important for clinical deployment. In settings where OCT is unavailable, such representations may help improve CFP-based screening and triage, but positive or uncertain findings should still be confirmed with standard clinical examination and OCT when indicated. The exploratory reader study further suggests that EyeMVP may provide complementary CFP-based information for macular conditions that are difficult to assess from CFP alone, but larger multi-reader and prospective studies are required before drawing clinical conclusions. Several limitations remain. First, the pretraining cohort is drawn from Chinese clinical and population-based cohorts, and external validation in other populations, imaging devices, and healthcare settings is needed. Second, the baseline compar-isons are not data-matched: the compared models differ from EyeMVP in pretraining data scale, pairing quality, modality composition, and disease distribution. Therefore, the present experiments cannot exclude the possibility that part of the observed performance gap comes from data advantages rather than architecture alone; isolating the independent contribu-tion of the proposed architecture will require data-matched experiments that retrain representative baselines on the same CFP–OCT corpus. Third, the current model uses static CFP and OCT images; incorporating longitudinal follow-up may improve modeling of disease progression. Fourth, the CFP– OCT pairs are linked at the eye-visit level, which supports large-scale pretraining but does not provide exact spatial cor-respondence between CFP regions and OCT B-scans. Finally, performance may degrade when CFP image quality is reduced by media opacity, severe artifacts, or limited field of view. Future work will focus on prospective validation, uncertainty estimation, and integration with clinical workflows for CFP-based screening. 
+
+VI. C ONCLUSION 
+
+We presented EyeMVP, a cross-modal retinal foundation model that uses paired CFP–OCT pretraining to improve CFP-based representation learning. The model combines shared-encoder masked reconstruction, Stage-II source-constrained cross-modal reconstruction, and an auxiliary CFP-Seg branch to incorporate OCT-associated supervision while requiring only CFP images at inference. Across 16 dataset-level eval-uation settings, EyeMVP achieved consistent improvements over representative retinal foundation models in classification, dense segmentation, few-shot learning, and cross-modal re-trieval. The gains were most evident on glaucoma and macular conditions, where structural information is clinically important but not directly resolved in CFP. EyeMVP should be interpreted as an OCT-informed CFP representation model, rather than as a substitute for OCT imaging. Clinical deployment will require prospective external validation across institutions, device vendors, image quality profiles, and more diverse racial and ethnic populations, to-gether with calibrated uncertainty estimation and workflow studies for CFP-based screening or triage. At the method-ological level, the source-constrained attention design may also be useful for other non-aligned medical modality pairs in which one modality provides accessible projection images and another provides richer structural information. 
+
+DECLARATIONS 
+
+A. Data and Code availability 
+
+The pre-training data was collected in-house and is not publicly available due to privacy restrictions. Downstream evaluation was conducted on 11 public datasets and 5 private in-house datasets. The public datasets can be accessed via the following links: Messidor-2 [31] (https:// www.adcis.net/en/third-party/messidor2/ ), IDRID [32] (http://idrid.grand-challenge. org/grading ), IChallenge-AMD [33] (https: //amd.grand-challenge.org/ ), ORIGA-650 [34] (https://doi.org/10.57702/hoijctum ), REFUGE [35] ( https://refuge.grand-challenge. org/Home2020/grading ), PALM [36] (https: //palm.grand-challenge.org/ ), ODIR5K [37] (https://odir2019.grand-challenge. org/introduction/ ), DRIVE [38] (https: //drive.grand-challenge.org/ ), REFUGE [35] (https://refuge.grand-challenge.org/ Home2020/segmentation ), e opthaEX [39] ( https:// www.adcis.net/en/third-party/e-ophtha/ ), and IDRID [32] ( http://idrid.grand-challenge.org/ segmentation ). While the 5 in-house evaluation datasets cannot be fully shared due to patient privacy regulations. The dataset, code, and models will be publicly available at 
+
+https://github.com/ML-AILab/EyeMVP .          
+
+> [1] R. R. Bourne, S. R. Flaxman, T. Braithwaite, M. V. Cicinelli, A. Das, J. B. Jonas, J. Keeffe, J. H. Kempen, J. Leasher, H. Limburg, et al. ,“Magnitude, temporal trends, and projections of the global prevalence of blindness and distance and near vision impairment: a systematic review and meta-analysis,” The Lancet Global Health , vol. 5, no. 9, pp. e888– e897, 2017. [2] R. Bourne, J. D. Steinmetz, S. Flaxman, P. S. Briant, H. R. Taylor, S. Resnikoff, R. J. Casson, A. Abdoli, E. Abu-Gharbieh, A. Afshin,
+> et al. , “Trends in prevalence of blindness and distance and near vision impairment over 30 years: an analysis for the global burden of disease study,” The Lancet global health , vol. 9, no. 2, pp. e130–e143, 2021. [3] M. Mohammadpour, Diagnostics in ocular imaging: cornea, retina, glaucoma and orbit . Cham: Springer Nature, 2020. [4] L. Ericsson, H. Gouk, C. C. Loy, and T. M. Hospedales, “Self-supervised representation learning: Introduction, advances, and challenges,” IEEE Signal Processing Magazine , vol. 39, no. 3, pp. 42–62, 2022. 12 IEEE XXX
+
+[5] P. H. Le-Khac, G. Healy, and A. F. Smeaton, “Contrastive representation learning: A framework and review,” Ieee Access , vol. 8, pp. 193907– 193934, 2020. [6] Z. Deng, W. Gao, C. Chen, Z. Niu, Z. Gong, R. Zhang, Z. Cao, F. Li, Z. Ma, W. Wei, et al. , “Ophglm: An ophthalmology large language-and-vision assistant,” Artificial Intelligence in Medicine , vol. 157, p. 103001, 2024. [7] Y. Zhou, M. A. Chia, S. K. Wagner, M. S. Ayhan, D. J. Williamson, R. R. Struyven, T. Liu, M. Xu, M. G. Lozano, P. Woodward-Court, 
+
+et al. , “A foundation model for generalizable disease detection from retinal images,” Nature , vol. 622, no. 7981, pp. 156–163, 2023. [8] J. Qiu, J. Wu, H. Wei, P. Shi, M. Zhang, Y. Sun, L. Li, H. Liu, H. Liu, S. Hou, et al. , “Development and validation of a multimodal multitask vision foundation model for generalist ophthalmic artificial intelligence,” 
+
+NEJM AI , vol. 1, no. 12, p. AIoa2300221, 2024. [9] D. Shi, W. Zhang, J. Yang, S. Huang, X. Chen, P. Xu, K. Jin, S. Lin, J. Wei, M. Yusufu, et al. , “A multimodal visual–language foundation model for computational ophthalmology,” npj Digital Medicine , vol. 8, no. 1, p. 381, 2025. [10] D. Shi, W. Zhang, X. Chen, Y. Liu, J. Yang, S. Huang, Y. C. Tham, Y. Zheng, and M. He, “Eyefound: a multimodal generalist foundation model for ophthalmic imaging,” arXiv preprint arXiv:2405.11338 , 2024. [11] J. Morano, B. Fazekas, E. S¨ ukei, R. Fecso, T. Emre, M. Gumpinger, G. Faustmann, M. Oghbaie, U. Schmidt-Erfurth, and H. Bogunovi´ c, “Multimodal foundation model and benchmark for comprehensive reti-nal oct image analysis,” NPJ Digital Medicine , vol. 8, no. 1, p. 576, 2025. [12] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P. Mishkin, J. Clark, et al. , “Learning transferable visual models from natural language supervision,” in International conference on machine learning , pp. 8748–8763, PmLR, 2021. [13] K. He, X. Chen, S. Xie, Y. Li, P. Doll´ ar, and R. Girshick, “Masked au-toencoders are scalable vision learners,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 16000– 16009, 2022. [14] R. Bachmann, D. Mizrahi, A. Atanov, and A. Zamir, “Multimae: Multi-modal multi-task masked autoencoders,” in European Conference on Computer Vision , pp. 348–367, Springer, 2022. [15] T. Y. Wong and C. Sabanayagam, “The war on diabetic retinopathy: where are we now?,” Asia-Pacific Journal of Ophthalmology , vol. 8, no. 6, pp. 448–456, 2019. [16] A. V. Varadarajan, P. Bavishi, P. Raumviboonsuk, P. Chotcomwongse, S. Venugopalan, A. Narayanaswamy, J. Cuadros, K. Kanai, G. Bresnick, M. Tadarati, S. Silpa-Archa, J. Limwattanayingyong, V. Nganthavee, J. Ledsam, P. A. Keane, G. S. Corrado, L. Peng, and D. R. Webster, “Pre-dicting optical coherence tomography-derived diabetic macular edema grades from fundus photographs using deep learning,” 2018. [17] F. A. Medeiros, A. A. Jammal, and A. C. Thompson, “From machine to machine: An oct-trained deep learning algorithm for objective quan-tification of glaucomatous damage in fundus photographs,” 2018. [18] L. Wang, C. Qi, C. Ou, L. An, M. Jin, X. Kong, and X. Li, “Multieye: Dataset and benchmark for oct-enhanced retinal disease recognition from fundus images,” IEEE Transactions on Medical Imaging , 2024. [19] J. Silva-Rodriguez, H. Chakor, R. Kobbi, J. Dolz, and I. B. Ayed, “A foundation language-image model of the retina (flair): Encoding expert knowledge in text supervision,” Medical Image Analysis , vol. 99, p. 103357, 2025. [20] Y. Guo, S. Sun, S. Ma, K. Zheng, X. Bao, S. Ma, W. Zou, and Y. Zheng, “Crossmae: Cross-modality masked autoencoders for region-aware audio-visual pre-training,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 26721– 26731, 2024. [21] Z. Chen, Y. Du, J. Hu, Y. Liu, G. Li, X. Wan, and T.-H. Chang, “Multi-modal masked autoencoders for medical vision-and-language pre-training,” 2022. [22] Z. Gong, Z. Deng, R. Gan, Z. Niu, L. Chen, C. Huang, J. Liang, W. Gao, F. Li, S. Zhang, et al. , “Acquire continuous and precise score for fundus image quality assessment: Fthnet and fqs dataset,” Scientific Reports ,vol. 15, no. 1, p. 40524, 2025. [23] O. Ronneberger, P. Fischer, and T. Brox, “U-net: Convolutional networks for biomedical image segmentation,” in Medical Image Computing and Computer-Assisted Intervention–MICCAI 2015: 18th International Conference, Munich, Germany, October 5-9, 2015, Proceedings, Part III 18 , pp. 234–241, Springer, 2015. [24] Z. Zhou, M. M. R. Siddiquee, N. Tajbakhsh, and J. Liang, “Unet++: Redesigning skip connections to exploit multiscale features in image segmentation,” IEEE transactions on medical imaging , vol. 39, no. 6, pp. 1856–1867, 2019. [25] O. Oktay, J. Schlemper, L. L. Folgoc, M. Lee, M. Heinrich, K. Misawa, K. Mori, S. McDonagh, N. Y. Hammerla, B. Kainz, et al. , “Atten-tion u-net: Learning where to look for the pancreas,” arXiv preprint arXiv:1804.03999 , 2018. [26] Z. Deng, Z. Gong, W. Gao, J. Yang, L. Shao, F. Li, W. Wei, and L. Ma, “Ftsegnet: A novel transformer-based fundus tumor segmentation model guided by pre-trained classification results,” in 2024 IEEE International Symposium on Biomedical Imaging (ISBI) , pp. 1–5, IEEE, 2024. [27] Z. Deng, W. Gao, Z. Gong, R. Gan, L. Chen, S. Zhang, and L. Ma, “A fundus image dataset for ai-based artery-vein vessel segmentation,” 
+
+Scientific Data , vol. 12, no. 1, p. 1298, 2025. [28] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, et al. ,“An image is worth 16x16 words: Transformers for image recognition at scale,” arXiv preprint arXiv:2010.11929 , 2020. [29] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei, “Imagenet: A large-scale hierarchical image database,” in 2009 IEEE conference on computer vision and pattern recognition , pp. 248–255, Ieee, 2009. [30] I. Loshchilov and F. Hutter, “Decoupled weight decay regularization,” 
+
+arXiv preprint arXiv:1711.05101 , 2017. [31] M. D. Abr` amoff, J. C. Folk, D. P. Han, J. D. Walker, D. F. Williams, S. R. Russell, P. Massin, B. Cochener, P. Gain, L. Tang, et al. , “Automated analysis of retinal images for detection of referable diabetic retinopathy,” 
+
+JAMA ophthalmology , vol. 131, no. 3, pp. 351–357, 2013. [32] P. Porwal, S. Pachade, R. Kamble, M. Kokare, G. Deshmukh, V. Sa-hasrabuddhe, and F. Meriaudeau, “Indian diabetic retinopathy image dataset (idrid): a database for diabetic retinopathy screening research,” 
+
+Data , vol. 3, no. 3, p. 25, 2018. [33] H. Fu, F. Li, J. I. Orlando, H. Bogunovi´ c, X. Sun, J. Liao, Y. Xu, S. Zhang, and X. Zhang, “Adam: Automatic detection challenge on age-related macular degeneration,” 2020. [34] J. L. F. Yin, “Dataset: Origa dataset,” 2024. [35] J. I. Orlando, H. Fu, J. B. Breda, K. Van Keer, D. R. Bathula, A. Diaz-Pinto, R. Fang, P.-A. Heng, J. Kim, J. Lee, et al. , “Refuge challenge: A unified framework for evaluating automated methods for glaucoma assessment from fundus photographs,” Medical image analysis , vol. 59, p. 101570, 2020. [36] H. Fu, F. Li, J. I. Orlando, H. Bogunovi´ c, X. Sun, J. Liao, Y. Xu, S. Zhang, and X. Zhang, “Palm: Pathologic myopia challenge,” 2019. [37] “International competition on ocular disease intelligent recognition.,” 2019. [38] J. Staal, M. Abramoff, M. Niemeijer, M. Viergever, and B. van Gin-neken, “Ridge-based vessel segmentation in color images of the retina,” 
+
+IEEE Transactions on Medical Imaging , vol. 23, no. 4, pp. 501–509, 2004. [39] E. Decenciere, G. Cazuguel, X. Zhang, G. Thibault, J.-C. Klein, F. Meyer, B. Marcotegui, G. Quellec, M. Lamard, R. Danno, et al. ,“Teleophta: Machine learning and image processing methods for teleophthalmology,” Irbm , vol. 34, no. 2, pp. 196–203, 2013. [40] Z. Liu, H. Mao, C.-Y. Wu, C. Feichtenhofer, T. Darrell, and S. Xie, “A convnet for the 2020s,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 11976–11986, 2022. [41] S. Stevens, J. Wu, M. J. Thompson, E. G. Campolongo, C. H. Song, D. E. Carlyn, L. Dong, W. M. Dahdul, C. Stewart, T. Berger-Wolf, et al. ,“Bioclip: A vision foundation model for the tree of life,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,pp. 19412–19424, 2024.
