@@ -6,56 +6,37 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-21
-- 运行时间：2026-06-21 21:05:15 UTC
+- 最新运行日期：2026-06-22
+- 运行时间：2026-06-22 22:54:33 UTC
 - 运行状态：成功
-- 本次总论文数：12
-- 精读区：1
-- 速读区：11
+- 本次总论文数：4
+- 精读区：0
+- 速读区：4
 
 ### 今日简报（AI）
-今日精读1篇、速读11篇，聚焦LLM辅助医生交互评估与低成本医疗影像分割。最值得关注的是《PhysAssistBench》揭示LLM在临床协作中的局限，以及《Enabling Real-Time POCUS》实现无GPU超声分割方案。建议普通读者重点思考AI作为辅助工具的角色定位，而非追求完全自动化。
-- 详情：[/202606/21/README](/202606/21/README)
+今日精读0篇，速读4篇，重点聚焦医学图像质量评估与零样本异常检测任务。
+
+最值得关注的是《EFIQA: Explainable Fundus Image Quality Assessment via Anatomical Priors》（7.0分），利用解剖先验实现可解释的眼底图像质量评估，以及《Toward Training-Free Zero-Shot Anomaly Detection in 3D Medical Images》（6.0分），用2D基础模型无训练检测3D医学图像异常。
+
+建议普通读者优先了解EFIQA的可解释性方法，对医学影像自动质控有直接启发；零样本异常检测方案适合资源受限场景，可尝试迁移到其他模态数据。
+- 详情：[/202606/22/README](/202606/22/README)
 
 ### 精读区论文标签
-1. [Are LLMs Ready to Assist Physicians? PhysAssistBench for Interactive Doctor-Patient-EHR Assistance](/202606/21/2606.18613v2-are-llms-ready-to-assist-physicians-physassistbench-for-interactive-doctor-patient-ehr-assistance)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：面向医疗的LLM代理辅助基准
+- 本次无精读推荐。
 
 ### 速读区论文标签
-1. [Enabling Real-Time Point-of-Care Ultrasound Segmentation: A GPU-Free Deployment in Resource-Limited Settings](/202606/21/2606.15176v1-enabling-real-time-point-of-care-ultrasound-segmentation-a-gpu-free-deployment-in-resource-limited-settings)  
-   标签：评分：7.0/10、query:retina-agent
-   evidence：超轻量级架构UltraSeg用于无GPU实时超声分割
-2. [Calibrated Triage, Not Autonomy: Confidence Estimation for Medical Vision-Language Models](/202606/21/2606.15910v1-calibrated-triage-not-autonomy-confidence-estimation-for-medical-vision-language-models)  
-   标签：评分：7.0/10、query:retina-agent
-   evidence：为医疗视觉语言模型提供置信度估计，实现安全分诊
-3. [Are LLMs Ready to Assist Physicians? PhysAssistBench for Interactive Doctor-Patient-EHR Assistance](/202606/21/2606.18613v1-are-llms-ready-to-assist-physicians-physassistbench-for-interactive-doctor-patient-ehr-assistance)  
-   标签：评分：7.0/10、query:retina-agent
-   evidence：大语言模型辅助医生诊断
-4. [QG-MIL: A Gated Transformer Aggregator for Domain-Agnostic Multiple Instance Learning in Medical Imaging](/202606/21/2606.20027v1-qg-mil-a-gated-transformer-aggregator-for-domain-agnostic-multiple-instance-learning-in-medical-imaging)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：用于医学成像领域无关多实例学习的门控Transformer聚合器
-5. [NeRD: Neuro-Symbolic Rule Distillation for Efficient Ontology-Grounded Chain-of-Thought in Medical Image Diagnosis](/202606/21/2606.15617v2-nerd-neuro-symbolic-rule-distillation-for-efficient-ontology-grounded-chain-of-thought-in-medical-image-diagnosis)  
+1. [EFIQA: Explainable Fundus Image Quality Assessment via Anatomical Priors](/202606/22/2606.20108v1-efiqa-explainable-fundus-image-quality-assessment-via-anatomical-priors)  
+   标签：评分：7.0/10、query:fundus-class
+   evidence：基于深度学习的眼底图像分析方法，用于质量评估
+2. [Toward Training-Free Zero-Shot Anomaly Detection in 3D Medical Images: A Batch-Based Approach Using 2D Foundation Models](/202606/22/2606.18749v1-toward-training-free-zero-shot-anomaly-detection-in-3d-medical-images-a-batch-based-approach-using-2d-foundation-models)  
    标签：评分：6.0/10、query:fundus-class
-   evidence：提出NeRD，一种神经符号规则蒸馏框架，用于可解释的医学图像诊断，适用于眼底疾病分类
-6. [A Comprehensive Survey of Medical Image Segmentation: Challenges, Benchmarks, and Beyond](/202606/21/2606.16153v1-a-comprehensive-survey-of-medical-image-segmentation-challenges-benchmarks-and-beyond)  
+   evidence：利用2D基础模型进行3D医学图像的零样本异常检测
+3. [Zero-Shot Active Feature Acquisition via LLM-Elicitation](/202606/22/2606.18933v2-zero-shot-active-feature-acquisition-via-llm-elicitation)  
    标签：评分：6.0/10、query:retina-agent
-   evidence：医学图像分割方法综合综述，提供最佳实践
-7. [WEQA: Wearable hEalth Question Answering with Query-Adaptive Agentic Reasoning](/202606/21/2606.18147v1-weqa-wearable-health-question-answering-with-query-adaptive-agentic-reasoning)  
+   evidence：利用大语言模型诱导进行零样本主动特征获取以辅助分类
+4. [Scalable Training of Spatially Grounded 2D Vision-Language Models for Radiology](/202606/22/2606.20477v1-scalable-training-of-spatially-grounded-2d-vision-language-models-for-radiology)  
    标签：评分：6.0/10、query:retina-agent
-   evidence：基于LLM的查询自适应代理框架用于医疗问答
-8. [BioHarness: Substrate-Aware Evidence Assembly for Biomedical Question Answering across Literature, Knowledge Bases, and Biological Atlases](/202606/21/2606.19396v1-bioharness-substrate-aware-evidence-assembly-for-biomedical-question-answering-across-literature-knowledge-bases-and-biological-atlases)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：提出BioHarness，一种面向生物医学问答的底层感知大语言模型工具，与医学诊断中的大语言模型相关
-9. [REVEAL++: Differentiable Phenotypic Grouping for Vision-Language Retinal Modeling of Alzheimer's Disease Risk](/202606/21/2606.19522v1-reveal-differentiable-phenotypic-grouping-for-vision-language-retinal-modeling-of-alzheimers-disease-risk)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：使用眼底图像进行阿尔茨海默病风险的视觉-语言视网膜建模
-10. [CSWinUNETR: Segmentation of Thin Anatomical Structures in Medical Images](/202606/21/2606.19824v1-cswinunetr-segmentation-of-thin-anatomical-structures-in-medical-images)  
-   标签：评分：6.0/10、query:fundus-class
-   evidence：深度学习分割视网膜血管等薄结构
-11. [ARTEMIS: Agent-guided Reliability-aware Temporal Mask Evolution for Imperfectly Supervised Video Polyp Segmentation](/202606/21/2606.20161v1-artemis-agent-guided-reliability-aware-temporal-mask-evolution-for-imperfectly-supervised-video-polyp-segmentation)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：代理引导的可靠性感知弱监督视频息肉分割框架
+   evidence：基于大语言模型的放射学诊断视觉-语言模型训练
 
 
 <div class="dpr-home-promo-card">
