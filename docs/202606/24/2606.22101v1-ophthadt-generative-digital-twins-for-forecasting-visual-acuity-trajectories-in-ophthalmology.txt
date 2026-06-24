@@ -1,0 +1,288 @@
+Title: OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology
+
+URL Source: https://arxiv.org/pdf/2606.22101v1
+
+Published Time: Tue, 23 Jun 2026 01:45:14 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology 
+
+Pietro Belligoli 1 2 * Nikita Makarov 1 3 4 * Sayedali Shetab Boushehri 1 Fabian Schmich † 1
+
+Raul Rodriguez-Esteban † 5 Michael Menden † 3 6 
+
+Abstract 
+
+Precision medicine in ophthalmology requires accurate longitudinal predictions, but the frag-mented nature of multimodal clinical data remains a barrier to forecasting. We introduce OphthaDT, an LLM-based digital twin for ophthalmology that serializes longitudinal patient histories from 3,220 
+
+patients across four Phase III clinical trials into structured narratives to forecast best corrected vi-sual acuity (BCVA). In benchmarks spanning up to 100 weeks, OphthaDT demonstrated the lowest prediction error in neovascular age-related macu-lar degeneration (nAMD), achieving an average mean absolute error (MAE) reduction of 6.0% compared to all baselines. In diabetic macular edema (DME), OphthaDT demonstrated competi-tive performance against all baselines while out-performing Random Forest and XGBoost by an average MAE reduction of 2.6% and 6.9%, re-spectively. Results reveal that OphthaDT’s predic-tive advantage scales with trajectory complexity: whereas linear models remain effective for the more stable treatment responses of DME, Oph-thaDT’s capacity is better suited for capturing the high longitudinal variability of nAMD. Finally, OphthaDT handles irregular sampling without im-putation, positioning LLM-based clinical trajec-tory modeling as a methodology that could reduce patient burden and accelerate drug development. 
+
+> *
+
+Equal contribution †Equal supervision. 1Computational Sci-ences Center of Excellence, Roche, Penzberg, Germany 2Technical University of Munich, Munich, Germany 3Computational Health Center, Helmholtz Munich, Munich, Germany 4Department of Biology, Ludwig Maximilian University of Munich, Munich, Germany 5Computational Sciences Center of Excellence, Roche, Basel, Switzerland 6Department of Biochemistry and Pharmacol-ogy, Bio21 Molecular Science and Biotechnology Institute, The University of Melbourne, Parkville, Australia. Correspondence to: Raul Rodriguez-Esteban <raul.rodriguez-esteban@roche.com >,Michael P. Menden <michael.menden@unimelb.edu.au >.
+
+Proceedings of the 2 nd ICML Workshop on Foundation Models for Structured Data , Seoul, South Korea. 2026. Copyright 2026 by the author(s). 
+
+1. Introduction 
+
+Neovascular age-related macular degeneration (nAMD) and diabetic macular edema (DME) are leading causes of severe vision loss worldwide (Flaxman et al., 2017), with treatment outcomes varying substantially across individuals (Amoaku et al., 2015; Rofagha et al., 2013). Accurate forecasting of these outcomes could enable personalized treatments and improved clinical trial design through patient simulation. Digital Twins (DTs) address this challenge by serving as vir-tual patient replicas that learn from longitudinal multimodal data to generate individualized health forecasts (Bordukova et al., 2024; Kamel Boulos & Zhang, 2021). Foundation models have facilitated the development of DTs by providing a principled approach to holistically model het-erogeneous clinical data (Hegselmann et al., 2026; Wornow et al., 2023; Steinberg et al., 2024), enabling longitudinal trajectory forecasting on EHR data (Guo et al., 2023; Hur et al., 2023). An emerging method involves serializing lon-gitudinal patient histories into structured textual representa-tions, enabling LLMs to forecast clinical trajectories while naturally accommodating missingness and irregular sam-pling (Makarov et al., 2026). While this approach has shown strong performance in oncology, it remains unclear whether such modeling generalizes to therapeutic areas with different disease dynamics. Ophthalmology provides a compelling test case to evaluate this approach. Its primary outcome, best corrected visual acuity (BCVA), exhibits longitudinal trajectories, and treatment in this domain relies on localized intravitreal injections rather than systemic therapies. We introduce OphthaDT, an LLM-based digital twin model for ophthalmology trained on 3,220 patients from four Phase III clinical trials. The model transforms fragmented trial records (visual acuity, imaging biomarkers, treatment his-tory) and clinical data into structured narratives to forecast BCVA trajectories. Our contributions are threefold: (1) a se-rialization method that maps multimodal ophthalmological events into a tokenizable narrative for LLM-based forecast-ing; (2) high accuracy in BCVA forecasting across extended horizons (up to 100 weeks), setting a new benchmark for nAMD; and (3) evidence that LLM-based trajectory model-ing generalizes beyond oncology to ophthalmic endpoints. 1
+
+> arXiv:2606.22101v1 [cs.LG] 20 Jun 2026
+
+OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology Task 1 is forecasting:                      
+
+> 4 weeks later, the patient visited and experienced the following:
+> study eye -BCVA -visual acuity score; study is 87.0
+> The following is a patient, starting with the demographic data, following
+> visit by visit everything that the patient experienced:
+> Starting with demographic data:
+> Patient age is 56, race is white; diagnosis is nAMD ; eye laterality is
+> left; TNFL is yes …
+> On the first visit (baseline), the patient experienced the following:
+> early or intermediate nAMD .
+> BCVA -visual acuity score is 78.0
+> …
+> You will now have multiple tasks to complete:
+> Your task is to predict the future values of the following variables for each
+> cumulative week starting from the last visit:
+> BCVA -visual acuity score; study the future weeks 8, 12, 16, 20…
+> Input
+> Target
+> Patient History and Visits Text Serialization and Prediction
+> Week 4
+> •Heart Rate : 91 bpm
+> •BCVA :71 letters
+> •CST : 322 μm
+> •IOP : 17 mmHg
+> •DRSS : M oderate NPDR
+> Training
+
+OphthaDT Digital Twins -               
+
+> Predict on
+> unseen patients
+> Time Series Forecasting
+> •nAMD
+> •Type 2 Diabetes
+> •Hypertension
+> •Glaucoma
+> •Hyperlipidemia
+> Prev. Diagnosed
+> •Heart Rate : 98 bpm
+> •BCVA :76 letters
+> •CST :312 μm
+> •IOP : 18 mmHg
+> •DRSS : M oderate NPDR
+> Week 0
+
+Figure 1. OphthaDT pipeline overview. (1) Patient history and baseline measurements are extracted from four Phase III clinical trials. (2) Longitudinal records are serialized into structured text prompts with forecasting instructions. (3) MedGemma 4B is fine-tuned on instruction–completion pairs. (4) The model predicts BCVA trajectories for unseen patients. 
+
+2. Related Work 
+
+Digital Twins for Clinical Trajectory Forecasting. Digi-tal Twins offer a pathway to accelerate drug development by augmenting trials with virtual patient replicas. While most foundation models provide single-point outcomes, ef-fective clinical decision-making requires comprehensive longitudinal trajectories (Pellegrini et al., 2026). Twin-Weaver (Makarov et al., 2026) introduced an open-source framework that builds DTs by serializing patient histories as text, jointly forecasting continuous biomarkers and dis-crete clinical events in oncology. However, the applicability of this generative paradigm to non-oncology settings with distinct functional endpoints remains underexplored. 
+
+Trajectory Prediction in Ophthalmology. Foundation models such as RETFound (Zhou et al., 2023), Vi-sionFM (Qiu et al., 2024), and EyeCLIP (Shi et al., 2025) have advanced ophthalmic AI toward generalizable systems capable of diagnosis and disease prediction from retinal images. Whereas these models excel at image-based classi-fication, they are typically limited to single-timepoint assess-ments and do not address longitudinal trajectory forecasting from structured clinical time series (Chia et al., 2024). At the patient trajectory level, prior work has used Random Forests and linear models to predict BCVA response (Rohm et al., 2018). However, these approaches often require manual feature engineering and lack the flexibility to accommodate the full breadth of multimodal longitudinal information. 
+
+3. Methods 
+
+We introduce OphthaDT, a model that forecasts BCVA tra-jectories from longitudinal patient histories in ophthalmol-ogy. OphthaDT addresses the challenge of heterogeneous and irregularly sampled clinical data through structured text representation (Fig. 1). By specializing this methodology for functional vision endpoints, OphthaDT enables long-term forecasting of BCVA. 
+
+Notation Let P be the set of patients, where each p =(sp, H p) ∈ P has static attributes sp (demographics and pre-trial medical history) and an observed history Hp =[h1
+
+p, . . . , h np ], where hip = ( timestamp , event , value ) with n
+
+observations per patient. The prediction target Yp(t) de-notes the set of future values to be forecasted from time t.In our setting, events include ophthalmological examina-tions, vitals, treatments, and adverse events. The next-token probability of the LLM is defined as qθ (xi | x1: i−1) for a given token sequence x, parameterized by θ.
+
+Data We utilized data from 3,220 patients with longitu-dinal records for nAMD and DME across four Phase III clinical trials. Each trial collected longitudinal records of disease progression and treatment interventions over sched-uled clinical visits. Data were harmonized into trajectories integrating static baseline characteristics (demographics and medical history) with time-stamped clinical events, includ-ing vitals, treatments, examinations, and adverse events. The aggregated cohort was split at the patient level into 80% training, 10% validation, and 10% test sets, stratified by clinical trial and indication (nAMD/DME). 
+
+3.1. Text Serialization 
+
+OphthaDT encodes each patient’s history by serializing it visit-by-visit into a structured narrative, mapping complex clinical events into a tokenizable format. The framework transforms the patient history Xp(t) and prediction targets 
+
+Yp(t) into a prompt organized into three hierarchical mod-2OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology                                                                                    
+
+> Table 1. BCVA forecasting performance for nAMD and DME. MAE is reported in ETDRS letters (lower is better); R2reflects the proportion of variance explained. OphthaDT is compared against Linear, RF, and XGBoost baselines. Best results per row are in bold .Linear Model Random Forest XGBoost OphthaDT Indication Timepoint MAE R2MAE R2MAE R2MAE R2
+> nAMD Week 8 6.19 0.59 6.53 0.55 6.82 0.51 6.13 0.58 Week 24 7.16 0.52 7.32 0.48 7.89 0.40 7.02 0.52
+> Week 52 8.55 0.39 8.81 0.39 9.26 0.34 8.34 0.40
+> Week 100 10.12 0.36 10.58 0.29 10.89 0.22 9.82 0.34 DME Week 8 5.61 0.54 6.03 0.47 6.23 0.43 5.62 0.54
+> Week 24 5.84 0.47 6.10 0.42 6.51 0.33 6.23 0.42 Week 52 7.17 0.32 7.54 0.24 7.76 0.22 7.37 0.29 Week 100 9.00 0.15 9.58 0.11 10.09 0.04 9.23 0.14
+
+ules: (1) static baseline characteristics, comprising demo-graphics and medical history (e.g., age, diagnosis, comor-bidities); (2) longitudinal visit history, a chronological se-quence containing BCVA scores, administered drugs, and adverse events; and (3) forecasting instructions, a numbered list of prediction tasks specifying the variables and future timepoints to be predicted. The output trajectories are en-coded in a structured text format containing only the relevant output variables for the forecasted timepoints. The proce-dure for prompt construction is detailed in Algorithm 1, with a complete serialization example in Appendix A.4. 
+
+3.2. Forecasting Task 
+
+OphthaDT performs multi-horizon time-series forecasting of BCVA, the standard trial endpoint in ophthalmology measured on a 0–100 letter scale. The forecasting target 
+
+Y forecast  
+
+> p
+
+(tforecast ) comprises future BCVA values up to a max-imum horizon tforecast = t + ∆ tforecast , predicted at standard-ized intervals (cumulative study weeks 4, 8, 12, . . . , 100). 
+
+Trajectory Splitting. For patient p, we define the input as the combination of static baseline data and longitudinal history up to a split time t: Xp(t) = ( sp, H p(t)) , with 
+
+Hp(t) = [ hip | hip ∈ Hp, h i, timestamp  
+
+> p
+
+≤ t]. In this work, we primarily focus on forecasting from treatment initiation (t = 0 ) to evaluate long-term predictive capacity, but the framework supports splitting at any arbitrary timepoint. 
+
+3.3. Training 
+
+The OphthaDT training pipeline uses supervised fine-tuning on longitudinal clinical data. We selected MedGemma 4B (Sellergren et al., 2026) as the backbone model for its biomedical pretraining, instruction-tuning capabilities, and open-source availability. We fine-tuned this model on the serialized instruction-completion pairs described above. Each narrative is prepended with a system prompt (Ap-pendix A.5) defining the model’s forecasting role. The LLM is trained using the standard cross-entropy loss, masked such that the gradient is computed only on the target completion tokens: 
+
+L(θ) = −
+
+> |x|
+
+X
+
+> i=k
+
+log qθ (xi | x1: i−1) (1) where k is the index of the first target token and x is the concatenation of the prompt and the target. Key hyperpa-rameters used in fine-tuning are shown in Appendix A.2. 
+
+3.4. Inference 
+
+During inference, we approximate the model’s predictive distribution by sampling M = 10 independent comple-tions { ˆY mp }Mm=1 from qθ . Each text-based completion is decoded into a numerical trajectory by a structured parser that extracts the BCVA values from the generated tokens. To produce a stable estimate and mitigate sampling variance, the final forecast ˆY forecast  
+
+> p
+
+is calculated as the element-wise mean of these decoded trajectories across all forecasted timepoints: 
+
+ˆY forecast  
+
+> p
+
+= 1
+
+M
+
+> M
+
+X
+
+> m=1
+
+ˆY mp (2) 
+
+3.5. Baselines and Evaluation 
+
+We benchmarked OphthaDT against a linear model, Ran-dom Forest, and XGBoost, representing established base-lines for outcome prediction in ophthalmology (Kikuchi et al., 2024). To ensure a fair comparison, all baselines uti-lized the same feature set as OphthaDT, with missing values addressed via mean imputation and categorical variables through one-hot encoding. The primary evaluation metric was the mean absolute error (MAE), measured in early treatment diabetic retinopathy study (ETDRS) letters. In clinical practice, the ETDRS let-ter score is the gold standard for quantifying BCVA, where 3OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology 
+
+a change of 5 to 15 letters is considered clinically mean-ingful (Beck et al., 2007; Csaky et al., 2008). In addition, we used the coefficient of determination ( R2) to quantify the proportion of variance captured by each model. Perfor-mance was assessed at four clinically significant milestones, as defined by our clinical experts: weeks 8, 24, 52, and 100. Baseline hyperparameters are detailed in Appendix A.3. 
+
+4. Results 
+
+OphthaDT was benchmarked against linear, Random Forest, and XGBoost models at four clinical milestones. Detailed performance metrics are provided in Table 1. 
+
+nAMD In the nAMD cohort, OphthaDT achieved the low-est MAE across all forecasted timepoints, outperforming every evaluated baseline. Across the full 100-week horizon, the model demonstrated a mean error reduction of 5.7% relative to Random Forest and 2.1% relative to the linear model, averaging 6.0% across all three baselines. Although the linear model achieved comparable or slightly higher R2
+
+at several timepoints, OphthaDT provided more accurate point estimates (MAE) of BCVA throughout the forecast horizon. 
+
+DME Results in the DME cohort indicate the effective-ness of linear models for trajectories with predictable treat-ment responses. This is consistent with evidence that treated eyes in DME converge toward a stable visual acuity plateau (Dugel et al., 2016). In this indication, the linear model attained the lowest MAE and the highest R2 across the majority of timepoints, particularly during the initial induction phase at week 8. While the linear model remained the strongest baseline, OphthaDT demonstrated competi-tive performance by achieving a mean reduction in MAE of 6.9% over XGBoost and 2.6% over Random Forest across all timepoints. 
+
+Subgroup Analysis Stratified analysis confirms that Oph-thaDT’s performance is comparable across demographics and treatment cohorts (Fig. 2). In both indications, the model maintained similar predictive precision across treat-ment options, with DME additionally showing stable per-formance across patients with and without intact baseline retinal layers (TNFL: Yes/No). Although gender subgroups show some variance at intermediate timepoints, the overall error stability across different treatments suggests serializa-tion captures the underlying clinical trajectories regardless of study protocol. 
+
+5. Conclusion 
+
+We introduced OphthaDT, an LLM-based digital twin model for ophthalmology that forecasts BCVA trajectories in   
+
+> Figure 2. Stratified forecasting performance across clinical subgroups. Mean absolute error (in letters) for nAMD and DME. Rows correspond to demographic (age, gender) and clinical (treat-ment arm, TNFL) strata; columns to weeks 8, 24, 52, 100.
+
+nAMD and DME by serializing fragmented clinical records into structured narratives. This approach achieved the low-est prediction error across all timepoints in nAMD and re-mained competitive with established baselines in DME. The divergence in model ranking between nAMD and DME reveals a relationship between trajectory complexity and pre-dictive advantage. In nAMD, where visual acuity is charac-terized by high volatility and acute fluctuations, OphthaDT’s non-linear modeling capacity enabled it to achieve the low-est MAE across all timepoints. This aligns with evidence that nAMD outcomes involve non-linear biomarker interac-tions that traditional models struggle to capture (Schmidt-Erfurth et al., 2018). In contrast, DME trajectories in our cohort followed more stable treatment-response curves, al-lowing linear models to remain effective. This pattern sug-gests that the advantage of the LLM-based approach scales with trajectory complexity, increasing its utility where fore-casting is most challenging. While OphthaDT demonstrates the effectiveness of genera-tive serialization, our implementation is limited to a specific subset of clinical variables. Expanding the cohort size and integrating optical coherence tomography (OCT) scans into the serialization pipeline is a natural next step that would leverage the architecture’s multimodal capabilities. In conclusion, OphthaDT demonstrates that LLM-based dig-ital twins can effectively capture the longitudinal dependen-cies of ocular disease. By handling irregular sampling and heterogeneous clinical time-series events without explicit imputation, this approach offers a practical methodology for clinical trajectory forecasting. 4OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology 
+
+References 
+
+Amoaku, W. M., Chakravarthy, U., Gale, R., et al. Defining response to anti-VEGF therapies in neovascular AMD. 
+
+Eye (Lond) , 29(6), 2015. Beck, R. W., Maguire, M. G., Bressler, N. M., et al. Visual acuity as an outcome measure in clinical trials of retinal diseases. Ophthalmology , 114(10), 2007. Bordukova, M., Arneth, A. J., Makarov, N., et al. Genera-tive AI and digital twins: shaping a paradigm shift from precision to truly personalized medicine. Frontiers in Genetics , 15, 2024. Chia, M. A., Antaki, F., Zhou, Y., Turner, A. W., Lee, A. Y., & Keane, P. A. Foundation models in ophthalmology. 
+
+British Journal of Ophthalmology , 108(10):1341–1348, 2024. Csaky, K. G., Richman, E. A., & Ferris 3rd, F. L. Report from the NEI/FDA ophthalmic clinical trial design and endpoints symposium. Investigative Ophthalmology & Visual Science , 49(2):479–489, 2008. Dugel, P. U., Hillenkamp, J., Sivaprasad, S., et al. Base-line visual acuity strongly predicts visual acuity gain in patients with diabetic macular edema following anti-vascular endothelial growth factor treatment across trials. 
+
+Clinical Ophthalmology , 10, 2016. Flaxman, S. R., Bourne, R. R. A., Resnikoff, S., et al. Global causes of blindness and distance vision impairment 1990– 2020. The Lancet Global Health , 5(12), 2017. Guo, L. L., Steinberg, E., Fleming, S. L., et al. EHR foun-dation models improve robustness in the presence of tem-poral distribution shift. Scientific Reports , 13(1), 2023. Hegselmann, S., von Arnim, G., Rheude, T., Kronenberg, N., Sontag, D., Hindricks, G., Eils, R., & Wild, B. Large language models are powerful electronic health record encoders. arXiv preprint arXiv:2502.17403 , 2026. Hur, K., Oh, J., Kim, J., Kim, J., Lee, M. J., Cho, E., Moon, S.-E., Kim, Y.-H., Atallah, L., & Choi, E. GenHPF: General healthcare predictive framework for multi-task multi-source learning. IEEE Journal of Biomedical and Health Informatics , 2023. Kamel Boulos, M. N. & Zhang, P. Digital twins: From personalised medicine to precision public health. Journal of Personalized Medicine , 11(8), 2021. Kikuchi, Y., Kawczynski, M. G., Anegondi, N., et al. Ma-chine Learning to Predict Faricimab Treatment Outcome in Neovascular Age-Related Macular Degeneration. Oph-thalmology Science , 4(2), 2024. Makarov, N., Bordukova, M., Voith von Voithenberg, L., et al. TwinWeaver: An LLM-based foundation model framework for pan-cancer digital twins. arXiv preprint arXiv:2601.20906 , 2026. Pellegrini, C., ¨Ozsoy, E., Bani-Harouni, D., Keicher, M., & Navab, N. EHR2Path: Scalable modeling of longitudi-nal patient pathways from multimodal electronic health records. arXiv preprint arXiv:2506.04831 , 2026. Qiu, J., Wu, J., Wei, H., et al. Development and validation of a multimodal multitask vision foundation model for generalist ophthalmic artificial intelligence. NEJM AI ,1(12), 2024. Rofagha, S., Bhisitkul, R. B., Boyer, D. S., et al. Seven-year outcomes in ranibizumab-treated patients in ANCHOR, MARINA, and HORIZON: a multicenter cohort study (SEVEN-UP). Ophthalmology , 120(11), 2013. Rohm, M., Tresp, V., M ¨uller, M., et al. Predicting visual acuity by using machine learning in patients treated for neovascular age-related macular degeneration. Ophthal-mology , 125(7), 2018. Schmidt-Erfurth, U., Bogunovic, H., Sadeghipour, A., et al. Machine learning to analyze the prognostic value of cur-rent imaging biomarkers in neovascular age-related mac-ular degeneration. Ophthalmology Retina , 2(1), 2018. Sellergren, A., Kazemzadeh, S., Jaroensri, T., et al. MedGemma technical report. arXiv preprint arXiv:2507.05201 , 2026. Shi, D., Zhang, W., Yang, J., et al. A multimodal visual– language foundation model for computational ophthal-mology. npj Digital Medicine , 8:381, 2025. Steinberg, E., Fries, J. A., Xu, Y., & Shah, N. H. MO-TOR: A time-to-event foundation model for structured medical records. International Conference on Learning Representations (ICLR) , 2024. Wornow, M., Xu, Y., Thapa, R., et al. The shaky founda-tions of large language models and foundation models for electronic health records. npj Digital Medicine , 6(1), 2023. Zhou, Y., Chia, M. A., Wagner, S. K., et al. A foundation model for generalizable disease detection from retinal images. Nature , 622, 2023. 5OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology 
+
+A. Methodological Details 
+
+A.1. Prompt Construction 
+
+Algorithm 1 details the procedure for constructing the instruction–completion pairs used during supervised fine-tuning. Given the set of all clinical variables V , the algorithm selects a forecasting subset V ′ ⊆ V and produces a text prompt encoding the clinical history and a corresponding target string containing the ground-truth forecasted values. 
+
+Algorithm 1 OphthaDT: Prompt Construction for Supervised Fine-Tuning 
+
+Require: Split time t, patient history Xp(t), forecasting variables V ′ ⊆ V , targets Y forecast  
+
+> p
+
+(t, V ′)
+
+Ensure: Input prompt Sprompt and target completion Starget  
+
+> 1:
+
+Initialize Sprompt with a fixed preamble π0. 
+
+> 2:
+
+Encode static baseline data sp. 
+
+> 3:
+
+Serialize longitudinal history Hp(t) chronologically; omit missing values.  
+
+> 4:
+
+If sequence exceeds context window, truncate intermediate visits while preserving baseline.  
+
+> 5:
+
+Encode forecasting tasks as a numbered list of future timepoints.  
+
+> 6:
+
+Construct Starget using ground-truth values in task order.  
+
+> 7:
+
+return (Sprompt , S target )
+
+This prompt is used for supervised fine-tuning, with the training loss masked to compute gradients exclusively on the target tokens Starget .
+
+A.2. Inference and Fine-tuning Details 
+
+The OphthaDT training and inference pipeline was implemented using the HuggingFace transformers and trl libraries. All experiments were conducted on two NVIDIA H100 (80GB) GPUs, with the training process taking approximately 5 hours to reach the optimal checkpoint based on validation loss. 
+
+Training Configuration. We fine-tuned MedGemma 4B using the AdamW optimizer with a weight decay of 0.1 and a cosine learning rate scheduler (peak learning rate 10 −5). Following standard supervised fine-tuning practice, we applied a loss mask so that gradients were computed exclusively for the target completion tokens. 
+
+Inference and Sampling Logic. During inference, we differentiated between simulation (generating realistic variety) and forecasting (predicting the most likely trajectory). To obtain stable forecasts, we utilized a temperature T = 1 .0. For each patient, we generated M = 10 independent trajectories with a maximum output length of 120 tokens. This length was empirically selected to cover the necessary BCVA variables. The final prediction was calculated as the element-wise mean of these sampled trajectories to reduce sampling variance. 
+
+A.3. Baseline Hyperparameters 
+
+All baseline models were trained using scikit-learn with default hyperparameters. For each model, missing values were addressed via mean imputation and categorical variables were encoded using one-hot encoding. Models were trained independently for each indication (nAMD and DME) and each forecast horizon (weeks 8, 24, 52, and 100). 
+
+Linear Model. We used ordinary least squares regression ( LinearRegression ) with default parameters. 
+
+Random Forest. We used RandomForestRegressor with 100 estimators, maximum depth 10, all other parameters set to default. 
+
+XGBoost. We used XGBRegressor with 100 estimators, a learning rate of 0.1, subsampling set to 0.8, column sampling set to 0.8, and a maximum tree depth of 6. All other parameters set to default. 6OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology 
+
+A.4. Synthetic Patient Prompt Example 
+
+To illustrate the input–output format of OphthaDT, we provide a synthetic patient example constructed to ensure data privacy compliance. 
+
+Input: 
+
+The following is a patient, starting with the demographic data, following visit by visit everything that the patient experienced: Starting with demographic data: Patient age is 68 years, race is White, diagnosis is early nAMD, eye laterality is right, treatment is treatment arm A (main investigational drug), TNFL is yes. ... On the first visit (baseline), the patient experienced the following: early nAMD. BCVA - visual acuity score is 78.0 intraocular pressure (mmhg) is 16.0 center subfield thickness ilm-bm single form (um) is 345.0 presence of intraretinal fluid is yes. heart rate (bpm) is 72.0 systolic blood pressure (mmhg) is 138.0 Type 2 Diabetes is diagnosed. Cataracts is diagnosed. Glaucoma is diagnosed. 4 weeks later, the patient visited and experienced the following: drug A 6mg is administered. BCVA - visual acuity score is 80.0 intraocular pressure (mmhg) is 17.0 center subfield thickness ilm-bm single form (um) is 318.0 ... You will now have multiple tasks to complete. Please answer for each task in the same order as they are presented. Task 1 is forecasting: Your task is to predict the future values of the following variables for each cumulative week starting from the last visit: bcva - visual acuity score; study the future weeks 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100 
+
+Output: 
+
+Task 1 is forecasting: 4 weeks later, the patient visited and experienced the following: study eye - bcva - visual acuity score; study is 83.0 8 weeks later, the patient visited and experienced the following: study eye - bcva - visual acuity score; study is 82.0 12 weeks later, the patient visited and experienced the following: study eye - bcva - visual acuity score; study is 81.0 ... 100 weeks later, the patient visited and experienced the following: study eye - bcva - visual acuity score; study is 76.0 
+
+A.5. System Prompt 
+
+The following system prompt is prepended to every patient narrative during both fine-tuning and inference, instructing the model on its clinical forecasting role. 7OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology 
+
+As a specialist predictive model in ophthalmology, your task is to forecast the visual acuity trajectory of patients by integrating baseline clinical measurements, treatment history, medical history, adverse events, and any other information provided about the patient. Use the provided patient data, including BCVA scores, retinal measurements, administered therapies, and comorbidities, to predict all requested tasks. Deliver precise and clinically relevant predictions to support treatment planning and clinical trial analysis. 
+
+8
