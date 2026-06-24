@@ -1,0 +1,3927 @@
+Title: Interaction-Limited Safe Continuous-Time RL for Dynamical Medical Treatment
+
+URL Source: https://arxiv.org/pdf/2606.01051v1
+
+Published Time: Tue, 02 Jun 2026 01:36:07 GMT
+
+Number of Pages: 49
+
+Markdown Content:
+# Interaction-Limited Safe Continuous-Time RL for Dynamical Medical Treatment 
+
+Xun Shen 1∗ Yuepeng Wang 1∗ Akifumi Wachi 2 Yongqi Zhou 3 Richard Weiss 3
+
+Yoshihiko Fujisawa 4 Ken Kawano 4 Mehrshad Sadria 5 Ying Chen 3 Xin Liu 6
+
+Sebastien Gros 7 Xiao Hu 8 Kyoung-Sook Kim 6 Mengmou Li 9
+
+Katsuki Fujisawa 4 Kenji Wakabayashi 41Tokyo University of Agriculture and Technology, 2LY Corporation, 
+
+> 3
+
+National University of Singapore, 4Institute of Science Tokyo, 5Altos Labs, Inc., 
+
+> 6
+
+National Institute of Advanced Industrial Science and Technology (AIST), 
+
+> 7
+
+Norwegian University of Science and Technology, 8Emory University, 9Hiroshima University 
+
+shen@go.tuat.ac.jp 
+
+## Abstract 
+
+Dynamic medical treatment requires deciding treatment intensity and intervention timing, while patient states evolve continuously and adverse events may occur between clinical interactions. Most existing treatment learning methods assume fixed schedules or enforce safety only at discrete decision points. We propose 
+
+Interaction-Limited Safe Continuous-Time Reinforcement Learning , a framework that jointly optimizes treatment administration and clinical interaction timing under trajectory-level safety constraints. Our key idea is to reformulate the continuous-time treatment problem as an option-based semi-Markov decision process, where each option specifies a continuous-time treatment policy and its duration. We de-velop a safety-tightening mechanism showing that suitably constructed constraints at interaction times guarantee safety over the full continuous-time trajectory with high probability. We further establish finite-sample guarantees for policy learning from logged treatment trajectories and introduce a practical data-driven conserva-tive surrogate. Experiments show that the proposed adaptive interaction-timing mechanism improves both safety and treatment effectiveness over equidistant interaction schemes across different safe policy optimization methods. 
+
+## 1 Introduction 
+
+Clinical treatment planning is inherently a continuous-time decision-making problem [ 5]. In many high-stakes settings such as medical treatment of sepsis [ 9] or cancer [ 42 ], clinicians must decide not only how much treatment to administer but also when to intervene, while balancing treatment efficacy against safety constraints such as toxicity limits, physiological risk thresholds, and maximum allowable delays between clinical assessments. Recent reinforcement learning approaches to dynamic treatment typically formulate the problem as a discrete-time Markov decision process with fixed or pre-specified decision intervals [ 19 , 38 ]. As a result, treatment decisions are optimized only at discrete intervention times, while patient states continue to evolve between them. This mismatch is especially problematic in safety-critical settings, because adverse events may occur between clinical interactions rather than exactly at them. Even recent continuous-time learning frameworks that optimize both treatment timing and dosage from logged data do not explicitly guarantee safety over the full continuous-time trajectory between interventions [ 26 , 42 ]. These limitations motivate a new formulation for dynamic treatment that jointly optimizes treatment administration and interaction 
+
+> ∗X.Shen and Y. Wang contributed equally to this work. Preprint.
+> arXiv:2606.01051v1 [cs.LG] 31 May 2026
+
+timing while enforcing trajectory-level safety in continuous time. A more detailed discussion of related work is provided in Appendix B. 
+
+Contributions. We propose Interaction-Limited Safe Continuous-Time Reinforcement Learning , a theoretically grounded framework for learning safe and effective treatment policies for dynamical medical treatment. Our key contributions are as follows. (1) We formulate dynamic treatment as a continuous-time safety-constrained decision-making problem that jointly optimizes treatment administration and clinical interaction timing. (2) By introducing an interaction-limited option-based reformulation, our framework captures both continuous-time treatment evolution and the clinically important decision of when to measure, reassess, or intervene. (3) We develop a safety-tightening mechanism showing that constraints enforced only at interaction times suffice to ensure continuous-time trajectory safety with high probability. We also provide finite-sample guarantees for learning from logged treatment trajectories and a practical data-driven conservative surrogate for implementation. (4) We show that the resulting practical approximation can be constructed directly from logged patient trajectories and integrated with existing safe reinforcement learning algorithms. This provides a principled and deployable approach for learning continuous-time treatment policies that retain high-probability feasibility for the original safety-constrained treatment problem. 
+
+## 2 Problem Formulation 
+
+Targeted system. Let x ∈ X ⊆ Rds and u ∈ U ⊆ Rda denote the patient state and the permissible treatment action. Both X and U are continuous spaces. Moreover, U is assumed to be compact, since treatment actions, such as dosage levels, are typically restricted to a bounded and closed set. The patient state evolves in continuous time as follows: 
+
+xt = x0 +
+
+Z t
+
+> 0
+
+f (xτ , uτ , wτ )dτ. (1) Here, wt ∈ W represents a stochastic disturbance or model uncertainty, which captures factors affecting patient evolution that are not fully predictable from the current state and treatment action. In medical treatment scenarios, such disturbances may reflect unobserved physiological variability, heterogeneous treatment response, measurement noise, latent disease progression, or unexpected external influences such as concurrent medications and clinical complications. The disturbance process {wt}t≥0 is assumed to be exogenous, with sample paths that are measurable and locally integrable in time. The measurability and local integrability conditions are natural from a modeling perspective, since patient conditions and treatment responses typically vary continuously over time without requiring idealized smooth trajectories, while still allowing accumulated uncertainty over any finite clinical interval to be well defined. Here, f (x, u, w) is assumed to be measurable in w and locally Lipschitz continuous in x, uniformly over u ∈ U and w ∈ W . The safe region is given by 
+
+Xsafe := {x ∈ X : g(x) ≤ 0} . (2) 
+
+Underlying interaction-limited continuous-time treatment problem. In practice, clinical mea-surements and treatment updates are costly and occur only at irregular interaction times. We therefore first formulate the underlying control problem for interaction-limited continuous-time treatment .
+
+Definition 1. An interaction-limited segment controller is defined as a tuple γ = ( ϕ, η ), where (i) ϕ : X → U is a measurable intra-segment feedback law, and (ii) η : X × [0 , T ) → [0 , 1] is a termination function that induces a (possibly stochastic) starting time for the next segment. 
+
+Let Γ denote the class of admissible segment controllers that induce inter-interaction durations in [tmin , t max ]. At interaction time tk, a high-level policy ν selects a controller γk = ( ϕk, η k) ∼
+
+ν(· | xtk , t k, k ). Once selected, γk governs the treatment continuously until the next interaction time: 
+
+ut = ϕk(xt) for all t ∈ [tk, t k+1 ). The controller terminates at tk+1 = min {tk + τk, T }, where 
+
+τk denotes the (possibly random) duration induced by ηk. We define δt k := tk+1 − tk and impose 
+
+tmin ≤ δt k ≤ tmax almost surely for all k to enforce clinically meaningful timing constraints. Let 
+
+N := min {k ≥ 0 : tk = T } denote the number of executed treatment segments up to horizon T .We impose a hard budget K on the number of high-level clinical interactions, i.e., N ≤ K almost 2surely. The resulting interaction-limited treatment problem is 
+
+max  
+
+> ν
+
+E
+
+"N −1X
+
+> k=0
+
+Z tk+1 
+
+> tk
+
+b(xt, ϕ k(xt)) dt
+
+#
+
+(CTTP -IL )
+
+s.t. Pr {xt ∈ X safe , ∀t ∈ [0 , T ]} ≥ 1 − α, (3) 
+
+N ≤ K, t0 = 0 , tN = T, δt k ∈ [tmin , t max ] ∀k < N. (4) Problem CTTP -IL captures the clinically relevant restriction that treatment is updated at a limited interaction number while the patient state and the treatment evolve continuously between interactions. 
+
+Interaction-limited high-level control via options. We now introduce options as a structured representation of the segment controllers in CTTP -IL . Thus, the options framework is used here not to define a different control objective, but to represent the same interaction-limited treatment problem in a hierarchical and learning-friendly form [31]. 
+
+Definition 2 (Continuous-time option) . A (continuous-time) option o ∈ O is a tuple o = ( πo, β o),
+
+where (i) πo : X → U is an intra-option feedback policy, and (ii) βo : X × [0 , T ) → [0 , 1] is a termination function that induces a (possibly stochastic) starting time for the next clinical interaction. 
+
+At interaction time tk, the high-level option policy μ selects an option ok ∼ μ(· | xtk , t k, k ). Once initiated, the option generates the continuous-time treatment trajectory 
+
+ut = πok (xt), t ∈ [tk, t k+1 ), (5) and terminates at 
+
+tk+1 = min {tk + τk, T }, δt k := tk+1 − tk, (6) where τk denotes the duration induced by βok . As above, we impose tmin ≤ δt k ≤ tmax a.s. 
+
+Option-based Interaction-Limited Safety Constrained Problem (O-ILSCP). Using the option representation, we write the interaction-limited treatment problem as 
+
+max 
+
+> μ, {πo,β o}o∈O
+
+E
+
+"N −1X
+
+> k=0
+
+Z tk+1 
+
+> tk
+
+b(xt, π ok (xt)) dt
+
+#
+
+(O-ILSCP )
+
+s.t. Pr {xt ∈ X safe , ∀t ∈ [0 , T ]} ≥ 1 − α, (7) 
+
+N ≤ K, t0 = 0 , tN = T, δt k ∈ [tmin , t max ] ∀k < N. (8) Problem O-ILSCP therefore optimizes treatment administration and clinical interaction timing under the same trajectory-level safety requirement as CTTP -IL , but uses options as the representation of the inter-interaction treatment law. The following result clarifies the relation between the underlying interaction-limited treatment problem and its option-based formulation. 
+
+Proposition 1 (Every option-based policy induces an interaction-limited treatment law) . Assume that every admissible option o ∈ O induces an admissible segment controller (πo, β o) ∈ Γ. Then every feasible solution of O-ILSCP induces a feasible solution of CTTP -IL with the same closed-loop state-control trajectory, the same accumulated reward, and the same trajectory-level safety probability. Then, V ⋆ 
+
+> O-ILSCP
+
+≤ V ⋆
+
+> CTTP -IL
+
+, where V ⋆ 
+
+> O-ILSCP
+
+and V ⋆ 
+
+> CTTP -IL
+
+denote the corresponding optimal values. 
+
+Theorem 1 (Exact reformulation under an expressive option class) . Suppose, in addition, that the admissible option representation is rich enough so that for every admissible segment controller 
+
+γ = ( ϕ, η ) ∈ Γ, there exists an option oγ ∈ O such that πoγ = ϕ, βoγ = η. Then O-ILSCP 
+
+is an exact reformulation of CTTP -IL . In particular, the two problems induce the same feasible closed-loop laws on [0 , T ], and V ⋆ 
+
+> O-ILSCP
+
+= V ⋆
+
+> CTTP -IL
+
+.
+
+Remark 1 (Restricted option classes) . The exact equivalence in Theorem 1 requires the option class to be sufficiently expressive. If, in implementation, O is restricted to a finite dictionary or a parametric family, then O-ILSCP becomes a structured conservative approximation of CTTP -IL .
+
+## 3 Method 
+
+This section presents a practical approximation framework for solving O-ILSCP . First, O-ILSCP is reformulated as an option-based semi-Markov decision process (SMDP), given by Option -SMDP 
+
+3Constraint in Problem         
+
+> Ensure safety in the entire continuous time
+> interval with high probability
+> Constraint in Reformulated Problem
+> Ensure safety in discrete time points with high probability
+> Conservative Approximation
+> Theorem  2
+> Constraint in Approximate Problem
+> Sample -based Approximation
+> Theorem 3
+> Finite Sample Guarantees
+> Approximate Conservative Surrogate
+> Conservative Approximation
+> Implied by Theorem 4
+> Conservative Approximation
+> with High Probability
+> Theorem 4
+
+Figure 1: Summary of the relations among the main theorems and constraints in Section 3. in Section 3.1. Theorem 2 in Section 3.2 shows that, by choosing a sufficiently conservative safety function, enforcing safety only at clinical interaction times is sufficient to guarantee safety over the entire continuous-time treatment trajectory with high probability. Next, Theorem 3 in Section 3.3 provides finite-sample guarantees for the sample-based approximation of Option -SMDP , which is essential because practical deployment relies on finite logged treatment data. Section 3.4 further introduces a data-driven conservative surrogate of the safety constraint in Option -SMDP , constructed from samples of the current state, successor state, and inter-interaction duration. Taken together, these results yield a practical approximation of O-ILSCP that can be formulated directly from data and solved using existing safe RL algorithms. Moreover, the resulting approximate solution retains a high-probability safety guarantee for the original continuous-time treatment problem. The relations among the main theorems and constraints in Section 3 are summarized in Figure 1. 
+
+3.1 Reformulation as an Option Semi-Markov Decision Process 
+
+We reformulate O-ILSCP as a SMDP defined over options. At interaction time tk, the policy observes 
+
+(xtk , t k, k ) and selects an option ok, after which the patient state evolves under the corresponding continuous-time treatment rule until the next clinical interaction. 
+
+Option-induced state and reward flows. Conditioned on initiating option ok at time tk from 
+
+xtk = xk, the resulting patient trajectory satisfies 
+
+xtk +τ = xk +
+
+Z tk +τtk
+
+f (xt, π ok (xt), wt) dt, τ ∈ [0 , δt k]. (9) The next interaction time is given by tk+1 = tk + δt k (clipped at T as in (6) ), where δt k is determined by the termination function βok . Cumulative treatment reward of executing option ok is defined as 
+
+R(xk, t k, k, o k) := 
+
+Z tk+1 
+
+> tk
+
+b(xt, π ok (xt)) dt. (10) 
+
+SMDP state and transition. We define the SMDP state at interaction times as 
+
+sk := ( xk, t k, k ), xk := xtk . (11) Given sk and option ok, the next state is sk+1 = ( xk+1 , t k+1 , k + 1) with xk+1 := xtk+1 generated according to (9). This induces an SMDP transition kernel P(sk+1 | sk, o k), which captures both the exogenous disturbance process and the randomness arising from option termination. 
+
+Option-SMDP objective. With the above notation, O-ILSCP can be equivalently written as 
+
+max 
+
+> μ, {πo,β o}o∈O
+
+E
+
+"N −1X
+
+> k=0
+
+r(sk, o k)
+
+#
+
+(Option -SMDP )
+
+s.t. Pr {H (sk, o k) ≤ 0} ≥ 1 − ε, ∀k = 0 , . . . , N − 1, (12) 
+
+N ≤ K, δt k ∈ [tmin , t max ] ∀k < N, (13) where ok ∼ μ(· | sk) and r(sk, o k) := R(xk, t k, k, o k) as defined in (10) . Problem Option -SMDP 
+
+enables the simultaneous optimization of (i) intra-option treatment policies {πo}, which gov-ern continuous-time treatment administration between clinical interactions, and (ii) termination 4rules {βo}, which determine state-dependent interaction intervals δt k, while remaining compatible with standard SMDP and option-learning frameworks under continuous-time rollouts. Problem 
+
+Option -SMDP differs from Problem O-ILSCP in that the continuous-time joint chance constraint (7) is replaced by chance constraints imposed only at discrete interaction times through the function 
+
+H(·) in (12) . It becomes necessary to characterize how the function H(·) should be constructed so that the originally required constraint (7) remains satisfied under this reformulation. 
+
+3.2 Selection of Safety Function 
+
+To characterize safety between two clinical interactions, we introduce the option-wise growth property. 
+
+Definition 3. Fix an interaction time tk and the executed option ok ∈ O . Consider the closed-loop trajectory generated by ut = πok (xt) on t ∈ [tk, t k + δt k]. If there exist constants λok ∈ R and 
+
+γok ≥ 0, and a nonnegative quantity bk,o k measurable with respect to (sk, o k), such that for all 
+
+τ ∈ [0 , δt k],
+
+∥xtk +τ − xk∥ ≤ eλok τ − 1
+
+λok
+
+bk,o k + γok eλok τ Wk,τ , Wk,τ := 
+
+Z tk +τtk
+
+∥ws∥ds, (14) 
+
+where the expression eλo k τ −1
+
+> λok
+
+is interpreted as τ when λok = 0 . Then, we say the option ok satisfies an option-wise closed-loop (λok , b k,o k , γ ok )-growth property on [tk, t k + δt k] for Wk,τ .
+
+Assumption 1. The following conditions hold throughout this paper. (a) The safety function g is Lipschitz continuous with Lipschitz constant Lg, x. (b) Define Wk := Wk,δt k . There exists a constant 
+
+p ≥ 1 such that E [( Wk)p] < ∞ for all k. (c) For every interaction interval k and any ε ∈ (0 , 1) , de-fine W k(ε) := ( E [( Wk)p] /ε )1/p . Then, on the event {Wk ≤ W k(ε)}, there exists (λok , b k,o k , γ ok )
+
+such that the executed option ok satisfies the option-wise closed-loop (λok , b k,o k , γ ok )-growth prop-erty in Definition 3 on [tk, t k + δt k].
+
+The parameters (λok , b k,o k , γ ok ) summarize how the patient state may deviate during the interval governed by option ok. In particular, λok controls the rate of deviation growth, bk,o k captures the nominal drift at the beginning of the interval, and γok measures sensitivity to accumulated uncertainty through Wk,τ . These quantities need not be known exactly; any valid upper bounds satisfying (14) are sufficient, and conservative choices only increase safety conservatism. This option-wise growth property is weaker than assuming global Lipschitz continuity of the treatment dynamics. As shown in Appendix E, the bound (14) follows from a radial inequality on the closed-loop vector field 
+
+f (x, π ok (x), w), which can hold even when f is non-smooth or not globally Lipschitz. In particular, Lipschitz continuity of f on a compact set implies the existence of parameters (λok , b k,o k , γ ok ),whereas the converse does not hold. Therefore, the proposed formulation avoids imposing a strong global smoothness condition and instead uses a trajectory-level bound that is directly aligned with safe treatment evolution between clinical interactions. We present a choice of H(·) that enforces safety over the entire treatment trajectory by checking safety only at clinical interaction times. 
+
+Theorem 2. suppose that Assumption 1 holds. Then, for ε ≤ α/ (2 K), any feasible solution of Problem Option -SMDP is also feasible for Problem O-ILSCP in the following three cases: (a) On the event {Wk ≤ W k(ε)}, let (λok , b k,o k , γ ok ) be any triple whose existence is guaranteed by Assumption 1(c). The function H(·) is chosen as 
+
+H (sk, o k) := g(xk) + Lg, x · e|λok |δt k − 1
+
+|λok | bk,o k + γok e|λok |δt k W k(ε)
+
+!
+
+. (15) 
+
+(b) Wk,δt is almost surely bounded by Wmax ,k for all k and δt , and H(·) is selected as in (15) with 
+
+W k(ε) replaced by Wmax ,k . (c) Wk,δt is sub-Gaussian for all k and δt , and H(·) is selected as in 
+
+(15) with W k(ε) replaced by E[Wk] + σk
+
+p2 log (1 /ε ), where σk := sup δt ∈[0 ,δt k ] σk,δt and σk,δt 
+
+denotes the variance of Wk,δt .
+
+Theorem 2 shows that appropriately tightening the safety constraint at each clinical interaction time is sufficient to guarantee safety throughout the interval until the next interaction. Thus, although Problem Option -SMDP imposes constraints only at discrete interaction times, it still guarantees safety over the full continuous-time treatment trajectory. The proof is provided in Appendix F. The quantities in Theorem 2 are introduced to obtain a tractable upper bound on hidden safety violations 5between clinical interactions, rather than to impose restrictive treatment-dynamics assumptions. In particular, W k(ε) is a probabilistic upper envelope on the accumulated uncertainty over one interaction interval and does not require exact knowledge of the disturbance distribution. In practice, it can be conservatively estimated from prior knowledge or learned from data. Similarly, valid upper bounds on the relevant Lipschitz constants are sufficient, and over-approximation only increases conservatism without invalidating the guarantee. Among the three cases, case (a) is the most general and only requires a finite moment condition on the integrated disturbance. Cases (b) and (c) provide tighter tightenings when stronger information, such as boundedness or sub-Gaussianity, is available. The bound is valid for both stable and unstable closed-loop behaviors, since the proof uses |λok | to obtain a sign-independent worst-case bound. When λok < 0, this treatment is conservative, but it yields a unified construction of H(·) that is directly applicable in both regimes. 
+
+3.3 Finite Sample Guarantees 
+
+To study learning performance from finite clinical data, we consider a logged dataset of M option-execution trajectories DM := 
+
+n
+
+{(s(i) 
+
+> k
+
+, o (i) 
+
+> k
+
+)}N −1
+
+> k=0
+
+oNi=1 
+
+, where trajectory i contains the realized interaction-state and option sequence. Using DM , we construct the following importance-weighted sample approximation of Problem Option -SMDP :
+
+max 
+
+> μ, {πo,β o}o∈O
+
+eJ(μ, {πo, β o}o∈O ; DM ) := 
+
+> M
+
+X
+
+> i=1
+
+ωi · 
+
+> N−1
+
+X
+
+> k=0
+
+r(s(i) 
+
+> k
+
+, o (i) 
+
+> k
+
+)
+
+!
+
+(SA -Option -SMDP )
+
+s.t.
+
+> M
+
+X
+
+> i=1
+
+ωi · I
+
+n
+
+H(s(i) 
+
+> k
+
+, o (i) 
+
+> k
+
+) ≤ 0
+
+o
+
+≥ 1 − ε, ∀k = 1 , . . . , N. (16) Here, ωi is short notation of ωi(s0, μ, {πo, β o}o∈O ; DM ), which denotes a normalized importance weight satisfying PMi=1 ωi = 1 . It reweights trajectory i to compensate for the mismatch between the trajectory distribution induced by the candidate option-SMDP policy (μ, {πo, β o}o∈O ) and that of the logged data. In practice, after parameterizing the policy as in Appendix G.1, these weights can be estimated through conditional density-ratio estimation, for example, by a kernel density estimation (KDE) method [ 16 ] or a generator-based conditional density model [ 43 ]. The detailed trajectory-level construction is provided in Appendix G, especially Appendix G.3 for importance weight and Appendix G.4 for uniform exponential deviation for residual processes. The finite-sample guarantee of Problem SA -Option -SMDP is as follows. 
+
+Theorem 3. suppose that Assumption 1 and some mild regularity condition stated in Appendix G.4 hold. Let bϑM and ϑ⋆ denote a solution of the sample-based Problem SA -Option -SMDP and an optimal solution of the original Problem Option -SMDP , where ϑ := ( μ, {πo, β o}o∈O ). Then for any tolerances δobj > 0 and δcon > 0, there exist failure probabilities ρobj  
+
+> M
+
+and ρcon  
+
+> M
+
+such that, with probability at least 1 − ρobj  
+
+> M
+
+− ρcon  
+
+> M
+
+, the following statements hold: (a) Near optimality: 
+
+J(bϑM , s0) ≥ J(ϑ⋆, s0)−2δobj ; (b) Feasibility: If the empirical safety constraints in (16) are satisfied with 1 − ε + δcon instead of 1 − ε, then the learned solution is feasible for Problem Option -SMDP .
+
+Theorem 3 shows, in a general form, that from finite logged treatment trajectories one can obtain a policy that is both approximately optimal and safety-feasible with high probability. For specific conditional density-ratio estimation methods, the resulting bounds depend on the corresponding hyper-parameters; see Theorem 7 in Appendix G.4 for the feasibility bounds under KDE-based and generator-based estimation, and Propositions 2 and 3 in Appendix G.6 for the corresponding near-optimality bounds. The proof is based on the consistency of the importance-weighted empirical objective and constraint processes. Appendix G.4 establishes uniform exponential deviation bounds for the estimated importance weights, Appendix G.5 derives the resulting uniform consistency, and Appendix G.6–G.7 translate these results into the finite-sample guarantees above. 
+
+3.4 Practical Implementation 
+
+The analytical safety-tightening term in (15) is generally not directly computable in practice, mainly because it depends on λok , which characterizes the local closed-loop growth behavior induced by 6the treatment dynamics and the option feedback controller πok , while its explicit dependence on the current patient state xk is unknown. To make the practical construction explicit, we define 
+
+h(xk, δt k) := e|λok |δt k − 1
+
+|λok | bk,o k + γok e|λok |δt k W k(ε). (17) The function h(xk, δt k) represents the analytical safety-tightening term over the interaction interval 
+
+[tk, t k + δt k]. This definition is natural because (17) is exactly the quantity that upper-bounds the inter-interaction state deviation in Theorem 2, and thus determines the amount of safety tightening required at time tk. Our goal in practical implementation is therefore to construct a computable surrogate that upper-bounds h(xk, δt k). We formalize this notion as follows: 
+
+Definition 4. A function ¯h(x, δt ) is called a conservative surrogate of h(x, δt ) if ¯h(x, δt ) ≥
+
+h(x, δt ), ∀(x, δt ) in the operating region of interest. 
+
+In practice, we assume access to a dataset Dpr  
+
+> Npr
+
+:=   x(i), δt (i), d (i) Npr 
+
+> i=1
+
+, where d(i) := 
+
+x(i)+ − x(i) , and x(i)+ denotes the successor state of x(i) after an inter-interaction duration δt (i).Here, the endpoint deviation is used as a practical proxy for the interval-wise deviation; see Appendix H.1 for discussion. Thus, each sample records the current patient state, the applied interaction duration, and the resulting sampled finite-interval state deviation. We assume that the deviation variable d follows a conditional probability distribution given (x, δt ), and denote its Conditional Probability Density (CPD) by d ∼ pd(· | x, δt ). This conditional distribution captures the stochastic variation of the sampled finite-interval deviation under the current state and interaction duration. Its uncertainty integrates the effect of both treatment-dynamics uncertainty and the input component induced by the option policy, which is not explicitly retained in the practical implementation. We next construct a sample-based approximate conservative surrogate of h(x, δt ). A KDE-based method can be used to estimate the approximate CPD ˜pd(·| x, δt ) of pd(·| x, δt ). We then resam-ple Nre samples ˜d(j) 
+
+> re
+
+∼ ˜pd(·| x, δt ), j = 1 , ..., N re . Without loss of generality, assume that the samples 
+
+n ˜d(j)
+
+> re
+
+oNre 
+
+> j=1
+
+are sorted in descending order, namely, ˜d(1)  
+
+> re
+
+≥ ˜d(2)  
+
+> re
+
+≥ · · · ≥ ˜d(Nre ) 
+
+> re
+
+. Define 
+
+mre := ⌈Nre ¯ϵ′
+
+> h
+
+⌉ . The sample-based approximation ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) is defined as the (Nre ¯ϵ′
+
+> h
+
+)-th largest resampled deviation, namely, ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) = ˜d(mre ) 
+
+> re
+
+. This quantity provides a data-driven approxi-mation of the conservative surrogate needed to control hidden safety violations between two clinical interaction times. Instead of using H (sk, o k) in (15), we introduce the empirical safety function 
+
+eHNpr ,N re  
+
+> ¯ϵh
+
+(sk) := g(xk) + Lg, x · ˜vNpr ,N re  
+
+> ¯ϵh
+
+(xk, δt k). (18) Using (18) preserves feasibility for Problem Option -SMDP with high probability. 
+
+Theorem 4. suppose that Assumption 1 and some mild regularity condition stated in Appendix G.4 hold. Let eϑNpr ,N re  
+
+> M, ¯ϵh,δ con
+
+and ϑ⋆ denote a solution of the sample-based Problem SA -Option -SMDP after replacing H(·) by eHNpr ,N re  
+
+> ¯ϵh
+
+(·) defined by (18) and setting the probability level in the right side of 
+
+(16) as 1 − ε + δcon . Then, there exist failure probability ρcon  
+
+> M
+
+and ρh such that, with probability at least 1 − ρcon  
+
+> M
+
+− ρh, eϑNpr ,N re  
+
+> M, ¯ϵh,δ con
+
+is feasible for Problem Option -SMDP .
+
+The proof of Theorem 4 is summarized in Appendix H.4. Theorem 4 shows that the learned treatment policy remains safety-feasible with high probability even when the analytical safety-tightening term is replaced by a sample-based approximation. This is practically important in clinical settings, where safety must be certified from finite retrospective data rather than exact patient dynamics. The result links feasibility to the amount of logged treatment data and the accuracy of the conservative surrogate approximation, making the framework suitable for reliable policy deployment. While we adopt this KDE-based method to estimate ˜vNpr ,N re  
+
+> ¯ϵh
+
+(xk, δt k) for theoretical guarantees, Gaussian process can approximate the support more conveniently (Appendix H.5). In the experiments, we adopt a constant safety margin as a numerically stable approximation of the GP-based conservative surrogate. This can be interpreted as a robustified version of the adaptive margin, where a single conservative upper bound is chosen to cover a relevant region of (x, δt ) rather than being adjusted pointwise. Such a simplification avoids the optimization instability caused by directly coupling the state- and duration-dependent margin with δt k, while preserving the intended role of the surrogate 7Table 1: Comparison across methods showing Appropriate Intensification Rate (AIR), SOFA, Lactate, and Safety probability (mean ± Standard Deviation (SD)) for K = 8. All indicators are reported as mean ± SD over all evaluation trajectories from five test seeds, with 100 trajectories per seed. ↑ (↓)indicates that higher (lower) values are better. Blue(Red) indicates the best(worst) value in each row. The proposed methods, CPO -O and PCPO -O, are highlighted in purple.                                                                                                          
+
+> Method CPO -OSAC -OCPO -ESAC -EPCPO -OTRPO -OPCPO -ETRPO -E
+> AIR (↑)87.60 ±0.26 1.17 ±0.45 53.40 ±3.06 47.54 ±0.67 15.99 ±0.78 71.56 ±1.36 7.44 ±0.86 24.85 ±0.56
+> SOFA (↓)7.85 ±0.03 8.92 ±0.04 8.15 ±0.11 8.25 ±0.07 7.92 ±0.06 8.59 ±0.13 8.06 ±0.06 8.08 ±0.11
+> Lactate (↓)6.23 ±0.20 6.60 ±0.13 8.53 ±0.95 8.24 ±0.58 5.83 ±0.15 9.75 ±0.98 7.85 ±0.45 8.54 ±0.74
+> Safety (%, ↑)100.00 ±0.00 25.80 ±2.59 0.60 ±0.89 0.00 ±0.00 99.60 ±0.55 3.20 ±2.59 4.60 ±1.67 0.20 ±0.45
+
+as a conservative buffer against inter-interaction risk, details are provided in the Appendix J. After reformulating the original continuous-time problem as the option-based discrete-time constrained problem Option -SMDP , existing safe reinforcement learning algorithms can be used as approximate solvers in practical implementation. In particular, although methods such as Constrained Policy Optimization (CPO) [ 1 ], are originally developed for infinite-horizon discrete-time constrained Markov decision processes, they can still be applied here in a finite-horizon receding manner. This is reasonable because the essential inputs required by these algorithms, the transition samples, reward, and safety constraint, are all available after the option-SMDP reformulation. Therefore, the practical role of the present framework is to construct a continuous-time safety-aware option-level decision model, upon which existing safe RL methods can be deployed for approximate policy improvement. 
+
+## 4 Validations 
+
+Experimental Setup. We evaluate the proposed method in a patient-specific continuous-time treatment environment constructed from MIMIC-III sepsis data [ 18 ]. Rather than using a discrete-time transition model, we build the environment by approximating the underlying physiological dynamics with a Physics-Informed Neural Network (PINN) [ 25 ] and an additional stochastic residual term. This construction preserves the continuous-time treatment structure, explicitly captures the effect of elapsed interaction intervals, and provides a substantially more realistic and challenging testbed than fixed-step simulators commonly used in treatment recommendation. The environment is built for one representative patient and does not include an explicit personalization parameter, allowing us to focus on validating the proposed safe continuous-time control framework under a high-dimensional and stochastic dynamics model. The present experiments evaluate the proposed framework in a learned continuous-time simulator constructed from clinical data, and primarily validate the interaction-limited safe control mechanism rather than the more challenging fully offline learning setting under strong dataset-coverage and out-of-distribution limitations. Detailed definitions of the state, reward, safety metrics, environment construction, and evaluation protocol are provided in Appendix I. To further assess robustness beyond the primary patient-specific environment, we also provide supplementary evaluations using cluster-level PINN-based treatment environments in the Appendix J.6. We compare the proposed framework, instantiated with different policy optimization algorithms against methods using equidistant interaction times. In particular, CPO -O (CPO [ 1] with optimal time-adaptation) and PCPO -O (PCPO [39 ] with optimal time-adaptation) are implementations of the proposed method, while SAC -O (SAC [12 ] with optimal time-adaptation) and TRPO -O (TRPO [27 ]with optimal time-adaptation) evaluate the proposed time-adaptation mechanism with unconstrained optimizers. As references, we further consider CPO -E (CPO with equidistant interaction times), 
+
+SAC -E (SAC with equidistant interaction times), PCPO -E (PCPO with equidistant interaction times), and TRPO -E (TRPO with equidistant interaction times). We evaluate these methods from: treatment effectiveness, measured by the mean SOFA score per step; safety, measured by the safety rate after the critical time threshold; and trajectory-level behavior, measured by the SOFA score’s time evolution. 
+
+Results and Discussion. Figures 2–3 and Table 1 show that the proposed optimal time-adaptation mechanism consistently improves both treatment effectiveness and safety compared with equidistant interaction schemes. In particular, CPO -O achieves lower lactate trajectories and lower mean SOFA 
+
+scores than CPO -E, indicating that adaptive interaction timing is beneficial. Figure 2 further shows that CPO -O yields more stable lactate evolution and fewer safety-violating rollouts than SAC -O,suggesting that combining the proposed framework with constrained optimization provides additional safety benefits. The same trend is observed in Figure 3(c)–(d), where constrained methods with 8Figure 2: Lactate evaluation results of different methods. The purple dashed horizontal line is the safety bound, set to 8.5 mmol/L. In all panels, solid lines denote the mean lactate trajectories of safe rollouts, dashed lines denote the mean trajectories of violating rollouts, and shaded regions indicate variability bands. (a) CPO -O. (b) SAC -O. (c) Blue: CPO -E; Red: SAC -E, respectively. 
+
+Figure 3: Comprehensive evaluation of different methods, averaged across five test seeds. (a) Mean 
+
+SOFA score per step under the first evaluation setting. (b) Mean SOFA score per step under the second evaluation setting. (c) Safety rate at t ≥ 20 h across different interaction steps. (d) Mean 
+
+SOFA trajectories over time, where the vertical dashed line marks t = 20 h and the black star indicates the initial SOFA score. Error bars and shaded regions indicate variability across test seeds. The detailed definitions of the evaluation settings are provided in the Appendix J.1. optimal time-adaptation achieve higher safety rates after the critical time threshold and more favorable 
+
+SOFA trajectories. These results are also consistent with the quantitative metrics in Table 1, where the proposed constrained optimal time-adaptation methods, CPO -O and PCPO -O, achieve better AIR, lower SOFA , and lower lactate than their equidistant counterparts. In contrast, the same trend is not consistently observed for unconstrained optimizers, which further highlights the importance of combining adaptive interaction timing with explicit safety-aware policy optimization. Besides, the results of PCPO -O, TRPO -O, PCPO -E, and TRPO -E follow the same pattern, showing that the benefit of the proposed framework is not tied to a specific optimizer but generalizes across both constrained and unconstrained policy optimization methods. Overall, the proposed resulting policy achieves a better balance between treatment effectiveness and safety, especially in terms of stabilizing clinically important physiological indicators and reducing unsafe trajectories. The constrained methods do not suffer a deterioration in treatment effectiveness and instead achieve better reward-related outcomes in this setting. From a clinical perspective, this is reasonable because constraining lactate prevents the policy from exploiting treatment strategies that may improve short-term reward while driving the patient toward physiologically unstable states. Since elevated lactate is a well-recognized marker of inadequate tissue perfusion and worsening sepsis severity, explicitly controlling lactate can steer the policy toward interventions that are both safer and more aligned with long-term recovery. For all methods, each trained policy is evaluated 100 times under each of five random seeds, and the table reports the resulting mean and standard deviation. Due to space limitations, detailed training settings, evaluation protocols, training curves, state-action trajectories, safety evaluations, and the full results for PCPO and TRPO are deferred to Appendix J.1–J.5. 
+
+## 5 Conclusions 
+
+We studied interaction-limited safe continuous-time reinforcement learning for dynamical medical treatment. We formulated the problem as a continuous-time safety-constrained decision problem that jointly optimizes treatment administration and clinical interaction timing, developed an option-9based reformulation together with a safety-tightening mechanism that guarantees safety between clinical interactions, and established finite-sample feasibility guarantees with a practical data-driven conservative surrogate. Experimental results on sepsis treatment showed that the proposed optimal time-adaptation mechanism improves both safety and treatment effectiveness over equidistant inter-action schemes across different policy optimization methods. We note that the absolute differences in SOFA score between methods are modest, and whether these translate into clinically meaningful improvements in patient outcomes requires further validation in collaboration with critical care specialists. 10 References 
+
+[1] Joshua Achiam, David Held, Aviv Tamar, and Pieter Abbeel. Constrained policy optimization. In 
+
+Proceedings of the 34th International Conference on Machine Learning - Volume 70 , ICML’17, page 22–31. JMLR.org, 2017. [2] Eitan Altman. Constrained Markov decision processes . Routledge, 2021. [3] Pierre-Luc Bacon, Jean Harb, and Doina Precup. The option-critic architecture. In Proceedings of the AAAI conference on artificial intelligence , volume 31, 2017. [4] Rinaldo Bellomo, John A. Kellum, and Claudio Ronco. Acute kidney injury. The Lancet , 380 (9843):756–766, 2012. [5] R. S. Carbajo, J. Palma, and I. Martin-Loeches. The next frontier in sepsis: Connected icu data for real-world clinical decision making. Intensive Care Medicine , 52:301–308, 2026. [6] Yinlam Chow, Ofir Nachum, Edgar Duenez-Guzman, and Mohammad Ghavamzadeh. Alyapunov-based approach to safe reinforcement learning. Advances in neural information processing systems , 31, 2018. [7] Jason D Christie, Scarlett Bellamy, Chirag V Shah, Barry D Fuchs, Munish Goyal, David F Gaieski, Anne N Miltiades, and Mark E Mikkelsen. Serum lactate is associated with mortality in severe sepsis independent of organ failure and shock. Critical Care Medicine , 37(5):1670–1677, 2009. [8] János Galambos. Bonferroni inequalities. The Annals of Probability , 5(4):577–581, 1977. [9] J. Ghossein, B. N. Hryciw, and K. Kyeremanteng. Redefining sepsis management: The comprehensive impact of artificial intelligence. Journal of Intensive Medicine , 5(2):134–136, September 2024. [10] Omer Gottesman, Fredrik Johansson, Matthieu Komorowski, Aldo Faisal, David Sontag, Finale Doshi-Velez, and Leo Anthony Celi. Guidelines for reinforcement learning in healthcare. Nature medicine , 25(1):16–18, 2019. [11] Thomas H. Grönwall. Note on the derivatives with respect to a parameter of the solutions of a system of differential equations. Annals of Mathematics , 20(2):292–296, 1919. [12] Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey Levine. Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In Proceedings of the 35th International Conference on Machine Learning , volume 80 of Proceedings of Machine Learning Research , pages 1861–1870. PMLR, 10–15 Jul 2018. [13] Mason Hargrave, Alex Spaeth, and Logan Grosenick. Epicare: A reinforcement learning benchmark for dynamic treatment regimes. In Advances in Neural Information Processing Systems (NeurIPS) , 2024. [14] S. Holt, A. Hüyük, and M. van der Schaar. Active observing in continuous-time control. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) , 2023. [15] Yong Huang, Rui Cao, and Amir Rahmani. Reinforcement learning for sepsis treatment: A continuous action space solution. In Proceedings of the 7th Machine Learning for Healthcare Conference , volume 182 of Proceedings of Machine Learning Research , pages 631–647. PMLR, 2022. [16] Rob J. Hyndman, D. M. Bashtannyk, and G. K. Grunwald. Estimating and visualizing condi-tional densities. Journal of Computational and Graphical Statistics , 5:315–336, 1996. [17] Simi Job, Xiaohui Tao, Lin Li, Haoran Xie, Taotao Cai, Jianming Yong, and Qing Li. Optimal treatment strategies for critical patients with deep reinforcement learning. ACM Transactions on Intelligent Systems and Technology , 15(2):1–22, 2024. 11 [18] A.E.W. Johnson, T.J. Pollard, L. Shen, L.H. Hehman, M. Feng, M.Ghassemi, B. Moody, P. Szolovits, L.A. Celi, and R.G. Mark. Mimic-iii, a freely accessible critical care database. 3 (may. 2016), 2016. URL https://doi.org/10.1038/sdata.2016.35 .[19] M. Komorowski, L.A. Celi, O. Badawi, A.C. Gordon, and A.A. Faisal. The artificial intelligence clinician learns optimal treatment strategies for sepsis in intensive care. Nature Medicine , 24: 1716–1720, 2018. [20] Keying Kuang, Frances Dean, Jack B. Jedlicki, David Ouyang, Anthony Philippakis, David Sontag, and Ahmed M. Alaa. Med-real2sim: Non-invasive medical digital twins using physics-informed self-supervised learning. In Advances in Neural Information Processing Systems 37 (NeurIPS 2024) , 2024. [21] Levi E. Lingsch, Dana Grund, Siddhartha Mishra, and Georgios Kissas. Fuse: Fast unified simulation and estimation for pdes. In Advances in Neural Information Processing Systems 37 (NeurIPS 2024) , 2024. [22] Timothy Mann, Daniel Mankowitz, and Shie Mannor. Time-regularized interrupting options (trio). In Proceedings of the 31st International Conference on Machine Learning , volume 32 of 
+
+Proceedings of Machine Learning Research , pages 1350–1358. PMLR, 2014. [23] M. Nambiar, S. Ghosh, P. Ong, Y. E. Chan, Y. M. Bee, and P. Krishnaswamy. Deep offline reinforcement learning for real-world treatment optimization applications. In Proceedings of the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD) , pages 4673–4684. ACM, 2023. [24] Hallie C. Prescott, Massimo Antonelli, Waleed Alhazzani, Morten Hylander Møller, Fayez Alshamsi, Luciano C. P. Azevedo, et al. Surviving sepsis campaign: International guidelines for management of sepsis and septic shock 2026. Critical Care Medicine , 54(4):725–812, 2026. [25] M. Raissi, P. Perdikaris, and G.E. Karniadakis. Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. Journal of Computational Physics , 378:686–707, 2019. doi: https: //doi.org/10.1016/j.jcp.2018.10.045. [26] Nora Schneider, Georg Manten, and Niki Kilbertus. Conservative continuous-time treatment optimization. arXiv preprint , 2026. doi: 10.48550/arXiv.2603.16789. [27] John Schulman, Sergey Levine, Pieter Abbeel, Michael Jordan, and Philipp Moritz. Trust region policy optimization. In Proceedings of the 32nd International Conference on Machine Learning ,volume 37 of Proceedings of Machine Learning Research , pages 1889–1897. PMLR, 07–09 Jul 2015. [28] Xun Shen, Ye Wang, Kazumune Hashimoto, Yuhu Wu, and Sebastien Gros. Probabilistic reachable sets of stochastic nonlinear systems with contextual uncertainties. Automatica , 176: 112237, 2025. [29] Mervyn Singer, Clifford S. Deutschman, Christopher W. Seymour, Manu Shankar-Hari, Djillali Annane, Michael Bauer, Rinaldo Bellomo, Gordon R. Bernard, Jean-Daniel Chiche, Craig M. Coopersmith, et al. The third international consensus definitions for sepsis and septic shock (sepsis-3). JAMA , 315(8):801–810, 2016. [30] Romain Sonneville, Sarah Benghanem, Lina Jeantin, Etienne de Montmollin, Marc Doman, Augustin Gaudemer, Michael Thy, and Jean-François Timsit. The spectrum of sepsis-associated encephalopathy: a clinical perspective. Critical Care , 27(1):386, 2023. [31] Richard S Sutton, Doina Precup, and Satinder Singh. Between mdps and semi-mdps: A framework for temporal abstraction in reinforcement learning. Artificial intelligence , 112(1-2): 181–211, 1999. [32] X. Tang, Y. Jia, J. Sun, and Y. Fan. Supervised reinforcement learning with recurrent neural network for dynamic treatment recommendation. In Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD) , pages 2447–2456. ACM, 2018. 12 [33] Lenart Treven, Jonas Hübotter, Bhavya Sukhija, Andreas Krause, and Florian Dörfler. Efficient exploration in continuous-time model-based reinforcement learning. In Proceedings of the 37th International Conference on Neural Information Processing Systems , 2023. [34] Lenart Treven, Bhavya Sukhija, Yarden As, Florian Dörfler, and Andreas Krause. When to sense and control? a time-adaptive approach for continuous-time reinforcement learning. In 
+
+Proceedings of the 38th International Conference on Neural Information Processing Systems (NeurIPS) , number 2033, pages 63654–63685, 2024. [35] Aysin Tumay, Sophia Sun, Sonia Fereidooni, Aaron Dumas, Elise Jortberg, and Rose Yu. Guardian-regularized safe offline reinforcement learning for smart weaning of mechanical circulatory devices. In Proceedings of Machine Learning for Health (ML4H) , volume 297 of 
+
+Proceedings of Machine Learning Research , pages 1861–1870. PMLR, 2025. [36] Roman Vershynin. High-Dimensional Probability: An Introduction with Applications in Data Science . Cambridge University Press, 2018. [37] John B. West and Andrew M. Luks. Respiratory Physiology: The Essentials . Lippincott Williams & Wilkins, 11th edition, 2020. [38] Runze Yan*, Xun Shen*, Akifumi Wachi, Sebastien Gros, Anni Zhao, and Xiao Hu. Offline guarded safe reinforcement learning for medical treatment optimization strategies. Proceedings of the 39th Advances in Neural Information Processing Systems , 2025. [39] Tsung-Yen Yang, Justinian Rosca, Karthik Narasimhan, and Peter J. Ramadge. Projection-based constrained policy optimization. In International Conference on Learning Representations (ICLR) , 2020. [40] C. Yildiz, M. Heinonen, and H. Lähdesmäki. Continuous-time model-based reinforcement learning. In Proceedings of the 38th International Conference on Machine Learning (ICML) ,pages 12009–12018. PMLR, 2021. [41] H. Yu, W. Xu, and H. Zhang. Taac: Temporally abstract actor-critic for continuous control. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) , volume 34, pages 29021–29033, 2021. [42] Zhiyue Zhang, Hongyuan Mei, and Yanxun Xu. Continuous-time decision transformer for healthcare applications. In Proceedings of the 26th International Conference on Artificial Intelligence and Statistics (AISTATS) , volume 206, pages 6245–6262. PMLR, 2023. [43] X. Zhou, Y. Jiao, J. Liu, and J. Huang. A deep generative approach to conditional sampling. 
+
+Journal of the American Statistical Association , 118(543):1837–1848, 2023. doi: 10.1080/ 01621459.2021.2016424. 13 A Limitations 
+
+This work has several limitations that suggest important directions for future research. First, the current safety analysis focuses on the learned or converged policy, and does not explicitly address safety during policy exploration or training. Extending the framework to incorporate safe exploration mechanisms, such as shielding-based intervention, is an important next step. Second, the present formulation assumes full state observability at interaction times and synchronous treatment implemen-tation, whereas real clinical decision-making is often partially observed and different interventions may be administered asynchronously. Incorporating continuous-time partial observability and more realistic treatment execution models would further improve clinical fidelity. Third, although this work focuses on policy learning with the setting of a full-coverage dataset, extending the framework to fully offline learning under partial coverage and stronger out-of-distribution shift in continuous-time settings remains an important direction. Fourth, the safety constraint in this work is based on blood lactate levels with a threshold of 8.5 mmol/L. While this value was chosen to accommodate the physiological complexity of sepsis, its clinical justification warrants further scrutiny. In standard ICU practice, lactate levels above 2 mmol/L are considered abnormal, and values exceeding 4 mmol/L are associated with significantly increased mortality. The relatively permissive threshold adopted here may therefore not fully reflect the clinical urgency with which elevated lactate is treated in practice. Future work should examine the sensitivity of policy behavior to this threshold and consider incorporating clinically validated cutoff values in consultation with critical care specialists. Fifth, the reward function in this work is based on the SOFA score, which has established correlations with patient mortality and is widely used in critical care research. However, the absolute differences in mean SOFA scores observed between methods in our experiments are modest, and whether such dif-ferences constitute clinically meaningful improvements in patient outcomes remains to be established. Future work should consider examining the relationship between observed SOFA improvements and longer-term outcomes such as 28-day mortality or ICU length of stay. 
+
+## B Related Work 
+
+Reinforcement learning for dynamic treatment. Dynamic treatment planning is often formulated using reinforcement learning (RL), especially in healthcare applications such as sepsis management, where the goal is to learn treatment strategies from longitudinal ICU data [ 17 ]. A dominant line of work models the problem as a discrete-time Markov decision process (MDP) [ 15 ], in which the patient state is sampled at fixed intervals and treatment actions are optimized only on this discrete decision grid [ 13 , 32 ]. Representative examples include the AI Clinician for sepsis treatment and subsequent offline RL approaches based on ICU data [ 10 , 19 ]. This discrete-time formulation has been widely adopted because it is compatible with standard RL algorithms and can be implemented directly from temporally aggregated electronic health records [ 23 , 35 , 38 ]. However, it also introduces an important abstraction gap: the underlying physiological process is continuous, whereas the learned policy only reasons over discretized snapshots. As a result, such methods may fail to capture clinically important changes that occur between decision times, and the timing itself is usually treated as fixed rather than optimized. 
+
+Continuous-time treatment learning. To address the mismatch between continuous physiological evolution and discrete-time decision making, recent work has begun to study continuous-time treatment learning. In these approaches, patient evolution is modeled more explicitly over time [ 20 , 21 ]. In particular, recent continuous-time learning frameworks optimize not only treatment dosage but also the timing of observations or interventions from logged clinical data [ 26 , 42 ]. This direction is particularly relevant to healthcare, since measurements and treatment updates are rarely performed on a fixed clock and instead depend on patient condition and clinical judgment. Nevertheless, existing continuous-time treatment learning methods still do not explicitly guarantee safety over the full continuous-time trajectory between two interventions. Their focus is primarily on representation, prediction, or policy optimization in continuous time, rather than on enforcing trajectory-level safety throughout the inter-interaction interval. This gap is especially important in high-stakes treatment settings, where adverse events may arise between two clinically observed time points. 
+
+Continuous-time and time-adaptive RL. Beyond healthcare-specific treatment learning, a broader RL literature studies continuous-time control and time-adaptive decision making [ 22 , 41 ]. Continuous-14 time RL methods typically model state evolution through differential equations and derive policies that interact with the environment over continuous time [ 14 , 33 , 40 ]. Within this line, time-adaptive methods further optimize when to observe or intervene, rather than assuming a fixed decision schedule [ 34 ]. These formulations are conceptually close to real clinical decision making, since both the treatment action and the next interaction time may need to be chosen adaptively. However, most existing continuous-time RL work is developed for general control problems rather than medical treatment, and does not directly address trajectory-level safety guarantees under interaction limitations. 
+
+Safe reinforcement learning. A separate literature studies safe RL through constrained MDPs, chance constraints, risk-sensitive objectives, shielding, and Lyapunov-based approaches [ 1, 2 , 6]. These methods provide important tools for handling safety during policy optimization, and constrained policy methods such as CPO are particularly influential in practice. However, most of this literature is developed in discrete time and typically controls expected cumulative costs, constraint violations at decision times, or surrogate notions of stability. Even when safety constraints are imposed, they usually apply to sampled states on the decision grid rather than to the full continuous-time trajectory between two decisions. Consequently, these methods do not directly address the setting considered in our paper, where safety must hold throughout the interval between clinical interactions. 
+
+Temporal abstraction, options, and SMDPs. Temporal abstraction provides another relevant line of research. Options and semi-Markov decision processes (SMDPs) extend standard MDPs by allowing high-level decisions to trigger temporally extended behaviors [ 3, 31 ]. This framework is attractive in healthcare, where reassessment and treatment changes are costly and cannot occur continuously, while low-level physiological evolution continues between two clinical interactions. Options therefore provide a natural modeling tool for jointly representing treatment administration and interaction timing. However, prior work on options and SMDPs has mainly focused on representation learning, exploration efficiency, or hierarchical control, rather than on safety-critical continuous-time treatment problems with trajectory-level guarantees. 
+
+Position of our work. Our work lies at the intersection of these directions. Similar to prior medical RL work, we study dynamic treatment planning from data; similar to continuous-time RL and time-adaptive methods, we explicitly model treatment timing as a decision variable; similar to safe RL, we impose explicit safety constraints; and similar to options/SMDPs, we use temporal abstraction to represent interaction-limited treatment control. The key difference is that our framework combines these ingredients in a way tailored to safety-critical continuous-time treatment: we jointly optimize treatment dosage and interaction timing, impose an explicit limit on the number of clinical interactions, and develop a safety-tightening mechanism that guarantees safety over the full continuous-time trajectory between decisions. To the best of our knowledge, this combination has not been addressed in prior medical RL work. 
+
+## C Proof of Proposition 1 
+
+Proof. Take any feasible solution of O-ILSCP . At each interaction time tk, let the selected option be 
+
+ok ∈ O . By assumption, ok induces an admissible segment controller 
+
+γk := ( πok , β ok ) ∈ Γ.
+
+Define a high-level policy ν for CTTP -IL that selects exactly this controller γk whenever the option policy selects ok.Then, on every interval [tk, t k+1 ), the control law under CTTP -IL is 
+
+ut = ϕk(xt) = πok (xt),
+
+which coincides with the intra-option control in (5) . Likewise, the next interaction time is induced by the same termination rule, since ηk = βok . Hence the resulting closed-loop state trajectory is identical pathwise, and therefore so are the accumulated reward and the trajectory-level safety event. Thus every feasible solution of O-ILSCP induces a feasible solution of CTTP -IL with identical performance. Taking the supremum over feasible solutions yields 
+
+V ⋆ 
+
+> O-ILSCP
+
+≤ V ⋆
+
+> CTTP -IL
+
+.
+
+15 D Proof of Theorem 1 
+
+Proof. Proposition 1 already shows that every feasible option-based policy induces a feasible interaction-limited treatment law. It remains to prove the converse. Take any feasible solution of CTTP -IL . At each interaction time tk, let the selected segment controller be 
+
+γk = ( ϕk, η k) ∈ Γ.
+
+By assumption, there exists an option oγk ∈ O such that 
+
+πoγk = ϕk, βoγk = ηk.
+
+Define a high-level option policy μ that selects oγk whenever the interaction-limited policy selects 
+
+γk.Then, on each interval [tk, t k+1 ),
+
+ut = ϕk(xt) = πoγk (xt),
+
+and the next interaction time is induced by the same termination rule because ηk = βoγk . Therefore the option-based system produces the same control trajectory, the same state trajectory, the same accumulated reward, and the same safety event pathwise. Thus every feasible solution of CTTP -IL is representable by O-ILSCP , and together with Proposi-tion 1, the feasible closed-loop laws of the two problems coincide. Hence 
+
+V ⋆ 
+
+> O-ILSCP
+
+= V ⋆
+
+> CTTP -IL
+
+.
+
+## E Deriving (14) from a radial inequality 
+
+Fix an interaction interval k and the executed option ok ∈ O . Consider the closed-loop trajectory generated by ut = πok (xt) on t ∈ [tk, t k + δt k].
+
+Lemma 1 (State deviation bound from a radial inequality) . suppose that the closed-loop trajectory 
+
+{xt}t∈[tk ,t k +δt k ] is absolutely continuous and satisfies (1) . Assume that there exist constants λok ∈ R
+
+and γok ≥ 0, and a nonnegative quantity bk,o k measurable with respect to (sk, o k), such that for almost every t ∈ [tk, t k + δt k] with xt̸ = xk,
+
+⟨xt − xk, f (xt, π ok (xt), wt)⟩∥xt − xk∥ ≤ λok ∥xt − xk∥ + bk,o k + γok ∥wt∥. (19) 
+
+Then, for all τ ∈ [0 , δt k], the option-wise closed-loop growth bound (14) holds. Proof. Define V (t) := ∥xt − xk∥ for t ∈ [tk, t k + δt k]. Since xt is absolutely continuous, V (t) is absolutely continuous and is differentiable for almost every t with xt̸ = xk. For such t,
+
+ddt V (t) = ⟨xt − xk, ˙xt⟩∥xt − xk∥ = ⟨xt − xk, f (xt, π ok (xt), wt)⟩∥xt − xk∥ .
+
+Combining with (19) yields, for almost every t ∈ [tk, t k + δt k],
+
+ddt V (t) ≤ λok V (t) + bk,o k + γok ∥wt∥.
+
+Applying the integral form of Grönwall inequality [11] on [tk, t k + τ ] and using V (tk) = 0 gives 
+
+V (tk + τ ) ≤ eλok τ − 1
+
+λok
+
+bk,o k + γok eλok τ
+
+Z tk +τtk
+
+∥ws∥ds, 
+
+with the convention eλo k τ −1
+
+> λok
+
+= τ when λok = 0 . Recalling Wk,τ := R tk +τtk ∥ws∥ds yields (14) .16 F Proof of Theorem 2 
+
+F.1 Preparation: state deviation bound 
+
+Fix an interaction interval k and define δt k := tk+1 − tk. Note that δt ∈ [0 , δt k].Let 
+
+V (t) := ∥xt − xk∥.
+
+By Lemma 1, the closed-loop trajectory satisfies 
+
+ddt V (t) ≤ λok V (t) + bk,o k + γok ∥wt∥
+
+for almost every t ∈ [tk, t k + δt k].Since V (t) ≥ 0, we have 
+
+λok V (t) ≤ | λok |V (t),
+
+and therefore ddt V (t) ≤ | λok |V (t) + bk,o k + γok ∥wt∥.
+
+Applying the integral form of Grönwall’s inequality [ 11 ] on [tk, t k + τ ] with V (tk) = 0 yields, for all τ ∈ [0 , δt k],
+
+∥xtk +τ − xk∥ ≤ e|λok |τ − 1
+
+|λok | bk,o k + γok e|λok |τ Wk,τ , (20) where 
+
+Wk,τ := 
+
+Z tk +τtk
+
+∥ws∥ds. 
+
+Consequently, 
+
+sup  
+
+> t∈[tk,t k+1 ]
+
+∥xt − xk∥ ≤ e|λok |δt k − 1
+
+|λok | bk,o k + γok e|λok |δt k Wk. (21) 
+
+F.2 Proof for (a) 
+
+Fix k and let ε ∈ (0 , 1) . Choose W k(ε) such that 
+
+Pr Wk ≤ W k(ε) ≥ 1 − ε. (22) For example, by Markov’s inequality and Assumption 1(b), 
+
+W k(ε) = 
+
+ E [( Wk)p]
+
+ε
+
+1/p 
+
+.
+
+Define 
+
+Γk(ε) := e|λok |δt k − 1
+
+|λok | bk,o k + γok e|λok |δt k W k(ε), (23) and 
+
+H(xk, o k) := g(xk) + Lg, xΓk(ε). (24) Let 
+
+Ek(ε) := {Wk ≤ W k(ε)}.
+
+On Ek(ε), (21) implies 
+
+sup  
+
+> t∈[tk,t k+1 ]
+
+∥xt − xk∥ ≤ Γk(ε).
+
+Using the Lipschitz continuity of g (Assumption 1(a)), for all t ∈ [tk, t k+1 ],
+
+g(xt) ≤ g(xk) + Lg, x∥xt − xk∥ ≤ g(xk) + Lg, xΓk(ε) = H(xk, o k).
+
+17 Therefore, since Pr {H(xk, o k) ≤ 0} ≥ 1 − ε holds for any feasible solution of Problem 
+
+Option -SMDP , then g(xt) ≤ 0 for all t ∈ [tk, t k+1 ] on Ek(ε) ∩ { H(xk, o k) ≤ 0}. Hence 
+
+Pr {g(xt) ≤ 0, ∀t ∈ [tk, t k+1 ]} ≥ Pr (Ek(ε) ∩ { H(xk, o k) ≤ 0}) ≥ 1 − 2ε. 
+
+Since ε ≤ α/ (2 K), applying Boole’s inequality [ 8] over at most K interaction intervals ensures that the continuous-time chance constraint (7) holds. 
+
+F.3 Proof for (b) 
+
+Define 
+
+Γmax  
+
+> k
+
+:= e|λok |δt k − 1
+
+|λok | bk,o k + γok e|λok |δt k Wmax ,k .
+
+Since Wk ≤ Wmax ,k almost surely, the bound follows directly from (21) , and the remainder proceeds as in part (a). 
+
+F.4 Proof for (c) 
+
+Suppose Wk is sub-Gaussian around its mean, i.e., there exists σk > 0 such that 
+
+Pr {Wk − E[Wk] ≥ s} ≤ exp 
+
+
+
+− s2
+
+2σ2
+
+> k
+
+
+
+.
+
+Choosing 
+
+W k(ε) = E[Wk] + σk
+
+s
+
+2 log 
+
+ 1
+
+ε
+
+
+
+ensures 
+
+Pr {Wk ≤ W k(ε)} ≥ 1 − ε. 
+
+Substituting this bound into part (a) yields the desired safety guarantee. 
+
+## G Details of Section 3.3’s Theoretical Results 
+
+G.1 Chance constrained optimization with decision-dependent uncertainty 
+
+Problem Option -SMDP seeks an option-SMDP policy that maps the state sk defined in (11) to an option ok = ( πok , β ok ). For practical implementation, both the high-level selector μ and the intra-option components (πok , β ok ) are parameterized. Without loss of generality, let θ ∈ Rnθ denote the parameter vector that specifies the entire option-SMDP policy, including: (i) the high-level option-selection rule, and (ii) the intra-option feedback policy and termination rule. Once θ is fixed, the induced policy (deterministic or stochastic) determines the distribution of trajectories {sk}.
+
+Option-induced transition under parameterization. Conditioned on the interaction state sk =(xk, t k, k ), the executed option ok and its duration δt k are determined by θ together with exogenous randomness. To make this dependence explicit, we introduce an auxiliary random element ξk
+
+that collects all exogenous randomness over the interaction interval [tk, t k + δt k], including the disturbance sample path {wt}t∈[tk ,t k +δt k ] and any stochasticity in option termination. We allow ξk
+
+to be state-dependent and write ξk ∼ P (· | sk). The next interaction state is then written in the form 
+
+sk+1 = Φ θ (sk, ξ k), ξk ∼ P (· | sk), (25) where Φθ denotes the option-induced transition map under parameter θ.Let ξ := {ξk}N −1 
+
+> k=0
+
+denote the exogenous randomness over the entire time horizon. The joint random trajectory ξ follows the conditional probability distribution 
+
+ξ ∼ P(·| s0, θ ). (26) 18 Definition of J(θ, s0). Fix θ ∈ Θ. Let ξ denote the exogenous randomness over the time horizon, distributed according to (26) . Given ξ and the initial state s0, the interaction-state trajectory {sk}Nk=0 
+
+is generated recursively by (25). The objective function in Problem Option -SMDP is redefined by 
+
+J(θ, s0) := E
+
+"N −1X
+
+> k=0
+
+r(sk, o k) | s0, θ 
+
+#
+
+, ξ ∼ P(·| s0, θ ). (27) 
+
+Definition of hk. Fix θ ∈ Θ and an initial interaction state s0. Let ξ denote the exogenous randomness over the horizon with ξ ∼ P(· | s0, θ ) as in (26) . Given (s0, θ, ξ), define the interaction-state trajectory {sk}Nk=0 recursively by (25) . Then, for each interaction index k ∈ { 1, . . . , N }, define the constraint by 
+
+hk(θ, s0, ξ) := H(sk, o k) , (28) where H(·) is the safety function in (12) . Accordingly, the chance constraint in (30) can be written as 
+
+Pr {hk(θ, s0, ξ) ≤ 0 | s0, θ } ≥ 1 − ε, ξ ∼ P(· | s0, θ ). (29) 
+
+Problem formulation under parameterization. Under the parameterization described above, Problem Option -SMDP reduces to a finite-dimensional chance-constrained optimization problem over θ ∈ Θ, written as 
+
+max  
+
+> θ∈Θ
+
+J(θ, s0) := E
+
+"N −1X
+
+> k=0
+
+r(sk, o k) | s0, θ 
+
+#
+
+, ξ ∼ P(·| s0, θ ) (CCO )
+
+s.t. Pr {hk(θ, s0, ξ) ≤ 0 | s0, θ } ≥ 1 − ε, ∀k = 1 , ..., N, ξ ∼ P(·| s0, θ ). (30) 
+
+G.2 Sample-based approximate problem Dataset under decision-dependent randomness. Fix s0. A logged dataset of M trajectories is 
+
+DM := 
+
+n 
+
+θ(i), ξ(i)o Mi=1 
+
+, ξ(i) ∼ P(·| s0, θ (i)), (31) where θ(i) is the parameter used to generate trajectory i, and ξ(i) collects all exogenous randomness over the horizon as in (26) . Given (s0, θ (i), ξ(i)), the corresponding interaction-state trajectory 
+
+{s(i) 
+
+> k
+
+}Nk=0 is generated recursively by (25) . The dataset DM = {(θ(i), ξ(i))}Mi=1 in (31) is used here to model a logged-data setting in which trajectories are collected independently under one or multiple fixed data-generating parameters θ(i). The generating parameters may differ across trajectories, but they are treated as fixed for the purpose of the theoretical analysis. This formulation covers the offline logged-trajectory setting studied in this paper and is sufficient for the subsequent importance-weighted analysis. 
+
+Sample-based approximation with important sampling. With dataset DM defined by (31) ,Problem CCO can be approximated by 
+
+max 
+
+> θ∈Θ
+
+eJ(θ, s0, DM ) := 
+
+> M
+
+X
+
+> i=1
+
+ω
+
+
+
+s0, θ, θ (i)
+
+· 
+
+> N−1
+
+X
+
+> k=0
+
+r
+
+
+
+s(i) 
+
+> k
+
+, o (i)
+
+> k
+
+!
+
+(SA )
+
+s.t.
+
+> M
+
+X
+
+> i=1
+
+ω
+
+
+
+s0, θ, θ (i)
+
+· I
+
+n
+
+hk
+
+
+
+θ, s0, ξ(i)
+
+≤ 0
+
+o
+
+≥ 1 − ε, ∀k = 1 , ..., N. (32) The weight ω s0, θ, θ (i) in Problem SA is an importance weight that compensates for the discrepancy between the trajectory distribution induced by the candidate parameter θ and that induced by the data-generating parameter θ(i). Intuitively, it reweights each logged trajectory so that the weighted empirical distribution approximates P(·| s0, θ ). More precisely, when the trajectory distribution under 
+
+θ is absolutely continuous with respect to the data-generating distribution under θ(i), the weight 
+
+ω corresponds to a likelihood ratio between these two measures. The explicit form of ω will be introduced later. With properly defined importance weights and sufficient coverage of the parameter space by the logged dataset, the sample-based approximation in Problem SA can provide a consistent estimator of both the objective and the chance constraints for any θ ∈ Θ. In particular, when the dataset is generated on-policy (i.e., θ(i) = θ), the weights reduce to uniform averaging. 19 G.3 Example of importance weighting 
+
+Let bpM (ξ | s0, θ ; DM ) denote an estimator of the conditional density p(ξ | s0, θ ) constructed from the logged dataset DM (e.g., via kernel conditional density estimation or any other conditional density model). This notation makes explicit that bpM (· | s0, θ ; DM ) depends on the entire dataset and hence, implicitly, on {θ(i)}Mi=1 .We define the estimated importance weight associated with sample i for a candidate parameter θ as 
+
+ωM
+
+
+
+s0, θ, θ (i); DM
+
+
+
+:= bpM
+
+ ξ(i) | s0, θ ; DM
+
+
+
+> 1
+> M
+
+PMj=1 bpM
+
+ ξ(i) | s0, θ (j); DM
+
+ .
+
+Define the normalized importance weights by 
+
+¯ωM
+
+
+
+s0, θ, θ (i); DM
+
+
+
+:= ωM
+
+ s0, θ, θ (i); DM
+
+PMj=1 ωM
+
+ s0, θ, θ (j); DM
+
+ .
+
+For notational simplicity, we write ωM in place of ¯ωM in the remainder. The denominator corresponds to an empirical (estimated) mixture approximation of the proposal distribution 
+
+qM (ξ | s0) := 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+p(ξ | s0, θ (j)),
+
+so that ωM acts as a density-ratio estimator approximating 
+
+p(ξ(i) | s0, θ )
+
+qM (ξ(i) | s0) .
+
+Let φ(ξ, θ ) be any measurable functional such that sup θ∈Θ sup ξ |φ(ξ, θ )| < ∞. The weighted empirical estimator MX
+
+> i=1
+
+ωM
+
+
+
+s0, θ, θ (i); DM
+
+
+
+φ(ξ(i), θ )
+
+serves as an approximation of 
+
+E[φ(ξ, θ ) | s0, θ ] ,
+
+provided that the conditional density estimator is consistent and the mixture proposal has sufficient support over the target distributions. 
+
+Objective process. For each θ ∈ Θ, define the population objective functional 
+
+J (θ, s0) := E
+
+"N −1X
+
+> k=0
+
+r(sk, o k) s0, θ 
+
+#
+
+. (33) Given the logged dataset DM = {(θ(i), ξ(i))}Mi=1 , define the importance-weighted empirical objective process 
+
+JM (θ, s0) := 
+
+> M
+
+X
+
+> i=1
+
+ω
+
+
+
+s0, θ, θ (i) N −1X
+
+> k=0
+
+r
+
+
+
+s(i) 
+
+> k
+
+, o (i)
+
+> k
+
+
+
+. (34) 
+
+Constraint process. For each interaction index k ∈ { 1, . . . , N } and θ ∈ Θ, define the population constraint probability 
+
+Pk(θ, s0) := Pr {hk(θ, s0, ξ) ≤ 0 | s0, θ } . (35) The corresponding importance-weighted empirical constraint process is defined as 
+
+PM,k (θ, s0) := 
+
+> M
+
+X
+
+> i=1
+
+ω
+
+
+
+s0, θ, θ (i)
+
+I
+
+n
+
+hk(θ, s0, ξ(i)) ≤ 0
+
+o
+
+. (36) 20 Residual processes. For each θ ∈ Θ, define the objective residual process 
+
+Robj  
+
+> M
+
+(θ, s0) := |J M (θ, s0) − J (θ, s0)| , (37) and its uniform version over the parameter space 
+
+Robj  
+
+> M
+
+(s0) := sup 
+
+> θ∈Θ
+
+Robj  
+
+> M
+
+(θ, s0). (38) For each interaction index k ∈ { 1, . . . , N } and θ ∈ Θ, define the constraint residual process 
+
+Rcon 
+
+> M,k
+
+(θ, s0) := |P M,k (θ, s0) − P k(θ, s0)| , (39) and its uniform version 
+
+Rcon 
+
+> M,k
+
+(s0) := sup 
+
+> θ∈Θ
+
+Rcon 
+
+> M,k
+
+(θ, s0). (40) 
+
+G.4 Uniform exponential deviation for residual processes 
+
+Throughout, fix s0 and assume that Θ is compact. 
+
+Standing boundedness. Assume that the cumulative reward over the horizon is uniformly bounded, i.e., there exists Rmax < ∞ such that 
+
+sup 
+
+> θ∈Θ
+
+sup  
+
+> ξ
+> N−1
+
+X
+
+> k=0
+
+r(sk, o k) ≤ Rmax .
+
+Moreover, assume that the (estimated) importance weights are uniformly bounded, i.e., there exists 
+
+ωmax < ∞ such that 
+
+sup 
+
+> θ∈Θ
+
+max   
+
+> i∈{ 1,...,M }
+
+ωM
+
+
+
+s0, θ, θ (i); DM
+
+
+
+≤ ωmax a.s. 
+
+Ideal weights induced by the mixture proposal. Define the (population) mixture proposal density and the corresponding ideal density-ratio weight as 
+
+qM (ξ | s0) := 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+p(ξ | s0, θ (j)), ω⋆M (s0, θ, ξ) := p(ξ | s0, θ )
+
+qM (ξ | s0) .
+
+For each sample i, write ω⋆M,i (s0, θ ) := ω⋆M (s0, θ, ξ(i)).In the following, we establish uniform exponential deviation bounds for importance weights con-structed via kernel density estimation (KDE) [ 16 ] and generator-based conditional density mod-els [ 43 ]. Throughout this subsection, the initial state s0 is fixed. We begin by stating a set of common assumptions used in both cases. 
+
+Assumption 2 (Regularity for uniform density-ratio estimation) . Fix s0. Assume that Θ ⊂ Rnθ
+
+is compact with diameter diam (Θ) := sup θ,θ ′∈Θ ∥θ − θ′∥ < ∞. Assume that the support of ξ is contained in a compact set Ξ ⊂ Rdξ .For every θ ∈ Θ, the conditional density p(ξ | s0, θ ) exists on Ξ and is uniformly bounded, i.e., there exist constants 0 < p min ≤ pmax < ∞ such that 
+
+pmin ≤ p(ξ | s0, θ ) ≤ pmax , ∀ξ ∈ Ξ, ∀θ ∈ Θ.
+
+Moreover, the true conditional density is Lipschitz continuous in θ uniformly over ξ ∈ Ξ: there exists 
+
+Lθ < ∞ such that 
+
+sup 
+
+> ξ∈Ξ
+
+|p(ξ | s0, θ ) − p(ξ | s0, θ ′)| ≤ Lθ ∥θ − θ′∥, ∀θ, θ ′ ∈ Θ.
+
+In addition, the estimator bpM (ξ | s0, θ ; DM ) is Lipschitz continuous in θ uniformly over ξ ∈ Ξ
+
+almost surely: there exists Lbp,M < ∞ such that 
+
+sup 
+
+> ξ∈Ξ
+
+|bpM (ξ | s0, θ ; DM ) − bpM (ξ | s0, θ ′; DM )| ≤ Lbp,M ∥θ − θ′∥, ∀θ, θ ′ ∈ Θ.
+
+21 Define the mixture proposal density 
+
+qM (ξ | s0) := 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+p(ξ | s0, θ (j)),
+
+and assume that qM is uniformly bounded away from zero on Ξ, i.e., there exists qmin > 0 such that 
+
+qM (ξ | s0) ≥ qmin , ∀ξ ∈ Ξ.
+
+For KDE-based estimators, the estimator-side continuity is satisfied by choosing a continuous kernel and a continuous parameterization with respect to θ, so that bpM (ξ | s0, θ ; DM ) inherits continuity in 
+
+θ.
+
+Explanation and practical relevance. Assumption 2 provides regularity conditions ensuring stable density-ratio estimation and importance-weighted evaluation of trajectory-level quantities. The conditional density p(ξ | s0, θ ) is defined at the trajectory level. Under the option-induced transition model sk+1 = Φ θ (sk, ξ k), the trajectory distribution is generated by composing the state-transition map Φθ with the distribution of the exogenous randomness. When the policy parameterization and the transition map depend continuously on θ, as is the case for most parametric controllers, neural-network policies, and smooth feedback policies, the resulting trajectory distribution varies continuously with respect to θ. Under mild regularity conditions on the dynamics and policy parameterization, this leads to Lipschitz-type stability of the trajectory density with respect to θ on compact parameter sets. Although trajectory distributions may exhibit sharp changes when policies switch discrete modes, such behavior typically arises from discontinuous parameterizations. In our formulation, θ
+
+parameterizes the option-SMDP policy through measurable maps for option selection, intra-option control, and termination. When these maps are continuous in θ, the induced trajectory distribution varies smoothly with the parameter except possibly on sets of negligible probability. Therefore, the Lipschitz condition captures a stability property of the trajectory distribution with respect to policy parameters. The compactness of the trajectory support Ξ reflects the finite-horizon structure of the problem. The variable ξ collects exogenous randomness over a finite number of interaction intervals, including disturbance realizations and option durations. In practice, disturbances are typically modeled using Gaussian, sub-Gaussian, or bounded distributions, and option durations are bounded by the interaction-time constraints. Consequently, the effective trajectory space can be treated as compact without loss of practical generality. Finally, the lower bound on the mixture proposal density qM acts as an overlap condition . It ensures that the trajectory distribution induced by any candidate parameter θ is sufficiently covered by the logged dataset through the mixture proposal distribution. Such overlap conditions are common in importance-weighted estimation and off-policy evaluation, where extremely small denominator densities would otherwise lead to unstable importance weights. Taken together, these conditions are satisfied in a wide range of reinforcement learning settings involving continuous policy parameterizations, smooth closed-loop dynamics, and disturbance models with well-behaved densities. They ensure that small perturbations of the policy parameter induce controlled perturbations of the trajectory distribution and that the logged data provide sufficient coverage for importance-weighted estimation. These properties are precisely what allow us to derive the uniform exponential deviation bounds used in the subsequent analysis. We first consider uniform exponential deviation of KDE-based importance weights. We have the following assumption on KDE-based estimator. 
+
+Assumption 3. Let bpM (ξ | s0, θ ; DM ) be a conditional KDE estimator with a bounded kernel K
+
+satisfying ∥K∥∞ ≤ Kmax and bandwidth hM . Assume that p(ξ | s0, θ ) is β-Hölder smooth in ξ
+
+uniformly over θ ∈ Θ, and that the kernel K is of order L ≥ β.
+
+By the β-Hölder smooth assumption, the KDE bias is of order hβM [16], satisfying 
+
+|EbpM (ξ | s0, θ ; DM ) − p(ξ | s0, θ )| ≤ C1hβM . (41) Define Meff := M h dξ 
+
+> M
+
+, where dξ is the dimension of ξ.
+
+Theorem 5 (Uniform exponential deviation of KDE-based importance weights) . suppose that Assumptions 2 and 3 hold. Then there exist constants C1, C 2, C 3 > 0 (independent of M and hβM )
+
+22 such that for any η > 0,
+
+Pr 
+
+(
+
+sup 
+
+> θ∈Θ
+
+sup 
+
+> ξ∈Ξ
+
+|bpM (ξ | s0, θ ; DM ) − p(ξ | s0, θ )| ≥ C1hβM + η
+
+)
+
+≤
+
+
+
+1 + C3(Lθ + Lbp,M ) diam (Θ) 
+
+η
+
+nθ
+
+exp  −C2 Meff η2 .
+
+(42) 
+
+Define the estimated and ideal weights as 
+
+ωM
+
+
+
+s0, θ, θ (i); DM
+
+
+
+= bpM
+
+ ξ(i) | s0, θ ; DM
+
+
+
+> 1
+> M
+
+PMj=1 bpM
+
+ ξ(i) | s0, θ (j); DM
+
+ , ω⋆M,i (s0, θ ) = p(ξ(i) | s0, θ )
+
+qM (ξ(i) | s0) .
+
+If η > 0 satisfies C1hβM + η ≤ qmin /4, then 
+
+Pr 
+
+
+
+sup 
+
+> θ∈Θ
+
+max   
+
+> i∈{ 1,...,M }
+
+ωM
+
+
+
+s0, θ, θ (i); DM
+
+
+
+− ω⋆M,i (s0, θ ) ≥ 8
+
+qmin 
+
+
+
+C1hβM + η
+
+
+
+≤
+
+
+
+1 + C3Lθ diam (Θ) 
+
+η
+
+nθ
+
+exp  −C2 Meff η2 .
+
+(43) 
+
+Proof of Theorem 5. Fix s0 throughout. 
+
+Step 1: Uniform deviation of the conditional KDE estimator. We first establish uniform expo-nential deviation of 
+
+bpM (ξ | s0, θ ; DM )
+
+over θ ∈ Θ and ξ ∈ Ξ.
+
+Pointwise deviation. For any fixed θ and ξ, decompose 
+
+bpM − p = ( bpM − EbpM ) + ( EbpM − p).
+
+By β-Hölder smoothness in ξ in Assumption 3, the bias satisfies [16] 
+
+|EbpM − p| ≤ C1hβM ,
+
+which is a short version of (41). Since the kernel K is bounded, i.e., ∥K∥∞ ≤ Kmax , the kernel term in the density estimator satisfies 
+
+1
+
+hdξ
+
+> M
+
+K
+
+ ξ − ξ(i)
+
+hM
+
+
+
+≤ Kmax 
+
+hdξ
+
+> M
+
+.
+
+Therefore each centered summand in the empirical average defining bpM (ξ | s0, θ ) is uniformly bounded by a constant of order h−dξ 
+
+> M
+
+. Applying Bernstein’s inequality for bounded independent random variables (see, e.g., [36], Theorem 2.8.3), we obtain that for any η > 0,
+
+Pr (|bpM (ξ | s0, θ ) − EbpM (ξ | s0, θ )| ≥ η) ≤ exp 
+
+
+
+−C2 M h dξ 
+
+> M
+
+η2
+
+,
+
+for some constant C2 > 0 independent of M and hM .Thus for fixed (θ, ξ),
+
+Pr 
+
+
+
+|bpM − p| ≥ C1hβM + η
+
+
+
+≤ exp( −C2Meff η2).
+
+Uniformization over θ. Since Θ ⊂ Rnθ is compact, for any δ > 0, there exists a finite δ-net Nδ ⊂ Θ
+
+with cardinality bounded by 
+
+|N δ | ≤ 
+
+
+
+1 + 2diam (Θ) 
+
+δ
+
+nθ
+
+.
+
+23 Let θ ∈ Θ and let ¯θ ∈ N δ be a nearest net point. Then 
+
+sup 
+
+> ξ∈Ξ
+
+|bpM (ξ | s0, θ ; DM ) − p(ξ | s0, θ )|≤ sup 
+
+> ξ∈Ξ
+
+bpM (ξ | s0, θ ; DM ) − bpM (ξ | s0, ¯θ; DM )
+
++ sup 
+
+> ξ∈Ξ
+
+bpM (ξ | s0, ¯θ; DM ) − p(ξ | s0, ¯θ)
+
++ sup 
+
+> ξ∈Ξ
+
+p(ξ | s0, ¯θ) − p(ξ | s0, θ ) .
+
+By Assumption 2, 
+
+sup 
+
+> ξ∈Ξ
+
+bpM (ξ | s0, θ ; DM ) − bpM (ξ | s0, ¯θ; DM ) ≤ Lbp,M δ, 
+
+and 
+
+sup 
+
+> ξ∈Ξ
+
+p(ξ | s0, θ ) − p(ξ | s0, ¯θ) ≤ Lθ δ. 
+
+Therefore, 
+
+sup 
+
+> θ∈Θ
+
+sup 
+
+> ξ∈Ξ
+
+|bpM − p| ≤ max 
+
+> ¯θ∈N δ
+
+sup 
+
+> ξ∈Ξ
+
+bpM (ξ | s0, ¯θ; DM ) − p(ξ | s0, ¯θ) + ( Lbp,M + Lθ )δ. 
+
+Choosing 
+
+δ := η
+
+2( Lbp,M + Lθ ) ,
+
+uniform deviation over Θ reduces to deviation over the finite net Nδ with margin η/ 2. Applying the union bound over ¯θ ∈ N δ yields 
+
+Pr sup 
+
+> θ∈Θ
+
+sup 
+
+> ξ∈Ξ
+
+|bpM − p| ≥ C1hβM + η
+
+!
+
+≤
+
+
+
+1 + 4( Lbp,M + Lθ )diam (Θ) 
+
+η
+
+nθ
+
+exp( −C2Meff η2).
+
+This proves (42). 
+
+Step 2: Transfer to importance-weight deviation. Define 
+
+bqM (ξ) = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+bpM (ξ | s0, θ (j)), qM (ξ) = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+p(ξ | s0, θ (j)).
+
+On the event that 
+
+sup 
+
+> θ, ξ
+
+|bpM − p| ≤ C1hβM + η, 
+
+we have 
+
+sup 
+
+> ξ
+
+|bqM (ξ) − qM (ξ)| ≤ C1hβM + η. 
+
+If C1hβM + η ≤ qmin /4, then 
+
+bqM (ξ) ≥ qmin /2.
+
+Now write the weight difference as 
+
+bp
+
+bq − pq = q(bp − p) + p(q − bq)
+
+bq q .
+
+Using q ≥ qmin , bq ≥ qmin /2, and p ≤ pmax , we obtain 
+
+|ωM − ω⋆M | ≤ 
+
+ 2
+
+qmin 
+
++ 2pmax 
+
+q2min 
+
+
+
+(C1hβM + η).
+
+Absorbing constants into 8/q min gives (43). Combining with Step 1 completes the proof. 24 Theorem 6 (Uniform exponential deviation of generator-based importance weights) . Fix s0 and assume the same boundedness and lower-bound conditions on p(ξ | s0, θ ) and qM (ξ | s0) as in Theorem 5. Let bpM (ξ | s0, θ ; DM ) be produced by a conditional density model with a realizable density family Pgen = {pϑ(ξ | s0, θ )}, trained from DM .Assume the model class admits a uniform covering-number bound: there exist constants Vgen ≥ 1
+
+and Cgen ≥ 1 such that for any η > 0,
+
+log N (η, Pgen , ∥ · ∥ ∞) ≤ Vgen log 
+
+ Cgen 
+
+η
+
+
+
+.
+
+Assume further that the training procedure yields a uniform estimation error bound in ∥ · ∥ ∞, so that for universal constants C3, C 4 > 0 and any η > 0,
+
+Pr 
+
+(
+
+sup 
+
+> θ∈Θ
+
+sup 
+
+> ξ
+
+|bpM (ξ | s0, θ ; DM ) − p(ξ | s0, θ )| ≥ η
+
+)
+
+≤
+
+ Cgen 
+
+η
+
+Vgen 
+
+exp  −C4 M η 2 . (44) 
+
+Define ωM (·) and ω⋆M,i (·) as in Theorem 5. Then, for any η > 0 such that η ≤ qmin /4,
+
+Pr 
+
+
+
+sup 
+
+> θ∈Θ
+
+max   
+
+> i∈{ 1,...,M }
+
+ωM
+
+
+
+s0, θ, θ (i); DM
+
+
+
+− ω⋆M,i (s0, θ ) ≥ 8ηqmin 
+
+
+
+≤
+
+ Cgen 
+
+η
+
+Vgen 
+
+exp  −C4 M η 2 .
+
+(45) 
+
+Proof. Fix s0 and let η > 0 satisfy η ≤ qmin /4. Define the uniform density-deviation event 
+
+Eη := 
+
+(
+
+sup 
+
+> θ∈Θ
+
+sup 
+
+> ξ
+
+|bpM (ξ | s0, θ ; DM ) − p(ξ | s0, θ )| ≤ η
+
+)
+
+.
+
+Step 1: Lower bound on the estimated mixture denominator. For any ξ, define the estimated mixture 
+
+bqM (ξ | s0; DM ) := 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+bpM (ξ | s0, θ (j); DM ).
+
+On Eη , for all ξ,
+
+bqM (ξ | s0; DM ) ≥ 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+
+
+p(ξ | s0, θ (j)) − η
+
+
+
+= qM (ξ | s0) − η ≥ qmin − η ≥ 34 qmin .
+
+Similarly, still on Eη ,
+
+bqM (ξ | s0; DM ) ≤ qM (ξ | s0) + η. 
+
+Step 2: Ratio perturbation bound (deterministic). Fix θ ∈ Θ and a sample index i ∈ { 1, . . . , M },and write 
+
+bpθ,i := bpM (ξ(i) | s0, θ ; DM ), pθ,i := p(ξ(i) | s0, θ ),
+
+bqi := bqM (ξ(i) | s0; DM ), qi := qM (ξ(i) | s0).
+
+Then 
+
+ωM (s0, θ, θ (i); DM ) = bpθ,i 
+
+bqi
+
+, ω⋆M,i (s0, θ ) = pθ,i 
+
+qi
+
+.
+
+25 On Eη , we have |bpθ,i − pθ,i | ≤ η and |bqi − qi| ≤ η, and also bqi ≥ 34 qmin and qi ≥ qmin . Therefore, on Eη ,
+
+ωM (s0, θ, θ (i); DM ) − ω⋆M,i (s0, θ ) = bpθ,i 
+
+bqi
+
+− pθ,i 
+
+qi
+
+≤ bpθ,i − pθ,i 
+
+bqi
+
++ |pθ,i | 1
+
+bqi
+
+− 1
+
+qi
+
+= |bpθ,i − pθ,i |
+
+bqi
+
++ |pθ,i | |bqi − qi|
+
+bqi qi
+
+≤ η 
+
+> 34
+
+qmin 
+
++ pmax 
+
+η
+
+( 34 qmin )qmin 
+
+= 4η
+
+3qmin 
+
++ 4pmax 
+
+3q2min 
+
+η ≤ 8ηqmin 
+
+,
+
+where the last inequality uses pmax ≥ qmin without loss of generality (otherwise the bound is even smaller) and we keep the final constant in the clean form used in (45). Since this bound holds simultaneously for all θ ∈ Θ and all i ∈ { 1, . . . , M } on Eη , we obtain 
+
+Eη ⊆
+
+
+
+sup 
+
+> θ∈Θ
+
+max   
+
+> i∈{ 1,...,M }
+
+ωM (s0, θ, θ (i); DM ) − ω⋆M,i (s0, θ ) ≤ 8ηqmin 
+
+
+
+.
+
+Step 3: Take probabilities. Therefore, 
+
+Pr 
+
+
+
+sup 
+
+> θ∈Θ
+
+max   
+
+> i∈{ 1,...,M }
+
+ωM (s0, θ, θ (i); DM ) − ω⋆M,i (s0, θ ) ≥ 8ηqmin 
+
+
+
+≤ Pr (Ecη )
+
+≤
+
+ Cgen 
+
+η
+
+Vgen 
+
+exp  −C4 M η 2 ,
+
+where the last line is exactly the assumed uniform estimation bound (44). This proves (45). 
+
+G.5 Consistency of estimation Ideal-weight empirical processes. Recall the mixture proposal density qM (ξ | s0) =
+
+> 1
+> M
+
+PMj=1 p(ξ | s0, θ (j)) and define the ideal density-ratio weight 
+
+ω⋆M (s0, θ, ξ) := p(ξ | s0, θ )
+
+qM (ξ | s0) , ω⋆M,i (s0, θ ) := ω⋆M (s0, θ, ξ(i)).
+
+Define the ideal-weight empirical objective and constraint processes by 
+
+J ⋆M (θ, s0) := 
+
+> M
+
+X
+
+> i=1
+
+ω⋆M,i (s0, θ ) 
+
+> N−1
+
+X
+
+> k=0
+
+r
+
+
+
+s(i) 
+
+> k
+
+, o (i)
+
+> k
+
+
+
+, (46) and, for each k ∈ { 1, . . . , N },
+
+P⋆M,k (θ, s0) := 
+
+> M
+
+X
+
+> i=1
+
+ω⋆M,i (s0, θ ) I
+
+n
+
+hk
+
+
+
+θ, s0, ξ(i)
+
+≤ 0
+
+o
+
+. (47) 
+
+Standing regularity. Assume Assumption 2 holds. In addition, assume: (i) ( Bounded horizon reward ) there exists Rmax < ∞ such that  
+
+> N−1
+
+X
+
+> k=0
+
+r(sk, o k) ≤ Rmax for all trajectories. (ii) ( Lipschitz in parameter ) there exists Lθ < ∞ such that 
+
+sup 
+
+> ξ∈Ξ
+
+|p(ξ | s0, θ 1) − p(ξ | s0, θ 2)| ≤ Lθ ∥θ1 − θ2∥, ∀θ1, θ 2 ∈ Θ.
+
+26 Under Assumption 2, we have sup θ∈Θ sup ξ ω⋆M (s0, θ, ξ) ≤ pmax /q min .
+
+Lemma 2 (Uniform exponential deviation for ideal-weight processes) . Suppose Assumption 2 and the standing regularity hold. Define 
+
+Bω := pmax 
+
+qmin 
+
+, BJ := Bω Rmax , BP := Bω .
+
+Then there exist constants C0, C 1 > 0 (independent of M ) such that for any η > 0,
+
+Pr 
+
+
+
+sup 
+
+> θ∈Θ
+
+|J ⋆M (θ, s0) − J (θ, s0)| ≥ η
+
+
+
+≤
+
+
+
+1 + C0Lθ diam (Θ) 
+
+η
+
+nθ
+
+exp 
+
+
+
+−C1
+
+M η 2
+
+B2
+
+> J
+
+
+
+. (48) 
+
+Moreover, for each k ∈ { 1, . . . , N } and any η > 0,
+
+Pr 
+
+
+
+sup 
+
+> θ∈Θ
+
+P⋆M,k (θ, s0) − P k(θ, s0) ≥ η
+
+
+
+≤
+
+
+
+1 + C0Lθ diam (Θ) 
+
+η
+
+nθ
+
+exp 
+
+
+
+−C1
+
+M η 2
+
+B2
+
+> P
+
+
+
+. (49) 
+
+Proof. Fix s0.
+
+Step 1: Pointwise exponential deviation (fixed θ). For fixed θ ∈ Θ, define the bounded random variables 
+
+Zobj  
+
+> i
+
+(θ) := ω⋆M,i (s0, θ ) 
+
+> N−1
+
+X
+
+> k=0
+
+r
+
+
+
+s(i) 
+
+> k
+
+, o (i)
+
+> k
+
+
+
+, Zcon  
+
+> i,k
+
+(θ) := ω⋆M,i (s0, θ ) I
+
+n
+
+hk
+
+
+
+θ, s0, ξ(i)
+
+≤ 0
+
+o
+
+.
+
+By Assumption 2 and boundedness, |Zobj  
+
+> i
+
+(θ)| ≤ BJ and |Zcon  
+
+> i,k
+
+(θ)| ≤ BP . Moreover, J ⋆M (θ, s0) = 
+
+PMi=1 Zobj  
+
+> i
+
+(θ) and P⋆M,k (θ, s0) = PMi=1 Zcon  
+
+> i,k
+
+(θ). Conditioned on the fixed data-generating parame-ters {θ(i)}Mi=1 , the logged trajectories {ξ(i)}Mi=1 are assumed to be independent. Thus, {Zobj  
+
+> i
+
+(θ)}Mi=1 
+
+and {Zcon  
+
+> i,k
+
+(θ)}Mi=1 are independent. Applying Hoeffding’s inequality yields, for any η > 0,
+
+Pr {|J ⋆M (θ, s0) − J (θ, s0)| ≥ η} ≤ 2 exp 
+
+
+
+−c M η 2
+
+B2
+
+> J
+
+
+
+, (50) 
+
+Pr  P⋆M,k (θ, s0) − P k(θ, s0) ≥ η ≤ 2 exp 
+
+
+
+−c M η 2
+
+B2
+
+> P
+
+
+
+, (51) for a universal constant c > 0.
+
+Step 2: Uniformization over Θ. Let δ := η/ (2 Lθ Bω ) and take a δ-net Nδ of Θ with |N δ | ≤ 
+
+(1 + diam (Θ) /δ )nθ . By the Lipschitz condition on p(· | s0, θ ) and the lower bound on qM , the ideal weight is Lipschitz in θ uniformly over ξ:
+
+sup 
+
+> ξ∈Ξ
+
+|ω⋆M (s0, θ 1, ξ) − ω⋆M (s0, θ 2, ξ)| ≤ Lθ
+
+qmin 
+
+∥θ1 − θ2∥ = Lθ Bω ∥θ1 − θ2∥.
+
+Therefore, for any θ ∈ Θ and its nearest net point ¯θ ∈ N δ ,
+
+J ⋆M (θ, s0) − J ⋆M (¯θ, s0) ≤
+
+> M
+
+X
+
+> i=1
+
+ω⋆M,i (s0, θ ) − ω⋆M,i (s0, ¯θ) 
+
+> N−1
+
+X
+
+> k=0
+
+r(s(i) 
+
+> k
+
+, o (i) 
+
+> k
+
+) (52) 
+
+≤ M · (Lθ Bω δ) · Rmax = M η 
+
+2 . (53) The same argument gives P⋆M,k (θ, s0) − P ⋆M,k (¯θ, s0) ≤ M · (Lθ Bω δ) · 1 = M η  
+
+> 2
+
+. Applying the triangle inequality and a union bound over ¯θ ∈ N δ yields (48) and (49) after absorbing constants into 
+
+C0, C 1.
+
+Theorem 7 (Uniform consistency of objective and constraint residuals) . Fix s0 and suppose Assump-tion 2 and the standing regularity hold. Let the residual processes be defined in (37) –(40) .
+
+27 (a) KDE-based importance weights. Then there exist constants C > 0 such that for any ηw > 0
+
+satisfying C1hβM + ηw ≤ qmin /4 and any ηs > 0, with probability at least 
+
+1 −
+
+
+
+1 + C3Lθ diam (Θ) 
+
+ηw
+
+nθ
+
+exp 
+
+
+
+−C2 M h dξ 
+
+> M
+
+η2
+
+> w
+
+
+
+−
+
+
+
+1 + C0Lθ diam (Θ) 
+
+ηs
+
+nθ
+
+exp  −C M η 2
+
+> s
+
+ ,
+
+the uniform residuals satisfy 
+
+Robj  
+
+> M
+
+(s0) ≤ M R max · 8
+
+qmin 
+
+
+
+C1hβM + ηw
+
+
+
++ ηs, (54) 
+
+Rcon 
+
+> M,k
+
+(s0) ≤ M · 8
+
+qmin 
+
+
+
+C1hβM + ηw
+
+
+
++ ηs, ∀k ∈ { 1, . . . , N }. (55) 
+
+In particular, if hM → 0 and M h dξ 
+
+> M
+
+→ ∞ , and if ηw, η s → 0 with M h dξ 
+
+> M
+
+η2 
+
+> w
+
+→ ∞ and M η 2 
+
+> s
+
+→ ∞ ,then Robj  
+
+> M
+
+(s0) → 0 and Rcon 
+
+> M,k
+
+(s0) → 0 in probability. 
+
+(b) Generator-based importance weights. Then there exists C > 0 such that for any ηw > 0
+
+satisfying ηw ≤ qmin /4 and any ηs > 0, with probability at least 
+
+1 −
+
+ Cgen 
+
+ηw
+
+Vgen 
+
+exp  −C4 M η 2
+
+> w
+
+ −
+
+
+
+1 + C0Lθ diam (Θ) 
+
+ηs
+
+nθ
+
+exp  −C M η 2
+
+> s
+
+ ,
+
+the uniform residuals satisfy 
+
+Robj  
+
+> M
+
+(s0) ≤ M R max · 8
+
+qmin 
+
+ηw + ηs, (56) 
+
+Rcon 
+
+> M,k
+
+(s0) ≤ M · 8
+
+qmin 
+
+ηw + ηs, ∀k ∈ { 1, . . . , N }. (57) 
+
+In particular, if ηw, η s → 0 with M η 2 
+
+> w
+
+→ ∞ and M η 2 
+
+> s
+
+→ ∞ , then Robj  
+
+> M
+
+(s0) → 0 and Rcon 
+
+> M,k
+
+(s0) → 0
+
+in probability. Proof. Fix s0.
+
+Step 1: Decomposition via ideal-weight processes. For any θ ∈ Θ, by adding and subtracting the ideal-weight processes, 
+
+|J M (θ, s0) − J (θ, s0)| ≤ |J M (θ, s0) − J ⋆M (θ, s0)| + |J ⋆M (θ, s0) − J (θ, s0)| .
+
+Taking sup θ∈Θ gives 
+
+Robj  
+
+> M
+
+(s0) ≤ sup 
+
+> θ∈Θ
+
+|J M (θ, s0) − J ⋆M (θ, s0)| + sup 
+
+> θ∈Θ
+
+|J ⋆M (θ, s0) − J (θ, s0)| . (58) Similarly, for each k,
+
+Rcon 
+
+> M,k
+
+(s0) ≤ sup 
+
+> θ∈Θ
+
+PM,k (θ, s0) − P ⋆M,k (θ, s0) + sup 
+
+> θ∈Θ
+
+P⋆M,k (θ, s0) − P k(θ, s0) . (59) 
+
+Step 2: Deterministic control of the “estimated–ideal” gap by weight error. For any θ ∈ Θ,
+
+|J M (θ, s0) − J ⋆M (θ, s0)| =
+
+> M
+
+X
+
+> i=1
+
+
+
+ωM (s0, θ, θ (i)) − ω⋆M,i (s0, θ )
+
+ N −1X
+
+> k=0
+
+r(s(i) 
+
+> k
+
+, o (i) 
+
+> k
+
+) (60) 
+
+≤ M R max · max   
+
+> i∈{ 1,...,M }
+
+ωM (s0, θ, θ (i)) − ω⋆M,i (s0, θ ) . (61) Taking sup θ∈Θ yields 
+
+sup 
+
+> θ∈Θ
+
+|J M (θ, s0) − J ⋆M (θ, s0)| ≤ M R max · sup 
+
+> θ∈Θ
+
+max   
+
+> i∈{ 1,...,M }
+
+ωM (s0, θ, θ (i)) − ω⋆M,i (s0, θ ) . (62) Likewise, since the indicator is bounded by 1,
+
+sup 
+
+> θ∈Θ
+
+PM,k (θ, s0) − P ⋆M,k (θ, s0) ≤ M · sup 
+
+> θ∈Θ
+
+max   
+
+> i∈{ 1,...,M }
+
+ωM (s0, θ, θ (i)) − ω⋆M,i (s0, θ ) . (63) 28 Step 3: High-probability bounds for the two terms. For the KDE-based method, apply Theorem 5 to bound the weight error term in (62) – (63) by 8 
+
+> qmin
+
+(C1hβM + ηw) with the stated probability. For the generator-based method, apply Theorem 6 to bound the weight error term by 8 
+
+> qmin
+
+ηw with the stated probability. In both cases, apply Lemma 2 to bound the ideal-weight sampling deviation terms in (58)–(59) by ηs with the stated probability. A union bound over the two events yields (54)–(55) and (56)–(57), respectively. 
+
+Step 4: Consistency. The convergence-in-probability statements follow by choosing sequences 
+
+(hM , η w, η s) satisfying the conditions so that the right-hand sides vanish while the failure probabilities vanish. 
+
+G.6 Near optimality 
+
+Let θ⋆ denote an optimal solution of the true chance-constrained problem ( CCO ), and let 
+
+bθM ∈ arg max 
+
+> θ∈Θ
+
+eJ(θ, s0, DM )
+
+denote an optimal solution of the sample-based approximation SA . In the following argument, θ⋆ is understood as an optimal solution of problem CCO with an arbitrarily small tightening level in the safety constraint. Since this tightening level can be chosen arbitrarily close to zero, the corresponding optimal value converges to that of the original problem. Recall the uniform residual processes defined in (38) and (40). 
+
+Theorem 8 (Near optimality under uniform residual bounds) . Fix s0. suppose Assumption 2 and the standing regularity conditions hold. Let δobj > 0 and δcon > 0.Assume that the following uniform residual bounds hold: 
+
+Robj  
+
+> M
+
+(s0) ≤ δobj , Rcon 
+
+> M,k
+
+(s0) ≤ δcon , ∀k ∈ { 1, . . . , N }.
+
+Then the following statements hold: 
+
+(i) Feasibility. If the sample-based solution bθM satisfies 
+
+PM,k (bθM , s0) ≥ 1 − ε + δcon , ∀k ∈ { 1, . . . , N },
+
+then bθM is feasible for the original chance constraints (30) , that is, 
+
+Pk(bθM , s0) ≥ 1 − ε, ∀k ∈ { 1, . . . , N }.
+
+(ii) Near optimality. The objective value achieved by bθM satisfies 
+
+J(bθM , s0) ≥ J(θ⋆, s0) − 2δobj .
+
+Proof. Fix s0.
+
+Feasibility. For any θ ∈ Θ and each k,
+
+|P M,k (θ, s0) − P k(θ, s0)| ≤ δcon .
+
+Therefore 
+
+Pk(bθM , s0) ≥ P M,k (bθM , s0) − δcon ≥ 1 − ε. 
+
+Near optimality. By definition of the uniform residual, 
+
+eJ(θ, s0, DM ) − J(θ, s0) ≤ δobj ∀θ ∈ Θ.
+
+Since bθM maximizes the empirical objective, 
+
+eJ(bθM , s0, DM ) ≥ eJ(θ⋆, s0, DM ).
+
+29 Combining the above inequalities yields 
+
+J(bθM , s0) ≥ eJ(bθM , s0, DM ) − δobj ≥ eJ(θ⋆, s0, DM ) − δobj ≥ J(θ⋆, s0) − 2δobj .
+
+Finally, because the tightening level is arbitrary and can be taken to zero, the optimal value of the tightened population problem approaches that of the original population problem. Hence the additional gap induced by tightening vanishes, and the claimed near-optimality bound for the original problem follows. We now specialize the above result to the two importance-weight estimation methods considered in this paper. 
+
+Proposition 2 (Near optimality with KDE-based importance weights) . suppose the conditions of Theorem 5 hold. Let bθM be the solution of the sample-based problem (SA ) with KDE-based importance weights. Let δobj > 0 and δcon > 0.Then 
+
+Pr 
+
+n
+
+J(bθM , s0) < J (θ⋆, s0) − 2δobj 
+
+o
+
+≤
+
+
+
+1 + C3Lθ diam (Θ) 
+
+ηw
+
+nθ
+
+exp 
+
+
+
+−C2 M h dξ 
+
+> M
+
+η2
+
+> w
+
+
+
++ N
+
+
+
+1 + C0Lθ diam (Θ) 
+
+ηs
+
+nθ
+
+exp  −C M η 2
+
+> s
+
+ , (64) 
+
+provided that 
+
+C1hβM + ηw ≤ qmin /4,
+
+and 
+
+M R max · 8
+
+qmin 
+
+
+
+C1hβM + ηw
+
+
+
++ ηs ≤ δobj ,M · 8
+
+qmin 
+
+
+
+C1hβM + ηw
+
+
+
++ ηs ≤ δcon .
+
+Proof. By Theorem 7, with probability at least 
+
+1 −
+
+
+
+1 + C3Lθ diam (Θ) 
+
+ηw
+
+nθ
+
+exp 
+
+
+
+−C2 M h dξ 
+
+> M
+
+η2
+
+> w
+
+
+
+−
+
+
+
+1 + C0Lθ diam (Θ) 
+
+ηs
+
+nθ
+
+exp  −C M η 2
+
+> s
+
+ ,
+
+the residual bounds hold. Therefore Theorem 8 implies the near-optimality bound. Applying Boole’s inequality over the N constraint residual events yields (64). 
+
+Proposition 3 (Near optimality with generator-based importance weights) . suppose the conditions of Theorem 6 hold. Let bθM be the solution of the sample-based problem (SA ) with generator-based importance weights. Let δobj > 0 and δcon > 0.Then 
+
+Pr 
+
+n
+
+J(bθM , s0) < J (θ⋆, s0) − 2δobj 
+
+o
+
+≤
+
+ Cgen 
+
+ηw
+
+Vgen 
+
+exp  −C4 M η 2
+
+> w
+
+
+
++ N
+
+
+
+1 + C0Lθ diam (Θ) 
+
+ηs
+
+nθ
+
+exp  −C M η 2
+
+> s
+
+ , (65) 
+
+provided that 
+
+ηw ≤ qmin /4,
+
+and 
+
+M R max · 8
+
+qmin 
+
+ηw + ηs ≤ δobj ,M · 8
+
+qmin 
+
+ηw + ηs ≤ δcon .
+
+Proof. The proof is identical to that of Proposition 2. The result follows from Theorem 8 and the explicit probability bounds obtained from Theorem 6 and Theorem 7. 30 G.7 Feasibility result 
+
+In this subsection we provide feasibility guarantees for the solution obtained from the sample-based approximation problem (SA ). The result follows directly from the uniform residual bounds introduced in Section G.6. Let bθM denote an optimal solution of the sample-based problem ( SA ), i.e., 
+
+bθM ∈ arg max 
+
+> θ∈Θ
+
+eJ(θ, s0, DM ).
+
+Recall that Pk(θ, s0) denotes the true feasibility probability of constraint k, and PM,k (θ, s0) denotes its sample-based estimate. We also recall the uniform constraint residual defined in (40). 
+
+Theorem 9 (Feasibility under uniform residual bounds) . Fix s0. suppose Assumption 2 and the standing regularity conditions hold. Let δcon > 0.Assume that the uniform constraint residual satisfies 
+
+Rcon 
+
+> M,k
+
+(s0) ≤ δcon , ∀k ∈ { 1, . . . , N }.
+
+If the sample-based solution bθM satisfies 
+
+PM,k (bθM , s0) ≥ 1 − ε + δcon , ∀k ∈ { 1, . . . , N },
+
+then bθM is feasible for the original chance constraints (30) , that is, 
+
+Pk(bθM , s0) ≥ 1 − ε, ∀k ∈ { 1, . . . , N }.
+
+Proof. For any θ ∈ Θ and each constraint k, the definition of the uniform residual implies 
+
+|P M,k (θ, s0) − P k(θ, s0)| ≤ δcon .
+
+Applying this bound at θ = bθM yields 
+
+Pk(bθM , s0) ≥ P M,k (bθM , s0) − δcon .
+
+Since 
+
+PM,k (bθM , s0) ≥ 1 − ε + δcon ,
+
+we obtain 
+
+Pk(bθM , s0) ≥ 1 − ε. 
+
+Hence bθM satisfies the original chance constraints. We next combine the above deterministic feasibility result with the probabilistic bounds on the uniform residual. 
+
+Theorem 10 (Finite-sample feasibility guarantee) . suppose the assumptions of Theorem 7 hold. Let 
+
+bθM be the solution of the sample-based problem (SA ).Then for any δcon > 0,
+
+Pr 
+
+n
+
+∃k : Pk(bθM , s0) < 1 − ε
+
+o
+
+≤
+
+> N
+
+X
+
+> k=1
+
+Pr 
+
+n
+
+Rcon 
+
+> M,k
+
+(s0) > δ con 
+
+o
+
+.
+
+Under the exponential deviation bounds derived earlier, the right-hand side admits an explicit exponential upper bound that decays with the sample size M .Proof. If the residual bounds 
+
+Rcon 
+
+> M,k
+
+(s0) ≤ δcon 
+
+hold for all k, then Theorem 9 guarantees that bθM is feasible. Therefore the failure event n
+
+∃k : Pk(bθM , s0) < 1 − ε
+
+o
+
+can occur only if at least one residual bound fails. Applying the union bound over k = 1 , . . . , N 
+
+yields the result. 31 G.8 Extension to random initial states 
+
+All previous results in this appendix are stated for a fixed initial interaction state s0. This conditional viewpoint is practically meaningful, since in many deployment settings the decision maker starts from a realized current state and seeks guarantees conditioned on that state. For example, in treatment recommendation or intervention scheduling, the policy is applied to a patient with a given current condition rather than to an averaged population state. Therefore, the fixed-s0 analysis already provides a practically relevant finite-sample guarantee. Nevertheless, it is also common in reinforcement learning to evaluate performance under a random initial state 
+
+s0 ∼ ρ0,
+
+where ρ0 is an initial-state distribution. In this case, the objective becomes 
+
+Jρ0 (θ) := Es0∼ρ0 [J(θ, s0)] , (66) and similarly the empirical objective is defined by 
+
+JM,ρ 0 (θ) := Es0∼ρ0 [JM (θ, s0)] . (67) For the constraint process, one may analogously define 
+
+Pk,ρ 0 (θ) := Es0∼ρ0 [Pk(θ, s0)] , PM,k,ρ 0 (θ) := Es0∼ρ0 [PM,k (θ, s0)] . (68) The corresponding residual processes are then given by 
+
+Robj  
+
+> M,ρ 0
+
+(θ) := |J M,ρ 0 (θ) − Jρ0 (θ)| , Robj  
+
+> M,ρ 0
+
+:= sup 
+
+> θ∈Θ
+
+Robj  
+
+> M,ρ 0
+
+(θ), (69) and 
+
+Rcon  
+
+> M,k,ρ 0
+
+(θ) := |P M,k,ρ 0 (θ) − P k,ρ 0 (θ)| , Rcon  
+
+> M,k,ρ 0
+
+:= sup 
+
+> θ∈Θ
+
+Rcon  
+
+> M,k,ρ 0
+
+(θ). (70) The extension from fixed s0 to random initial states is obtained by averaging the conditional bounds derived earlier. Indeed, by Jensen’s inequality, 
+
+Robj  
+
+> M,ρ 0
+
+= sup 
+
+> θ∈Θ
+
+|Es0∼ρ0 [JM (θ, s0) − J(θ, s0)] | ≤ Es0∼ρ0
+
+h
+
+Robj  
+
+> M
+
+(s0)
+
+i
+
+, (71) 
+
+Rcon  
+
+> M,k,ρ 0
+
+= sup 
+
+> θ∈Θ
+
+|Es0∼ρ0 [PM,k (θ, s0) − P k(θ, s0)] | ≤ Es0∼ρ0
+
+h
+
+Rcon 
+
+> M,k
+
+(s0)
+
+i
+
+. (72) Therefore, if the fixed-state residual bounds established in Appendix G.5 hold uniformly in s0 (or admit ρ0-integrable envelopes), then the same rates immediately transfer to the averaged residuals in (69)–(70). This observation yields the following extension. 
+
+Proposition 4 (Extension to random initial states) . Assume that the conclusions of Theorem 7, Theorem 8, and Theorem 9 hold for every s0 in the support of ρ0, and that the corresponding bounds are uniform in s0 or dominated by ρ0-integrable envelopes. Then the same conclusions extend to the averaged problem with initial state s0 ∼ ρ0. In particular: 
+
+(i) Uniform consistency under ρ0. The averaged residuals Robj  
+
+> M,ρ 0
+
+and Rcon  
+
+> M,k,ρ 0
+
+converge to zero in probability under the same asymptotic conditions as in Theorem 7. 
+
+(ii) Near optimality under ρ0. If bθM is an optimal solution of the sample-based averaged problem and θ⋆ρ0 is an optimal solution of the true averaged problem, then 
+
+Jρ0 (bθM ) ≥ Jρ0 (θ⋆ρ0 ) − 2δobj ,
+
+whenever the averaged objective residual is bounded by δobj .
+
+32 (iii) Feasibility under ρ0. If the averaged empirical constraints are satisfied with margin δcon , then the averaged true constraints are satisfied as well. Proof. The proof follows by averaging the fixed-s0 bounds with respect to ρ0. Equations (71) and (72) show that the averaged residuals are controlled by the ρ0-average of the fixed-state residuals. Hence the consistency result follows immediately from Theorem 7 under the stated uniformity or integrability conditions. Once the averaged residual bounds are established, the proofs of near optimality and feasibility are identical to those of Theorem 8 and Theorem 9, with J(θ, s0) and Pk(θ, s0) replaced by their averaged counterparts Jρ0 (θ) and Pk,ρ 0 (θ).Proposition 4 shows that the fixed-initial-state analysis adopted in this appendix is not restrictive. It captures the practically relevant conditional guarantee for a realized current state, while also extending to the more classical reinforcement-learning setting with random initial states under mild additional regularity conditions. 
+
+## H Detailed Theoretical Results of Section 3.4 
+
+H.1 Endpoint-Deviation Approximation 
+
+The theoretical safety-tightening term in Theorem 2 is derived from an upper bound on the maximum state deviation over an interaction interval, namely, 
+
+sup    
+
+> t∈[tk,t k+δt k]
+
+∥xt − xk∥.
+
+In the practical implementation, however, the dataset Dpr  
+
+> Npr
+
+uses the endpoint deviation 
+
+d(i) := ∥x(i)+ − x(i)∥
+
+as a computationally simple proxy. This approximation is adopted for implementation convenience and does not claim exact equivalence to the interval-supremum deviation in the general case. Ac-cordingly, the empirical surrogate used in the experiments should be interpreted as a pragmatic approximation of the theoretical conservative surrogate. A more faithful construction based directly on the interval maximum deviation is an important direction for future improvement. 
+
+H.2 Exact Conservative Surrogate 
+
+For each (x, δt ), the quantity h(x, δt ) is deterministic once λok , bk,o k , and W k(ε) are fixed. Define 
+
+ϵh(x, δt ) := Pr {d ≥ h(x, δt ) | x, δt } , (73) which is the conditional probability that the sampled finite-interval deviation exceeds the analytical safety-tightening term h(x, δt ) at the given pair (x, δt ). We further define the uniform lower bound 
+
+¯ϵh := inf x,δt ϵh(x, δt ).. In practical implementation, we only consider (x, δt ) in the operational region of the proposed policy, where δt ∈ [0 , t max ] and x is restricted to a compact set of nominal patient states. It is thus reasonable to assume that ¯ϵh > 0, namely, there exists a nonvanishing lower bound on the probability that the sampled deviation exceeds h(x, δt ). If the patient state leaves this nominal region, the proposed policy is no longer intended to be used, and a separate emergency mechanism or backup controller should be activated instead in practice. For each (x, δt ), define 
+
+v¯ϵh (x, δt ) := max   
+
+> ds∈D¯ϵh(x,δt )
+
+ds, where D¯ϵh (x, δt ) := {ds : Pr {d ≥ ds | x, δt } = ¯ ϵh} . (74) The quantity v¯ϵh (x, δt ) is the largest deviation threshold whose conditional exceedance probability equals ¯ϵh. Lemma 3 shows that v¯ϵh (x, δt ) is a conservative surrogate of h(x, δt ).
+
+Lemma 3. For any (x, δt ), we have 
+
+v¯ϵh (x, δt ) ≥ h(x, δt ). (75) 33 Proof. Fix any (x, δt ). By the definition of ϵh(x, δt ) in (73). By the definition of ¯ϵh, we have 
+
+ϵh(x, δt ) ≥ ¯ϵh. (76) Since the conditional tail probability ds 7 → Pr {d ≥ ds | x, δt } is continuous in ds, there exists some 
+
+¯ds ≥ h(x, δt ) such that 
+
+Pr d ≥ ¯ds | x, δt = ¯ ϵh. (77) Hence ¯ds ∈ D¯ϵh (x, δt ), which implies 
+
+v¯ϵh (x, δt ) = max   
+
+> ds∈D¯ϵh(x,δt )
+
+ds ≥ ¯ds ≥ h(x, δt ). (78) This proves (75). Lemma 3 shows that v¯ϵh (x, δt ) uniformly upper-bounds the analytical safety-tightening term h(x, δt )
+
+for every (x, δt ) in the considered operating region in a point-wise way. Therefore, v¯ϵh (x, δt ) can be regarded as a conservative surrogate of h(x, δt ) according to Definition 4. This interpretation is important for practical implementation, because v¯ϵh (x, δt ) is characterized through the observable conditional deviation distribution, whereas h(x, δt ) depends on the unknown closed-loop growth coefficient λok and is not directly computable online. Consequently, if one can further construct a computable approximation that upper-bounds v¯ϵh (x, δt ), then that approximation also serves as a conservative practical surrogate of the original analytical tightening term. 
+
+H.3 Probabilistic Guarantee of Approximate Conservative Surrogate Problem reformulation. For any given (x, δt ), the quantity v¯ϵh (x, δt ) can be equivalently viewed as the solution of the following chance-constrained optimization problem, referred to as the Exact Conservative Surrogate problem: 
+
+min 
+
+> ds
+
+ds
+
+s.t. Pr {d ≤ ds | x, δt } ≥ 1 − ¯ϵh,ds ∈ [0 , d max ].
+
+(ECS )That is, v¯ϵh (x, δt ) is the smallest threshold ds such that the conditional probability of the sampled deviation being no larger than ds is at least 1 − ¯ϵh.On the other hand, the sample-based approximation ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) can be interpreted as the solution of the following sample-based approximate problem, referred to as the Approximate Conservative Surrogate problem: 
+
+min 
+
+> ds
+
+ds
+
+s.t. 1
+
+Nre 
+
+> Nre
+
+X
+
+> j=1
+
+I
+
+n ˜d(j) 
+
+> re
+
+≤ ds
+
+o
+
+≥ 1 − ¯ϵ′
+
+> h
+
+,
+
+˜d(j) 
+
+> re
+
+∼ ˜pd(· | x, δt ), j = 1 , . . . , N re ,ds ∈ [0 , d max ].
+
+(ACS )In other words, ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) is the smallest threshold ds such that at least a proportion 1 − ¯ϵ′ 
+
+> h
+
+of the resampled deviations from the approximate conditional density are no larger than ds.Let us define the feasibility sets of problems (ECS ) and (ACS ) by 
+
+ΘECS  
+
+> ¯ϵh
+
+(x, δt ) := {ds ∈ [0 , d max ] : Pr {d ≤ ds | x, δt } ≥ 1 − ¯ϵh} , (79) and 
+
+eΘACS 
+
+> ¯ϵ′
+> h
+
+(x, δt, Dpr  
+
+> Npr
+
+, eDre  
+
+> Nre
+
+) := 
+
+ds ∈ [0 , d max ] : 1
+
+Nre 
+
+> Nre
+
+X
+
+> j=1
+
+I
+
+n ˜d(j) 
+
+> re
+
+≤ ds
+
+o
+
+≥ 1 − ¯ϵ′
+
+> h
+
+ , (80) where eDre  
+
+> Nre
+
+:= { ˜d(j) 
+
+> re
+
+}Nre  
+
+> j=1
+
+and ¯ϵ′ 
+
+> h
+
+> ¯ϵh. Let 
+
+κh := ¯ ϵh − ¯ϵ′ 
+
+> h
+
+> 0, so that ¯ϵ′ 
+
+> h
+
+< ¯ϵh. (81) 34 The quantity ¯ϵ′ 
+
+> h
+
+is introduced to define a stricter empirical constraint than the target true constraint associated with ¯ϵh. Since ¯ϵ′ 
+
+> h
+
+< ¯ϵh, we have 
+
+1 − ¯ϵ′ 
+
+> h
+
+> 1 − ¯ϵh,
+
+so the empirical chance constraint is tighter and can compensate for sampling error. The approximate conservative surrogate uses the stricter probability level 1 − ¯ϵ′ 
+
+> h
+
+with ¯ϵ′ 
+
+> h
+
+< ¯ϵh to offset sampling error and ensure that the empirical solution remains conservative for the target level 1 − ¯ϵh with high probability. Furthermore, define 
+
+Mh := inf 
+
+> ds∈[0 ,d max ]
+
+
+
+Pr {d ≤ ds | x, δt } − bPr Npr {d ≤ ds | x, δt }
+
+
+
+, (82) where bPr Npr {· | x, δt } denotes the probability induced by the estimated conditional density ˜pd(· | 
+
+x, δt ) obtained from the dataset Dpr  
+
+> Npr
+
+. The following lemma is a direct application of Theorem 3 of [28 ], after identifying (ECS ) as the original contextual chance-constrained optimization problem and 
+
+(ACS ) as its resampling-based approximate problem with confidence gap κh; see Theorem 3 in the attached paper for the corresponding infeasibility-to-feasibility probability bound. 
+
+Lemma 4. Let ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) be the solution of problem ACS . Then, 
+
+Pr 
+
+n
+
+˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) ∈ ΘECS  
+
+> ¯ϵh
+
+(x, δt )
+
+o
+
+≥ 1 − ρh, (83) 
+
+where 
+
+ρh := exp −2Nre (Mh + κh)2 + Ah, 1 exp 
+
+− κ2
+
+> h
+
+Ah, 2N − 2+ γ
+
+> 4
+> pr
+
+ , (84) 
+
+for some positive constants Ah, 1, A h, 2 and γ ∈ (0 , 2) .Proof. Since ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) is the optimizer of problem (ACS ), it is feasible for (ACS ), namely, 
+
+˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) ∈ eΘACS 
+
+> ¯ϵ′
+> h
+
+(x, δt, Dpr  
+
+> Npr
+
+, eDre  
+
+> Nre
+
+). (85) Applying Theorem 3 in [ 28 ] to the contextual chance-constrained pair (ECS ) and (ACS ), with the identification of the confidence gap as κh = ¯ ϵh − ¯ϵ′
+
+> h
+
+, yields that the probability for an infeasible point of (ECS ) to be feasible for (ACS ) is upper-bounded by ρh in (84). Therefore, 
+
+Pr 
+
+n
+
+˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) /∈ ΘECS  
+
+> ¯ϵh
+
+(x, δt )
+
+o
+
+≤ ρh, (86) which is equivalent to (83). With finite-sample feasibility of the approximate conservative surrogate given by Lemma 4, we further have the following theorem that claims that ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) is a conservative surrogate of 
+
+h(x, δt ) with high probability. 
+
+Theorem 11. Assume that, for each (x, δt ) in the operating region, the conditional cumulative distribution function 
+
+F (ds | x, δt ) := Pr {d ≤ ds | x, δt }
+
+is continuous and strictly increasing in ds on [0 , d max ]. Let v¯ϵh (x, δt ) be the solution of (ECS ), and let ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) be the solution of (ACS ). Then: 1. v¯ϵh (x, δt ) is the unique solution of (ECS );2. every feasible solution of (ECS ) is a conservative surrogate of h(x, δt );3. with probability at least 1 − ρh, the approximate solution ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) is a conservative surrogate of h(x, δt ).
+
+35 Proof. Since F (· | x, δt ) is continuous and strictly increasing, the equation 
+
+F (ds | x, δt ) = 1 − ¯ϵh
+
+has a unique solution. Hence the minimization problem (ECS ) has a unique optimizer, namely 
+
+v¯ϵh (x, δt ).Now let ds be any feasible solution of (ECS ). Then 
+
+F (ds | x, δt ) ≥ 1 − ¯ϵh.
+
+By monotonicity of F , this implies 
+
+ds ≥ v¯ϵh (x, δt ).
+
+By Lemma 3, 
+
+v¯ϵh (x, δt ) ≥ h(x, δt ).
+
+Therefore 
+
+ds ≥ h(x, δt ),
+
+so every feasible solution of (ECS ) is a conservative surrogate of h(x, δt ).Finally, by Lemma 4, with probability at least 1 − ρh,
+
+˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) ∈ ΘECS  
+
+> ¯ϵh
+
+(x, δt ).
+
+Hence, with the same probability, ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) is feasible for (ECS ), and thus is a conservative surrogate of h(x, δt ).
+
+H.4 Proof of Theorem 4 
+
+Define the event 
+
+Eh := 
+
+n
+
+˜vNpr ,N re  
+
+> ¯ϵh
+
+(xk, δt k) ≥ h(xk, δt k), ∀k = 0 , . . . , N − 1
+
+o
+
+, (87) where {(xk, δt k)}N −1 
+
+> k=0
+
+denotes the finite sequence of state-duration pairs induced by the learned solution eϑNpr ,N re  
+
+> M, ¯ϵh,δ con
+
+. By Theorem 11, for each fixed interaction index k, there exists a pointwise failure probability ρpt  
+
+> h
+
+such that 
+
+Pr 
+
+n
+
+˜vNpr ,N re  
+
+> ¯ϵh
+
+(xk, δt k) ≥ h(xk, δt k)
+
+o
+
+≥ 1 − ρpt  
+
+> h
+
+.
+
+Since at most K interaction steps are executed, Boole’s inequality implies 
+
+Pr {E h} ≥ 1 − Kρ pt  
+
+> h
+
+. (88) Define ρh := Kρ pt  
+
+> h
+
+.On the event Eh, for every interaction index k = 0 , . . . , N − 1 along the learned trajectory, 
+
+˜vNpr ,N re  
+
+> ¯ϵh
+
+(xk, δt k) ≥ h(xk, δt k). (89) Recalling the definitions of the empirical safety function (18) and the analytical safety function (15) ,(89) implies 
+
+eHNpr ,N re  
+
+> ¯ϵh
+
+(sk) = g(xk) + Lg, x ˜vNpr ,N re  
+
+> ¯ϵh
+
+(xk, δt k) ≥ g(xk) + Lg, x h(xk, δt k) = H(sk, o k), (90) since Lg, x ≥ 0 by Assumption 1(a). Therefore, on Eh, if 
+
+eHNpr ,N re  
+
+> ¯ϵh
+
+(sk) ≤ 0,
+
+then necessarily 
+
+H(sk, o k) ≤ 0.
+
+Equivalently, 
+
+I
+
+n eHNpr ,N re  
+
+> ¯ϵh
+
+(sk) ≤ 0
+
+o
+
+≤ I {H(sk, o k) ≤ 0} , ∀k, (91) 36 on the event Eh. Now let EM denote the event that the solution eϑNpr ,N re  
+
+> M, ¯ϵh,δ con
+
+obtained from the sample-based Problem SA -Option -SMDP with eHNpr ,N re  
+
+> ¯ϵh
+
+(·)in place of H(·) and with safety level 1 − ε + δcon 
+
+satisfies the corresponding empirical constraints.On Eh ∩ E M , by (91) , the same solution also satisfies 
+
+> M
+
+X
+
+> i=1
+
+ωi · I
+
+n
+
+H(s(i) 
+
+> k
+
+, o (i) 
+
+> k
+
+) ≤ 0
+
+o
+
+≥ 1 − ε + δcon , ∀k = 1 , . . . , N. (92) That is, on Eh ∩ E M , the learned solution eϑNpr ,N re  
+
+> M, ¯ϵh,δ con
+
+satisfies the sample-based constraints associated with the analytical safety function H(·) at all interaction steps generated by that solution and the tightened probability level 1 − ε + δcon . Applying Theorem 3, there exists a failure probability ρcon 
+
+> M
+
+such that 
+
+Pr {E M } ≥ 1 − ρcon  
+
+> M
+
+, (93) and on EM the learned solution is feasible for Problem Option -SMDP . Combining (88) and (93) by Boole’s inequality yields 
+
+Pr {E h ∩ E M } ≥ 1 − ρh − ρcon  
+
+> M
+
+. (94) Hence, with probability at least 1 − ρh − ρcon  
+
+> M
+
+, the solution eϑNpr ,N re  
+
+> M, ¯ϵh,δ con
+
+is feasible for Problem 
+
+Option -SMDP . This proves the theorem. 
+
+H.5 Approximate Conservative Surrogate by Gaussian Process 
+
+While ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) provides a sample-based approximation of the exact conservative surrogate, its construction requires conditional density estimation together with resampling, which may be computationally demanding in online implementation. To obtain a more convenient approximation, we introduce a Gaussian process (GP) model for the sampled finite-interval deviation. The input of the GP model is (x, δt ), and its output is 
+
+d := ∥x+ − x∥,
+
+where x+ denotes the successor state of x after an inter-interaction duration δt . The training dataset is given by 
+
+Dpr  
+
+> Npr
+
+:= 
+
+n 
+
+x(i), δt (i), d (i)o Npr 
+
+> i=1
+
+.
+
+Based on this dataset, the GP model provides the predictive mean 
+
+μgp (x, δt )
+
+and predictive variance 
+
+σgp (x, δt ).
+
+Using these quantities, we define the GP-based approximate conservative surrogate by 
+
+˜vβgp  
+
+> gp
+
+(x, δt ) := μgp (x, δt ) + βgp · σgp (x, δt ), (95) where βgp > 0 is a tunable inflation parameter. The rationale behind (95) is that the predictive mean captures the nominal sampled finite-interval deviation, while the variance quantifies the uncertainty induced by limited data, exogenous disturbances, and the unmodeled influence of the option-policy input component. Hence, by choosing βgp sufficiently large, ˜vβgp  
+
+> gp
+
+(x, δt ) can be made to act as a practical conservative surrogate of h(x, δt ).Compared with ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ), the GP-based surrogate (95) is more convenient in practice, since it avoids explicit conditional density estimation and resampling at each online query. Instead, it directly produces a mean-variance description of the deviation from the current input pair (x, δt ). Intuitively, 
+
+˜vβgp  
+
+> gp
+
+(x, δt ) plays the same role as ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ), namely, both are designed to upper-bound the unknown analytical quantity h(x, δt ). The difference is that ˜vβgp  
+
+> gp
+
+(x, δt ) achieves this through a parametric uncertainty quantifier, whereas ˜vNpr ,N re  
+
+> ¯ϵh
+
+(x, δt ) relies on empirical quantile approximation. A fixed large βgp generally increases conservativeness, but may also lead to overly restrictive decisions. To mitigate this issue, it is natural to adapt βgp according to the local safety risk of the current state. 37 Specifically, when the current state is close to the unsafe region, the safety margin should be enlarged by increasing βgp . Conversely, when the current state is well inside the safe region, one may reduce 
+
+βgp to avoid unnecessary conservativeness. A simple risk-adaptive choice is 
+
+βgp (x) := βmin  
+
+> gp
+
++  βmax  
+
+> gp
+
+− βmin 
+
+> gp
+
+ · χ(x), (96) where 0 < β min  
+
+> gp
+
+≤ βmax  
+
+> gp
+
+are design parameters and χ(x) ∈ [0 , 1] is a risk score satisfying: larger 
+
+χ(x) indicates that x is closer to the unsafe region. For example, χ(x) may be chosen as a monotone transformation of g(x), such as 
+
+χ(x) := clip 
+
+ g(x) − gmin 
+
+gmax − gmin 
+
+, 0, 1
+
+
+
+, (97) where gmin < g max are user-specified reference levels and clip( a, 0, 1) := min {1, max {0, a }} .Using (96), the GP-based surrogate becomes 
+
+˜vgp (x, δt ) := μgp (x, δt ) + βgp (x) · σgp (x, δt ). (98) The corresponding empirical safety function is then defined by 
+
+eHgp (sk) := g(xk) + Lg, x · ˜vgp (xk, δt k). (99) A practical implementation procedure is summarized as follows. 
+
+Algorithm 1 Risk-adaptive GP-based conservative surrogate 
+
+Require: Dataset Dpr  
+
+> Npr
+
+, current state xk, candidate duration δt k, design parameters 
+
+βmin  
+
+> gp
+
+, β max  
+
+> gp
+
+, g min , g max  
+
+> 1:
+
+Train or update the GP model using Dpr  
+
+> Npr
+> 2:
+
+Compute μgp (xk, δt k) and σgp (xk, δt k) 
+
+> 3:
+
+Evaluate the risk score χ(xk) using (97)  
+
+> 4:
+
+Set βgp (xk) using (96)  
+
+> 5:
+
+Compute ˜vgp (xk, δt k) by (98)  
+
+> 6:
+
+Compute eHgp (sk) by (99)  
+
+> 7:
+
+Accept the candidate duration if eHgp (sk) ≤ 0; otherwise, increase conservativeness or reduce 
+
+δt k
+
+The above construction is intended as a practical approximation of the exact conservative surrogate framework. Although no formal theorem is given here, the design is consistent with the earlier analysis: the GP mean approximates the nominal finite-interval deviation, the predictive variance quantifies uncertainty, and the inflation factor βgp is used to turn this uncertainty quantification into a conservative safety margin. The adaptive update of βgp further reduces over-conservativeness by allocating larger uncertainty margins only when the current state is near the unsafe region. 
+
+## I Details of Sepsis Dynamical Treatment Experiment Construction 
+
+I.1 Dataset for Experimental Environment Constructions 
+
+MIMIC-III (Medical Information Mart for Intensive Care) is a large-scale, publicly available clinical database containing detailed records from over 40 ,000 intensive care admissions [ 18 ]. The database includes longitudinal information such as demographics, vital signs, laboratory tests, medications, procedures, and other time-stamped clinical events, thereby providing a realistic foundation for modeling treatment processes in critical care. For the sepsis treatment study in this paper, MIMIC-III is particularly suitable because it reflects the temporal structure encountered in real ICU practice: patient conditions evolve continuously over time, while measurements and interventions are recorded at irregular intervals determined by clinical needs rather than by a fixed decision schedule. This makes the dataset appropriate for constructing a continuous-time treatment environment in which the elapsed time between observations and interventions meaningfully affects state evolution. 38 In addition, MIMIC-III contains rich physiological trajectories and treatment histories, enabling the construction of a clinically meaningful and high-dimensional experimental environment from real patient data rather than from a hand-crafted simulator. Its widespread use in healthcare machine learning research, together with its extensive documentation and established preprocessing practices, also supports reproducibility and comparison with prior studies. These properties make MIMIC-III an appropriate data foundation for the construction of the sepsis treatment environment used in this paper. 
+
+I.2 Sepsis Treatment Formulation: State, Reward, Safety, Other Evaluation Metrics Overview. The MIMIC-III Sepsis dataset provides a rich set of physiological variables that form the basis for our state space construction. We identify septic patients and extract trajectories from 24 hours before to 48 hours after sepsis onset. From the available variables, we select a compact subset of clinically relevant features to represent patient states, focusing on organ dysfunction. The treatment actions are modeled as continuous clinical interventions, and the reward is defined using a differentiable surrogate of the SOFA score. Table 2 summarizes the state, action, and reward design used in our study. Table 2: Summary of Feature Space, Actions, and Reward 
+
+Category Variables Description Dynamic Features SpO 2, PaO 2, Total bilirubin, GCS, Urine output, Lactate Key physiological variables reflecting respiratory, hepatic, neurological, re-nal, and metabolic status, consistent with SOFA-related organ dysfunction. 
+
+Actions FiO 2, Vasopressor rate, Intra-venous fluids Continuous control inputs represent-ing oxygen support, vasopressor ad-ministration, and fluid resuscitation in ICU treatment. 
+
+Reward SOFA score with vasopressor penalty A smooth surrogate of SOFA provid-ing dense feedback on organ dysfunc-tion, with an additional penalty to reg-ularize vasopressor usage. 
+
+Reward Function. The Sequential Organ Failure Assessment (SOFA) score is used as the reward signal. The original SOFA is a discrete step function that assigns integer scores {0, . . . , 4} to each variable based on clinical thresholds: SOFA = X
+
+> i
+
+X
+
+> k
+
+1(xi ≥ τi,k ), (100) where 1(·) is an indicator function and τi,k are predefined cutoffs, with xi denoting physiological variables, i indexing these variables, and k indexing their thresholds. In our implementation, thresh-olds are defined per variable. For SpO 2, the thresholds are 94, 90, 85, and 80 in percent. For bilirubin, the thresholds are 1.2, 2.0, 6.0, and 12.0 mg/dL. For GCS, the thresholds are 15, 13, 10, and 6. For urine output, the thresholds are 500 and 200 mL/day. For vasopressor dosage, the thresholds are 0.0, 0.05, 0.1, and 0.25 μg/kg/min. These follow standard SOFA definitions where applicable, with minor adaptations to match available variables. To obtain a differentiable surrogate, we replace each indicator with a smooth approximation: smooth_step (x; τ ) = α σ 
+
+ x − τws
+
+
+
++ (1 − α) σ
+
+ x − τwl
+
+
+
+, (101) where σ(·) is the logistic function. The smooth SOFA is then defined as: SOFA smooth = X
+
+> i
+
+X
+
+> k
+
+smooth_step (xi, τ i,k ). (102) In practice, we define a modified, data-driven variant of SOFA, which considers a subset of physi-ological systems based on data availability, including respiratory, hepatic, neurological, renal, and 39 cardiovascular systems corresponding to SpO 2, bilirubin, GCS, urine output, and vasopressor usage, respectively. The coagulation component is excluded due to substantial missingness and irregular sampling. This formulation retains the threshold-based additive structure of SOFA while providing a smooth and continuous approximation tailored to the available data. The reward is defined as: 
+
+r = −SOFA smooth − λ · vaso , (103) which encourages reduction of organ dysfunction while penalizing excessive vasopressor use. 
+
+State Space. For treatment optimization, we select state variables through a clinically grounded and data-driven approach. The state representation focuses on features closely related to organ dysfunction and highly correlated with the SOFA score, ensuring alignment with the reward design. These variables capture key aspects of patient health relevant to clinical outcomes and are routinely measured in ICU practice. This design provides a compact yet informative representation, supporting efficient learning while preserving the essential dynamics of sepsis progression. 
+
+Explicit Clinical Safety Constraints. We impose a safety constraint based on blood lactate levels, a key biomarker of tissue hypoxia and circulatory failure in sepsis. Lactate provides a sensitive indicator of inadequate perfusion and is strongly associated with patient deterioration, making it well-suited for safety monitoring. Constraining lactate prevents the policy from entering clinically unstable regions not fully captured by the reward, while remaining interpretable and readily measurable in ICU practice. We set the lactate safety threshold to 8.5 mmol/L. Clinical evidence shows that elevated lactate is strongly associated with increased mortality risk, with risk rising progressively at higher levels [ 7]. A threshold around 8 mmol/L corresponds to severe physiological derangement and critical instability. Setting the cutoff at 8.5 mmol/L allows the constraint to act as a conservative safety boundary while avoiding overly restrictive behavior during policy optimization. 
+
+Appropriate Intensification Rate (AIR). The Appropriate Intensification Rate evaluates whether the model appropriately escalates treatment in response to physiological deterioration. We define the Urine Output Rate (UOR) as the volume of urine output normalized by patient weight per hour (mL/kg/hr). A need for intensification arises when either the oxygen saturation ( SpO 2) or the UOR falls below a clinically significant threshold. Formally, AIR is defined as: AIR =
+
+P 
+
+> i,t
+
+I   SpO 2(i, t ) < τ SpO 2 ∨ UOR (i, t ) < τ UOR 
+
+ ∧ Intensified (i, t )
+
+P 
+
+> i,t
+
+I SpO 2(i, t ) < τ SpO 2 ∨ UOR (i, t ) < τ UOR 
+
+,
+
+where τSpO 2 is set to 92%, τUOR is set to 0.5 mL/kg/hr, and Intensified (i, t ) is an indicator function equal to 1 if the model recommends an increased treatment intensity at time t.
+
+I.3 Environment Construction 
+
+To evaluate the proposed method in a continuous-time treatment setting, we construct a patient-specific simulation environment from a physiological dynamics model. Different from a comprehensive benchmark environment with personalization across multiple patients, the present environment is built for one representative patient. This choice allows us to focus on validating the proposed interaction-limited safe continuous-time reinforcement learning framework under a realistic high-dimensional and stochastic treatment dynamics model. The environment is based on a continuous-time state evolution model of the form 
+
+xt+δt = F(xt, ut, δt ) + wt,δt , (104) where xt is the patient state, ut is the treatment action, δt is the elapsed interaction interval, and 
+
+wt,δt denotes stochastic residual uncertainty. To obtain a data-driven simulator, we approximate the deterministic part of the dynamics by a Physics-Informed Neural Network (PINN) [25], leading to 
+
+ext+δt = Fnn (xt, ut, δt ) + Wc, Wc ∼ ep(· | xt, δt ). (105) Here, Fnn (xt, ut, δt ) is the PINN approximation of the deterministic dynamics, while ep(· | xt, δt )
+
+models the residual stochasticity. The PINN is trained from the underlying continuous-time physio-logical model, so the resulting simulator preserves the continuous-time treatment structure and is more faithful than commonly used coarse discrete-time approximations. In the experiments, we use two related PINN-based environments. The first environment is used for policy training, where the stochastic term in (105) is generated with a relatively small covariance. 40 After training, the learned policies are evaluated in a second environment that uses the same determin-istic dynamics model Fnn (xt, ut, δt ) but a larger covariance in the residual noise term. Therefore, the evaluation environment is intentionally more challenging and is used to test the robustness of the learned policies under stronger stochastic perturbations. In our implementation, the residual term 
+
+ep(· | xt, δt ) is instantiated as an isotropic Gaussian distribution, i.e., Wc ∼ N (0, δt · σ2I), providing a stochastic perturbation to the deterministic PINN dynamics. It is reasonable to incorporate δt into the variance scale, since a longer interaction interval may lead to greater uncertainty. Besides, we choose σ = 0 .001 and σ = 0 .02 for training and evaluation environments, respectively. The state variables used in this simulator are exactly those defined in Appendix I.2, and are not repeated here. The detailed architecture and training procedure of the PINN are omitted, since they are not the focus of this paper; we only use the PINN as a continuous-time surrogate model for environment construction. Overall, this environment provides a practically meaningful testbed for the proposed method: it preserves continuous-time dynamics, supports irregular interaction intervals, and includes substantial stochasticity, while remaining simple enough to isolate the effect of the proposed safe continuous-time control framework. 
+
+Physical Model for PINN. We model patient dynamics as a continuous-time ODE system encoding coarse-grained interactions across respiratory, circulatory, metabolic, and hepato-renal organ systems. A structured physiological-inspired component provides inductive bias toward clinically plausible state evolution, and a learnable residual component captures dynamics beyond this simplified prior. State derivatives are integrated via explicit Euler with box constraints. The physiological state is x =[SpO 2, PaO 2, Bili , GCS , Urine , Lac] ⊤ and the treatment action is u = [FiO 2, Vaso , Fluid] ⊤,where SpO 2 is peripheral oxygen saturation, PaO 2 arterial oxygen tension, Bili serum bilirubin, 
+
+GCS the Glasgow Coma Scale, Urine urine output, Lac blood lactate, FiO 2 the fraction of inspired oxygen, Vaso vasopressor dose (norepinephrine-equivalent), and Fluid intravenous fluid rate. All variables are standardised to zero mean and unit variance; [·]+ = max( ·, 0) denotes rectification. The ODE system is defined in the normalized space, where variables represent relative deviations from their nominal levels rather than absolute physiological quantities. Accordingly, these operations capture directional dependencies rather than strict physical relationships. Oxygenation is modeled as a first-order drive toward an FiO 2-dependent equilibrium, modulated by metabolic stress and fluid support, providing a coarse-grained approximation of the oxygen cascade mechanism [37]: 
+
+d PaO 2
+
+dt = k1(FiO 2 − PaO 2) − k2 [Lac] + + k3 Fluid , (106) 
+
+d SpO 2
+
+dt = k4(PaO 2 − SpO 2). (107) Neurological function is impaired by metabolic acidosis and cerebral hypoxia [30]: 
+
+d GCS 
+
+dt = −k5 [Lac] + − k6 h(SpO 2), (108) where h(SpO 2) = max( −SpO 2, 0) is a rectified function that captures hypoxic effects. Here SpO 2
+
+denotes the normalized variable, and the rectification reflects deviations below the nominal level rather than a fixed clinical threshold. Lactate dynamics reflect vasopressor-induced hypoperfusion, anaerobic glycolysis, hepatic clearance, and fluid dilution [24]: 
+
+d Lac 
+
+dt = k7 Vaso + k8 h(SpO 2) − k9 [Lac] + − k10 Fluid . (109) Renal output responds to fluid administration and is suppressed by metabolic and vasomotor stress [4]: 
+
+d Urine 
+
+dt = k11 Fluid − k12 [Lac] + − k13 Vaso . (110) Hepatic injury accumulates via lactate-mediated ischaemia and clears slowly [29]: 
+
+d Bili 
+
+dt = k14 [Lac] + − k15 [Bili] +. (111) 41 The rate constants {ki} are learnable parameters constrained to (0 , c i) via a scaled sigmoid reparame-terisation, where the upper bounds {ci} encode clinical prior knowledge about interaction magnitudes. The true underlying physiological dynamics are unknown. In particular, the rate constants {ki} are not directly available, and there may also exist a modeling residual between the real dynamics and the mechanistic dynamics described by (106) – (111) . To account for this mismatch, we adopt the following hybrid physical model: 
+
+dx
+
+dt = MedODE (x, u) + NN (x, u). (112) Here, MedODE (x, u) represents the known mechanistic component corresponding to (106) –(111) ,while NN (x, u) captures the residual dynamics not explained by the physical model. The neural component and the unknown parameters {ki} are optimized jointly in an end-to-end manner. Based on (112) , we further train a neural network surrogate for its solution map over time, so that for any fixed u, the state trajectory can be directly approximated as a function of time, whose detailed algorithm refers to [25]. 
+
+Performance of the proposed PINN. Figure 4 shows the full-horizon autoregressive rollout of the trained PINN for a representative ICU stay. Starting from the initial state, the model integrates the learned ODE forward using only observed treatment actions, with no data correction. The rollout closely tracks sparse clinical observations across all six variables and remains stable over the full trajectory, validating the PINN as a reliable patient simulator for the RL stage. 
+
+Figure 4: Full-horizon PINN rollout versus observed clinical measurements for a representative ICU stay. Orange curves show the autoregressive rollout; stars denote sparse observations. 
+
+## J Detailed Validation Results and Discussions 
+
+For each method, we train one policy and evaluate the learned policy under five different random seeds in the stochastic environment. The reported mean and standard deviation therefore reflect variability from the evaluation process rather than retraining variability. 
+
+J.1 Training Process Setting Overview of training. Training proceeds in two sequential stages. First, a Physics-Informed Neural Network (PINN) is pre-trained on the recorded clinical trajectory of a single ICU patient to learn a compact patient-specific dynamics model. Second, the frozen PINN is used as a differentiable patient simulator, inside which the RL policy is trained entirely in silico without further interaction with real patient data. This two-stage design decouples physiological modelling from policy optimisation and ensures that the RL agent never queries real clinical observations during training. 
+
+PINN Pre-training. The PINN is trained by minimising a weighted combination of a one-step derivative-consistency loss, a multi-step rollout loss, and a smoothness regulariser. The neural residual component and the learnable physiological rate constants {ki} are optimised jointly via Adam with cosine-annealing learning rate decay and separate weight decay coefficients. Training runs for up to 42 50,000 epochs with early stopping, after which the best checkpoint is restored. Hyperparameters are listed in Table 3. Table 3: PINN pre-training hyperparameters. 
+
+Hyperparameter Value 
+
+Maximum epochs 50,000 Early-stopping patience 800 Learning rate (neural component) 1 × 10 −4
+
+Learning rate (ODE rate constants) 5 × 10 −5
+
+Optimiser Adam 
+
+RL Police Training. With the PINN fixed, an ICU treatment environment is constructed as an Option-SMDP. The policy operates on an augmented action space that extends the original treatment actions with an interaction duration δt k ∈ [δt min , δt max ] for variable-duration decisions. The PINN then rolls out the patient state over the chosen duration using explicit Euler integration with box constraints, and a scalar reward signal is computed from the resulting physiological trajectory. A safety constraint is enforced on the lactate level throughout each inter-decision interval. To study the effect of decision frequency, a separate policy is trained for each K; full per-K settings are detailed in Section J.2. Table 4: Option-SMDP environment and RL training hyperparameters. 
+
+Component Hyperparameter Value 
+
+Option-SMDP 
+
+δt min 0.5 h 
+
+δt max 36.0 h Max steps per episode K 5–20 Total horizon T 96 h Shared Hidden layer width 256 Discount factor γ 0.997 SAC Total environment steps 100,000 Replay buffer capacity / warm-up 100,000 / 20,000 Batch size 512 Learning rate 1 × 10 −4
+
+Soft-update rate τ 0.002 Entropy temperature α auto-tuned CPO Total training episodes 12,000 Rollouts per policy update 20 Trust-region radius δ 0.01 Value-function learning rate 3 × 10 −4
+
+Value-function update steps 80 Cost limit d 2.8–3.5 PCPO Total training episodes 12,000 Rollouts per policy update 20 Trust-region radius δ 0.01 Value-function learning rate 3 × 10 −4
+
+Value-function update steps 80 Cost limit d 2.8–3.5 Projection coefficient scale 1.0 Line search off by default TRPO Total training episodes 12,000 Rollouts per policy update 20 Trust-region radius δ 0.01 Value-function learning rate 3 × 10 −4
+
+Value-function update steps 80 Cost limit d none Safety projection none Line search on 
+
+43 Hyper Parameter Settings for All Methods. Hyperparameters for all RL algorithms used in this paper have been summarized in Table 4. 
+
+Constant Safety Margin. In the experiments, instead of using the state- and duration-dependent GP-based safety margin in Algorithm 1, we adopt a simpler constant safety margin. The reason is practical: when the safety constraint explicitly depends on δt k, the interaction duration becomes coupled with both the reward and the safety term, which makes the policy optimization by CPO and 
+
+PCPO numerically unstable and prevents the solver from consistently improving the solution. To avoid this issue, we replace the adaptive margin with a constant conservative threshold. For example, when the lactate safety bound is set to 8.5, we may impose an effective threshold such as 3.5 or 
+
+2.8, corresponding to constant safety margins of 5.0 and 5.7, respectively. This can be interpreted as a robust approximation of the GP-based surrogate, in which the uncertainty margin is chosen conservatively enough to cover a relevant region of (xt, δt ) rather than being adjusted pointwise. Although this simplification sacrifices adaptivity, it yields a numerically stable implementation and still preserves the intended role of the safety margin, namely, to enforce a conservative buffer that aims to mitigate the risk in between interactions. In addition, the cost limit is adjusted according to the number of interaction steps K to maintain a consistent level of conservativeness. Specifically, for 
+
+K = {5, 8, 10 , 12 , 15 , 17 , 20 }, the cost limits are set to {2.8, 2.9, 3.0, 3.1, 3.3, 3.4, 3.5}, respectively. 
+
+J.2 Evaluation Process Setting PINN Evaluation Setting. The trained PINN is evaluated in full-horizon autoregressive rollout mode: starting from the first observed state, the model integrates the learned ODE forward using only the recorded treatment actions, with no further correction from data. Predictions are inverse-standardised to original clinical units for interpretability, and qualitative fit is assessed by comparing the rollout trajectory against sparse clinical observations across all six physiological variables. The result is shown in Figure 4. 
+
+RL Policy Evaluation Setting. Each trained policy is evaluated over n = 100 independent episodes without gradient updates. To ensure a fair comparison across all four variants ( CPO -O, SAC -O,
+
+CPO -E, SAC -E), all episodes within a given K share an identical set of initial-state snapshots generated once and reused across models, so that differences in performance are not confounded by initial-condition variability. Robustness is assessed under stochastic conditions by injecting independent Gaussian noise into both the policy observation and the PINN transition, with noise standard deviation 0.02 in normalised space and 100 independent noise realisations per policy. To study the effect of decision frequency, each policy variant is evaluated across all seven interaction budgets K ∈ { 5, 8, 10 , 12 , 15 , 17 , 20 }, with a separate trained model loaded for each K. We report two metrics computed over the post-stabilisation window t ≥ 20 h: mean per-step SOFA score, safety rate defined as the fraction of episodes in which lactate remains below 8.5 mmol/L throughout the window. Full evaluation settings are summarized in Table 5. Table 5: RL policy evaluation settings.                     
+
+> Setting Value
+> Test episodes 100 Observation noise std 0.02
+> PINN transition noise std 0.02
+> Noise runs 100 Post-stabilisation window t≥20 hLactate safety threshold 8.5 mmol/L Evaluation horizon T96 h Interaction budgets K{5,8,10 ,12 ,15 ,17 ,20 }
+
+J.3 Results of Training Processes 
+
+Both variants of CPO exhibit stable training dynamics, with consistent reward improvement and reduction in SOFA over the training process. CPO -O achieves a higher final reward level and a lower final SOFA score than CPO -E, indicating stronger asymptotic performance under adaptive interaction timing. The mean per-step cost also decreases more substantially for CPO -O, whereas 44 Figure 5: Training process of CPO 
+
+CPO -E remains at a higher cost level after the initial transient phase. Overall, the training curves suggest that adaptive interaction timing improves both treatment effectiveness and safety-related cost control for CPO at K = 12 .Training with SAC shows less stable and more heterogeneous behavior across the two timing schemes. 
+
+SAC -E improves earlier in training, with a rapid increase in reward and a sharp reduction in SOFA, and it maintains a lower SOFA level throughout most of the later training phase. In contrast, SAC -O
+
+remains relatively flat during the early stage, then improves later and eventually reaches a slightly higher reward level, but its final SOFA remains higher than that of SAC -E. These results indicate that adaptive timing can improve reward for SAC , but does not necessarily translate into better clinical severity control. Compared with SAC , CPO -O provides a more favorable balance between reward improvement, SOFA reduction, and safety-related cost control. 
+
+Figure 6: Training process of SAC 
+
+Figure 7: Training process of PCPO Both variants of PCPO show stable and well-behaved training trajectories. PCPO -E achieves faster early convergence, with more rapid reward improvement and quicker reduction in SOFA, while maintaining relatively smoother updates in the early stage. By comparison, PCPO -O improves more gradually and exhibits stronger early-stage variability, but continues to improve over a longer horizon and eventually attains a slightly higher reward level with comparable final SOFA. The mean per-step 45 cost of both variants remains within a similar range after the initial transient phase, although PCPO -O
+
+displays a more noticeable mid-training reduction before returning close to the level of PCPO -E.Overall, PCPO -E favors faster stabilization, whereas PCPO -O achieves comparable clinical severity control with slightly better asymptotic reward performance. The two variants of TRPO exhibit distinct optimization behaviors. TRPO -E converges faster in the early stage, with more rapid reward improvement and a quicker decrease in SOFA, indicating smoother and more stable optimization under the equidistant interaction schedule. In contrast, TRPO -
+
+O learns more gradually and exhibits larger variability during the early phase, but continues to improve throughout training. However, unlike the previous comparison, TRPO -E maintains better final performance in this setting, achieving both a higher reward level and a lower SOFA score than 
+
+TRPO -O. These results suggest that, for TRPO at K = 12 , the equidistant schedule provides faster and more favorable convergence, while the adaptive-time variant remains less stable and does not fully close the performance gap within the training horizon. 
+
+Figure 8: Training process of TRPO 
+
+J.4 State and Action Trajectories 
+
+Figure 9 summarizes the trajectory-level behavior of the trained CPO policies during evaluation at K = 12 . To account for stochasticity in the evaluation environment, we aggregate trajectories over five evaluation seeds and all evaluation rollouts using a common hourly time grid. The gray vertical dashed lines indicate the representative interaction times of CPO -O, obtained by averaging the adaptive interaction times across evaluation rollouts. The main difference between the two variants appears in lactate control. Although both policies reduce lactate below the safety threshold, CPO -O
+
+decreases lactate more rapidly after the initial phase and maintains a lower lactate level than CPO -E
+
+over most of the horizon. By contrast, CPO -E also improves lactate safety, but its lactate trajectory remains closer to the threshold for a longer period and decreases more gradually. The action trajectories indicate that the two policies achieve lactate control through different treatment allocation patterns. CPO -O makes more concentrated adjustments around its adaptive interaction times, with an early reduction in fluid administration followed by gradual reallocation later in the horizon. CPO -E follows a more regular equidistant schedule and maintains relatively higher fluid administration over much of the trajectory. Both variants keep vasopressor administration close to zero, suggesting that the observed differences in lactate control are mainly associated with adaptive timing and changes in oxygen and fluid-related interventions rather than sustained vasopressor escalation. Overall, these trajectory-level results provide qualitative evidence that adaptive interaction timing may improve safety-relevant physiological control compared with an equidistant interaction schedule in this evaluation setting. 
+
+J.5 Comprehensive Evaluations 
+
+Figure 10 compares the evaluation performance of TRPO and PCPO under adaptive and equidistant interaction schedules. Across the two SOFA-based evaluation panels, PCPO -O and PCPO -E gen-erally remain in a relatively stable SOFA range, while TRPO -O exhibits larger fluctuations across 46 Figure 9: Aggregated evaluation trajectories of CPO with adaptive ( CPO -O) and equidistant ( CPO -E)interaction timing at K = 12 , averaged across five evaluation seeds. Panel (a) shows mean state trajectories, panel (b) shows mean treatment actions, and panel (c) highlights lactate safety relative to the threshold. Gray vertical dashed lines indicate representative CPO -O interaction times, and shaded regions indicate variability across evaluation rollouts. 
+
+Figure 10: Comprehensive evaluation of TRPO and PCPO across five test seeds. Panels (a) and (b) report mean SOFA scores per step under two evaluation settings, panel (c) shows the safety rate after t ≥ 20 hours across different interaction steps, and panel (d) shows representative mean SOFA trajectories over time. Error bars and shaded regions indicate variability across test seeds. 47 interaction budgets. In particular, TRPO -O shows strong sensitivity to the number of interaction steps, with noticeably higher SOFA at some intermediate values but lower SOFA at larger interac-tion budgets in panel (b). This suggests that the performance of TRPO is more dependent on the interaction schedule and evaluation setting. The safety-rate comparison in panel (c) further highlights the difference between the two methods. 
+
+PCPO -O maintains consistently high safety rates across most interaction budgets, reaching close to or equal to 100% in several settings. By contrast, TRPO -O shows a sharp decline in safety as the interaction budget increases, while TRPO -E improves at larger interaction budgets but remains less stable overall. The mean SOFA trajectory in panel (d) provides a complementary temporal view: the compared policies gradually stabilize after the initial phase, but their post-20 h behavior differs in both level and variability. Overall, these results suggest that PCPO , especially under adaptive interaction timing, provides more robust safety performance across interaction budgets than TRPO .
+
+Figure 11: Cost-limit sensitivity analysis for CPO and PCPO at K = 10 . Panel (a) shows mean SOFA as the safety cost limit varies from 2.8 to 3.3, while panel (b) shows the post-20 h lactate safety rate. Markers indicate mean values and shaded regions indicate variability across evaluation trajectories. Figure 11 examines how the safety cost limit affects the performance of CPO and PCPO at K = 10 .This cost-limit sweep is based on a separate set of evaluation runs from those used in Figure 3, and therefore the numerical values should be interpreted as sensitivity results rather than direct seed-matched comparisons. Panel (a) shows that the mean SOFA response is not monotone in the cost limit, indicating that changing the constraint threshold can alter both policy behavior and physiological outcomes in a nontrivial way. Among the four variants, PCPO -E maintains relatively low and stable SOFA values across the tested cost limits, while PCPO -O has higher SOFA in several settings. CPO -O achieves low SOFA at some cost limits but is more variable, whereas CPO -E
+
+remains comparatively stable. Panel (b) shows that the safety rate is highly sensitive to the cost limit and differs substantially across methods. CPO -O achieves high safety rates at several cost limits, including near-perfect safety at some settings, but its safety rate drops at other thresholds. CPO -E shows more moderate safety rates across the sweep. For PCPO , the adaptive variant achieves high safety at lower cost limits but becomes less stable as the cost limit changes, whereas the equidistant variant remains lower in most settings. Together, these results suggest that the cost limit should be selected jointly with the algorithm and interaction-timing scheme, rather than treated as a fixed implementation detail. 
+
+J.6 Results for Cluster-Level Patient Model 
+
+Figure 12 provides an additional robustness evaluation using a cluster-level PINN dynamics model rather than a single-patient PINN. Patient clusters are formed greedily by selecting centers from high-density regions, where density is defined by the Mean Absolute Error (MAE) of state rollouts between two PINN models. Each center is assigned its 10 nearest neighbors, while centers are enforced to remain a minimum distance apart and only clusters satisfying a predefined distance threshold are retained. Specifically, the PCPO and TRPO policies are trained under the dynamics induced by a 48 Figure 12: Additional evaluation of PCPO and TRPO using a cluster-level PINN dynamics model. Panels (a) and (b) report the mean SOFA score per step under two evaluation summaries, panel (c) reports the post-20h lactate safety rate across interaction budgets, and panel (d) shows the mean SOFA trajectory over time. For this cluster-level evaluation, safety is computed using a stricter test threshold, where a trajectory is considered safe if lactate remains below 3.5 mmol/L after t ≥ 20 h. Error bars and shaded regions indicate variability across test seeds. PINN model learned from patients within each cluster, while the cluster-center patient is used as the initial-state source during training and evaluation. This setting tests whether the qualitative behavior of the adaptive-time and fixed-time policies remains meaningful when the learned environment model is constructed from a patient cluster. Since all methods satisfy the original lactate safety threshold of 8.5 mmol/L under this cluster-level model, we use a stricter test-time lactate threshold of 3.5 mmol/L in panel (c) to obtain a more informative comparison of safety behavior. The SOFA results in panels (a), (b), and (d) show that all four variants achieve relatively low SOFA scores under the cluster dynamics. Across most interaction budgets, the adaptive-time methods, especially PCPO -O,remain competitive with or better than their fixed-time counterparts in terms of SOFA control. At the same time, panel (c) shows that PCPO -O maintains high post-20h safety rates under the stricter lactate threshold across interaction budgets. Overall, these results provide additional evidence that the proposed adaptive constrained policy remains stable under a cluster-level patient dynamics model, while the stricter lactate threshold reveals safety differences that are hidden under the original 8.5 mmol/L evaluation threshold. 
+
+## K Experiments Compute Resources 
+
+All experiments were conducted on a MacBook equipped with an Apple M4 chip and 32GB of unified memory. 
+
+## L Broader Impact 
+
+The proposed framework aims to improve treatment decision-making in high-stakes clinical settings by jointly optimizing treatment administration and clinical interaction timing under trajectory-level safety constraints. This is particularly impactful in domains such as sepsis management in the ICU, where treatment decisions must balance efficacy against strict physiological safety requirements. The primary benefit lies in learning treatment policies that provably improve both safety and clinical effectiveness over standard interaction schemes, with finite-sample feasibility guarantees that ensure safety properties are preserved when learning from finite retrospective data. The safety constraints are grounded in clinically interpretable biomarkers such as blood lactate, making the framework more suitable for clinical decision-support than prior continuous-time treatment learning approaches that lack trajectory-level guarantees. However, like all machine learning methods applied to healthcare, there are risks. The current framework assumes full state observability and synchronous treatment implementation, and safety guarantees apply to converged policies rather than during exploration. Improper deployment without adequate clinical oversight could introduce patient safety risks in settings where observations are partial or interventions asynchronous. We strongly emphasize that this framework is designed as a decision-support tool, not a substitute for clinical judgment, and responsible adoption requires rigorous prospective validation and close collaboration with healthcare professionals before any real-world deployment is considered. 49

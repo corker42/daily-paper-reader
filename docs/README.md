@@ -6,37 +6,93 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-22
-- 运行时间：2026-06-22 22:54:33 UTC
+- 最新运行日期：2026-05-26 ~ 2026-06-24
+- 运行时间：2026-06-24 15:15:14 UTC
 - 运行状态：成功
-- 本次总论文数：4
+- 本次总论文数：24
 - 精读区：0
-- 速读区：4
+- 速读区：24
 
 ### 今日简报（AI）
-今日精读0篇，速读4篇，重点聚焦医学图像质量评估与零样本异常检测任务。
-
-最值得关注的是《EFIQA: Explainable Fundus Image Quality Assessment via Anatomical Priors》（7.0分），利用解剖先验实现可解释的眼底图像质量评估，以及《Toward Training-Free Zero-Shot Anomaly Detection in 3D Medical Images》（6.0分），用2D基础模型无训练检测3D医学图像异常。
-
-建议普通读者优先了解EFIQA的可解释性方法，对医学影像自动质控有直接启发；零样本异常检测方案适合资源受限场景，可尝试迁移到其他模态数据。
-- 详情：[/202606/22/README](/202606/22/README)
+今日速读24篇医疗AI文献，聚焦罕见病诊断、糖尿病视网膜病变分级与体积分割推理三大方向。最值得关注的是两篇满分论文《Evo-RAD》与《A Dual Edge Spatial Jacobian Image Graph》，分别提出自进化检索诊断法和可解释性分级图。建议优先精读这三篇高分论文，尤其关注它们对临床诊断效率与可解释性的提升思路。
+- 详情：[/20260526-20260624/README](/20260526-20260624/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [EFIQA: Explainable Fundus Image Quality Assessment via Anatomical Priors](/202606/22/2606.20108v1-efiqa-explainable-fundus-image-quality-assessment-via-anatomical-priors)  
-   标签：评分：7.0/10、query:fundus-class
-   evidence：基于深度学习的眼底图像分析方法，用于质量评估
-2. [Toward Training-Free Zero-Shot Anomaly Detection in 3D Medical Images: A Batch-Based Approach Using 2D Foundation Models](/202606/22/2606.18749v1-toward-training-free-zero-shot-anomaly-detection-in-3d-medical-images-a-batch-based-approach-using-2d-foundation-models)  
-   标签：评分：6.0/10、query:fundus-class
-   evidence：利用2D基础模型进行3D医学图像的零样本异常检测
-3. [Zero-Shot Active Feature Acquisition via LLM-Elicitation](/202606/22/2606.18933v2-zero-shot-active-feature-acquisition-via-llm-elicitation)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：利用大语言模型诱导进行零样本主动特征获取以辅助分类
-4. [Scalable Training of Spatially Grounded 2D Vision-Language Models for Radiology](/202606/22/2606.20477v1-scalable-training-of-spatially-grounded-2d-vision-language-models-for-radiology)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：基于大语言模型的放射学诊断视觉-语言模型训练
+1. [Evo-RAD: Navigating Rare Retinal Disease Diagnosis via Self-Evolving Agentic Retrieval](/20260526-20260624/2606.22955v1-evo-rad-navigating-rare-retinal-disease-diagnosis-via-self-evolving-agentic-retrieval)  
+   标签：评分：10.0/10、query:drl-retina
+   evidence：强化学习驱动的智能体检索用于罕见视网膜疾病诊断
+2. [A Dual Edge Spatial Jacobian Image Graph for Interpretable Diabetic Retinopathy Grading](/20260526-20260624/2606.24168v1-a-dual-edge-spatial-jacobian-image-graph-for-interpretable-diabetic-retinopathy-grading)  
+   标签：评分：10.0/10、query:fundus-mc
+   evidence：基于眼底照片的可解释糖尿病视网膜病变分级
+3. [MedVol-R1: Reward-Driven Evidence Grounding for Volumetric Reasoning Segmentation](/20260526-20260624/2605.26621v1-medvol-r1-reward-driven-evidence-grounding-for-volumetric-reasoning-segmentation)  
+   标签：评分：9.0/10、query:drl-retina
+   evidence：强化学习用于医学体积推理分割
+4. [C-MIG: Multi-view Information Gain-based Retrieval-Augmented Generation for Clinical Diagnosis Reasoning](/20260526-20260624/2605.27860v1-c-mig-multi-view-information-gain-based-retrieval-augmented-generation-for-clinical-diagnosis-reasoning)  
+   标签：评分：9.0/10、query:drl-retina
+   evidence：强化学习结合检索增强用于临床诊断推理
+5. [OphIn-500K: Curating Web-Scale Visual Instructions for Scaling Ophthalmic Multimodal Large Language Models](/20260526-20260624/2605.27916v1-ophin-500k-curating-web-scale-visual-instructions-for-scaling-ophthalmic-multimodal-large-language-models)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：眼科指令数据集，用于构建多模态大语言模型临床助手
+6. [ConTraIRL: Factorized Contrastive Abstractions for Transferable IRL](/20260526-20260624/2606.03017v1-contrairl-factorized-contrastive-abstractions-for-transferable-irl)  
+   标签：评分：9.0/10、query:drl-retina
+   evidence：逆强化学习中的组合奖励迁移，实现任务间策略迁移
+7. [Learning to See via Epiretinal Implant Stimulation in silico with Model-Based Deep Reinforcement Learning](/20260526-20260624/2606.03118v1-learning-to-see-via-epiretinal-implant-stimulation-in-silico-with-model-based-deep-reinforcement-learning)  
+   标签：评分：9.0/10、query:drl-retina
+   evidence：基于模型的深度强化学习用于视网膜植入物刺激以恢复视力
+8. [LightVesselNet: An Ultra-Lightweight Sub-100K Parameter Network for Retinal Blood Vessel Segmentation](/20260526-20260624/2606.05354v1-lightvesselnet-an-ultra-lightweight-sub-100k-parameter-network-for-retinal-blood-vessel-segmentation)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：利用轻量级深度学习进行视网膜血管分割以辅助糖尿病视网膜病变诊断
+9. [DiffSight-Former: Modeling Structural Differences and Temporal Dynamics for Glaucoma Progression Prediction](/20260526-20260624/2606.09140v1-diffsight-former-modeling-structural-differences-and-temporal-dynamics-for-glaucoma-progression-prediction)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：基于序列眼底图像的青光眼进展预测
+10. [EyeMVP: OCT-Informed Fundus Representation Learning via Paired CFP--OCT Pretraining](/20260526-20260624/2606.15129v1-eyemvp-oct-informed-fundus-representation-learning-via-paired-cfp--oct-pretraining)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：利用眼底表示学习进行视网膜疾病分类
+11. [Ellipse Meets Bit-Planes: A Novel Approach to RNFL based Glaucoma Detection Using Advanced Image Processing and Deep Learning](/20260526-20260624/2606.15772v1-ellipse-meets-bit-planes-a-novel-approach-to-rnfl-based-glaucoma-detection-using-advanced-image-processing-and-deep-learning)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：基于眼底图像进行青光眼检测
+12. [CARE-RL: Capability-Aware Reinforcement Learning for Mitigating Cross-Domain Conflicts](/20260526-20260624/2606.00609v1-care-rl-capability-aware-reinforcement-learning-for-mitigating-cross-domain-conflicts)  
+   标签：评分：8.0/10、query:drl-retina
+   evidence：缓解跨域冲突的RL方法，支持策略迁移
+13. [MedGym:A Unified Continuous-Time Benchmark for Dynamic Medical Treatment Reinforcement Learning](/20260526-20260624/2606.01028v1-medgyma-unified-continuous-time-benchmark-for-dynamic-medical-treatment-reinforcement-learning)  
+   标签：评分：8.0/10、query:drl-retina
+   evidence：强化学习在医学影像/治疗中的应用
+14. [Interaction-Limited Safe Continuous-Time RL for Dynamical Medical Treatment](/20260526-20260624/2606.01051v1-interaction-limited-safe-continuous-time-rl-for-dynamical-medical-treatment)  
+   标签：评分：8.0/10、query:drl-retina
+   evidence：带安全约束的动态医疗治疗的强化学习
+15. [RL-ACRGNet: Reinforcement Learning-Based Chest Radiology Report Generation Network](/20260526-20260624/2606.02035v1-rl-acrgnet-reinforcement-learning-based-chest-radiology-report-generation-network)  
+   标签：评分：8.0/10、query:drl-retina
+   evidence：将强化学习应用于医学影像报告生成
+16. [MeDxAgent: Multi-Agent Consultation for Interactive Medical Diagnosis](/20260526-20260624/2606.03416v1-medxagent-multi-agent-consultation-for-interactive-medical-diagnosis)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：面向交互式医疗诊断的多智能体咨询系统
+17. [Analyzing and Improving Fine-grained Preference Optimization in Medical LVLMs](/20260526-20260624/2606.12590v1-analyzing-and-improving-fine-grained-preference-optimization-in-medical-lvlms)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：用于临床决策支持的大语言模型
+18. [HSQ-VLM: A Novel Spatially-Constrained Quadrant Segmentation VLM Model for Explainability in Diabetic Retinopathy](/20260526-20260624/2606.14803v1-hsq-vlm-a-novel-spatially-constrained-quadrant-segmentation-vlm-model-for-explainability-in-diabetic-retinopathy)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：使用象限分割和视觉语言模型的可解释糖尿病视网膜病变诊断
+19. [Medical Heuristic Learning: An LLM-Driven Framework for Interpretable and Auditable Clinical Decision Rules](/20260526-20260624/2606.16337v1-medical-heuristic-learning-an-llm-driven-framework-for-interpretable-and-auditable-clinical-decision-rules)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：基于大语言模型的可解释临床决策规则框架
+20. [OphthaDT: Generative Digital Twins for Forecasting Visual Acuity Trajectories in Ophthalmology](/20260526-20260624/2606.22101v1-ophthadt-generative-digital-twins-for-forecasting-visual-acuity-trajectories-in-ophthalmology)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：基于大语言模型的眼科数字孪生用于视力预测
+21. [E-MRL: Cross-view Aligned Evidence-driven Multimodal Reinforcement Learning for Reliable 3D Tumor Analysis](/20260526-20260624/2606.23888v1-e-mrl-cross-view-aligned-evidence-driven-multimodal-reinforcement-learning-for-reliable-3d-tumor-analysis)  
+   标签：评分：8.0/10、query:drl-retina
+   evidence：强化学习在医学诊断中的应用
+22. [Automated Retinal Dysplasia Segmentation in Mouse Optical Coherence Tomography Scans Using a UNet-Based model](/20260526-20260624/biorxiv-10-64898-2026-06-04-730047-v1-automated-retinal-dysplasia-segmentation-in-mouse-optical-coherence-tomography-scans-using-a-unet-based-model)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：OCT扫描中视网膜发育异常的自动分割
+23. [A multi-agent system for spine MRI report generation from multi-sequence imaging](/20260526-20260624/biorxiv-10-64898-2026-06-07-730703-v1-a-multi-agent-system-for-spine-mri-report-generation-from-multi-sequence-imaging)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：用于医疗诊断的多智能体系统
+24. [Benchmarking attention-based methods for vision transformers' interpretability in retinal fundus imaging](/20260526-20260624/biorxiv-10-64898-2026-06-15-732470-v1-benchmarking-attention-based-methods-for-vision-transformers-interpretability-in-retinal-fundus-imaging)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：眼底影像可解释性基准测试
 
 
 <div class="dpr-home-promo-card">
