@@ -1,0 +1,772 @@
+Title: Deep Neural Networks with Ordinal Loss for Medical Applications
+
+URL Source: https://arxiv.org/pdf/2606.25769v1
+
+Published Time: Thu, 25 Jun 2026 00:58:16 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# Deep Neural Networks with Ordinal Loss for Medical Applications 
+
+Tal Dvora 
+
+Bar-Ilan University 
+
+Ramat Gan, Israel taldvora11@gmail.com 
+
+Rotem Haba 
+
+Bar-Ilan University 
+
+Ramat Gan, Israel rotemhaba2910@gmail.com 
+
+Gonen Singer 
+
+Bar-Ilan University 
+
+Ramat Gan, Israel gonen.singer@biu.ac.il 
+
+Abstract —In many prediction problems in medical applica-tions, target labels exhibit an inherent ordinal structure, where class ordering reflects clinically meaningful severity levels. The cost associated with misclassification is often non-uniform and asymmetric, as errors between distant ordinal categories may have substantially more severe consequences than errors between adjacent ones, and overestimating disease severity may have different clinical implications than underestimating it. Tradi-tional loss functions such as multi-class cross-entropy treat all misclassifications equally and fail to incorporate this ordering information. Recent advances in ordinal regression aim to ad-dress this limitation by integrating rank-based structures into deep learning models. In this work, we introduce the Ordinal Cross-Entropy (OCE) framework, a general and architecture-independent approach for learning from ordinal data. The proposed method extends the standard cross-entropy formulation to account for misclassification severity through an ordinal cost matrix while preserving the probabilistic interpretation and optimization benefits of the conventional loss. We provide atheoretical analysis of the OCE gradient behavior and show that it yields smoother optimization dynamics and improved ordinal consistency. Experiments on benchmark datasets show that our method achieves lower prediction error costs and better calibration compared to existing state-of-the-art ordinal approaches, establishing OCE as a simple yet effective solution for ordinal regression in deep neural networks. 
+
+Index Terms —Ordinal classification, cost-sensitive learning, asymmetric loss function, medical image analysis. 
+
+I. I NTRODUCTION 
+
+Deep neural networks (DNNs) have become the leading ap-proach for multi-class classification across numerous domains, including medical image analysis [1]–[5], where accurate predictions are often essential for clinical decision-making. The standard framework for multi-class learning relies on the cross-entropy (CE) loss [6] combined with a softmax output layer, which offers stable optimization, probabilistic interpretation, and strong empirical performance. However, CE inherently treats all misclassifications as equally severe and does not incorporate the structure of the output space [7]. In many real-world applications, particularly in medicine, the target labels are ordinal rather than nominal. Disease 
+
+This work was supported by a research grant from Intuit. © 2026 IEEE. Personal use of this material is permitted. Permission from IEEE must be obtained for all other uses, in any current or future media, including reprinting/republishing this material for advertising or promotional purposes, creating new collective works, for resale or redistribution to servers or lists, or reuse of any copyrighted component of this work in other works. 
+
+stages, severity grades, or risk levels exhibit a natural or-dering, and misclassification costs depend not only on the distance between classes but also on the direction of the error. In clinical settings, overestimating disease severity may lead to unnecessary interventions, whereas underestimating severity can result in delayed treatment and substantially worse outcomes. For example, in diabetic retinopathy [8], cancer staging [9], [10], or predict the level of Parkinson’s disease [11], predicting a mild case as severe is less harmful than predicting a severe case as healthy, since the latter combines a larger ordinal distance with a more harmful direction of misclassification, leading to substantially higher clinical risk. To address this gap, several ordinal learning approaches have been proposed. Methods such as CORAL [12] and CORN [13] reformulate the ordinal regression problem into a series of K −1 binary classification subtasks while enforcing rank-monotonicity through shared model weights and ordered bias terms. This design guarantees that the predicted probabilities across the binary tasks are non increasing, ensuring consistent and rank-aware prediction. Unimodal label-regularization tech-niques [14]–[17] encourage predictions centered around the correct class. Vargas et al. [17] introduce a probabilistic beta-based regularization framework that explicitly incorporates or-dinal structure into the target labels. Their approach models the ground-truth class as a unimodal distribution generated from a beta density centered on the true ordinal level, effectively smoothing the one-hot target vector in a shape-aware manner that reflects the degree of proximity between classes. As a re-sult, misclassifications to adjacent categories are penalized less severely than errors that span multiple severity levels, aligning the learning objective more closely with the underlying ordinal semantics. The authors apply the beta-regularized loss to both standard softmax classification and a stick-breaking (cumula-tive probability) formulation [18], reporting consistent gains over Poisson-, binomial-, and exponential-based [14], [16] label smoothing methods across multiple benchmark ordinal image datasets, including diabetic retinopathy grading. Beyond probabilistic label–regularization methods, recent approaches explicitly embed ordinal structure at the architectural level. For instance, OR-DGN [19] introduces a regression branch to learn continuous severity scores alongside classification. Similarly, DGN-AGLD [20] incorporates a dedicated ’variance predictor’ module to model label distributions as asymmetric Gaussians, 
+
+> arXiv:2606.25769v1 [cs.LG] 24 Jun 2026
+
+aiming to capture the direction of disease progression. While these hybrid strategies effectively leverage ordinal relation-ships, they inherently increase model complexity, require de-signing specialized network branches, and necessitate balanc-ing multiple loss functions (e.g., cross-entropy combined with distribution or regression losses). In contrast, our proposed Or-dinal Cross-Entropy (OCE) offers a purely loss-based solution. By integrating an ordinal cost matrix directly into the standard cross-entropy formulation, OCE enforces distance-dependent penalties without altering the network architecture, preserving the desirable optimization properties of the original loss. Other approaches, such as weighted cross-entropy (WCE) [21], [22], attempt to incorporate misclassification costs at the class level. Although effective in specific settings, these methods do not fully capture the structure of ordinal misclassification risks, and in particular, they cannot express scenarios in which the 
+
+direction of the error matters. A notable attempt to integrate ordinal distance is the Ordinal Loss (OL) proposed by Chen et al. [23], in which penalties are determined by the ordinal distance between predicted and true classes. Developed for the specific challenge of grading knee osteoarthritis (OA) severity, the major cause of activity limitation and physical disability in older individuals [24]–[27], this approach addresses a critical limitation of the standard cross-entropy loss, which treats all misclassifications equally regardless of the semantic gap between categories. The authors argue that in clinical ordinal tasks, a “faraway” error (e.g., predicting severe Grade 4 when the truth is healthy Grade 0) is significantly more detrimental than a “nearby” error (e.g., confusing Grade 0 with Grade 1). To mitigate this, the method utilizes an “adjustable ordinal matrix” to define penalty weights that increase as the distance between the predicted rank and the ground truth grows. This mechanism constrains the model’s probability output, ensuring that the likelihood assigned to incorrect classes decreases as they become further removed from the true grade. However, the ordinal loss function does not retain the properties of the cross-entropy; for example, it assumes a linear relationship between the predicted probability and the loss value, instead of the logarithmic relationship in the cross-entropy loss function. These limitations highlight the need for a loss function that is able to: 1) Preserve the desirable optimization properties of cross-entropy. 2) Incorporate ordinal relationships and distance-dependent penalties. 3) Encode asymmetric misclassification costs, where the risk of underestimation and overestimation are not equivalent. To address this need, we propose the Ordinal Cross-Entropy (OCE) framework, a principled extension of cross-entropy for ordinal classification. OCE integrates ageneral cost matrix allowing domain experts to specify both distance-dependent and direction-dependent misclassification penalties, while maintaining the logarithmic sensitivity of CE. This enables the model to prioritize avoidance of clinically dangerous misdiagnoses and learn decision boundaries aligned with real-world risk. As we show through theoretical and empirical evaluation, OCE provides smoother gradient behavior, improved ordinal consistency, and superior performance compared to existing ordinal and cost-sensitive loss formulations. All experiments presented in this paper can be reproduced us-ing the source code available at https://github.com/Taldvora1/ Deep-Neural-Networks-with-Ordinal-Loss-for-Medical-Applications. II. P ROPOSED METHOD : O RDINAL CROSS -E NTROPY 
+
+(OCE) The use of a cost matrix to encode unequal misclassification penalties is well-established in the cost-sensitive learning lit-erature [28], where the learning objective is explicitly aligned with the real-world consequences of prediction errors. In this section, we introduce the Ordinal Cross-Entropy (OCE) 
+
+loss, a distance-aware and cost-sensitive extension of the standard cross-entropy loss. OCE is designed to preserve the probabilistic and optimization benefits of cross-entropy while incorporating both ordinal structure and clinically relevant misclassification costs. The use of a cost matrix to encode unequal misclassification penalties is well-established in the cost-sensitive learning literature [28], where the learning ob-jective is explicitly aligned with the real-world consequences of prediction errors. In this section, we introduce the Ordinal Cross-Entropy (OCE) loss, a distance-aware and cost-sensitive extension of the standard cross-entropy loss. OCE is designed to preserve the probabilistic and optimization benefits of cross-entropy while incorporating both ordinal structure and clinically relevant misclassification costs. 
+
+A. Penalty Matrix and Cost Matrix 
+
+We define a square cost matrix C ∈ RI×I with non-negative entries ci,j ≥ 0, where ci,j represents the real-world cost incurred when a sample with true class y = vi is predicted as 
+
+ˆy = vj . Here, {v1, . . . , v I } denotes the ordered set of ordinal class values (e.g., healthy, mild, moderate, severe), while the indices i and j represent their respective ordinal positions. To model realistic ordinal risk behaviour, the cost increases with the ordinal distance d = |i − j| and may reflect different severities for underestimation and overestimation. Formally: 
+
+Ci,j =
+
+
+
+k1 + λ1 · d, if i < j (overestimation ),k2 + λ2 · d, if i > j (underestimation ),
+
+0, if i = j, 
+
+where k1, k 2 represent baseline costs and λ1, λ 2 control the growth rate as classes become further apart. In clinical scenar-ios where underestimation carries greater risk (e.g., diagnosing cancer at a more advanced stage than reality), one may impose: 
+
+k1 ≤ k2, λ1 ≤ λ2,
+
+while equality recovers the symmetric case. 
+
+Transition from Cost Matrix to Penalty Matrix. The cost matrix C captures real-world misclassification costs reflecting clinical risk and domain-specific severity. However, these costs 𝒗 𝟏 𝒗 𝟐 𝒗 𝟑 𝒗 𝟒 𝒗 𝟓                                                           
+
+> 𝒗 𝟏 10.4 0.6 0.8 1
+> 𝒗 𝟐 0.4 10.4 0.6 0.8
+> 𝒗 𝟑 0.6 0.4 10.4 0.6
+> 𝒗 𝟒 0.8 0.6 0.4 10.4
+> 𝒗 𝟓 10.8 0.6 0.4 1
+> 𝒗 𝟏 𝒗 𝟐 𝒗 𝟑 𝒗 𝟒 𝒗 𝟓
+> 𝒗 𝟏 046810
+> 𝒗 𝟐 40468
+> 𝒗 𝟑 64046
+> 𝒗 𝟒 86404
+> 𝒗 𝟓 10 8640
+> 𝑃𝑒𝑛𝑎𝑙𝑡𝑦 𝑐𝑜𝑠𝑡𝑠 𝑎𝑛𝑑
+> 𝑏𝑒𝑛𝑒𝑓𝑖𝑡𝑠 𝑚𝑎𝑡𝑟𝑖𝑥
+> 𝐶𝑜𝑠𝑡𝑠 𝑚𝑎𝑡𝑟𝑖𝑥
+
+(a) Symmetric penalty structure 𝒗 𝟏 𝒗 𝟐 𝒗 𝟑 𝒗 𝟒 𝒗 𝟓                                                           
+
+> 𝒗 𝟏 10.2 0.3 0.4 0.5
+> 𝒗 𝟐 0.4 10.2 0.3 0.4
+> 𝒗 𝟑 0.6 0.4 10.2 0.3
+> 𝒗 𝟒 0.8 0.6 0.4 10.2
+> 𝒗 𝟓 10.8 0.6 0.4 1
+> 𝒗 𝟏 𝒗 𝟐 𝒗 𝟑 𝒗 𝟒 𝒗 𝟓
+> 𝒗 𝟏 046810
+> 𝒗 𝟐 80468
+> 𝒗 𝟑 12 8046
+> 𝒗 𝟒 16 12 804
+> 𝒗 𝟓 20 16 12 80
+> 𝑃𝑒𝑛𝑎𝑙𝑡𝑦 𝑐𝑜𝑠𝑡𝑠 𝑎𝑛𝑑
+> 𝑏𝑒𝑛𝑒𝑓𝑖𝑡𝑠 𝑚𝑎𝑡𝑟𝑖𝑥
+> 𝐶𝑜𝑠𝑡𝑠 𝑚𝑎𝑡𝑟𝑖𝑥
+
+(b) Asymmetric penalty structure Fig. 1. Comparison of penalty structures for ordinal misclassification. (a) Symmetric penalties assign equal costs to underestimation and overestimation based on ordinal distance. (b) Asymmetric penalties reflect domain-specific risk. In both cases, a maximum diagonal benefit reinforces correct predictions. 
+
+are not directly suitable for use within a probabilistic loss function, as they are not normalized and do not explicitly distinguish between penalties for incorrect predictions and benefits for correct ones. We therefore transform C into a penalty matrix P that can be consistently integrated into the OCE loss. Accordingly, we construct the penalty matrix P by modi-fying the diagonal and normalizing the scale as follows: 
+
+Pi,i = max( C), ∀i, 
+
+and the matrix is normalized to [0 , 1] by: 
+
+P = P
+
+max( C) .
+
+This transformation preserves the relative misclassification relationships defined by the real-world costs while providing stable optimization dynamics and a clear benefit signal for confident correct predictions. From this point onward, for notational simplicity, we denote the entries of the resulting penalty–reward matrix by cij ; diagonal elements cii repre-sent rewards for correct classification, whereas off-diagonal elements cij for i̸ = j represent misclassification penalties. Figure 1 illustrates both the real-world cost matrix and the derived penalty matrix, including the transition process in the symmetric and asymmetric configurations, for better under-standing. 
+
+B. Ordinal cross-entropy loss 
+
+The ordinal cross-entropy is a logarithmic function that can be easily optimized using gradient descent methods, similarly to the conventional cross-entropy loss function. In the training process of a neural network, the OCE loss function aims to find the optimal parameters of the network, which minimize OCE . In order to solve the optimization problem using a gradient descent algorithm, we derive the partial derivatives of the OCE with respect to the outputs of the neural network before the normalization function, 
+
+zk,i , ∀k ∈ { 1, . . . , K }, i ∈ { 1, . . . , I }.Assume a normalization softmax function, RI → RI , that maps each vector of a sample k, zk ∈ RI to a vector ˆpk ∈ RI
+
+such that 
+
+ˆpk,i (zk) = ezk,i 
+
+PIj=1 ezk,j 
+
+, i = 1 , . . . , I, 
+
+0 ≤ ˆpk,i ≤ 1,
+
+> I
+
+X
+
+> i=1
+
+ˆpk,i = 1 .
+
+(1) Assuming a one-hot encoded target vector yk, where 
+
+yk,m k = 1 and yk,i = 0 for all i̸ = mk, with mk denoting the index of the true ordinal class of sample k, the OCE loss becomes: 
+
+OCE = −
+
+> K
+
+X
+
+> k=1
+> I
+
+X
+
+> i=1
+
+cmk ,i 
+
+"
+
+yk,i log ezk,i 
+
+PIj=1 ezk,j 
+
+!
+
++(1 − yk,i ) log 1 − ezk,i 
+
+PIj=1 ezk,j 
+
+! # 
+
+.
+
+(2) 
+
+Under this assumption, the OCE value for a single sample 
+
+k can be written as: OCE k = −
+
+h
+
+cmk ,m k zk,m k − cmk ,m k log 
+
+
+
+> I
+
+X
+
+> j=1
+
+ezk,j 
+
+
+
++
+
+> I
+
+X
+
+> i=1
+> i̸=mk
+
+cmk ,i 
+
+
+
+log 
+
+
+
+> I
+
+X
+
+> j=1
+
+ezk,j − ezk,i 
+
+
+
+− log 
+
+
+
+> I
+
+X
+
+> j=1
+
+ezk,j 
+
+ i 
+
+.
+
+(3) Calculating the derivative for zk,v , we get: 
+
+∇zk,v OCE k = − cmk ,m k δv,m k + cmk ,m k ˆpk,v 
+
+− ˆpk,v 
+
+X 
+
+> i / ∈{ mk,v }
+
+cmk ,i 
+
+1 − ˆpk,i 
+
++ ˆ pk,v 
+
+X
+
+> i̸=mk
+
+cmk ,i 
+
+(4) where δv,m k denotes the Kronecker delta, defined as 
+
+δv,m k =
+
+(
+
+1, if v = mk,
+
+0, otherwise .
+
+Note that the development of Equation (4) is presented in the Appendix. It can be shown that the derivative of OCE in Equation (4) maintains several properties, as follows. 
+
+Property 1. The gradient for the observed class 
+
+∇zk,m k OCE k is non-positive and approaches zero as ˆpk,m k
+
+increases and the probabilities of unobserved classes decrease. 
+
+Proof. For v = mk:
+
+∇zk,m k OCE k = − cmk ,m k (1 − ˆpk,m k )
+
+− ˆpk,m k
+
+X
+
+> i̸=mk
+
+ cmk ,i 
+
+1 − ˆpk,i 
+
+− cmk ,i 
+
+ (5) Since 0 ≤ ˆpk,i ≤ 1, ∇zk,m k OCE k is non-positive. It can be seen from the first term, −cmk ,m k (1 − ˆpk,m k ), that 
+
+∇zk,m k OCE k decreases in magnitude as ˆpk,m k increases and the remaining probabilities decrease. From the second term, 
+
+ˆpk,m k
+
+P
+
+> i̸=mk
+
+ cmk ,i   
+
+> 1−ˆpk,i
+
+− cmk ,i 
+
+
+
+, we see that ∇zk,m k OCE kfurther decreases in magnitude as ˆpk,i , ∀i̸ = mk, decreases. Furthermore, a change in predicted probabilities of unobserved classes with high costs cmk ,i (high risk) has a greater effect than those with low penalty costs. 
+
+Property 2. The gradient for an unobserved class 
+
+∇zk,v OCE k, ∀v̸ = mk, is proportional to ˆpk,v and is non-negative whenever cmk ,m k + P
+
+i̸=m cmk ,i ≥ P
+
+i̸=m,v cmk ,i 
+
+1− ˆpk,i .In this case, the gradient increases in magnitude as ˆpk,v 
+
+increases. 
+
+Proof. For an unobserved class v̸ = mk, the gradient of the OCE loss with respect to zk,v can be written as 
+
+∇zk,v OCE k = ˆ pk,v 
+
+cmk ,m k + X
+
+i̸=mk
+
+cmk ,i − X
+
+i̸=mk
+
+i̸=v
+
+cmk ,i 
+
+1 − ˆpk,i 
+
+ .
+
+Since ˆpk,v ≥ 0, the sign of the gradient is determined by the bracketed term. Hence, ∇zk,v OCE k is non-negative whenever the bracketed expression is non-negative. Under this condition, the magnitude of the gradient increases as ˆpk,v increases, as it appears as a multiplicative factor. 
+
+Property 3. The gradient satisfies ∇zk,v OCE k = 0 for all v
+
+under perfect classification, i.e., when ˆpk,m k = 1 and ˆpk,v = 0 
+
+for all v̸ = mk.
+
+Proof. From Property 1, the gradient for the observed class satisfies ∇zk,m k OCE k = 0 when ˆpk,m k = 1 and ˆpk,v = 0 for all v̸ = mk. From Property 2, the gradient for any unobserved class v̸ = mk is proportional to ˆpk,v and therefore equals zero when ˆpk,v = 0 . Hence, ∇zk,v OCE k = 0 for all v under perfect classification. It can be seen that when the benefit associated with cor-rect classification dominates the penalties of misclassification, namely, 
+
+cmk ,m k ≫ cmk ,i , ∀i̸ = mk,
+
+the condition 
+
+cmk ,m k + X
+
+i̸=mk
+
+cmk ,i ≥ X
+
+i̸=mk
+
+i̸=v
+
+cmk ,i 
+
+1 − ˆpk,i 
+
+is satisfied. Under this condition, the gradient 
+
+∇zk,v OCE k, v̸ = mk,
+
+is non-negative and increases in magnitude as ˆpk,v increases. However, when there exists an unobserved class i̸ = mk, v 
+
+such that ˆpk,i → 1, the above condition no longer holds, and instead 
+
+cmk ,m k + X
+
+i̸=mk
+
+cmk ,i < X
+
+i̸=mk
+
+i̸=v
+
+cmk ,i 
+
+1 − ˆpk,i 
+
+.
+
+In this case, the bracketed term in the gradient expression becomes negative, and consequently ∇zk,v OCE k < 0 for that class v̸ = mk. In other words, increasing zk,v , or equivalently the predicted probability ˆpk,v , at the expense of a highly confident unobserved class ˆpk,i may decrease the OCE value. Figure 2 shows the OCE gradient behavior compared to OL gradient behavior. 0.0 0.2 0.4 0.6 0.8 1.0                                
+
+> True Class Probability (p)
+> 20
+> 15
+> 10
+> 5
+> 0
+> 5
+> 10
+> Gradient Value
+> OCE Gradient
+> c2, 2 = 1
+> Grad (Class 0)
+> Grad (Class 1)
+> Grad (Class 2 - True)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> True Class Probability (p)
+> OCE Gradient
+> c2, 2 = 10
+> Grad (Class 0)
+> Grad (Class 1)
+> Grad (Class 2 - True)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> True Class Probability (p)
+> OCE Gradient
+> c2, 2 = 20
+> Grad (Class 0)
+> Grad (Class 1)
+> Grad (Class 2 - True)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> True Class Probability (p)
+> 6
+> 4
+> 2
+> 0
+> 2
+> 4
+> Gradient Value
+> OL Gradient
+> c2, 2 = 1
+> Grad (Class 0)
+> Grad (Class 1)
+> Grad (Class 2 - True)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> True Class Probability (p)
+> OL Gradient
+> c2, 2 = 10
+> Grad (Class 0)
+> Grad (Class 1)
+> Grad (Class 2 - True)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> True Class Probability (p)
+> OL Gradient
+> c2, 2 = 20
+> Grad (Class 0)
+> Grad (Class 1)
+> Grad (Class 2 - True)
+
+Fig. 2. Visualization of the gradient dynamics for Ordinal Cross-Entropy (OCE) and Ordinal Loss (OL) across different values of the true-class penalty 
+
+c2,2.𝑃𝑒𝑛𝑎𝑙𝑡𝑦 𝑐𝑜𝑠𝑡𝑠 𝑎𝑛𝑑                                                                                 
+
+> 𝑏𝑒𝑛𝑒𝑓𝑖𝑡𝑠 𝑚𝑎𝑡𝑟𝑖𝑥
+> 𝒗 𝟏 𝒗 𝟐 𝒗 𝟑 𝒗 𝟒 𝒗 𝟓
+> 𝒗 𝟏 10.4 0.6 0.8 1
+> 𝒗 𝟐 0.4 10.4 0.6 0.8
+> 𝒗 𝟑 0.6 0.4 10.4 0.6
+> 𝒗 𝟒 0.8 0.6 0.4 10.4
+> 𝒗 𝟓 10.8 0.6 0.4 1
+> 𝐴 𝑓𝑢𝑛𝑑𝑢𝑠 𝑖𝑚𝑎𝑔𝑒 𝑡 𝑓𝑟𝑜𝑚 𝑎
+> 𝑟𝑒𝑡𝑖𝑛𝑎 𝑤𝑖𝑡 ℎ𝑔𝑟𝑎𝑑𝑒 𝑙𝑒𝑣𝑒𝑙 4, 𝑣 ସ
+> 𝑰𝒏𝒑𝒖𝒕 𝑃𝑟𝑒𝑑𝑖𝑐𝑡𝑒𝑑 𝑝𝑟𝑜𝑏𝑎𝑏𝑖𝑙𝑖𝑡𝑖𝑒𝑠
+> 𝑝̂ ௧,ଵ0.12
+> 𝑝̂ ௧,ଶ0.01
+> 𝑝̂ ௧,ଷ0.05
+> 𝑝̂ ௧,ସ0.82
+> 𝑝̂ ௧,ହ0
+> 𝑜𝑛𝑒 − ℎ 𝑜𝑡 𝑣𝑒𝑐𝑡𝑜𝑟
+> 𝑦 ො௧,ଵ0
+> 𝑦 ො௧,ଶ0
+> 𝑦 ො௧,ଷ0
+> 𝑦 ො௧,ସ1
+> 𝑦 ො௧,ହ0
+> 𝑝𝑒𝑛𝑎𝑙𝑡𝑦 𝑐𝑜𝑠𝑡𝑠 𝑎𝑛𝑑 𝑏𝑒𝑛𝑓𝑖𝑡
+> 𝑣𝑒𝑐𝑡𝑜𝑟 𝑓𝑜𝑟 𝑠𝑚𝑎𝑝𝑙𝑒 𝑡
+> 𝑐 ସ,ଵ0.8
+> 𝑐 ସ,ଶ0.6
+> 𝑐 ସ,ଷ0.4
+> 𝑐 ସ,ସ1
+> 𝑐 ସ,ହ0.4
+> 𝑂𝐶𝐸
+> ෍𝑐 ௜,ସ𝑦 ௧,௜log( 𝑝̂ ௧,௜) + 1 − 𝑦 ௧,௜log(1 − 𝑝̂ ௧,௜)
+> ூ
+> ௜ୀଵ
+> 𝑜𝑏𝑠𝑒𝑟𝑣𝑒𝑑 𝑐𝑙𝑎𝑠𝑠 𝑐𝑜𝑛𝑡𝑟𝑖𝑏𝑢𝑡𝑖𝑜𝑛
+> = 1 ⋅ log(0.82)
+> 𝑢𝑛𝑜𝑏𝑠𝑒𝑟𝑣𝑒𝑑 𝑐𝑙𝑎𝑠𝑠 𝑐𝑜𝑛𝑡𝑟𝑖𝑏𝑢𝑡𝑖𝑜𝑛
+> = −0.8 ⋅ log 0.88 − 0.6 ⋅ log 0.99 − 0.4 ⋅ log(0.95)
+
+Fig. 3. Illustration of the proposed ordinal cross-entropy loss for a diabetic retinopathy sample with true class 4, using the penalty matrix from 1a. 
+
+C. Intuition and Interpretation 
+
+The OCE loss preserves the logarithmic sensitivity of cross-entropy while modifying it to account for the severity of ordinal errors. For the true class mk, the reward for correct prediction is weighted by the corresponding benefit cmk ,m k ,whereas for incorrect classes the penalty increases as a func-tion of both the model’s confidence ˆpk,i and the associated misclassification cost cmk ,i . Consequently, high-probability and clinically severe mistakes contribute substantially more to the loss than low-risk or near-adjacent errors. Figure 3 illustrates the OCE computation for a retina diag-nosed with grade level 4, using the symmetric ordinal penalty matrix presented in Fig. 1a. In this example, correct predic-tions are rewarded with a benefit value of 10 , emphasizing the importance of confident predictions when distinguishing between late-stage and early-stage diagnoses. Figure 4 illustrates how the contributions of individual classes to the OCE loss vary as the predicted probability of the true class ˆpt, 4 increases. As confidence in the correct class grows, its loss contribution decreases logarithmically, while penalties from unobserved classes diminish accordingly. Notably, the observed class has a dominant influence on the loss, and unobserved classes with higher misclassification costs contribute more strongly, reflecting ordinal distance and task-specific risk. Fig. 4. Contribution of class i to the ordinal cross-entropy for a sample          
+
+> twith observed class v4, shown for a range of predictive probabilities ˆpt, :
+> based on the penalty vector c:,4from Figure 3.
+> Normal Mild Moderate Severe Proliferative
+> Fig. 5. Example images from all five diabetic retinopathy (DR) severity levels.
+
+III. E XPERIMENTS AND RESULTS 
+
+The primary objective of our experiments is to evaluate whether the proposed OCE loss effectively minimizes the total misclassification cost defined by a task-specific ordinal cost matrix. Standard metrics such as accuracy, AUC, and MAE are reported as complementary indicators, but cost minimization is the central criterion, as it directly reflects the real-world severity of ordinal errors. To assess the robustness of OCE under different risk profiles, we conduct experiments using both symmetric cost matrices, where overestimation and underestimation are penalized equally, and asymmetric cost matrices, which assign different costs to overestimation and underestimation to reflect direction-dependent, application-specific risk. 
+
+A. Dataset 
+
+The APTOS 2019 Blindness Detection dataset consists of retinal fundus images for automated diabetic retinopathy (DR) grading, released as part of the Kaggle APTOS 2019 Blindness Detection competition. Each image is labeled with an ordinal severity grade from 0 (“No DR”) to 4 (“Proliferative DR”). The training set includes 3,662 labeled RGB images with varying resolutions and substantial variability in acquisition conditions, as well as a strong class imbalance toward the “No DR” class, making the task particularly challenging and well-suited for ordinal and cost-sensitive learning. 
+
+B. Cost Matrix 
+
+Figure 1a illustrates the symmetric ordinal cost structure used for direct comparison with existing methods, while Fig. 1b presents an asymmetric variant that assigns different penalties to overestimation and underestimation, reflecting application-specific risk profiles.                
+
+> TABLE I DISTRIBUTION OF DR G RADES IN THE APTOS 2019 T RAINING SET
+> DR Grade Grade Name Total Images
+> 0No DR 1805 1Mild DR 370 2Moderate DR 999 3Severe DR 193 4Proliferative DR 295
+
+C. Architectures and Experimental Setup 
+
+To assess the robustness of the proposed OCE loss across different network capacities and feature extraction strategies, we evaluate it on three widely used convolutional architec-tures: VGG19, InceptionV3, and DenseNet121. All models are initialized with ImageNet pre-trained weights and trained under identical experimental conditions to isolate the effect of the loss function. Training is performed for 25 epochs using the Adam optimizer with a default learning rate of 1e −3 and a batch size of 32. We compare seven loss functions: the proposed Ordinal Cross-Entropy (OCE) with penalty matrix P ; standard cross-entropy (CE); cross-entropy with unimodal beta-based label regularisation (CE-β) [17]; cross-entropy with poisson label regularisation (CE-P) [16]; cross-entropy with binomial label regularisation (CE-B) [16]; cross-entropy with exponential label regularisation (CE-E) [15]; and Ordinal Loss (OL) based on distance-aware penalty designs proposed in Chen et al. [23]. For OL, we evaluate several distance-based penalty designs proposed by Chen et al. [23], and report results of the design that achieves the best empirical performance among the evaluated variants. To evaluate asymmetric ordinal risk, we modify only loss functions that explicitly incorporate a penalty matrix. For OCE, we replace the symmetric matrix with the asymmetric design shown in Figure. 1b. For OL, we adapt the distance-based penalty matrix used in the symmetric setting by halving the upper triangular entries, thereby imposing milder penalties on overestimation. For CE and its regularized variants, which do not incorporate penalty matrices into the loss, asymmetry is applied only at the evaluation stage. 
+
+D. Evaluation Metrics 
+
+The primary metric for evaluating model performance is the 
+
+Cost , defined as the average misclassification cost induced by a predefined cost matrix C.In practice, the cost error is computed as the product of the confusion matrix and the cost matrix C, normalized by the total number of samples: Cost Error = 1
+
+N
+
+> N
+
+X
+
+> k=1
+
+cyk , ˆyk ,
+
+where yk and ˆyk denote the true and predicted class labels of sample k, respectively. This metric directly reflects the severity of ordinal misclassification errors according to their real-world impact. TABLE II AVERAGE VALIDATION PERFORMANCE ACROSS 5 FOLDS UNDER A SYMMETRIC COST MATRIX . B OLD AND UNDERLINED VALUES INDICATE THE BEST AND SECOND -BEST RESULTS .                                                                                                                           
+
+> DenseNet121 Acc AUC Cost MAE QWK OCE (ours) 0.784 0.897 1.081 0.324 0.803
+> CE-β[17] 0.782 0.854 1.095 0.329 0.804
+> CE-P [16] 0.756 0.860 1.219 0.366 0.766
+> CE-B [16] 0.774 0.784 1.096 0.322 0.823
+> CE-E [15] 0.789 0.823 1.043 0.310 0.824
+> CE 0.781 0.896 1.098 0.330 0.798
+> OL [23] 0.740 0.714 1.260 0.370 0.778
+> InceptionV3 Acc AUC Cost MAE QWK OCE (ours) 0.772 0.878 1.147 0.345 0.791
+> CE-β[17] 0.764 0.828 1.174 0.351 0.793
+> CE-P [16] 0.743 0.826 1.307 0.396 0.767
+> CE-B [16] 0.739 0.694 1.263 0.371 0.802
+> CE-E [15] 0.762 0.803 1.164 0.344 0.807
+> CE 0.774 0.878 1.135 0.341 0.795
+> OL [23] 0.734 0.662 1.307 0.387 0.761
+> VGG19 Acc AUC Cost MAE QWK OCE (ours) 0.758 0.821 1.220 0.368 0.774
+> CE-β[17] 0.759 0.859 1.268 0.393 0.720
+> CE-P [16] 0.754 0.762 1.266 0.387 0.729
+> CE-B [16] 0.750 0.807 1.292 0.396 0.731
+> CE-E [15] 0.759 0.845 1.249 0.383 0.732
+> CE 0.756 0.827 1.244 0.378 0.770
+> OL [23] 0.726 0.677 1.366 0.409 0.735
+
+In addition, we report the following complementary evalu-ation metrics: Accuracy, Area Under the ROC Curve (AUC), Mean Absolute Error (MAE) and Quadratic Weighted Kappa (QWK) [29]. These metrics provide supplementary perfor-mance insights; however, they do not replace the cost-based evaluation, which remains the primary criterion in this work. 
+
+E. Results 
+
+Table II summarizes the average validation performance across five cross-validation folds for all evaluated architectures under a symmetric cost matrix. Across all architectures, the proposed OCE loss consistently achieves the best or second-best misclassification Cost, which is the primary evaluation criterion. At the same time, OCE maintains competitive MAE and strong discriminative performance, with accuracy, AUC, and QWK values comparable to the competing loss functions. Table III reports the average validation performance across five cross-validation folds for all evaluated architectures un-der an asymmetric cost matrix. Across all architectures, the proposed OCE loss consistently achieves the best or second-best performance in terms of misclassification Cost and MAE, which are the primary criteria under asymmetric risk settings. In addition, OCE maintains competitive and often superior performance in complementary metrics, including accuracy, AUC, and QWK, indicating that explicitly modeling asym-metric ordinal risk does not compromise overall discriminative ability. These results demonstrate the robustness of OCE to asymmetric cost structures and its effectiveness in prioritizing clinically meaningful errors. Overall, the asymmetric setting amplifies the advantage of OCE in minimizing risk-weighted ordinal errors, demonstrat-                                                                                                                             
+
+> TABLE III AVERAGE VALIDATION PERFORMANCE ACROSS 5FOLDS UNDER AN ASYMMETRIC COST MATRIX . B OLD AND UNDERLINED VALUES INDICATE THE BEST AND SECOND -BEST RESULTS .
+> DenseNet121 Acc AUC Cost MAE QWK OCE (ours) 0.788 0.898 1.755 0.312 0.820
+> CE-β[17] 0.782 0.854 1.864 0.329 0.804
+> CE-P [16] 0.756 0.860 2.113 0.366 0.766
+> CE-B [16] 0.774 0.784 1.812 0.322 0.823
+> CE-E [15] 0.789 0.823 1.742 0.310 0.824
+> CE 0.781 0.896 1.883 0.330 0.798
+> OL [23] 0.739 0.662 2.111 0.374 0.773
+> InceptionV3 Acc AUC Cost MAE QWK OCE (ours) 0.774 0.880 1.860 0.340 0.800
+> CE-β[17] 0.764 0.828 1.972 0.351 0.793
+> CE-P [16] 0.743 0.826 2.301 0.396 0.767
+> CE-B [16] 0.739 0.694 2.031 0.371 0.802
+> CE-E [15] 0.762 0.803 1.917 0.344 0.807
+> CE 0.774 0.878 1.900 0.341 0.795
+> OL [23] 0.695 0.644 2.623 0.447 0.703
+> VGG19 Acc AUC Cost MAE QWK OCE (ours) 0.755 0.851 2.054 0.381 0.767
+> CE-β[17] 0.759 0.859 2.288 0.393 0.720
+> CE-P [16] 0.754 0.762 2.258 0.387 0.729
+> CE-B [16] 0.750 0.807 2.306 0.396 0.731
+> CE-E [15] 0.759 0.845 2.246 0.383 0.732
+> CE 0.756 0.827 2.068 0.378 0.770
+> OL [23] 0.648 0.670 3.518 0.602 0.522
+
+ing its ability to adapt to application-specific misclassification asymmetries without degrading discriminative performance. Figure 6 compares the classification behavior of the DenseNet121 model when trained with the symmetric and asymmetric variants of the OCE loss. The upper triangular region corresponds to overestimation errors (i.e., predicting a higher severity class than the ground truth), while the lower triangular region corresponds to underestimation errors. The asymmetric OCE reduces the magnitude and frequency of underestimation errors while simultaneously encouraging predictions to deviate in the correct ordinal direction. This behavior indicates that the asymmetric formulation imposes a directional preference that aligns model predictions more closely with the ordinal structure of the task, ultimately leading to more clinically meaningful error patterns. The effectiveness of the proposed framework is further supported by evaluation of the impact of the diagonal term cmk ,m k , which represents the benefit for correct classification. When the diagonal of the penalty matrix was set to zero, the average misclassification cost increased by 13 .1 % in the symmetric setting and 14 .7 % 
+
+in the asymmetric setting. This confirms that the diagonal term is essential for providing the necessary gradient signal to prioritize correct predictions alongside penalty minimization. IV. C ONCLUSIONS 
+
+We proposed Ordinal Cross-Entropy (OCE) , a simple and general loss function for ordinal classification that extends standard cross-entropy by incorporating distance-aware and asymmetric misclassification costs. OCE preserves the prob-abilistic interpretation and optimization advantages of cross-entropy while enabling explicit modeling of ordinal structure and clinically meaningful risk. 0 1 2 3 4                
+
+> Column Index
+> 01234
+> Row Index
+> -1 200
+> 16 -1 0
+> -1 6
+> 8
+> 01234
+> Column Index
+> 01234
+> Row Index
+> -2
+> -3 -6
+> 11-11
+> -2 -4 -16 0
+
+Fig. 6. Impact of Asymmetric OCE on Overestimation (left) and Underesti-mation (right) Errors in DenseNet121 
+
+Theoretical analysis showed that OCE induces smooth and stable gradient dynamics, encouraging confident predictions and penalizing high-risk ordinal errors proportionally to their severity and direction. Empirical results demonstrated that OCE consistently achieves lower misclassification cost than state-of-the-art ordinal approaches across multiple architec-tures, under symmetric and asymmetric risk settings, while maintaining competitive performance on standard metrics. This study has several limitations. First, the evaluation is conducted on a single medical dataset, and additional validation across diverse domains would further strengthen the generality of the findings. Second, the cost matrix parameters are predefined and not learned adaptively, which may limit flexibility in certain applications. Future work will focus on integrating adaptive mechanisms that dynamically adjust the parameters of the OCE loss during training. Such mechanisms may allow the loss function to progressively emphasize clin-ically critical errors and further improve ordinal consistency and risk-aware performance. ACKNOWLEDGMENT 
+
+Gemini AI was used for language and grammar editing. REFERENCES [1] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in Proceedings of the IEEE conference on computer vision and pattern recognition , 2016, pp. 770–778. [2] W. Zhu, C. Liu, W. Fan, and X. Xie, “Deeplung: 3d deep convolutional nets for automated pulmonary nodule detection and classification,” arXiv preprint arXiv:1709.05538 , 2017. [3] D. Shen, G. Wu, and H.-I. Suk, “Deep learning in medical image analysis,” Annual review of biomedical engineering , vol. 19, no. 1, pp. 221–248, 2017. [4] M. A. Abdou, “Literature review: Efficient deep neural networks tech-niques for medical image analysis,” Neural Computing and Applications ,vol. 34, no. 8, pp. 5791–5812, 2022. [5] C. Chen, N. A. M. Isa, and X. Liu, “A review of convolutional neural network based methods for medical image classification,” Computers in biology and medicine , vol. 185, p. 109507, 2025. [6] X. Geng, Z.-H. Zhou, and K. Smith-Miles, “Automatic age estimation based on facial aging patterns,” IEEE Transactions on pattern analysis and machine intelligence , vol. 29, no. 12, pp. 2234–2240, 2007. [7] L. Bertinetto, R. Mueller, K. Tertikas, S. Samangooei, and N. A. Lord, “Making better mistakes: Leveraging class hierarchies with deep networks,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2020, pp. 12 506–12 515. [8] V. Gulshan, L. Peng, M. Coram, M. C. Stumpe, D. Wu, A. Narayanaswamy, S. Venugopalan, K. Widner, T. Madams, J. Cuadros 
+
+et al. , “Development and validation of a deep learning algorithm for detection of diabetic retinopathy in retinal fundus photographs,” jama ,vol. 316, no. 22, pp. 2402–2410, 2016. [9] B. Abraham and M. S. Nair, “Automated grading of prostate cancer using convolutional neural network and ordinal class classifier,” Informatics in Medicine Unlocked , vol. 17, p. 100256, 2019. [10] L. Shen, L. R. Margolies, J. H. Rothstein, E. Fluder, R. McBride, and W. Sieh, “Deep learning to improve breast cancer detection on screening mammography,” Scientific reports , vol. 9, no. 1, p. 12495, 2019. [11] J. Barbero-G´ omez, P.-A. Guti´ errez, V.-M. Vargas, J.-A. Vallejo-Casas, and C. Herv´ as-Mart´ ınez, “An ordinal cnn approach for the assessment of neurological damage in parkinson’s disease patients,” Expert Systems with Applications , vol. 182, p. 115271, 2021. [12] W. Cao, V. Mirjalili, and S. Raschka, “Rank consistent ordinal regres-sion for neural networks with application to age estimation,” Pattern Recognition Letters , vol. 140, pp. 325–331, 2020. [13] X. Shi, W. Cao, and S. Raschka, “Deep neural networks for rank-consistent ordinal regression based on conditional probabilities,” Pattern Analysis and Applications , vol. 26, no. 3, pp. 941–955, 2023. [14] C. Beckham and C. Pal, “Unimodal probability distributions for deep or-dinal classification,” in International Conference on Machine Learning .PMLR, 2017, pp. 411–419. [15] X. Liu, F. Fan, L. Kong, Z. Diao, W. Xie, J. Lu, and J. You, “Unimodal regularized neuron stick-breaking for ordinal classification,” Neurocom-puting , vol. 388, pp. 34–44, 2020. [16] J. F. P. da Costa, H. Alonso, and J. S. Cardoso, “The unimodal model for the classification of ordinal data,” Neural Networks , vol. 21, no. 1, pp. 78–91, 2008. [17] V. M. Vargas, P. A. Guti´ errez, and C. Herv´ as-Mart´ ınez, “Unimodal regularisation based on beta distribution for deep ordinal regression,” 
+
+Pattern Recognition , vol. 122, p. 108310, 2022. [18] D. Sloane and S. P. Morgan, “An introduction to categorical data analysis,” Annual review of sociology , vol. 22, no. 1, pp. 351–375, 1996. [19] W. Tang, Z. Yang, and Y. Song, “Disease-grading networks with ordinal regularization for medical imaging,” Neurocomputing , vol. 545, p. 126245, 2023. [20] W. Tang and Z. Yang, “Disease-grading networks with asymmetric gaus-sian distribution for medical imaging,” IEEE Transactions on Medical Imaging , 2025. [21] Y. S. Aurelio, G. M. De Almeida, C. L. de Castro, and A. P. Braga, “Learning from imbalanced data sets with weighted cross-entropy func-tion,” Neural processing letters , vol. 50, no. 2, pp. 1937–1949, 2019. [22] M. Akil, R. Saouli, R. Kachouri et al. , “Fully automatic brain tumor segmentation with deep learning-based selective attention using over-lapping patches and multi-class weighted cross-entropy,” Medical image analysis , vol. 63, p. 101692, 2020. [23] P. Chen, L. Gao, X. Shi, K. Allen, and L. Yang, “Fully automatic knee osteoarthritis severity grading using deep neural networks with a novel ordinal loss,” Computerized Medical Imaging and Graphics , vol. 75, pp. 84–92, 2019. [24] P. G. Conaghan, M. Porcheret, S. R. Kingsbury, A. Gammon, A. Soni, M. Hurley, M. P. Rayman, J. Barlow, R. G. Hull, J. Cumming et al. ,“Impact and therapy of osteoarthritis: the arthritis care oa nation 2012 survey,” Clinical rheumatology , vol. 34, no. 9, pp. 1581–1588, 2015. [25] T. Neogi, “The epidemiology and impact of pain in osteoarthritis,” 
+
+Osteoarthritis and cartilage , vol. 21, no. 9, pp. 1145–1153, 2013. [26] J. M. Ortman, V. A. Velkoff, and H. Hogan, “An aging nation: The older population in the united states,” U.S. Census Bureau, Economics and Statistics Administration, U.S. Department of Commerce, Washington, DC, USA, Current Population Reports P25-1140, 2014. [27] H. Zhao, L. Ou, Z. Zhang, L. Zhang, K. Liu, and J. Kuang, “The value of deep learning-based x-ray techniques in detecting and classifying kl grades of knee osteoarthritis: a systematic review and meta-analysis,” 
+
+European Radiology , vol. 35, no. 1, pp. 327–340, 2025. [28] C. Elkan, “The foundations of cost-sensitive learning,” in International joint conference on artificial intelligence , vol. 17, no. 1. Lawrence Erlbaum Associates Ltd, 2001, pp. 973–978. [29] J. de La Torre, D. Puig, and A. Valls, “Weighted kappa loss function for multi-class classification of ordinal data in deep learning,” Pattern Recognition Letters , vol. 105, pp. 144–154, 2018. APPENDIX 
+
+DERIVATION OF THE OCE G RADIENT 
+
+In this appendix, we provide the detailed derivation of the gradient expression given in Equation (4). 
+
+OCE k = −
+
+cmk ,m k zk,m k − cmk ,m k log 
+
+
+
+IX
+
+j=1 
+
+ezk,j 
+
+ +
+
+IX
+
+i=1 
+
+i̸=mk
+
+cmk ,i 
+
+log 
+
+
+
+IX
+
+j=1 
+
+ezk,j − ezk,i 
+
+ − log 
+
+
+
+IX
+
+j=1 
+
+ezk,j 
+
+ .
+
+∇zk,v OCE k = −cmk ,m k ∇zk,v zk,m k + cmk ,m k ezk,v 
+
+PIj=1 ezk,j 
+
+− X
+
+i̸=mk
+
+cmk ,i ∇zk,v 
+
+PIj=1 ezk,j − ezk,i 
+
+PIj=1 ezk,j − ezk,i 
+
++ X
+
+i̸=mk
+
+cmk ,i ∇zk,v 
+
+PIj=1 ezk,j 
+
+PIj=1 ezk,j 
+
+= −cmk ,m k ∇zk,v zk,m k + cmk ,m k ezk,v 
+
+PIj=1 ezk,j 
+
+− X
+
+i̸=mk
+
+cmk ,i (ezk,v − ∇ zk,v ezk,i )
+
+PIj=1 ezk,j − ezk,i 
+
++ X
+
+i̸=mk
+
+cmk ,i ezk,v 
+
+PIj=1 ezk,j 
+
+= −cmk ,m k ∇zk,v zk,m k + cmk ,m k ˆpk,v − X
+
+i / ∈{ mk ,v }
+
+cmk ,i ezk,v 
+
+PIj=1 ezk,j − ezk,i 
+
++ ˆ pk,v 
+
+X
+
+i̸=mk
+
+cmk ,i 
+
+= −cmk ,m k δv,m k + cmk ,m k ˆpk,v − ˆpk,v 
+
+X
+
+i / ∈{ mk ,v }
+
+cmk ,i 
+
+1 − ˆpk,i 
+
++ ˆ pk,v 
+
+X
+
+i̸=mk
+
+cmk ,i 
+
+δv,m k =
+
+(
+
+1, if v = mk,
+
+0, otherwise.
