@@ -6,39 +6,33 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-27
-- 运行时间：2026-06-27 20:23:04 UTC
+- 最新运行日期：2026-06-28
+- 运行时间：2026-06-28 21:15:19 UTC
 - 运行状态：成功
-- 本次总论文数：6
+- 本次总论文数：4
 - 精读区：0
-- 速读区：6
+- 速读区：4
 
 ### 今日简报（AI）
-今天速读了6篇论文，涵盖生物医学知识发现、无监督域适应和CLIP少样本学习三大方向。最值得关注的是《BioInsight》提出的多智能体交互式生物医学知识发现框架，以及《Concept-Constrained Prompt Learning》通过概念约束提升CLIP少样本适应能力。建议优先精读这两篇，并关注异构潜在空间对齐方法在域适应中的具体实现。
-- 详情：[/202606/27/README](/202606/27/README)
+今日速读4篇论文，聚焦跨域小样本分割、细胞分割及医学CT诊断。最值得关注的是《Hierarchical Spatial and Channel Aggregation for Cross-domain Few-shot Segmentation》（7.0分）和《Brain-Adapter》中双流视觉语言框架的3D CT诊断方法。建议优先精读最高分论文，并对比细胞分割中的基础模型适配策略。
+- 详情：[/202606/28/README](/202606/28/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [BioInsight: Multi-Agent Orchestration for Interactive Biomedical Knowledge Discovery](/202606/27/2606.20997v1-bioinsight-multi-agent-orchestration-for-interactive-biomedical-knowledge-discovery)  
+1. [Hierarchical Spatial and Channel Aggregation for Cross-domain Few-shot Segmentation](/202606/28/2606.24296v1-hierarchical-spatial-and-channel-aggregation-for-cross-domain-few-shot-segmentation)  
    标签：评分：7.0/10、query:fundus-mc
-   evidence：多智能体系统用于生物医学知识发现
-2. [One Size does not Fit All: Heterogeneous Latent Space Alignment for Unsupervised Domain Adaptation](/202606/27/2606.21415v1-one-size-does-not-fit-all-heterogeneous-latent-space-alignment-for-unsupervised-domain-adaptation)  
-   标签：评分：7.0/10、query:drl-retina
-   evidence：用于医学图像分割的域适应方法可适用于眼底分析
-3. [Concept-Constrained Prompt Learning for Few-Shot CLIP Adaptation](/202606/27/2606.22567v1-concept-constrained-prompt-learning-for-few-shot-clip-adaptation)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：少样本提示学习框架，通过概念约束正则化类别提示，可应用于医学图像分类
-4. [Enhancing Brain MRI Anomaly Detection and Reasoning with ROI Rethink and Synthetic Data](/202606/27/2606.25894v1-enhancing-brain-mri-anomaly-detection-and-reasoning-with-roi-rethink-and-synthetic-data)  
-   标签：评分：7.0/10、query:drl-retina
-   evidence：强化学习用于医学影像诊断
-5. [Mask to Concept: Auto-Promptable SAM3 via Efficient Test-Time Concept Embedding Search for Few-Shot Annotation](/202606/27/2606.26711v1-mask-to-concept-auto-promptable-sam3-via-efficient-test-time-concept-embedding-search-for-few-shot-annotation)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：少样本标注在医学图像上使用SAM3
-6. [PhenoXtract: combining Large Language Model and Knowledge Graph embedding to extract phenotypes from clinical descriptions](/202606/27/biorxiv-10-64898-2026-06-22-733382-v1-phenoxtract-combining-large-language-model-and-knowledge-graph-embedding-to-extract-phenotypes-from-clinical-descriptions)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：结合大语言模型和知识图谱从临床文本中提取表型，支持医疗AI
+   evidence：跨域少样本分割方法
+2. [Rethinking the Adaptation of Vision Foundation Models for Efficient Cell Segmentation](/202606/28/2606.21913v1-rethinking-the-adaptation-of-vision-foundation-models-for-efficient-cell-segmentation)  
+   标签：评分：6.0/10、query:fundus-mc
+   evidence：眼底图像分析深度学习（方法桥梁）
+3. [Brain-Adapter: A Dual-Stream Vision-Language MIL Framework for Comprehensive 3D CT Diagnosis of Acute Intracranial Pathologies](/202606/28/2606.23494v1-brain-adapter-a-dual-stream-vision-language-mil-framework-for-comprehensive-3d-ct-diagnosis-of-acute-intracranial-pathologies)  
+   标签：评分：6.0/10、query:fundus-mc
+   evidence：视觉-语言模型用于医学影像分类
+4. [Disease-Centric Vision-Language Pretraining with Hybrid Visual Encoding for 3D Computed Tomography](/202606/28/2606.25546v1-disease-centric-vision-language-pretraining-with-hybrid-visual-encoding-for-3d-computed-tomography)  
+   标签：评分：6.0/10、query:fundus-mc
+   evidence：疾病中心视觉-语言预训练混合编码器用于3D CT
 
 
 <div class="dpr-home-promo-card">
