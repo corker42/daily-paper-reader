@@ -6,33 +6,31 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-28
-- 运行时间：2026-06-28 21:15:19 UTC
+- 最新运行日期：2026-06-29
+- 运行时间：2026-06-29 20:59:48 UTC
 - 运行状态：成功
-- 本次总论文数：4
-- 精读区：0
-- 速读区：4
+- 本次总论文数：3
+- 精读区：1
+- 速读区：2
 
 ### 今日简报（AI）
-今日速读4篇论文，聚焦跨域小样本分割、细胞分割及医学CT诊断。最值得关注的是《Hierarchical Spatial and Channel Aggregation for Cross-domain Few-shot Segmentation》（7.0分）和《Brain-Adapter》中双流视觉语言框架的3D CT诊断方法。建议优先精读最高分论文，并对比细胞分割中的基础模型适配策略。
-- 详情：[/202606/28/README](/202606/28/README)
+1) 今日精读1篇多智能体系统优化论文，速读2篇小样本检测与宫颈筛查研究。
+2) 最有价值的是《GBC》提出的梯度连接方法（8.0分），显著提升多智能体协作效率。
+3) 普通读者可关注梯度连接在多智能体系统中的应用潜力，后续可跟进跨域医学图像分析。
+- 详情：[/202606/29/README](/202606/29/README)
 
 ### 精读区论文标签
-- 本次无精读推荐。
+1. [GBC: Gradient-Based Connections for Optimizing Multi-Agent Systems](/202606/29/2606.28187v1-gbc-gradient-based-connections-for-optimizing-multi-agent-systems)  
+   标签：评分：8.0/10、query:fundus-mc
+   evidence：基于梯度的多智能体系统优化方法，可直接应用于医学诊断多智能体系统
 
 ### 速读区论文标签
-1. [Hierarchical Spatial and Channel Aggregation for Cross-domain Few-shot Segmentation](/202606/28/2606.24296v1-hierarchical-spatial-and-channel-aggregation-for-cross-domain-few-shot-segmentation)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：跨域少样本分割方法
-2. [Rethinking the Adaptation of Vision Foundation Models for Efficient Cell Segmentation](/202606/28/2606.21913v1-rethinking-the-adaptation-of-vision-foundation-models-for-efficient-cell-segmentation)  
+1. [Rethinking Prototype-based Similarity Learning for Few-Shot Object Detection](/202606/29/2606.23069v1-rethinking-prototype-based-similarity-learning-for-few-shot-object-detection)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：眼底图像分析深度学习（方法桥梁）
-3. [Brain-Adapter: A Dual-Stream Vision-Language MIL Framework for Comprehensive 3D CT Diagnosis of Acute Intracranial Pathologies](/202606/28/2606.23494v1-brain-adapter-a-dual-stream-vision-language-mil-framework-for-comprehensive-3d-ct-diagnosis-of-acute-intracranial-pathologies)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：视觉-语言模型用于医学影像分类
-4. [Disease-Centric Vision-Language Pretraining with Hybrid Visual Encoding for 3D Computed Tomography](/202606/28/2606.25546v1-disease-centric-vision-language-pretraining-with-hybrid-visual-encoding-for-3d-computed-tomography)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：疾病中心视觉-语言预训练混合编码器用于3D CT
+   evidence：小样本目标检测方法，基于原型相似性学习，可迁移至医学图像分类
+2. [Two-Stage Cross-Domain Cervical Abnormality Screening with Cytopathological Image Synthesis and Knowledge Distillation](/202606/29/2606.27678v1-two-stage-cross-domain-cervical-abnormality-screening-with-cytopathological-image-synthesis-and-knowledge-distillation)  
+   标签：评分：6.0/10、query:drl-retina
+   evidence：跨域宫颈筛查中的图像合成与知识蒸馏，可迁移至眼底域适应
 
 
 <div class="dpr-home-promo-card">
