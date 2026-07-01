@@ -6,43 +6,35 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-30
-- 运行时间：2026-06-30 21:49:03 UTC
+- 最新运行日期：2026-07-01
+- 运行时间：2026-07-01 22:14:22 UTC
 - 运行状态：成功
-- 本次总论文数：7
+- 本次总论文数：5
 - 精读区：1
-- 速读区：6
+- 速读区：4
 
 ### 今日简报（AI）
-1) 今日精读一篇跨模态迭代蒸馏框架（IDNet）及新基准，同步速读小样本检测、医学VLM适配与小物体分割三篇研究。  
-2) 最值得关注的是IDNet在稳健IHD筛查中的多模态迭代蒸馏方法，以及CADRE在医学视觉语言模型参数高效适配中的有界遗忘控制。  
-3) 若深入实践，可优先复现IDNet框架并测试其在新基准上的泛化性，同时借鉴CADRE的遗忘约束策略训练自己的医学多模态模型。
-- 详情：[/202606/30/README](/202606/30/README)
+今天共处理5篇论文，精读1篇聚焦可提示分割概念，速读4篇覆盖医疗OCT分割和医学视觉语言模型。最值得关注的是《Mask to Concept》提出的高效测试时概念嵌入搜索，以及《Fully Automated High-Precision Segmentation》中OCT视网膜萎缩全自动分割方法。建议优先精读第一篇以掌握可提示分割前沿，再结合速读中的医疗工具提升实际应用能力。
+- 详情：[/202607/01/README](/202607/01/README)
 
 ### 精读区论文标签
-1. [Cross-Modal Iteration Distillation for Robust IHD Screening: The IDNet Framework and A New Benchmark](/202606/30/2606.30027v1-cross-modal-iteration-distillation-for-robust-ihd-screening-the-idnet-framework-and-a-new-benchmark)  
+1. [Mask to Concept: Auto-Promptable SAM3 via Efficient Test-Time Concept Embedding Search for Few-Shot Annotation](/202607/01/2606.26711v2-mask-to-concept-auto-promptable-sam3-via-efficient-test-time-concept-embedding-search-for-few-shot-annotation)  
    标签：评分：8.0/10、query:fundus-mc
-   evidence：使用深度学习分析眼底图像进行疾病筛查
+   evidence：医学图像少样本标注框架；可适配于眼科疾病分类。
 
 ### 速读区论文标签
-1. [Rethinking Prototype-based Similarity Learning for Few-Shot Object Detection](/202606/30/2606.23069v2-rethinking-prototype-based-similarity-learning-for-few-shot-object-detection)  
+1. [Fully Automated High-Precision Segmentation of Retinal Atrophy and Ellipsoid Zone Thickness in OCT: A Reliable Tool for Real-World GA Monitoring](/202607/01/2606.31502v1-fully-automated-high-precision-segmentation-of-retinal-atrophy-and-ellipsoid-zone-thickness-in-oct-a-reliable-tool-for-real-world-ga-monitoring)  
    标签：评分：7.0/10、query:fundus-mc
-   evidence：少样本目标检测方法，可迁移至医学图像分类
-2. [CADRE: Stable, Parameter Efficient Adaptation of Medical Vision Language Models with Bounded Forgetting and Prior Drift](/202606/30/2606.23487v1-cadre-stable-parameter-efficient-adaptation-of-medical-vision-language-models-with-bounded-forgetting-and-prior-drift)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：参数高效适应医学视觉语言模型，支持少样本学习
-3. [DCSNet: Multiscale Feature Aggregation for Small Medical Object Segmentation with Detection-guided Hierarchical Cropping](/202606/30/2606.28402v1-dcsnet-multiscale-feature-aggregation-for-small-medical-object-segmentation-with-detection-guided-hierarchical-cropping)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：用于医学图像分割的深度学习，可应用于眼底图像分析
-4. [MedDiffuseMix: Preserving Diagnostic Evidence with Saliency-Aware Diffusion Medical Image Data Augmentatio](/202606/30/2606.28419v1-meddiffusemix-preserving-diagnostic-evidence-with-saliency-aware-diffusion-medical-image-data-augmentatio)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：用于医学图像分类的数据增强，可应用于眼底
-5. [CLEAR-MoE: Shared-Basis Expert Extraction from Frozen Vision Transformers via Calibration-Driven Layer Selection](/202606/30/2606.28516v1-clear-moe-shared-basis-expert-extraction-from-frozen-vision-transformers-via-calibration-driven-layer-selection)  
+   evidence：OCT视网膜萎缩分割；深度学习眼底分析
+2. [Aloe-Vision: Robust Vision-Language Models for Healthcare](/202607/01/2606.27500v1-aloe-vision-robust-vision-language-models-for-healthcare)  
+   标签：评分：6.0/10、query:retina-agent
+   evidence：医疗视觉语言模型，可用于眼底病诊断
+3. [APRIL-MedSeg: A Modular Medical Image Segmentation Toolbox Embracing Modern Paradigms](/202607/01/2606.30577v2-april-medseg-a-modular-medical-image-segmentation-toolbox-embracing-modern-paradigms)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：将冻结ViT转换为MoE，适用于眼底图像深度学习
-6. [PSP: Harnessing Position and Shape Priors for Cross-Domain Few-Shot Medical Image Segmentation](/202606/30/2606.28799v1-psp-harnessing-position-and-shape-priors-for-cross-domain-few-shot-medical-image-segmentation)  
+   evidence：医学图像分割深度学习工具箱
+4. [GRAPE: Graph-Augmented Prototype Explanations for Interactive Medical Image Diagnosis](/202607/01/2606.30901v1-grape-graph-augmented-prototype-explanations-for-interactive-medical-image-diagnosis)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：针对跨域少样本医学图像分割问题
+   evidence：基于原型的医学图像分类器，带有图注意力；可应用于视网膜疾病分类。
 
 
 <div class="dpr-home-promo-card">
