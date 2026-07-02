@@ -1,0 +1,329 @@
+Title: AEGIS: A Multi-Task Joint-Embedding Predictive Architecture for Mammography
+
+URL Source: https://arxiv.org/pdf/2607.00277v1
+
+Published Time: Thu, 02 Jul 2026 00:24:16 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# AEGIS: A Multi-Task Joint-Embedding Predictive Architecture for Mammography 
+
+Scott Chase Waggener, Sai Karthik Navuluru, and Lakshman Tamil 
+
+Department of Electrical and Computer Engineering University of Texas at Dallas 
+
+Richardson, TX scott.waggener@utdallas.edu; SaiKarthik.Navuluru@UTDallas.edu; laxman@utdallas.edu 
+
+Abstract —We present Aegis, a joint-embedding predictive architecture for breast cancer detection and density assessment in mammography. We train three Vision Transformer variants (Small/Base/Large) using self-supervised joint-embedding predic-tive architecture (JEPA) pre-training on 71,103 studies from 14 clinical sites, followed by supervised fine-tuning with progressive resolution scaling up to 2048 ×1536. On a curated 785-study test set, our largest model achieves area under the receiver operating characteristic curve (AUC) 0.949 for breast cancer triage with 93% sensitivity and 75% specificity at the optimal operating point. An ensemble combining our model with a U.S. Food and Drug Administration-cleared baseline further improves discrimi-nation to 0.952 AUC. For breast density classification, the model achieves 0.953 AUC for binary (dense vs. non-dense) classification and 62.6% exact accuracy across four Breast Imaging Reporting and Data System (BI-RADS) categories, with 98.8% adjacent accuracy comparable to reported human inter-reader agreement. External validation on the public VinDr-Mammo dataset provides evidence of cross-population transfer under a different reference standard, with the largest model achieving 0.871 AUC for triage in a zero-shot setting. 
+
+Index Terms —Deep Learning, Computer Vision, Self-Supervised Learning, JEPA, mammography. 
+
+I. I NTRODUCTION 
+
+Breast cancer remains one of the most prevalent and deadly malignancies worldwide, posing a significant public health challenge. In 2022, approximately 2.3 million women were diagnosed with breast cancer globally, resulting in an estimated 670,000 deaths [1]. This disease disproportionately affects women in lower-resource settings, where access to early detection and treatment is limited, leading to higher mortality rates; notably, the World Health Organization (WHO) reports that approximately 80% of breast cancers occur in women with no specific risk factors other than sex and age [2], underscoring the limits of risk-factor-based prevention alone. Incidence rates vary by region and socioeconomic develop-ment, with projections indicating a 38% increase in cases and a 68% rise in deaths by 2050 if current trends persist [3]. The harm extends beyond mortality, encompassing treatment-related complications and long-term survivorship burdens for patients, families, and healthcare systems. Artificial intelligence (AI) offers a promising path to address these challenges by augmenting radiologist capabilities in breast cancer screening. Recent studies have demonstrated that AI systems can improve cancer detection rates while reducing false positives in clinical mammography workflows. AI also enables automated breast density assessment and risk stratification, tasks traditionally subject to substantial inter-reader variability among radiologists. Section II reviews prior work on AI for mammography and the self-supervised learning methods that motivate our approach. Joint-Embedding Predictive Architecture (JEPA) represents an advanced self-supervised learning paradigm designed to learn semantic representations from data without relying on hand-crafted augmentations or generative reconstruction. In the image-based JEPA (I-JEPA) variant [4], the model predicts latent representations of target image blocks from a context encoder, promoting abstract, predictive understanding of visual structures while avoiding pitfalls like collapsed representations common in contrastive methods. In this paper, we leverage JEPA-pretrained vision transformers to advance performance in breast cancer triage, breast density assessment, and lesion detection, demonstrating their efficacy on a large-scale mam-mographic dataset. Our main contributions are:  
+
+> •
+
+A JEPA-based architecture adapted for mammography with CLS tokens for global classification and multi-task heads for triage, detection, and density assessment  
+
+> •
+
+Demonstration that JEPA pre-training enables training Vision Transformers from scratch on a moderately-sized mammography dataset, achieving performance compara-ble to data-efficient convolutional neural network archi-tectures without requiring ImageNet pre-training  
+
+> •
+
+Comprehensive evaluation on a curated test set with biopsy-confirmed ground truth, including density assess-ment contextualized against human inter-reader agree-ment, and external validation on the public VinDr-Mammo benchmark under a different reference standard II. R ELATED WORK 
+
+A. Self-Supervised Learning in Computer Vision 
+
+Self-supervised learning has emerged as a powerful paradigm for learning visual representations without manual annotation. Contrastive methods such as SimCLR [5] and MoCo [6] learn invariances by aligning augmented views while using negative examples or queues; non-contrastive bootstrap methods such as BYOL [7] instead use online and 
+
+> arXiv:2607.00277v1 [cs.CV] 30 Jun 2026
+
+target networks to predict representations across augmented views without negative pairs. While effective, these approaches depend heavily on carefully designed augmentation strategies, which may not transfer well to medical imaging domains where standard augmentations (color jittering, aggressive crop-ping) can destroy clinically relevant information. Masked prediction approaches offer an alternative by re-constructing masked portions of the input. Masked Autoen-coders (MAE) [8] reconstruct pixel values of masked patches, BEiT [9] predicts discrete visual tokens from a discrete-VAE tokenizer/codebook, and iBOT [10] performs masked patch-token self-distillation with an online tokenizer. These methods learn strong representations, but BEiT-style codebook supervi-sion can require a pretrained in-domain tokenizer, while pixel or token reconstruction can emphasize low-level content rather than higher-level semantic features important for classification tasks. Joint-embedding methods avoid explicit reconstruction by predicting in a learned latent space. DINO [11] and DI-NOv2 [12] use self-distillation with a momentum teacher to learn semantic features that emerge without explicit su-pervision. I-JEPA [4] extends this approach by predicting latent representations of target patches from context, avoid-ing both augmentation dependence and pixel-level recon-struction. V-JEPA [13] demonstrates that this predictive ar-chitecture scales effectively to video understanding, while LeJEPA [14] proposes a theoretically grounded JEPA ob-jective with Sketched Isotropic Gaussian Regularization and removes several common implementation heuristics, includ-ing stop-gradient, teacher-student updates, and hyperparam-eter schedulers. Our work builds on I-JEPA, adapting the joint-embedding predictive framework for mammography with domain-specific modifications including CLS tokens for global classification and multi-task supervised probes. 
+
+B. Vision Transformers for Medical Imaging 
+
+The Vision Transformer (ViT) [15] has demonstrated strong performance on natural image benchmarks but historically re-quired large-scale pre-training datasets. Data-efficient training strategies have addressed this limitation: DeiT [16] introduced knowledge distillation from convolutional neural network (CNN) teachers, while Compact Transformers [17] proposed architectural modifications for smaller datasets. For medical imaging specifically, self-supervised pre-training provides an effective path to leverage abundant unlabeled clinical data [18]. Architectural improvements have enhanced ViT reliability. Register tokens [19] address attention artifacts that appear in deeper networks, improving feature quality for downstream tasks. We incorporate these advances alongside modern trans-former components: RoPE and SwiGLU from DINOv3 [20], and RMSNorm [21] for normalization, adapting them for high-resolution mammographic images with progressive resolution scaling. Despite these architectural advances, applying vision trans-formers to full-field digital mammography presents compu-tational challenges. Standard ViTs exhibit quadratic attention complexity with respect to sequence length; a 2048 × 1536 
+
+mammogram produces over 12,000 patches at 16 × 16 resolu-tion, making direct processing prohibitive. Consequently, most ViT-based mammography studies have relied on downsampled images [22], hierarchical architectures with windowed atten-tion such as the Swin Transformer [23], or hybrid CNN-ViT designs that extract features at multiple scales [24]. Our approach addresses these constraints through progres-sive resolution scaling during both pre-training ( 256 × 192 →
+
+512 × 384 ) and fine-tuning ( 512 × 384 → 1024 × 768 →
+
+2048 × 1536 ), enabling the model to learn representations at increasing fidelity while maintaining tractable training costs. RoPE positional encoding further enables generalization to unseen resolutions without architectural modifications. 
+
+C. AI Systems for Mammography 
+
+Deep learning has shown substantial promise for breast cancer screening. McKinney et al. [25] demonstrated that a CNN-based system could match or exceed radiologist perfor-mance on screening mammography, reducing false positives and false negatives across US and UK populations. Subsequent real-world deployment studies have validated these findings at scale: Eisemann et al. [26] reported that AI-assisted screening improved cancer detection rates by 17% in a nationwide German implementation. AI systems increasingly address multiple mammography tasks beyond cancer detection. Automated breast density as-sessment provides consistent evaluations that support risk-stratified screening protocols [27], addressing the substantial inter-reader variability observed among radiologists [28]. Risk prediction models integrate imaging features with clinical data to identify high-risk individuals years before diagnosis [29]. Public benchmarks such as VinDr-Mammo [30] enable stan-dardized evaluation across research groups. Our work differs from prior approaches by combining self-supervised JEPA pre-training with multi-task fine-tuning, si-multaneously addressing triage, detection, and density assess-ment within a unified architecture. This multi-task formulation enables shared representation learning across complementary clinical tasks while providing multiple outputs relevant to clinical workflow. III. M ETHODS 
+
+a) Architecture: A standard Vision Transformer (ViT) [15] is adopted as the backbone model and modernized to more closely resemble the design used by DINOv3 [20]. Notably, we adopt rotary position encoding (RoPE) [31] as used by DINOv3, incorporate SwiGLU [32] as the activation function and RMSNorm [21] as the normalization layer, and include learnable register tokens [19]. We model our JEPA after I-JEPA [4] and incorporate several modifications used by CAPI [33] and DINOv3 [20]. Our JEPA predictor is a cross-attention module (without self-attention) that shares hyperparameters (hidden size, activation, etc.) with the backbone. Target queries are initialized using learnable positional embeddings. Context and target masks are generated using a constant fraction of non-overlapping tokens in contiguous blocks with a parameterized scale. When scaling resolution later in training the scale of the contiguous blocks is increased according to the resolution scaling factor. Gram anchoring is applied to the student’s output embeddings to improve dense feature quality. In a departure from I-JEPA, we introduce CLS tokens to the backbone with the aim of learning strong global repre-sentations. To train these tokens a second forward pass of the predictor is performed using the CLS tokens as context in place of the visual tokens. A SigREG loss [14] is applied to the student’s output CLS tokens to increase their suitability for downstream probing tasks. To fine-tune the model for downstream tasks we adopt distinct heads for triage, detection, and density estimation tasks. Triage and density estimation use binary classification heads, with density labels being mapped from categorical values to the range [0 , 1] according to: Density =
+
+
+
+0.0 if BI-RADS = A
+
+0.33 if BI-RADS = B
+
+0.66 if BI-RADS = C
+
+1.0 if BI-RADS = D
+
+(1) Detection is achieved in a similar fashion to CenterNet [34], wherein bounding boxes are mapped to Gaussian splats cen-tered within the bounding box. Since Aegis is not intended to output bounding boxes, we forego the use of a separate detection head regressing the bounding box coordinates and focus exclusively on heatmap prediction. 
+
+b) Training: We train three model variants: ViT-Small/16, ViT-Base/16, and ViT-Large/16, following a two-stage training protocol. Pre-training consists of 375 epochs combining the JEPA self-supervised objective with supervised auxiliary probes for triage, detection, density, view classifica-tion, and implant detection. The view classification, implant detection, and tissue segmentation heads serve as auxiliary training objectives that improve representation learning; these outputs are not evaluated as clinical endpoints since view and implant information is typically available in DICOM metadata, and tissue segmentation has limited standalone clinical utility. Training uses progressive resolution scheduling, starting at 256 ×192 and increasing to 512 ×384 for the final 75 epochs. Fine-tuning continues for 45 epochs, adding tissue segmenta-tion and risk prediction heads while progressively increasing resolution through three stages: 512 ×384, 1024 ×768, and finally 2048 ×1536. As resolution increases, batch size must decrease to avoid out-of-memory errors; we apply a propor-tionate increase in gradient accumulation steps to maintain a constant effective batch size. All training was performed on 2× NVIDIA RTX5090 GPUs using distributed data parallel. 
+
+c) Data: Aegis is trained and evaluated on partitions of the MedCognetics proprietary mammography database. The database is partitioned into pretrain, train, development, and test sets. The pretrain set (71,103 studies, 31,110 patients, 14 clinical sites) is used for self-supervised JEPA pretraining                         
+
+> Partition Clinical Sites Patients Studies Images Pretrain 14 31,110 71,103 307,932 Train 13 29,611 68,721 243,315 Dev 21,584 2,107 12,509 Test 12 2,262 2,262 18,096 TABLE I SUMMARY OF DATA PARTITIONS SHOWING THE NUMBER OF CLINICAL SITES ,PATIENTS ,STUDIES ,AND IMAGES IN EACH PARTITION . N OTE :PRETRAIN IS A SUPERSET CONTAINING ALL TRAIN DATA .
+
+and is a superset containing the train partition. The train partition (68,721 studies, 29,611 patients) is a labeled subset of the pretrain set used for supervised fine-tuning, with 20,041 studies containing malignancy annotations. We withhold 12 clinical sites for testing and 2 clinical sites for validation. An overview of the data partitions is shown in Figure 3 and Table I. Reference standard for test data was established by biopsy confirmation for malignant studies or two year stability for benign studies. Breast density ground truth was provided by a single Mammography Quality Standards Act (MQSA)-certified mammographer. 
+
+d) External Validation Dataset: We evaluate external generalization on VinDr-Mammo [30], a publicly available dataset of 5,000 full-field digital mammography (FFDM) exams acquired from a hospital in Vietnam. VinDr-Mammo exams were independently double-read by experienced radi-ologists, with discordant assessments resolved by arbitration from a third radiologist. We use the 1,000-exam test split, clas-sifying studies with adjudicated BI-RADS 4–5 assessments as positive and BI-RADS 1–2 assessments as negative; BI-RADS 3 studies are excluded due to their indeterminate nature, yielding 909 evaluable studies (96 positive, 813 negative). Models are applied in a zero-shot transfer setting: no fine-tuning is performed on VinDr-Mammo data, and classification thresholds determined on the proprietary development set are applied unchanged. Unlike the proprietary test set where ma-lignancy is confirmed by biopsy or two-year stability, VinDr-Mammo ground truth reflects adjudicated radiologist BI-RADS assessments without pathological confirmation, making direct comparison of absolute AUC values inappropriate. 
+
+e) Baseline Model: We compare Aegis against a U.S. Food and Drug Administration-cleared convolutional neural network (CNN) for breast cancer triage. This baseline model outputs only study-level malignancy scores and lacks a detec-tion head. The CNN is excluded from density evaluation as it outputs constant density values. 
+
+f) Evaluation: Quantitative evaluation focuses on breast cancer triage and breast density assessment. Optimal classi-fication thresholds are determined using Youden’s J statis-tic [35] ( J = Sensitivity + Specificity − 1) on the develop-ment set and applied unchanged to the test set. For triage evaluation, we compute three score types: (1) Triage score from the classification head alone, (2) Triage+Detection score averaging triage with max-pooled detection output, and (3) 
+
+Ensemble score combining ViT Triage+Detection with CNN RCC    
+
+> Mammogram
+> Teacher Network
+> RCC
+> Masked Mammogram
+> Augment (noise, MixUp) Mask ( p= 0 .5)
+> Student Network
+> EMA Update
+> RCC
+> Student Features
+> RCC
+> Teacher Features
+> MixUp
+> RCC
+> Selected Teacher Features
+> Subsample
+> p= 0 .25
+> Predictor Network
+> (2× passes: visual + CLS tokens)
+> KV
+> Position Encodings
+> QRCC
+> Predictions
+
+L(x, ˆx)
+
+> Mean Squared Error Loss
+> Fig. 1. JEPA pre-training architecture. A student network processes masked mammograms while a teacher network (updated via EMA) processes the unmasked input. The predictor network uses cross-attention to predict target embeddings from context embeddings, with position encodings as queries.
+
+Triage via simple averaging. The Triage+Detection combi-nation improves discrimination by incorporating lesion-level detection features into the study-level classification. Detection performance is evaluated using study-level AUC from the max-pooled heatmap score rather than localization metrics such as mean average precision (mAP) or intersection-over-union (IoU); this approach reflects clinical practice where the presence of a suspicious finding matters more than precise boundary delineation, and accounts for inherent ambiguity in lesion boundaries where radiologists often disagree on exact extent. All metrics are reported with 95% bootstrap confidence intervals (1000 samples). The curated test set size (N=785) and 50% prevalence were determined via power analysis [36] targeting AUC of 0.95 at significance level 0.05, enriched relative to an annual U.S. female breast cancer incidence rate on the order of 127 cases per 100,000 women (approximately 0.127% per year) [37]. The curated test set consists of studies acquired via digital breast tomosynthesis (DBT); performance is evaluated on the corresponding 2D modality (FFDM or synthesized 2D views). IV. R ESULTS 
+
+We evaluate Aegis across three ViT model scales (Small, Base, Large) and compare against a CNN baseline on breast cancer triage and density classification tasks. All performance metrics are computed using thresholds optimized on the de-velopment set via Youden’s J statistic and applied unchanged to the test set. 
+
+A. Triage Performance 
+
+Table II compares discrimination performance across score types on the development set (N=2095 studies). The detection head alone achieves strong discrimination (ViT-L: 0.905), demonstrating that the max-pooled heatmap score captures meaningful lesion-level information. Combining triage and detection scores (Triage+Detection) improves AUC for all ViT variants, with ViT-L achieving 0.911 (95% CI: 0.891– 0.929). The ensemble combining ViT Triage+Detection with CNN Triage further improves discrimination, achieving AUC of 0.922 for ViT-L. Development set thresholds determined via Youden’s J statistic are applied unchanged to the test set. Table III reports sensitivity and specificity at the optimal operating point for the Triage+Detection score (CNN uses Triage only). Table IV presents AUC comparison across score types on the test set (N=785 DBT studies, evaluated on the corre-sponding 2D modality). The detection score alone achieves AUC of 0.942 for ViT-L, comparable to the triage score (0.945). Combining both scores (Triage+Detection) yields the best single-model performance with AUC of 0.949 (95% CI: 0.927–0.969). The ensemble further improves to 0.952. Table V reports sensitivity and specificity at the optimal operating point for the Triage+Detection score. ViT-L achieves 93.1% sensitivity and 74.7% specificity, outperforming the CNN baseline. DeLong’s test [38] confirms that ViT-L sig-nificantly outperforms the CNN baseline on the Triage score (AUC difference: 0.0203, 95% CI: 0.0037–0.0370, p=0.02). RCC 
+
+Mammogram 
+
+> Self Attention
+> SwiGLU MLP
+
+ViT Backbone 
+
+RCC 
+
+Visual Tokens 
+
+> CLS0
+> CLS1
+> CLS2
+> CLS3
+
+CLS Tokens (4) 
+
+Head 
+
+> Detection Head
+
+Lesion Heatmap 
+
+Head  
+
+> Tissue Head Pectoral Muscle
+> Breast Tissue
+> Background
+
+Head 
+
+> Triage Head
+
+Malignancy 
+
+> CLS0
+
+Head  
+
+> View Head MLO
+> CC
+> Spot/Mag
+> CLS1
+
+Head 
+
+> Implants Head
+
+Implants Present 
+
+> CLS2
+
+Head 
+
+> Density Head
+
+Density Score 
+
+> CLS3
+
+Fig. 2. Supervised fine-tuning architecture. The pre-trained ViT backbone processes mammograms and outputs a grid of visual tokens along with 4 CLS tokens. Visual tokens are used for dense prediction tasks: cancerous lesion detection and tissue segmentation (3-class categorical: background, breast tissue, pectoral muscle). CLS tokens are used for a specific classification task: CLS0 for triage (binary), CLS1 for multi-class binary view classification (MLO, CC, Spot/Mag), CLS2 for breast implant detection (binary), and CLS3 for breast density estimation (continuous value in [0,1]). TABLE II AUC COMPARISON ACROSS SCORE TYPES ON THE DEVELOPMENT SET . T RIAGE USES THE CLASSIFICATION HEAD ALONE ; D ETECTION USES THE MAX -POOLED HEATMAP SCORE ; T RIAGE +D ETECTION AVERAGES BOTH ; E NSEMBLE COMBINES VIT T RIAGE +D ETECTION WITH CNN T RIAGE . N=2095  
+
+> STUDIES
+
+(626 MALIGNANT , 1469 BENIGN ). 
+
+Model Triage Detection Triage+Det. Ensemble 
+
+ViT-L 0.904 [0.883–0.922] 0.905 [0.884–0.923] 0.911 [0.891–0.929] 0.922 [0.903–0.938] ViT-B 0.879 [0.855–0.901] 0.884 [0.862–0.905] 0.890 [0.867–0.910] 0.917 [0.898–0.934] ViT-S 0.874 [0.852–0.895] 0.872 [0.849–0.893] 0.882 [0.859–0.901] 0.913 [0.895–0.931] CNN Baseline 0.876 [0.852–0.897] — — —
+
+ViT-S and ViT-B do not show statistically significant differ-ences from CNN (p=0.25 and p=0.90, respectively). Figure 5 shows the ROC curves for all models on the test set. 
+
+B. Breast Density Classification 
+
+Aegis provides automated breast density assessment as a secondary output. Table VI compares density classification performance across all ViT model variants. For binary classi-fication (dense vs. non-dense), all models achieve AUC above 0.95, with ViT-L achieving 0.9529 (95% CI: 0.9401–0.9641). For multiclass classification across all four BI-RADS den-sity categories (A/B/C/D), ViT-L achieves an exact accuracy of 0.626 (95% CI: 0.607–0.645) and adjacent accuracy of 0.988 (95% CI: 0.984–0.992). The high adjacent accuracy indicates that when the model misclassifies density, predictions are typically within one category of the ground truth. 
+
+C. External Validation on VinDr-Mammo 
+
+Table VII presents AUC comparison across score types on the VinDr-Mammo external validation set (N=909 studies, 96 positive, 813 negative). All models are applied zero-shot with no VinDr-Mammo training data. ViT-L achieves the highest triage AUC of 0.857 (95% CI: 0.797–0.910). The detection head alone outperforms the triage head for ViT-L (0.877 vs. 0.857), consistent with the pattern observed on the proprietary test set. Model scaling is preserved, with ViT-L consistently outperforming ViT-B and ViT-S across all score types. Table VIII contextualizes these results against published methods evaluated on VinDr-Mammo. Despite operating in a zero-shot setting with no VinDr-Mammo training data, Aegis ViT-L achieves AUC of 0.871 using the Triage+Detection score, competitive with methods that were trained directly on VinDr-Mammo. For breast density assessment on VinDr-Mammo, ViT-L achieves a binary (dense vs. non-dense) AUC of 0.9545 (95% Total Database 
+
+75,472 studies, 34,956 patients 
+
+Test Set 
+
+12 clinical sites 2,262 studies, 2,262 patients 
+
+Development Set 
+
+2 clinical sites 2,107 studies, 1,584 patients 
+
+Pretrain Set 
+
+14 clinical sites 71,103 studies, 31,110 patients 
+
+Curated Test Set 
+
+785 studies 
+
+> Malignant 394 studies
+> Benign 391 studies
+
+Valid Dev Studies 
+
+2,095 studies 
+
+Train Set (Labeled Subset) 
+
+68,721 studies, 29,611 patients 
+
+> With Malignancy
+> 20,041 studies 9,702 patients
+
+Fig. 3. Overview of data partitioning in the MedCognetics mammography database. The pretrain set is used for self-supervised learning and contains the train set as a labeled subset for supervised fine-tuning. Test and development sets are held out from separate clinical sites. The curated test set is sampled to represent a real-world screening population. Valid dev studies exclude incomplete studies (e.g., digital breast tomosynthesis-only modality). TABLE III SENSITIVITY AND SPECIFICITY AT OPTIMAL OPERATING POINTS ON THE DEVELOPMENT SET USING TRIAGE +D ETECTION SCORE (CNN: T RIAGE ONLY ). THRESHOLDS DETERMINED VIA YOUDEN ’S J STATISTIC . N=2095 STUDIES (626 MALIGNANT , 1469 BENIGN ). 
+
+Model Sensitivity [95% CI] Specificity [95% CI] 
+
+ViT-L 82.4% [79.4–85.5] 82.4% [80.3–84.3] ViT-B 79.9% [76.7–82.9] 79.7% [77.5–81.8] ViT-S 79.9% [76.7–82.7] 80.5% [78.4–82.6] CNN Baseline 79.7% [76.5–82.7] 79.9% [77.8–81.8] TABLE IV AUC COMPARISON ACROSS SCORE TYPES ON THE TEST SET . T RIAGE USES THE CLASSIFICATION HEAD ALONE ; D ETECTION USES THE MAX -POOLED HEATMAP SCORE ; T RIAGE +D ETECTION AVERAGES BOTH ; E NSEMBLE COMBINES VIT T RIAGE +D ETECTION WITH CNN T RIAGE . N=785 STUDIES (394 
+
+> MALIGNANT
+
+, 391 BENIGN ). 
+
+Model Triage Detection Triage+Det. Ensemble 
+
+ViT-L 0.945 [0.923–0.966] 0.942 [0.918–0.963] 0.949 [0.927–0.969] 0.952 [0.931–0.969] ViT-B 0.924 [0.898–0.949] 0.927 [0.901–0.951] 0.933 [0.908–0.956] 0.946 [0.924–0.965] ViT-S 0.935 [0.911–0.957] 0.928 [0.904–0.951] 0.939 [0.916–0.960] 0.949 [0.928–0.968] CNN Baseline 0.925 [0.898–0.948] — — —
+
+CI: 0.9268–0.9760) and adjacent accuracy of 0.989 (95% CI: 0.981–0.996), providing evidence that density assessment transfers to this external population. V. D ISCUSSION 
+
+Aegis demonstrates strong performance on breast cancer triage, with the ViT-L variant achieving a triage AUC of 0.945 on the test set (or 0.952 with ensemble). This represents mean-ingful improvement over the CNN baseline while maintaining clinically relevant sensitivity levels above 90%. 
+
+a) Model Scaling: We observe improvements with in-creased model capacity, with ViT-L achieving the highest performance across all metrics. DeLong’s test confirms that only ViT-L achieves statistically significant improvement over the CNN baseline (p=0.02), while ViT-B and ViT-S show numerically higher AUC but do not reach significance (p=0.90 and p=0.25, respectively). This suggests that sufficient model capacity is necessary to fully leverage the self-supervised pre-training protocol for learning discriminative representations from mammographic images. 
+
+b) Ensemble Benefits: The combination of triage and detection heads provides complementary information that im-proves overall discrimination. The ensemble approach achieves the highest AUC (0.952) while improving specificity without sacrificing sensitivity, suggesting that the detection head cap-tures lesion-level features that enhance study-level classifica-Triage ROC Curves 
+
+> True Positive Rate (Sensitivity)
+
+False Positive Rate (1 - Specificity) 
+
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 
+
+> CNN (AUC: 0.8758) ViT-B (AUC: 0.8895) ViT-L (AUC: 0.9108) ViT-S (AUC: 0.8815)
+
+Fig. 4. Receiver operating characteristic (ROC) curves for breast cancer triage (Triage+Detection score; CNN: Triage only) on the development set. Operating points indicate the threshold selected via Youden’s J statistic. TABLE V SENSITIVITY AND SPECIFICITY AT OPTIMAL OPERATING POINTS ON THE TEST SET USING TRIAGE +D ETECTION SCORE (CNN: T RIAGE ONLY ). THRESHOLDS DETERMINED VIA YOUDEN ’S J ON THE DEVELOPMENT SET . N=785 STUDIES (394 MALIGNANT , 391 BENIGN ). 
+
+Model Sensitivity [95% CI] Specificity [95% CI] 
+
+ViT-L 93.1% [90.6–95.7] 74.7% [70.3–79.3] ViT-B 94.7% [92.1–96.7] 64.2% [59.6–69.3] ViT-S 91.9% [89.1–94.4] 73.7% [69.3–77.8] CNN Baseline 86.0% [82.7–89.6] 80.6% [76.5–84.4] 
+
+tion. 
+
+c) Density Assessment: Breast density classification is inherently subjective, with substantial inter-reader variabil-ity among radiologists. In the consecutive-exam analysis by Sprague et al., Table 4 implies four-category exact agreement of 67.4% for exams interpreted by different radiologists and 80.1% for exams interpreted by the same radiologist [28], with non-exact assessments occurring almost exclusively between adjacent categories. Our models achieve 4-class accuracy in the range of reported clinical-assessment agreement while providing deterministic outputs for the same input image. The high adjacent accuracy (0.988) for density classification indicates that the model’s predictions are clinically reasonable even when not exactly correct, as adjacent density categories often have overlapping radiographic features. 
+
+d) External Generalization: External validation on VinDr-Mammo provides evidence that Aegis transfers across substantial domain shifts, including different patient popula-tions (US vs. Vietnam), imaging manufacturers, and acquisi-tion protocols. The AUC reduction from the proprietary test set (ViT-L Triage: 0.945 vs. 0.857) reflects both this domain shift and the difference in ground truth definition: biopsy-confirmed malignancy vs. adjudicated BI-RADS assessment without pathological confirmation. Importantly, the model Triage ROC Curves            
+
+> True Positive Rate (Sensitivity) False Positive Rate (1 - Specificity)
+> 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+> CNN (AUC: 0.9247) ViT-B (AUC: 0.9334) ViT-L (AUC: 0.9487) ViT-S (AUC: 0.9389) Fig. 5. ROC curves for breast cancer triage (Triage+Detection score; CNN: Triage only) on the test set. Operating points indicate the threshold selected via Youden’s J statistic on the development set.
+
+scaling trend is preserved on VinDr-Mammo (ViT-L > ViT-B > ViT-S), suggesting that larger model capacity provides more robust cross-domain representations. Despite operating in a zero-shot setting with no VinDr-Mammo training data, Aegis achieves AUC competitive with published methods that were trained directly on VinDr-Mammo (Table VIII), though direct comparison is limited by differences in evaluation methodology. 
+
+e) Limitations: This study has several limitations. While VinDr-Mammo external validation partially addresses con-cerns about generalizability, that dataset uses adjudicated BI-RADS assessment rather than biopsy-confirmed ground truth; external validation on datasets with pathological confirmation remains needed. The CNN baseline represents a specific architecture and training protocol; comparisons with additional contemporary approaches would provide additional context for these results. 
+
+f) Computational Efficiency: Table IX summarizes in-ference performance across hardware platforms for a typical study (batch of 4 mammogram images at 2048 ×1536 reso-lution). Models were exported using PyTorch’s AOTInductor compiler to produce native shared libraries, which are loaded through a C++ bridge into a Rust application for inference. This approach eliminates Python runtime dependencies and enables deployment as a single portable binary. ROCm bench-marks utilize experimental Triton kernels for flash attention, available as of PyTorch 2.9.1. The CNN baseline achieves the lowest latency on all platforms due to its simpler convolutional architecture; ROCm results are unavailable as no export exists for this model. Among ViT models, latency scales approx-imately linearly with parameter count, with ViT-L requiring roughly twice the inference time of ViT-S. CUDA acceleration provides 44–156 × speedup over CPU for ViT models, mak-ing GPU deployment essential for practical throughput. CPU inference remains viable only for the CNN model ( ∼1.3 s per study) or in resource-constrained environments where longer latency is acceptable. All models fit comfortably within consumer GPU memory (24 GB), enabling deployment on widely available hardware. These results highlight a practical trade-off: ViT-L offers the highest diagnostic accuracy at approximately twice the latency and memory cost of ViT-S, allowing deployment decisions to balance accuracy require-TABLE VI BREAST DENSITY CLASSIFICATION PERFORMANCE COMPARISON ACROSS VIT MODEL VARIANTS ON THE TEST SET , WITH PUBLISHED HUMAN CLINICAL -ASSESSMENT AGREEMENT SHOWN FOR CONTEXT . B INARY CLASSIFICATION DISTINGUISHES DENSE (C/D) FROM NON -DENSE (A/B) TISSUE .MULTICLASS ACCURACY IS EXACT MATCH ACROSS ALL FOUR BI-RADS CATEGORIES ; ADJACENT ACCURACY ALLOWS OFF -BY -ONE ERRORS .
+
+Model Binary AUC [95% CI] 4-Class Acc./Agree. Adjacent Acc./Agree. 
+
+ViT-L 0.9529 [0.9401–0.9641] 0.626 [0.607–0.645] 0.988 [0.984–0.992] ViT-B 0.9524 [0.9394–0.9635] 0.621 [0.602–0.639] 0.987 [0.982–0.991] ViT-S 0.9526 [0.9401–0.9641] 0.605 [0.586–0.624] 0.987 [0.983–0.991] Human † — 0.67–0.80 >0.99 
+
+> †
+
+Derived from Table 4 of Sprague et al. [28]; range is exact four-category agreement for consecutive exams interpreted by different radiologists (0.67) versus the same radiologist (0.80), not a confidence interval. Not directly comparable to model accuracy. TABLE VII AUC COMPARISON ACROSS SCORE TYPES ON THE VIN DR-M AMMO EXTERNAL VALIDATION SET (ZERO -SHOT , NO VIN DR TRAINING DATA ). T RIAGE USES THE CLASSIFICATION HEAD ALONE ; D ETECTION USES THE MAX -POOLED HEATMAP SCORE ; T RIAGE +D ETECTION AVERAGES BOTH ; E NSEMBLE COMBINES VIT T RIAGE +D ETECTION WITH CNN T RIAGE . N=909 STUDIES (96 POSITIVE , 813 NEGATIVE ). G ROUND TRUTH IS ADJUDICATED BI-RADS  
+
+> ASSESSMENT
+
+(4–5 VS . 1–2), NOT BIOPSY -CONFIRMED .
+
+Model Triage Detection Triage+Det. Ensemble 
+
+ViT-L 0.857 [0.797–0.910] 0.877 [0.820–0.925] 0.871 [0.813–0.922] 0.871 [0.818–0.918] ViT-B 0.829 [0.764–0.889] 0.859 [0.797–0.913] 0.851 [0.788–0.906] 0.865 [0.807–0.915] ViT-S 0.836 [0.768–0.896] 0.849 [0.783–0.906] 0.844 [0.778–0.904] 0.849 [0.784–0.906] CNN Baseline 0.814 [0.746–0.879] — — —TABLE VIII COMPARISON WITH PUBLISHED METHODS ON VIN DR-M AMMO . D IRECT COMPARISON IS LIMITED BY DIFFERENCES IN POSITIVE CLASS DEFINITION , 
+
+> EVALUATION LEVEL
+
+(IMAGE /BREAST /STUDY ), AND TRAINING DATA . CV = CROSS -VALIDATION ON VIN DR-M AMMO ; Z ERO -SHOT = NO VIN DR-M AMMO TRAINING DATA , THRESHOLDS FROM PROPRIETARY DEVELOPMENT SET . G ROUND TRUTH IS ADJUDICATED BI-RADS ASSESSMENT , NOT BIOPSY -CONFIRMED .
+
+Method AUC Training Data Notes 
+
+ConvNeXt-Base PBC [39] 0.851 VinDr train Image-level; BI-RADS 3–5 vs. 1–2 MamT 4 [40] 0.840 VinDr Study-level; BI-RADS 4–5 vs. 1–2 Dual-view [41] 0.830 VinDr (CV) Breast-level; BI-RADS ≥2 vs. 1 AUCReshaping [42] 0.770 VinDr Image-level; BI-RADS 4–5 vs. 1–2–3 Aegis ViT-L (T+D) 0.871 Zero-shot Study-level; BI-RADS 4–5 vs. 1–2 Aegis ViT-B (T+D) 0.851 Zero-shot Study-level; BI-RADS 4–5 vs. 1–2 Aegis ViT-S (T+D) 0.844 Zero-shot Study-level; BI-RADS 4–5 vs. 1–2 CNN Baseline 0.814 Zero-shot Study-level; BI-RADS 4–5 vs. 1–2 
+
+ments against computational constraints. 
+
+g) Future Work: Several research directions could ex-tend this work. While VinDr-Mammo external validation sup-ports cross-population transfer, evaluation on additional public datasets (e.g., INbreast) with biopsy-confirmed ground truth would further strengthen these claims. Synthetic mammog-raphy data such as T-SYNTH [43] could augment training for rare lesion types and enable controlled evaluation studies. Direct processing of 3D digital breast tomosynthesis volumes may improve detection of lesions obscured by overlapping tissue in 2D projections. Model predictions could be lever-aged for auto-annotation to refine dataset quality through pseudo-labeling and systematic identification of potential la-beling errors. Extended capabilities including breast arterial calcification analysis and integration of clinical risk factors could provide additional clinical value. Incorporating prior examinations through longitudinal modeling would capture temporal changes for improved risk prediction. Uncertainty quantification via Bayesian methods or conformal prediction would provide calibrated confidence estimates for clinical decision support. Finally, prospective clinical validation stud-ies measuring real-world impact on radiologist workflow and patient outcomes remain essential for deployment. ACKNOWLEDGMENT 
+
+This research was, in part, funded by the National Institutes of Health (NIH) Agreement No. 1OT2OD032581. The views and conclusions contained in this document are those of the authors and should not be interpreted as representing the official policies, either expressed or implied, of the NIH. Chase Waggener thanks Jay Patel for his mentorship during the AIM-AHEAD Research Fellowship, during which much of the foundational work for this project was developed, and Rohan Senthilkumar for his assistance with annotation of training data. TABLE IX INFERENCE BENCHMARKS FOR A BATCH OF 4 MAMMOGRAM IMAGES AT 2048 ×1536 RESOLUTION USING AOTI NDUCTOR -COMPILED MODELS . CUDA: RTX 3090 (CUDA 12.6); CPU: T HREADRIPPER 3960X; ROC M: R ADEON PRO W7800 (ROC M 6.4). P YTORCH 2.9.1. 
+
+Model Parameters CUDA Latency CUDA Memory CPU Latency ROCm Latency 
+
+ViT-L 403M 640 ms 2565 MB 100 s 2781 ms ViT-B 114M 415 ms 1287 MB 38 s 1842 ms ViT-S 29M 340 ms 785 MB 15 s 1385 ms CNN 79M 319 ms 1007 MB 1.3 s —
+
+REFERENCES [1] F. Bray, M. Laversanne, H. Sung, J. Ferlay, R. L. Siegel, I. Soer-jomataram, and A. Jemal, “Global cancer statistics 2022: Globocan estimates of incidence and mortality worldwide for 36 cancers in 185 countries,” CA: A Cancer Journal for Clinicians , vol. 74, no. 3, pp. 229–263, 2024. [2] W. H. Organization, “Breast cancer,” Fact sheet, April 2026, available from: https://www.who.int/news-room/fact-sheets/detail/breast-cancer. [3] J. Kim, A. Harper, V. McCormack, H. Sung, N. Houssami, E. Morgan, M. M. Fidler-Benaoudia, I. Soerjomataram, and F. Bray, “Global patterns and trends in breast cancer incidence and mortality across 185 countries,” Nature Medicine , February 2025. [Online]. Available: https://www.nature.com/articles/s41591-025-03502-3 [4] M. Assran, Q. Duval, I. Misra, P. Bojanowski, P. Vincent, M. Rabbat, Y. LeCun, and N. Ballas, “Self-supervised learning from images with a joint-embedding predictive architecture,” 2023. [5] T. Chen, S. Kornblith, M. Norouzi, and G. Hinton, “A simple framework for contrastive learning of visual representations,” 2020. [6] K. He, H. Fan, Y. Wu, S. Xie, and R. Girshick, “Momentum contrast for unsupervised visual representation learning,” 2019. [7] J.-B. Grill, F. Strub, F. Altch´ e, C. Tallec, P. Richemond, E. Buchatskaya, C. Doersch, B. A. Pires, Z. Guo, M. G. Azar, B. Piot, K. Kavukcuoglu, R. Munos, and M. Valko, “Bootstrap your own latent: A new approach to self-supervised learning,” 2020. [8] K. He, X. Chen, S. Xie, Y. Li, P. Doll´ ar, and R. Girshick, “Masked autoencoders are scalable vision learners,” 2021. [9] H. Bao, L. Dong, S. Piao, and F. Wei, “Beit: Bert pre-training of image transformers,” 2021. [10] J. Zhou, C. Wei, H. Wang, W. Shen, C. Xie, A. Yuille, and T. Kong, “ibot: Image bert pre-training with online tokenizer,” 2021. [11] M. Caron, H. Touvron, I. Misra, H. J´ egou, J. Mairal, P. Bojanowski, and A. Joulin, “Emerging properties in self-supervised vision transformers,” 2021. [12] M. Oquab, T. Darcet, T. Moutakanni, H. Vo, M. Szafraniec, V. Khalidov, P. Fernandez, D. Haziza, F. Massa, A. El-Nouby, M. Assran, N. Ballas, W. Galuba, R. Howes, P.-Y. Huang, S.-W. Li, I. Misra, M. Rabbat, V. Sharma, G. Synnaeve, H. Xu, H. Jegou, J. Mairal, P. Labatut, A. Joulin, and P. Bojanowski, “Dinov2: Learning robust visual features without supervision,” 2023. [13] A. Bardes, Q. Garrido, J. Ponce, X. Chen, M. Rabbat, Y. LeCun, M. Assran, and N. Ballas, “Revisiting feature prediction for learning visual representations from video,” 2024. [14] R. Balestriero and Y. LeCun, “Lejepa: Provable and scalable self-supervised learning without the heuristics,” 2025. [Online]. Available: https://arxiv.org/abs/2511.08544 [15] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby, “An image is worth 16x16 words: Transformers for image recognition at scale,” 2021. [Online]. Available: https://arxiv.org/abs/2010.11929 [16] H. Touvron, M. Cord, M. Douze, F. Massa, A. Sablayrolles, and H. J´ egou, “Training data-efficient image transformers & distillation through attention,” 2021. [Online]. Available: https://arxiv.org/abs/2012. 12877 [17] A. Hassani, S. Walton, N. Shah, A. Abuduweili, J. Li, and H. Shi, “Escaping the big data paradigm with compact transformers,” 2022. [Online]. Available: https://arxiv.org/abs/2104.05704 [18] F. Shamshad, S. Khan, S. W. Zamir, M. H. Khan, M. Hayat, F. S. Khan, and H. Fu, “Transformers in medical imaging: A survey,” Medical Image Analysis , vol. 88, p. 102802, 2023. [19] T. Darcet, M. Oquab, J. Mairal, and P. Bojanowski, “Vision transformers need registers,” 2024. [Online]. Available: https://arxiv.org/abs/2309. 16588 [20] O. Sim´ eoni, H. V. Vo, M. Seitzer, F. Baldassarre, M. Oquab, C. Jose, V. Khalidov, M. Szafraniec, S. Yi, M. Ramamonjisoa, F. Massa, D. Haziza, L. Wehrstedt, J. Wang, T. Darcet, T. Moutakanni, L. Sentana, C. Roberts, A. Vedaldi, J. Tolan, J. Brandt, C. Couprie, J. Mairal, H. J´ egou, P. Labatut, and P. Bojanowski, “DINOv3,” 2025. [Online]. Available: https://arxiv.org/abs/2508.10104 [21] B. Zhang and R. Sennrich, “Root mean square layer normalization,” 2019. [Online]. Available: https://arxiv.org/abs/1910.07467 [22] G. Ayana, K. Dese, and S.-w. Choe, “Vision-transformer-based transfer learning for mammogram classification,” Diagnostics , vol. 13, no. 2, p. 178, 2023. [23] I. Kassis, D. Lederman, G. Ben-Arie, M. Giladi Rosenthal, I. Shelef, and Y. Zigel, “Detection of breast cancer in digital breast tomosynthesis with vision transformers,” Scientific Reports , vol. 14, p. 22149, 2024. [24] Y. Kashiwada, E. Takaya, M. Hiroya, N. Matsuda, T. Yashima, T. Kobayashi, G. Tamiya, and T. Ueda, “Applying vision transformer to assess multi-scale morphological features in mammography for breast cancer detection: multiscale image morphological extraction vision transformer (MIME-ViT),” PeerJ Computer Science , vol. 11, p. e3252, 2025. [25] S. M. McKinney, M. Sieniek, V. Godbole, J. Godwin, N. Antropova, H. Ashrafian, T. Back, M. Chesus, G. S. Corrado, A. Darzi et al. ,“International evaluation of an AI system for breast cancer screening,” 
+
+Nature , vol. 577, no. 7788, pp. 89–94, 2020. [26] N. Eisemann, S. Bunk, T. Mukama, H. Baltus, S. A. Elsner, T. Gomille, G. Hecht, S. Heywang-K”obrunner, R. Rathmann, K. Siegmann-Luz, T. T”ollner, T. Werner Vomweg, C. Leibig, and A. Katalinic, “Nation-wide real-world implementation of AI for cancer detection in population-based mammography screening,” Nature Medicine , vol. 31, pp. 917–924, 2025. [27] A. Arieno, A. Chan, and S. V. Destounis, “A review of the role of augmented intelligence in breast imaging: From automated breast density assessment to risk stratification,” American Journal of Roentgenology , vol. 212, no. 2, pp. 259–270, 2019, pMID: 30422711. [Online]. Available: https://doi.org/10.2214/AJR.18.20391 [28] B. L. Sprague, E. F. Conant, T. Onega, M. P. Garcia, E. F. Beaber, S. D. Herschorn, C. D. Lehman, A. N. A. Tosteson, R. Lacson, M. D. Schnall, D. Kontos, J. S. Haas, D. L. Weaver, W. E. Barlow, and PROSPR Consortium, “Variation in mammographic breast density assessments among radiologists in clinical practice: a multicenter observational study,” Annals of Internal Medicine , vol. 165, no. 7, pp. 457–464, 2016. [29] D. Kontos and J. Kalpathy-Cramer, “Breast cancer risk assessment in the ai era: The importance of model validation in ethnically diverse cohorts,” Radiology: Artificial Intelligence , vol. 5, no. 6, p. e230462, 2023. [Online]. Available: https://doi.org/10.1148/ryai.230462 [30] H. T. Nguyen, H. Q. Nguyen, H. H. Pham, K. Lam, L. T. Le, M. Dao, and V. Vu, “Vindr-mammo: A large-scale benchmark dataset for computer-aided diagnosis in full-field digital mammography,” Scientific Data ,vol. 10, p. 277, 2023. [31] J. Su, M. Ahmed, Y. Lu, S. Pan, W. Bo, and Y. Liu, “Roformer: Enhanced transformer with rotary position embedding,” 
+
+Neurocomputing , vol. 568, p. 127063, 2024. [Online]. Available: https://www.sciencedirect.com/science/article/pii/S0925231223011864 [32] N. Shazeer, “Glu variants improve transformer,” 2020. [Online]. Available: https://arxiv.org/abs/2002.05202 [33] T. Darcet, F. Baldassarre, M. Oquab, J. Mairal, and P. Bojanowski, “Cluster and predict latent patches for improved masked image mod-eling,” 2025. [34] X. Zhou, D. Wang, and P. Kr¨ ahenb¨ uhl, “Objects as points,” in arXiv preprint arXiv:1904.07850 , 2019. [35] W. J. Youden, “Index for rating diagnostic tests,” Cancer , vol. 3, no. 1, pp. 32–35, 1950. [36] N. A. Obuchowski, M. L. Lieber, and F. H. Wians, “ROC curves in clinical chemistry: uses, misuses, and possible solutions,” Clinical Chemistry , vol. 50, no. 7, pp. 1118–1125, 2004. [37] U.S. Centers for Disease Control and Prevention, “United states cancer statistics: Data visualizations,” https://gis.cdc.gov/Cancer/USCS/, 2023, accessed: August 2023. [38] E. R. DeLong, D. M. DeLong, and D. L. Clarke-Pearson, “Comparing the areas under two or more correlated receiver operating characteristic curves: a nonparametric approach,” Biometrics , vol. 44, no. 3, pp. 837– 845, 1988. [39] D. G. P. Petrini and H. Y. Kim, “Optimizing breast cancer detection in mammograms: A comprehensive study of transfer learning, resolution reduction, and multi-view classification,” 2025. [40] A. Ibragimov, S. Senotrusova, A. Litvinov, E. Ushakov, E. Karpulevich, and Y. Markin, “MamT 4: Multi-view attention networks for mammog-raphy cancer classification,” in 2024 IEEE 48th Annual Computers, Software, and Applications Conference (COMPSAC) . IEEE, 2024, pp. 1965–1970. [41] S. R. Kebede, F. G. Waldamichael, T. G. Debelee, M. Aleme, W. Bedane, B. Mezgebu, and Z. C. Merga, “Dual view deep learning for en-hanced breast cancer screening using mammography,” Scientific Reports ,vol. 14, p. 3839, 2024. [42] S. Bhat, A. Mansoor, B. Georgescu et al. , “AUCReshaping: improved sensitivity at high-specificity,” Scientific Reports , vol. 13, p. 21097, 2023. [43] C. Wiedeman, A. Sarmakeeva, E. Sizikova, D. Filienko, M. Lago, J. G. Delfino, and A. Badano, “T-synth: A knowledge-based dataset of synthetic breast images,” arXiv preprint arXiv:2507.04038 , 2025.
