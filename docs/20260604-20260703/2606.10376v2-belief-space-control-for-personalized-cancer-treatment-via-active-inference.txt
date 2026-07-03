@@ -1,0 +1,945 @@
+Title: Belief-Space Control for Personalized Cancer Treatment via Active Inference
+
+URL Source: https://arxiv.org/pdf/2606.10376v2
+
+Published Time: Wed, 17 Jun 2026 00:22:21 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# Belief-Space Control for Personalized Cancer Treatment via Active Inference 
+
+Deniz Sargun 
+
+Amazon.com Inc. 
+
+Palo Alto, CA denizsargun@gmail.com 
+
+H. Bugra Tulay 
+
+HP Inc. 
+
+Denver, CO hbugratulay@gmail.com 
+
+C. Emre Koksal 
+
+The Ohio State University 
+
+Columbus, OH koksal.2@osu.edu 
+
+Abstract —Cancer treatment is at the core a sequential decision-making problem with partial observability, latent patient het-erogeneity, and explicit constraints on the budget for medical measurements. Unlike standard Reinforcement Learning (RL) approaches that control state trajectories, cancer treatments permanently modify patients’ transition dynamics, changing how states evolve over time. We model cancer treatment as a belief-space planning problem using active inference, deriving an expected free-energy objective that unifies goal-directed control and information acquisition under measurement budgets without. We implement this framework using real clinical cancer data from the AACR Project GENIE Biopharma Collaborative dataset. Results on clinical data demonstrate a simultaneous patient categorization and high treatment efficacy, under real measurement and treatment constraints. 
+
+Index Terms —active inference, inference as control, free-energy principle, Markov decision process, variational inference, cancer treatment 
+
+I. I NTRODUCTION 
+
+Cancer treatment is a sequential decision-making problem under partial observability, uncertainty and explicit resource constraints. At each stage of therapy, clinicians select treatment actions (e.g., dosing, radiation) and, optionally, diagnostic measurements (e.g., imaging or laboratory tests) in order to control disease progression. The underlying patient state, including subjective circumstances such as the quality of life and tumor burden are only partially observed, and high-fidelity measurements are costly, invasive, and available at limited rates. Consequently, treatment decisions must be made under sparse, decision-dependent observations and a strict measurement budget. In addition, the response to treatment depends on latent patient-specific attributes (e.g. genetic, immunological, and physiological factors) that are not known a priori and must be inferred from heterogeneous clinical data. Therefore, effective decision-making requires a policy that simultaneously controls 
+
+disease progression and learns patient-specific dynamics from limited feedback. This induces an exploration-exploitation tradeoff that is tightly coupled to measurement decisions: diagnostic actions improve state inference but consume scarce 
+
+The authors would like to acknowledge the American Association for Cancer Research and its material support in the development of the AACR Project GENIE registry, as well as members of the consortium for their commitment to data sharing. Interpretations are the responsibility of study authors. This work does not relate to the author’s position at Amazon. 
+
+resources, while therapeutic actions affect both the state trajectory and the information available for future decisions. From a modeling standpoint, cancer treatment differs from classical control problems. In standard optimal control or reinforcement learning formulations, actions influence the instantaneous state while the system dynamics remain mostly fixed. In contrast, oncologic interventions often induce plastic dynamics : treatments permanently alter disease mechanisms and shift long-term equilibria [1]. As a result, the objective is not merely to control a state trajectory, but to shape the evolution of the distribution of the system state over time. Hence, through the actions taken, the objective is to alter the system toward a desired preferred point, while simultaneously keeping the states at a desired distribution along the path, all subject to a measurement budget. In this paper, 1 we first formalize general oncological treat-ment setting as a constrained partially observable Markov decision process (POMDP) in which actions drive the evolution of the belief state over latent patient variables. Treatment and measurement actions induce a controlled evolution of this belief through the predictive posterior, while performance is evaluated by how closely the resulting belief distribution aligns with a clinically preferred distribution. A constraint on cumulative or instantaneous measurements enforces a budget on information acquisition. Solving this POMDP exactly requires belief-state planning with unknown, high-dimensional transition and observation models under decision-dependent missingness, which is intractable with limited clinical data. To address the complexity, we adopt the free energy principle [2], [3] and its operational realization via active inference [4]. Active inference recasts belief updating as variational inference and action selection as the minimization of expected free energy. To that end, it creates an information-theoretic functional that decomposes into terms corresponding to goal alignment (risk), observation uncertainty (ambiguity), and information gain (epistemic value) . This formulation provides a tractable approximation to belief-space planning 
+
+that naturally balances exploitation and exploration, without requiring explicit reward engineering or heuristic exploration strategies. It operates directly on belief distributions, making it 
+
+> 1
+
+An extended version of this paper with additional proofs, derivations, and supplementary material is available on arXiv under the same title. 
+
+> arXiv:2606.10376v2 [cs.AI] 15 Jun 2026
+
+well suited to distributional control under partial observability and measurement constraints. We ground our modeling and evaluation using data from the AACR (American Association for Cancer Research) Project GENIE (Genomics Evidence Neoplasia Information Exchange) Biopharma Collaborative [5], a large-scale clinicogenomic dataset that links genomic profiles with treatment histories, outcomes, and clinical annotations across diverse cancer types. GENIE captures key challenges inherent to oncology decision-making, including substantial patient heterogeneity, sparse and irregular measurements, and decision-dependent missingness, making it well suited for studying personalized treatment under limited feedback. Rather than treating clinical and genomic variables as static covariates, our framework integrates GENIE data sequentially. Genomic and demographic features inform latent patient categories and prior beliefs, while observed treatments and clinical events update posterior beliefs over disease states via variational inference. Since high-fidelity measurements such as molecular profiling or advanced imaging are available only intermittently, our belief-based formulation naturally accommodates measurement constraints and uncertainty. By operating at the level of evolving state distributions rather than point-wise dynamics, the proposed approach aligns with the structure of oncology data and demonstrates considerable increase in life expectancy in clinical data driven simulations. The contributions of this paper are as follows: 
+
+• We formulate cancer treatment as a constrained distributional POMDP with plastic dynamics, emphasizing belief evolution rather than point-wise state control. 
+
+• We develop an active inference framework that approximates belief-space planning via variational inference and expected free-energy minimization under measurement budgets. 
+
+• We develop a data-driven instantiation of the expected free-energy framework that is explicitly aligned with the structure and limitations of real-world clinicogenomic data, enabling stable inference and decision-making under sparse, heterogeneous, and decision-dependent observations. 
+
+• We demonstrate the practical efficacy of the proposed framework using real clinical data, showing explicit extension of life expectancy with our active-inference based personalized treatment strategy. II. R ELEVANT WORK 
+
+Contextual bandits (CB) have become a dominant paradigm for personalized medicine due to their ability to map patient features (contexts) to treatments (actions) with strong regret guarantees [6] [7]. However, this modeling choice is inherently myopic where rewards are immediate and tied to the current decision. Each treatment decision is evaluated based on immediate outcomes, with no formal mechanism to account for how current interventions reshape future state distributions or influence outcomes that manifest after substantial delays. Standard contextual bandit formulations abstract away action-dependent state dynamics, and therefore cannot represent how interventions reshape future state distributions. This is a structural mismatch for oncology and chronic disease manage-ment, where interventions change future state distributions. By ignoring the dynamics, CBs fail to account for the non-elastic nature of the costs or benefits of the current decisions. RL in Markov decision processes (MDPs) explicitly models long-horizon consequences via controlled state transitions and discounted cumulative returns, making it a more appropriate abstraction for sequential treatment planning than contextual bandits. Deep RL has achieved major empirical successes in settings where extensive environment interaction is feasible, exemplified by value-based methods such as DQN. [8]. Recent retrospective deep-RL studies continue to report promising policies in critical care (e.g., sepsis), but they also sharpen concerns about offline learning and safety guaranties [9]. In cancer treatment we need to incorporate additional constraints, such as (i) clinical rewards (e.g., tumor shrinkage) are sparse and delayed, (ii) observations are expensive and potentially invasive (labs, imaging, biopsies). Moreover, exploratory poli-cies are not acceptable due to safety and ethical constraints. Previous work [10] highlights these gaps and emphasizes partial observability, nonstationarity, and reliable off-policy evaluation [11] as central challenges for RL in healthcare. When disease state is latent and only indirectly measured, the natural abstraction is a POMDP, where decisions are made over a belief state updated from noisy, intermittent observations. In many clinical settings, “when to observe” is itself a decision; observation-cost formulations make this explicit by attaching a cost to measurements and constraining adaptation between measurements [12]. Similarly, budget-constrained breast cancer screening policies and prostate cancer surveillance have been studied in [13] and [14] respectively. However, maintaining accurate beliefs and planning in belief space is computationally demanding, motivating scalable approximate solvers such as point-based methods (PBVI [15], SARSOP [16]) and sampling-based online look-ahead with particle beliefs and scenario trees (POMCP [17], DESPOT [18]). Some screening-policy work instead uses Markov models with Mixed-Integer Linear Programming (MILP) optimization to avoid direct MDP/POMDP solution at scale [19]. Beyond POMDP solvers, 
+
+control-as-inference and KL-regularized control formulations interpret decision-making as inference over trajectories and actions as structured modifications of transition dynamics, which closely aligns with transition-kernel “tuning” [20]–[22]. Despite substantial progress in scalable learning-based approximations in the POMDP space, optimizing for the belief space under limited observation budget remains underexplored. In oncology, observations are sparse, decision-dependent, and actions may affect the patient state and disease dynamics erratically due to latent categorical heterogeneity (e.g., patient subtypes). Indeed, clinical results on tumor progression shape mathematical models that highlight such heterogeneity that motivates latent categorical variables to capture unobserved variation in disease dynamics [1]. Moreover, evaluating the predictive posterior distribution of the disease evolution from Electronic Health Record (EHR) trajectories is prohibitively complex, even without irregular monitoring and limited mea-surement budgets. Thus, we move beyond exact Bayesian belief updates and optimal POMDP planning toward a control-as-inference framework via a systematic information-theoretic framework using free-energy principle. Using active inference, we jointly select measurements and interventions that balance progression toward desirable clinical outcomes and costly observations under latent categorical heterogeneity. III. M ODEL AND PROBLEM 
+
+We consider a partially observed controlled dynamical system indexed by C ∈ C = {1, . . . , d }. This variable will denote the latent patient category , capturing coarse patient heterogeneity, representing directly observable attributes such as age or weight, as well as attributes that could be inferred via explicit tests and measurements, such as biological subtype or genetic markers. We assume the (possibly multivariate) latent patient state 
+
+Xk ∈ X = {1, . . . , n } evolve according to a discrete Markov chain over treatment stages indexed by k = 0 , 1, . . . 
+
+At each stage, the clinician may choose to acquire infor-mation through a binary (or discrete) measurement selector 
+
+Mk ∈ { 0, 1} (e.g., imaging vs. no imaging) and administer a 
+
+treatment action Tk. Treatment actions modify the system’s transition dynamics through: 
+
+Pk+1 |C = (1 − αk|C )Pk|C + αk|C Tk (1) where αk|C ∈ [0 , 1] controls the tuning rate and the sequences 
+
+α = ( α1, . . . , α d) are known category-specific parameters. This captures how oncologic interventions induce plastic dynamics: treatments permanently reshape disease progression rather than merely affecting the current state. We collect the decision variables into the composite action 
+
+Ak ≜ (Mk+1 , T k) ∈ A . (2) for the available set, A of actions. State observations are intermittent and controlled by an observation variable as 
+
+Yk = MkXk, Mk being the indicator for the direct (or noisy) measurement of state Xk.        
+
+> Fig. 1. Patient dynamics with limited measurements. Patient category C
+> and state Xkevolve under actions Ak; observations Ykare obtained via a measurement decision (e.g., imaging).
+
+The system is initialized with category-specific state distribu-tions p(X0|C) and baseline transition matrices P0|C extracted from clinical data. The evolution of the system is illustrated in Fig. 1. The associated generative factorization can be summarized as: 
+
+pC (xk+1 , y k, a k|xk) = pC (xk+1 |xk, a k)p(ak|yk)p(yk|xk)
+
+where pC (xk+1 |xk, a k) captures category-dependent dis-ease/treatment dynamics, p(yk|xk) is the EHR observation channel, and p(ak|yk) represents an implicit decision rule. 
+
+Problem formulation: A distinctive aspect of our setting is that the objective is naturally expressed at the distributional 
+
+level: actions do not merely move a single realized trajectory, but shape the evolution of the belief (or state distribution) over the patient under limited feedback. Accordingly, we start by formulating the control problem in belief space. Let 
+
+πk,X,C (x, c ) ≜ p(x, c | y0: k, a 0: k−1) denote the posterior belief over the latent patient state and category after observing history up to stage k. The belief evolves via the Bayes filter: 
+
+πk+1 ,X,C (x′, c ) ∝ p(yk+1 |x′) X
+
+> x∈X
+
+pc(x′|x, a k)πk,X,C (x, c ).
+
+(3) We seek actions that drive πX toward a clinically desired distribution π∗ 
+
+> X
+
+(equivalently, toward preferred state marginals), rather than optimizing a pointwise state cost. Over an n-stage treatment, our objective can be stated as a constrained distributional POMDP: 
+
+min 
+
+> pA
+
+EpA
+
+" nX
+
+> k=0
+
+KL  πX,k ∥ π∗
+
+> X
+
+#
+
+(4) subject to EpA
+
+" nX
+
+> k=0
+
+Mk
+
+#
+
+≤ B, (5) where KL is the Kullback-Leibler divergence, measuring mismatch between the current belief and the preferred belief (we will also use Jensen-Shannon divergence later on), and 
+
+B is a budget on cumulative measurements. This formulation captures the measurement actions’ influence on the evolution of the belief distribution through (3) , and that control seeks to shape the entire distribution (personalized uncertainty included), not only the realized state. Despite its clinical relevance, solving (4) – (5) is difficult because it requires accurate belief-state dynamics, which in turn depend on the predictive posterior induced by the unknown transition kernel pc(xk+1 |xk, a k) and the observation model 
+
+p(yk|xk), under decision-dependent missingness, driven by 
+
+Mk. In the following, we introduce a free-energy formulation that bypasses explicit belief-space planning by replacing exact Bayesian filtering with variational inference and deriving an expected free-energy objective whose risk term naturally corresponds to driving πk,X toward π∗ 
+
+> X
+
+, while its epistemic component quantifies the value of additional measurements under the budget constraint. IV. A PPROACH 
+
+Directly learning or exploiting the predictive posterior 
+
+pC (xk+1 |xk, y k, a k) is challenging in clinical data due to sparse measurements, and observations that depend on past decisions, and latent heterogeneity through C. The free-energy principle [2]–[4] provides a unified alternative in which inference and control are treated jointly. Rather than computing exact Bayesian updates and optimal policies in a POMDP, we maintain an approximate belief over latent variables and select actions that are expected to minimize a principled information-theoretic objective. Furthermore, our formulation will enable an explicit tradeoff between (i) driving the system toward clinically preferred states (e.g., tumor reduction) and (ii) acquiring information efficiently under measurement constraints, under limited budgets. 
+
+A. Variational Free Energy 
+
+Consider a candidate action a ∈ A . The joint generative model for the next step is 
+
+p(xk+1 , y k+1 , c | xk, y k, a )= pC (xk+1 |xk, a ) p(yk+1 |xk+1 ) p(c). (6) Exact inference of p(xk+1 , c | yk+1 , x k, y k, a ) is gen-erally intractable, so we introduce a variational density 
+
+πk+1 ,X,C (xk+1 , c | yk+1 , x k, y k, a ). The corresponding varia-tional free energy [2] evaluated at time k + 1 is 
+
+Fk+1 (yk+1 , a )
+
+≜ Eπk+1 ,X,C 
+
+h
+
+log πk+1 ,X,C (xk+1 , c | yk+1 , x k, y k, a )
+
+− log p(xk+1 , y k+1 , c | xk, y k, a )
+
+i
+
+. (7) Using the standard decomposition, 
+
+Fk+1 (yk+1 , a ) = KL (πk+1 ,X,C (xk+1 , c | yk+1 , x k, y k, a )
+
+∥ p(xk+1 , c | yk+1 , x k, y k, a )) − log p(yk+1 |xk, y k, a ), (8) minimizing Fk+1 with respect to πk+1 ,X,C yields to approxi-mate Bayesian inference and an upper bound on surprise [23]. 
+
+B. Expected Free Energy and Action Selection 
+
+Action selection occurs before observing Yk+1 . Given a belief πk,X,C (xk, c | y0: k, a 0: k−1), a candidate action a induces the predictive distribution 
+
+πk+1 ,X,Y,C (xk+1 , y k+1 , c )
+
+≜
+
+
+
+Eπk,X,C (xk ,C ) [pC (xk+1 |xk, a )] 
+
+
+
+p(yk+1 |xk+1 ). (9) The expected free energy is defined as the expected future variational free energy: 
+
+Gk(a) ≜ Eπk+1 ,y (yk+1 )
+
+Fk+1 (yk+1 , a )
+
+= Eπ(yk+1 ,z k+1 )
+
+h
+
+log πk,X,C (zk+1 |yk+1 , a )
+
+− log p(zk+1 , y k+1 |a)
+
+i
+
+. (10) To encode clinical objectives, we introduce a preference distribution π∗ 
+
+> X
+
+(xk+1 ) over desired next-step states. Via the fac-torization 2 p(zk+1 , y k+1 |a) = p(yk+1 |xk+1 , a )π∗ 
+
+> X
+
+(xk+1 )p(c),
+
+the expected free energy decomposes as 
+
+Gk(a) = KL  πk+1 ,X (xk+1 )∥π∗ 
+
+> X
+
+(xk+1 )+
+
+Eπk+1 ,X (xk+1 ) [H (p(yk+1 |xk+1 , a ))] − Iπ (Xk+1 ; Yk+1 |a).
+
+(11)    
+
+> 2As a part of the agent’s generative model, π∗
+> X(xk+1 )encodes desired outcomes, representing a preference prior rather than the true disease dynamics. Actions are chosen to shape the predictive belief toward this distribution.
+
+The decomposition in (11) clarifies how action selection balances clinical objectives with information acquisition. The 
+
+risk term , KL  πk+1 ,X (xk+1 )∥π∗ 
+
+> X
+
+(xk+1 ), penalizes pre-dicted state distributions that deviate from clinically pre-ferred outcomes, promoting exploitative actions that directly reduce tumor burden or adverse events. The ambiguity term , Eπk+1 ,X (xk+1 )[H(p(yk+1 |xk+1 , a ))] , discourages actions expected to produce intrinsically noisy or uninformative observations, reflecting measurement cost and clinical burden. The epistemic term , Iπ (Xk+1 ; Yk+1 |a), quantifies expected information gain, favoring exploratory actions such as imaging when uncertainty about patient state or category is high. At each point k in time, the optimal decision rule is therefore 
+
+a⋆k ∈ arg min  
+
+> a∈A
+
+Gk(a), (12) which balances goal-directed behavior (risk term) with informa-tion acquisition (epistemic value) under limited measurements. Measurement selector Mk+1 directly modulates the information term Iπ (Xk+1 ; Yk+1 |a), making the measurement budget an intrinsic component of the control objective. 
+
+C. Simplified Cost Function 
+
+Here, we modify the cost function provided by expected free energy in order to align it with the medical data we will use. The alternate cost preserves the core structure of expected free-energy minimization while allowing easier integration of EHR data. In particular, we consider 
+
+Jk ≜ Mk + τ L (πk,X , X k) + κJSD ( πk,X ∥π∗ 
+
+> X
+
+) , (13) where πk,X denotes the state belief distribution at stage k,
+
+Mk is the measurement action (e.g., imaging), L(·, ·) is a task-specific distance capturing ambiguity with respect to the current belief over the patient state Xk, and π∗ 
+
+> X
+
+is a preferred action distribution encoding clinically desired behavior. We employ the Jensen–Shannon divergence (JSD) as a symmetric and bounded measure of discrepancy between distributions. For two distributions p and q, it is defined as 
+
+JSD( p ∥ q) ≜ 12 KL  p 12 (p + q) + 12 KL  q 12 (p + q) .
+
+(14) Unlike KL divergence, JSD is always finite and well defined, even when the supports of the two distributions do not fully overlap, making it well suited for robust optimization with limited medical datasets. We use τ and κ to calibrate for the desired balance between different terms of the cost function. This objective mirrors the canonical decomposition of the expected free energy in (11) . The measurement term Mk
+
+represents an explicit epistemic cost , reflecting the resource burden associated with information acquisition. The term 
+
+L(πk,X , X k) serves as a surrogate for the ambiguity component of expected free energy, penalizing actions that are poorly aligned with the current belief over patient state or that are expected to produce unreliable or low-utility observations. The final term, JSD( πk,X ∥π∗ 
+
+> X
+
+), acts as a risk term, incentivizing the action distribution to remain close to clinically preferred treatments, thereby promoting exploitation. Given the objective in Eq. (13), the problem reduces to: 
+
+min   
+
+> Ak,k ≥1
+
+E
+
+" ∞X
+
+> k=0
+
+γkJk
+
+#
+
+(15) where γ ∈ (0 , 1) is the discount factor. Overall, (15) can be viewed as a structured surrogate for expected free-energy minimization: it retains the essential tradeoff between epistemic exploration, ambiguity reduction, and risk-sensitive exploitation, while replacing implicit information-theoretic quantities with explicit, data-aligned penalties. This modification is introduced to enable easier integration of EHR data, as illustrated in Sections VI and VII. V. S OLUTION AND BASIC PERFORMANCE LIMITS 
+
+In this section, we propose and analyze two naive solutions and then compare the two methods with a genie algorithm. We denote the policy on the decision of monitoring as μ and the policy on the tuning of the state transition matrix as θ.
+
+A. Solution Agents 
+
+Constant tuning agent: For the naive solution we use a constant matrix for tuning and observe only when entropy of belief exceeds a threshold. 
+
+μk = 1(H(πk,X ) ≥ h), θ k = T. (16) Proper choice of the value of T is addressed in Section V-B. 
+
+Convex tuning agent: Unlike the constant tuning agent, the convex tuning agent uses different constant matrices to tune each category and a convex combination for the current belief. 
+
+μk = 1(H(πX,k ) ≥ h), θ k = X
+
+> c
+
+πk,C (c)Tc. (17) Proper choice of the value of Tc is addressed in Section V-B .
+
+Constant discrete tuning agent: With tuning decisions restricted to a finite set T state and decision space for the agent changes: 
+
+S = {π, (Pk)dc=1 , k, (α∞ 
+
+> k
+
+)dc=1 }, A = {M = 0 , 1} × T (18) For each state, we have a value function V : S → R but even under time homogeneity, i.e., α the characteristics are time invariant, the state space is large and S = {π, (Pk)dc=1 }.
+
+Discrete tuning genie: On the other hand, if the category is known, such as the case of a genie algorithm, then we can reduce the state space to a tractable dimension S = π, P k,C =c.
+
+B. Finding Stable Transition Matrices 
+
+Given the desired state π∗ we have multiple heuristics to determine transition matrices P ∗ with desirable properties. We have the following constraints: 
+
+(P ∗ − I)π∗ ∼ 0, P ∗en = en (19) where the second equation is only if state n is the unique absorbing state. Since P ∗ ∈ [0 , 1] n×n, we have an underdeter-mined linear system of n2 variables and 2n equations. 
+
+Metropolis-Hastings construction: Choose any symmetric proposal matrix P . Then, 
+
+P ∗ 
+
+> M H
+
+(i, j ) = 
+
+(
+
+min(1 , π ∗(j)/π ∗(i)) P (i, j ), i̸ = j
+
+1 − P  
+
+> j̸=i
+
+P ∗ 
+
+> M H
+
+(i, j ), i = j (20) Finally, update transition out of absorbing state as 0 if it exists. 
+
+Maximum second largest absolute-value solution: If there are no absorbing states, choose a transition matrix that is ergodic and has maximum second largest absolute value eigenvalue 
+
+|λ2(P )|:
+
+P ∗ 
+
+> SL
+
+= arg max   
+
+> π∗P=π∗,P ergodic
+
+|λ2(P )| (21) 
+
+Minimum distance solution: Choose an ergodic transition matrix that satisfies the steady-state condition and is closest to the mixture of transition matrices: 
+
+P ∗ 
+
+> M D
+
+= arg min   
+
+> π∗P=π∗,P ergodic
+
+∥P − X
+
+> c
+
+pC (c)P0|c∥ (22) 
+
+C. Belief Update 
+
+Given belief πk we update it as follows. If Mk+1 = 1 then 
+
+Yk+1 = Xk+1 and 
+
+πk+1 ,X,C (x, c ) = 1Xk+1 (x) P     
+
+> xkπk,X,c (xk,c )exPk+1 |ceTxkP
+> xk ,c ′πk,X,c (xk,c ′)exPk+1 |c′eTxk
+
+. (23) where e1, . . . , e n denote the standard basis for R1×n. Other-wise, Mk+1 = 0 , Y k+1 = ∅ and 
+
+πk+1 ,X,C (x, c ) = X
+
+> xk
+
+πk,X,C (xk, c ) · exPk+1 |ceTxk (24) Optimal sequence of policies (μ∗, θ ∗) is composed of optimal instantaneous policies (μ∗
+
+> k
+
+, θ ∗
+
+> k
+
+) indexed in time k that are functions of the belief over states at time k (πk), the belief over categories b and α.
+
+D. Life Expectancy 
+
+In this section, we derive the remaining life expectancy of a patient at a given state. Let v denote the n-dimensional vector with entry vi representing the expected remaining life of a patient in state i. The time is measured in number of transitions, so it has the same unit as the time duration of a slot. We characterize the problem as one of Markov chains with rewards. Since one of the states is terminal (deceased), the steady-state probability of that state is 1. As a result, π =[0 0 . . . 0 1] T, where state n represents the terminal state. We assign a reward of 1 unit for visiting each other state, and as a result the associated reward vector is r = [0 0 . . . 0 1] T. Then, we can write the following equation for v:
+
+v = r + P v. (25) Here, the mechanism is clear: life expectancy is composed of the immediate reward plus the remaining life expectancy after making the transition. The following lemma shows that there is a unique solution for Eq. (25): 
+
+Lemma 1. The equation v = r + P v has a unique solution. Proof. See Appendix B. E. Basic Limits 
+
+Due to space constraints, we give the achievable fundamental limits of our solutions as a single unified lemma, instead of a sequence of theorems. 
+
+Lemma 2. Given category C and an aperiodic state transition matrix Pk+1 |C with a single absorbing state and n distinct eigenvalues λn 
+
+> 1
+
+such that |λi| ≥ | λj | for all 1 ≤ i < j ≤ n,
+
+1) the set of its eigenvalues eig (Pk+1 |C ) is a subset of the convex hull of the eigenvalues of Pk|C and Tk,
+
+2) for any αk|C and λ ∈ eig Pk+1 |C , there exists a λ′ ∈
+
+eig Pk|C such that, |λ| ≤ | λ′| + αk|C 2√2,
+
+3) for the second largest absolute value eigenvalues 
+
+λ2, λ ′
+
+> 2
+
+, λ ′′  
+
+> 2
+
+of Pk+1 |C , P k|C , T k, we have |λ2| ≤
+
+max {| λ′
+
+> 2
+
+|, |λ′′  
+
+> 2
+
+|} ,
+
+4) for a constant Pk+1 |C = P , P k = Pni=1 λki uivi
+
+where ui ∈ Rn×1 and vi ∈ R1×n are right and left eigenvectors corresponding to λi, λ1 = 1 and for all i > 1, |λi| < 1, v1 = en is the unique steady state distribution, ∥P k − P∞∥max → 0 exponentially where maximum norm ∥·∥ max is the element-wise norm and for any initial distribution π0,X and distribution 
+
+g, π0,X P k → v1, H (π0,X P k) → H(v1) = 0 and 
+
+JSD (π0,X P k∥g) → JSD (v1∥g) exponentially. Proof. See Appendix C. VI. D ATA INTEGRATION 
+
+We use the AACR Project GENIE Biopharma Collaborative (BPC) colorectal cancer (CRC) v2.0-public data release as a real-world longitudinal clinical dataset to support algorithm development in this phase. The public CRC release includes 1,485 patients treated at Memorial Sloan Kettering Cancer Center (MSKCC), Dana-Farber Cancer Institute (DFCI), and Vanderbilt-Ingram Cancer Center (VICC), and provides har-monized patient-level clinical trajectories across diagnosis, treatment, and outcomes. To construct patient trajectories, we infer discrete disease states S = {A, B, C, D } from longitudinal monitoring signals. Imaging and medical oncologist assessments provide curated categorical status updates (improving/responding, stable/no change, progressing/worsening, or not stated/intermediate). We map these longitudinal observations to four states: Attenuation of tumor (A), Balanced response (B), Critical condition (C), and the terminal absorbing state Deceased (D). The Medical Oncologist Assessment is curated at around one assessment per month, enabling a standardized longitudinal view of progression aligned with imaging events (Fig. 10). We estimate baseline (treatment-free) transition dynamics by extracting transitions from time windows without active treatment to approximate natural disease progression, while death transitions are retained across treated and untreated intervals to better capture realistic mortality risk (Fig. 2). Sum-mary statistics for observation events and transition counts are reported in Table II in the appendix. For treatment-conditioned dynamics, we parse regimen records into contiguous treatment     
+
+> Fig. 2. Empirical transition probabilities. Top : Baseline (untreated) transitions
+> P0|Cfor early-stage, middle-aged patients. Bottom : Treatment-conditioned transitions during chemo.
+
+windows and map each window to one of seven action classes (EGFR, VEGF, BRAF, HER2, IO, ChemoOnly, Investigational) using the following priority: check targeted agents first, then IO, and default to ChemoOnly when only cytotoxic agents are present (see Table II in the appendix). We estimate empirical action-conditioned transition matrices P·| c,a for each category c
+
+and action a from the observed transitions that occur while a is active when the observation begins. In CRC, VEGF/ChemoOnly dominate the data support, while IO/HER2/BRAF are sparse and should be interpreted with caution. Finally, to capture clinically meaningful heterogeneity with-out using genomics, we stratify patients by stage at diagnosis (early stage I–III vs. advanced stage IV) and by age group (< 50 , 50–70, > 70 ) (see Table II in the appendix). VII. R ESULTS 
+
+We simulate a patient trajectory with the Constant Tuning Agent in Section V-A using an entropy threshold h = 1 .6
+
+over a time horizon of K = 100 steps, representing ap-proximately 2 − 3 years of treatment. Tuning limits αk
+
+are drawn from an exponential distribution with a time-decaying mean. Figure 3 shows the true patient state oscillating Fig. 3. True patient state (top) and agent belief distribution (bottom) over 100 time steps. The belief successfully tracks the underlying state dynamics despite partial observability. 
+
+primarily between Attenuation (A) and Balanced (B) states over 100 time steps, with occasional transitions to Critical (C). The agent’s belief state distribution tracks the transitions through marginalized probabilities and successfully captures the underlying state dynamics despite partial observability. The entropy threshold measurement policy triggers observations approximately every 4–5 steps when belief entropy exceeds 
+
+h = 1 .6. This creates a characteristic sawtooth pattern where entropy accumulates between measurements and resets upon observation, demonstrating the agent’s adaptive information acquisition strategy under budget constraints (Figure 4). The regular measurement intervals balance state tracking accuracy with resource conservation. This pattern indicates that measure-ments are concentrated at higher-uncertainty periods and are suppressed when the belief is more confident. A key finding  
+
+> Fig. 4. Measurement decisions and belief entropy
+
+emerges in the category identification dynamics (Figure 5): the true patient category (Category 5, brown line) is detected after 100 time steps, with Category 1 also receiving high posterior probability. This reveals observational equivalence between categories and demonstrates that the entropy-threshold measurement policy prioritizes state tracking as well as active category identification. Multiple categories produce similar observable state trajectories, making discrimination challenging with limited data. Alongside correct category identification,  
+
+> Fig. 5. Category belief evolution
+
+the agent also maintains robust control performance. Figure 6 shows decreasing tuning matrix error ( ℓ2 distance down from ∼ 1.2) between the constant tuning matrix and true category-specific transition matrix throughout the simulation. This persistent mismatch arises since the tuning mechanism only partially shifts the transition dynamics toward the target matrix T at each step, with the tuning rate αk controlling the degree of influence. Since the environment forces αk < 1, the system never fully converges to T but reaches a steady-state blend between the evolving dynamics and the target. Figure   
+
+> Fig. 6. ℓ2distance between tuning matrix
+
+7 demonstrates convergence of the ℓ2 distance between the current and desired steady-state distributions, decreasing from approximately 0.4 at k = 0 decaying to almost 0.1. Together with the learned category shown in Figure 5, these results indicate robustness to category uncertainty where the agent achieves bounded control error and stable performance. This robustness is reflected not only in the steady-state tracking behavior but also in the overall measurement–cost trade-off. We compared five measurement strategies over 100 simulated   
+
+> Fig. 7. ℓ2distance between current and desired steady-state distributions
+
+patient trajectories (100 steps each) to quantify the trade-off between information acquisition and control performance. Figure 8 summarizes total observations and total cost across agents which highlights the clear differences in measurement efficiency and overall objective value. The Discrete Genie  
+
+> Fig. 8. Total measurement and total cost statistics for five measurement policies evaluated over 100 independent patient trajectories of 100 time steps each.
+
+achieves the lowest median cost ( 1.0 observation) and a low mean cost ( 1.6 ± 1.4), consistent with the advantage of oracle category knowledge for selectively triggering measurements. Convex Tuning attains the best mean performance ( 1.75 ± 1.4), suggesting that belief-weighted tuning can approach oracle efficiency without perfect identification. In contrast, Constant Discrete incurs the highest average cost ( 2.2 ± 1.0), indicating that fixed schedules are less measurement-efficient than entropy-driven policies. To illustrate the treatment effect on expected patient survival, Figure 9 shows the instantaneous expected life expectancy 
+
+vi (Lemma 1) of the evolving transition matrix Pk for an advanced-stage young patient receiving EGFR-targeted therapy. As treatment blends into the baseline dynamics via Pk+1 =(1 − αk)Pk + αkT , the expected remaining life from state A (Attenuation) increases from 237 to 327 time steps, with similar improvements from states B and C. The concave saturation shape reflects the exponentially decaying tuning authority αk,concentrating the majority of therapeutic benefit in the early treatment window. 
+
+Fig. 9. Instantaneous life expectancy vi from each transient state as the transition matrix Pk evolves under EGFR treatment for the advanced-stage young patient category. Life expectancy is computed at each step by solving 
+
+(I − Pk )v = r (Lemma 1). 
+
+VIII. C ONCLUSION 
+
+We presented a belief-space control framework for personal-ized cancer treatment under partial observability and explicit measurement constraints, grounded in the free-energy principle and active inference. Our approach targeted the evolution of patient state distributions rather than pointwise trajectories, capturing the plastic nature of oncologic interventions and latent patient heterogeneity. Empirical results using real clinical data demonstrate that the proposed framework simultaneously drives the belief over patient state toward a desired target distribution and maintains informative estimates of latent patient categories, all within a realistic measurement budget and over a clinically meaningful treatment horizon. In this work, the agent optimizes a fixed control objective given its assumed generative model, but it does not learn to improve its own decision-making strategy over time. While inference is adaptive through belief updates, control is fixed and is based on models learned offline. A promising direction for future work is the integration of online learning–based action selection within the active inference framework, enabling adaptive optimization of both treatment and measurement policies directly from data. REFERENCES [1] J. D. Nagy, “The ecology and evolutionary biology of cancer: a review of mathematical models of necrosis and tumor cell diversity,” Math. Biosci. Eng , vol. 2, no. 2, pp. 381–418, 2005. [2] K. Friston, “A free energy principle for a particular physics,” arXiv preprint arXiv:1906.10184 , 2019. [3] K. Friston, L. Da Costa, N. Sajid, C. Heins, K. Ueltzh ¨offer, G. A. Pavliotis, and T. Parr, “The free energy principle made simpler but not too simple,” Physics Reports , vol. 1024, pp. 1–29, 2023. [4] M. J. Ramstead, D. A. Sakthivadivel, C. Heins, M. Koudahl, B. Millidge, L. Da Costa, B. Klein, and K. J. Friston, “On bayesian mechanics: a physics of and by beliefs,” Interface Focus , vol. 13, no. 3, p. 20220029, 2023. [5] The AACR Project GENIE Consortium, “AACR Project GENIE: Powering Precision Medicine Through An International Consortium,” 
+
+Cancer Discovery , vol. 7, no. 8, pp. 818–831, August 2017, version v2.0. [6] L. Li, W. Chu, J. Langford, and R. E. Schapire, “A contextual-bandit approach to personalized news article recommendation,” in Proceedings of the 19th international conference on World wide web , 2010, pp. 661– 670. [7] A. Agarwal, D. Hsu, S. Kale, J. Langford, L. Li, and R. Schapire, “Taming the monster: A fast and simple algorithm for contextual bandits,” in 
+
+Proceedings of the 31st International Conference on Machine Learning ,ser. Proceedings of Machine Learning Research, E. P. Xing and T. Jebara, Eds., vol. 32, no. 2. Bejing, China: PMLR, 22–24 Jun 2014, pp. 1638– 1646. [8] V. Mnih, K. Kavukcuoglu, D. Silver, A. A. Rusu, J. Veness, M. G. Bellemare, A. Graves, M. Riedmiller, A. K. Fidjeland, G. Ostrovski et al. ,“Human-level control through deep reinforcement learning,” nature , vol. 518, no. 7540, pp. 529–533, 2015. [9] X. Wu, R. Li, Z. He, T. Yu, and C. Cheng, “A value-based deep reinforcement learning model with human expertise in optimal treatment of sepsis,” NPJ Digital Medicine , vol. 6, no. 1, p. 15, 2023. [10] C. Yu, J. Liu, S. Nemati, and G. Yin, “Reinforcement learning in healthcare: A survey,” ACM Computing Surveys (CSUR) , vol. 55, no. 1, pp. 1–36, 2021. [11] N. Jiang and L. Li, “Doubly robust off-policy value evaluation for reinforcement learning,” in International conference on machine learning .PMLR, 2016, pp. 652–661. [12] C. Reisinger and J. Tam, “Markov decision processes with observation costs: framework and computation with a penalty scheme,” Mathematics of Operations Research , vol. 50, no. 2, pp. 1305–1332, 2025. [13] R. K. Helmeczi, C. Kavaklioglu, M. Cevik, and D. Pirayesh Neghab, “A multi-objective constrained partially observable markov decision process model for breast cancer screening,” Operational Research , vol. 23, no. 2, p. 30, 2023. [14] W. Li, B. T. Denton, and T. M. Morgan, “Optimizing active surveillance for prostate cancer using partially observable markov decision processes,” European Journal of Operational Research ,vol. 305, no. 1, pp. 386–399, 2023. [Online]. Available: https: //www.sciencedirect.com/science/article/pii/S0377221722004337 [15] J. Pineau, G. Gordon, S. Thrun et al. , “Point-based value iteration: An anytime algorithm for pomdps,” in Ijcai , vol. 3, 2003, pp. 1025–1032. [16] H. Kurniawati, D. Hsu, W. S. Lee et al. , “Sarsop: Efficient point-based pomdp planning by approximating optimally reachable belief spaces.” in 
+
+Robotics: Science and systems , vol. 2008. Zurich, Switzerland, 2008. [17] D. Silver and J. Veness, “Monte-carlo planning in large pomdps,” 
+
+Advances in neural information processing systems , vol. 23, 2010. [18] A. Somani, N. Ye, D. Hsu, and W. S. Lee, “Despot: Online pomdp planning with regularization,” Advances in neural information processing systems , vol. 26, 2013. [19] C¸ . C¸ a ˘glayan, T. Ayer, and D. U. Ekwueme, “Assessing multimodality breast cancer screening strategies for brca1/2 gene mutation carriers and other high-risk populations,” INFORMS Journal on Computing , 2025. [20] S. Levine, “Reinforcement learning and control as probabilistic inference: Tutorial and review,” arXiv preprint arXiv:1805.00909 , 2018. [21] E. Todorov, “Linearly-solvable markov decision problems,” Advances in neural information processing systems , vol. 19, 2006. [22] H. J. Kappen, V. G ´omez, and M. Opper, “Optimal control as a graphical model inference problem,” Machine learning , vol. 87, no. 2, pp. 159–182, 2012. [23] K. J. Friston, A. D. Redish, and J. A. Gordon, “Computational nosology and precision psychiatry,” Computational Psychiatry (Cambridge, Mass.) ,vol. 1, p. 2, 2017. [24] J. G. Kemeny and J. L. Snell, Finite Markov Chains , ser. Undergraduate Texts in Mathematics. New York: Springer-Verlag, 1976. 
+
+APPENDIX ANOTATION 
+
+Table I summarizes the mathematical notation used through-out this paper. TABLE I NOTATION FOR VARIABLES                                                     
+
+> Symbol Definition Symbol Definition Symbol Definition
+> Aaction pair of (M, T )Xstate αtuning limit
+> Ccategory Yobservation γdiscount factor
+> Hentropy dnumber of categories θtuning policy
+> Jcost function estandard basis vector κcontrol cost JSD Jensen-Shannon div. eig set of eigenvalues λeigenvalue KL Kullback-Leibler div. i, j dummy variables μmeasurement policy
+> Mmeasurement decision ktime πX,C category and state belief
+> Ptransition matrix nnumber of states π∗
+> Xdesired/steady distribution
+> Ttuning/treatment matrix pprobability mass function τtracking cost
+
+APPENDIX BPROOF OF LEMMA 1Let I be the n×n identity matrix. The homogeneous portion, 
+
+(I − P )⃗v = 0 of the equation has infinite solutions in the form 
+
+β⃗ e for all real beta , where ⃗e = [1 1 . . . 1] T. So, if ⃗v ∗ solves the equation, then all ⃗v =⃗v ∗ + β⃗ e also solves it. A solution to the equation exists if ⃗r is in the column space of I − P . We also know that the steady-state distribution πX is in the left null space of I − P . Therefore, a solution exists if and only if 
+
+πX⃗r = 0 , which is true, since πX has all 0 entries other than the terminal state and ⃗r has a 0 entry for the terminal state. Now, let ⃗v ∗ be the coordinates of ⃗r in the column space of 
+
+I − P . Then, the solution to our core equation has the form ⃗v ∗ + β⃗ e . The unique solution can be found using the additional condition πX⃗v = 0 .APPENDIX CPROOF OF LEMMA 2
+
+A. Eigenvalues in Convex Hull 
+
+For the new transition matrix Pk+1 |C , eig (Pk+1 |C ) ⊂
+
+conv {eig Pk|C ∪ eig Tk} where conv denotes convex hull. 
+
+Proof. Let S = conv {eig Pk|C ∪ eig Tk}. For contradiction, assume that there exists an eigenvalue λ of Pk+1 |C such that 
+
+λ / ∈ S. Since λ lies outside the convex hull and this convex hull is a closed convex set in C, by the Separating Hyperplane Theorem, there exists a hyperplane that strictly separates λ
+
+from S. More precisely, there exists a non-zero linear functional 
+
+ϕ : C → R and a constant c ∈ R such that ϕ(λ) > c and 
+
+ϕ(S) < c . We can write ϕ(z) = Re (w · z) for some non-zero 
+
+w ∈ C, where Re denotes the real part. Since S contains all eigenvalues of both Pk|C and Tk, Re (w · λ′) < c for all eigenvalues λ′ of Pk|C and Re (w · λ′′ ) < c for all eigenvalues 
+
+λ′′ of Tk. Since λ is an eigenvalue of Pk+1 |C , there exists a non-zero eigenvector v such that Pk+1 |C v = λv . Thus, (1 −
+
+αk|C )Pk|C v + αk|C Tkv = λv .Taking the inner product with v∗, normalizing vv ∗ = 1 and applying the functional ϕ to both sides we get Re (λw ) = (1 − αk|C )Re (w · v∗Pk|C v) + αk|C Re (w · v∗Tkv). By the Toeplitz-Hausdorff Theorem, the numerical range of any matrix is a convex set containing all eigenvalues of that matrix. Thus, 
+
+v∗Pk|C v ∈ conv(eig Pk|C ) and v∗Tkv ∈ conv(eig Tk). Since both lie in S, we have Re (w ·v∗Pk|C v) < c, Re (w ·v∗Tkv) < c 
+
+and ϕ(λ) = Re (λw ) = (1 − αk|C )Re (w · v∗Pk|C v) + 
+
+αk|C Re (w · v∗Tkv) < c . This contradicts our assumption from that ϕ(λ) > c .
+
+B. Eigenvalue Perturbation Bound 
+
+For any αk|C and λ ∈ eig Pk+1 |C , there exists a λ′ ∈
+
+eig Pk|C such that, |λ| ≤ | λ′| + αk|C 2√2.
+
+Proof. Rewrite Pk+1 |C as: Pk+1 |C = Pk|C + αk|C (Tk −
+
+Pk|C ) = Pk|C + E where E = αk|C (Tk − Pk|C ) is the perturbation matrix. By the Bauer-Fike theorem, if Pk|C is diagonalizable with 
+
+Pk|C = XDX −1 where D contains the eigenvalues of Pk|C ,then for any eigenvalue λ of the perturbed matrix Pk+1 |C , there exists an eigenvalue λ′ of Pk|C such that |λ−λ′| ≤ κ(X)∥E∥1
+
+where κ(X) = ∥X∥1∥X−1∥1 is the condition number of the eigenvector matrix. For stochastic matrices, we have ∥E∥1 = ∥αk|C (Tk −
+
+Pk|C )∥1 = |αk|C |∥ Tk − Pk|C ∥1. Since both Tk and Pk|C are stochastic matrices (with entries in [0 , 1] and rows summing to 1, we have ∥Tk − Pk|C ∥1 ≤ 2. For the condition number, stochastic matrices typically have κ(X) ≤ √2 under appropri-ate normalization. Therefore |λ| ≤ | λ′| + αk|C 2√2.
+
+C. Second Largest Absolute Value Eigenvalue Upper Bound 
+
+For the second largest absolute value eigenvalues λ2, λ ′
+
+> 2
+
+, λ ′′ 
+
+> 2
+
+of Pk+1 |C , P k|C , T k, we have |λ2| ≤ max {| λ′
+
+> 2
+
+|, |λ′′  
+
+> 2
+
+|} .
+
+Proof. This a consequence of the previous results on convex hull of eigenvalues and perturbation bound. 
+
+D. Exponential Convergence of Distributions and Divergences 
+
+For any initial distribution π0,X and distribution g,
+
+H(π0,X P k) → H(v1) and JSD (π0,X P k∥g) → JSD (v1∥g)
+
+exponentially. 
+
+Proof. We only show the result for entropy. The result for JSD is similar. Let Xik denote the state of the Markov chain at time k where X0 = i. Then, after k steps, πk,X = eiP k and 
+
+H(πk,X ) = − Pnj=1 pijk log pijk where pijk is the probability of transition from state i to j in k steps. |H(Xik ) − H(v1)| = |− 
+
+> n
+
+X
+
+> j=1
+
+pijk log pijk − (−
+
+> n
+
+X
+
+> j=1
+
+v1j log v1j )|
+
+(26) 
+
+= |
+
+> n
+
+X
+
+> j=1
+
+−pijk log pijk + v1j log v1j |. (27) Without loss of generality assume v1j > 0 for all j ≤ m
+
+and v1j = 0 for all j > m . Then, 
+
+|H(Xik ) − H(v1)| = X
+
+> j>m
+
+−pijk log pijk 
+
++
+
+> m
+
+X
+
+> j=1
+
+−pijk log pijk + v1j log v1j .
+
+(28) 
+
+= X
+
+> j>m
+
+−pijk log pijk 
+
++
+
+> m
+
+X
+
+> j=1
+
+−(pijk − v1j + v1j ) log pijk + v1j log v1j .
+
+(29) 
+
+= X
+
+> j>m
+
+−pijk log pijk 
+
+−
+
+> m
+
+X
+
+> j=1
+
+(pijk − v1j + v1j ) log pijk − v1j log v1j .
+
+(30) 
+
+= X
+
+> j>m
+
+−pijk log pijk 
+
+−
+
+> m
+
+X
+
+> j=1
+
+(pijk − v1j ) log pijk + v1j (log pijk − log v1j ) .
+
+(31) 
+
+|H(Xik ) − H(v1)| ≤ X
+
+> j>m
+
+|− pijk log pijk |
+
++
+
+> m
+
+X
+
+> j=1
+
+|− (pijk − v1j ) log pijk |
+
++
+
+> m
+
+X
+
+> j=1
+
+|v1j (log pijk − log v1j )|.
+
+(32) 
+
+≤ X
+
+> j>m
+
+−c1ck 
+
+> 2
+
+log pijk 
+
++
+
+> m
+
+X
+
+> j=1
+
+−c1ck 
+
+> 2
+
+log pijk 
+
++
+
+> m
+
+X
+
+> j=1
+
+|v1j (log pijk − log v1j )|.
+
+(33) 
+
+≤ X
+
+> j>m
+
+−c1ck 
+
+> 2
+
+log pijk 
+
++
+
+> m
+
+X
+
+> j=1
+
+−c1ck 
+
+> 2
+
+log pijk 
+
++
+
+> m
+
+X
+
+> j=1
+
+|v1j (log pijk − log v1j )|.
+
+(34) 
+
+≤ X
+
+> j>m
+
+c1ck 
+
+> 2
+
+ck 
+
+> 3
+
++
+
+> m
+
+X
+
+> j=1
+
+c1ck 
+
+> 2
+
+ck
+
+> 3
+
++
+
+> m
+
+X
+
+> j=1
+
+v1j
+
+c1ck
+
+> 2
+
+min {v1j , p ijk } .
+
+(35) where we used the pointwise convergence of the distribution (pijk → v1j ) and the fact that pijk ≥ 1
+
+> ck
+> 3
+
+. The latter holds because P is an aperiodic stochastic matrix with at most one absorbing state and no cycles among transient states; by Chapter 3 of [24], all eigenvalues of P other than λ1 = 1 
+
+satisfy |λi| < 1, which guarantees exponential convergence of 
+
+pijk → v1j and thus the stated lower bound for sufficiently large k.APPENDIX DDATASET DETAILS 
+
+A. Patient Timeline 
+
+Figure 10 illustrates the longitudinal signals available for a representative patient.  
+
+> Fig. 10. Available longitudinal information for a representative patient in the AACR Project GENIE BPC CRC cohort, including treatment history, biomarker measurements, radiological/imaging assessments, and oncologist evaluations over time (days from diagnosis).
+
+B. Dataset Summary and Preprocessing Outputs 
+
+Table II summarizes the derived quantities and preprocessing outputs used for state/action modeling. 
+
+C. State Mapping 
+
+To discretize the patient status, we map raw clinical as-sessments from imaging reports, medical oncologist assess-ments (MOA), and vital status registries to the state space 
+
+X = {A, B, C, D }. The specific rules used to convert these heterogeneous inputs into unified state labels are detailed in Table III. TABLE II GENIE BPC CRC V2.0-PUBLIC : NON -GENOMIC TRAJECTORY CONSTRUCTION SUMMARY AND DATA SUPPORT FOR STATE /ACTION MODELING .
+
+Component Operationalization (non-genomic) Summary 
+
+State space Disease states {A, B, C, D } inferred from imaging and oncologist assessments; death events define absorbing D.See Fig. 2 State evidence Imaging and oncologist assessments provide categorical status: improv-ing/responding, stable/no change, progressing/worsening, not stated/intermediate; oncology assessments are curated approximately monthly. —Patient stratification Age groups: young ( < 50 ), middle (50–70), elderly ( > 70 ); Stage groups: early (I–III) vs. advanced (IV). Age: 515 / 802 / 168; Stage: 783 / 701 Baseline dynamics P0 Estimated from treatment-free intervals (exclude observation events during active treatment); death transitions can use all intervals. 
+
+∼90K untreated events; 
+
+∼47K transitions Treatment-conditioned dynamics Transitions extracted during treated windows after mapping regimens to action classes. See Appendix D-D 
+
+Action class Examples / definition 
+
+ChemoOnly Cytotoxic chemotherapy without targeted/IO agents (e.g., 5-FU/capecitabine, oxaliplatin, irinotecan). VEGF Anti-angiogenic agents targeting VEGF pathway (bevacizumab, aflibercept, ramucirumab). EGFR Anti-EGFR monoclonal antibodies (cetuximab, panitumumab). IO Immune checkpoint inhibitors (pembrolizumab, nivolumab, ipilimumab). HER2 HER2-targeted therapies (trastuzumab, pertuzimab, tucatinib). BRAF BRAF inhibitors (encorafenib, vemurafenib, dabrafenib). Investigational Agents explicitly marked investigational in regimen strings. 
+
+> TABLE III MAPPING OF CLINICAL ASSESSMENTS TO DISCRETE DISEASE STATES .
+
+Source Raw Assessment State 
+
+Imaging Complete/Partial Response A (Attenuation of tumor) Imaging Stable Disease B (Balanced response) Imaging Progressive Disease C (Critical condition) MOA Improving/Responding A (Attenuation of tumor) MOA Stable/No Change B (Balanced response) MOA Progressing/Worsening C (Critical condition) MOA Not Evaluated/Indeterminate Unassigned Vital Status Deceased D (Death) 
+
+D. Transition Counting and Probability Estimation 
+
+We construct a discrete-time trajectory for each patient by ordering clinical assessments by timestamp (days from diagnosis) and assigning a discrete disease state Xk ∈ X at each observation index k = 0 , 1, . . . . Let C ∈ C denote the patient category (e.g., stage × age group). For each transition step, we record the treatment class tk ∈ T that is active at the time of the starting observation, and a measurement selector Mk+1 ∈ { 0, 1} indicating whether an informative measurement (e.g., imaging) is obtained at the next stage. We use the composite action notation Ak ≜ (Mk+1 , t k).We count transitions only between validly assigned states: indices k are included only if both endpoints satisfy Xk ∈ X 
+
+and Xk+1 ∈ X (observations labeled not stated/indeterminate are not used as transition endpoints). 
+
+a) Baseline dynamics P0|C .: For each category c ∈ C ,we estimate the baseline transition matrix P0|c by counting transitions between consecutive observations (Xk → Xk+1 )
+
+whose starting observation occurs in a treatment-free interval (i.e., no active regimen at the time of the starting observation). Let K0 
+
+> c
+
+denote the set of such indices. Define empirical counts 
+
+P0|c(i, j ) = Pr( Xk+1 = j | Xk = i, C = c, t k = ∅)= N 0
+
+> ij |c
+
+P 
+
+> j′∈X
+
+N 0
+
+> ij ′|c
+
+. (36) 
+
+b) Category-conditioned treatment matrices Tt|c.: To obtain empirical treatment transition matrices consistent with (1) , we estimate one transition matrix for each treatment class 
+
+t ∈ T within each category c ∈ C by counting consecutive-observation transitions whose starting observation occurs while treatment class tk = t is active. Let Ktc denote the set of indices satisfying C = c and tk = t at the starting observation. Define 
+
+Tt|c(i, j ) = Pr( Xk+1 = j | Xk = i, C = c, t k = t)= N tij |c
+
+P 
+
+> j′∈X
+
+N tij ′|c
+
+. (37) When simulating (1) , we instantiate the matrix Tk by selecting the category-conditioned matrix corresponding to the chosen treatment class: if the realized category is C = c and the selected class at stage k is tk = t, we set Tk ≡ Tt|c.

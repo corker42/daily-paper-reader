@@ -1,0 +1,23 @@
+---
+title: "Optimal Practice Schedules in a Dual-Rate Model of Motor Adaptation, and Their Recovery by Reinforcement Learning"
+title_zh: 双速率运动适应模型中的最优练习计划及其通过强化学习的恢复
+authors: "Jeter, R., Todorov, D., Molkov, Y."
+date: 2026-06-22
+pdf: "https://www.biorxiv.org/content/10.64898/2026.06.17.732970v1.full.pdf"
+tags: ["query:fsrh"]
+score: 6.0
+evidence: 强化学习用于运动适应
+tldr: 运动适应中的练习安排存在阻塞与交错两种方式，但最优策略并非固定。基于双组件快速慢速学习模型，精确求解短会话最优计划，并采用结构化的束搜索近似长会话。最优计划呈现三个区域：交替、混合、阻塞带后期修正。强化学习PPO算法能恢复短视野计划和阻塞-修复-交错模式，但在获取主导区域失败，陷入纯阻塞的元稳定态。研究表明部分可观测性不是主要障碍，为设计促进长期保持的练习提供指导。
+source: biorxiv
+selection_source: fresh_fetch
+motivation: 现有练习安排策略（阻塞/交错）无法适应学习者动态状态，需根据内部状态和剩余时间制定最优计划。
+method: 构建最小双上下文快速慢速学习模型，精确计算短会话最优计划，并基于结构化束搜索近似长会话；使用PPO强化学习从行为数据中恢复最优策略。
+result: PPO成功恢复短视野最优计划和长会话的阻塞-修复-交错模式，但在获取主导区域因元稳定态而失败；观察历史长度影响小。
+conclusion: 最优练习安排是依赖状态和奖励权重的策略族，强化学习可部分恢复，但存在策略梯度特有的元稳定失败，为实际教学提供理论依据。
+---
+
+## 摘要
+一个指导中风患者进行45分钟康复训练的临床医生、一个规划训练日的教练、一个选择练习题顺序的老师，他们都面临同样的问题：“鉴于迄今为止练习过的所有内容，下一个试验应该是什么？”运动学习文献提供了两种粗略的答案：分组练习和交错（“随机”）练习，两者之间存在众所周知的分离现象：分组练习导致更快的习得但较差的保持，而交错练习则相反。我们认为这种分离并不是练习计划的固定属性，而是更丰富结构的影子。特别是，对于记忆具有快速共享成分和较慢情境特定成分的学习者，最佳计划应作为学习者当前内部状态和保留测试前剩余时间的函数。我们在一个最小化的双情境快慢学习者模型中精确地阐述了这一点，对于短时段的练习，最优计划可以精确计算，对于较长时段，可以通过结构化的波束搜索上限近似得到。最优计划既不是分组的，也不是交错的，也不是单一规则；它是由保留相对于习得的权重决定的一系列计划。该系列有三个阶段（交替、混合、带后期纠正的分组），对于长时间段，最优计划具有可解释的结构——利用一个情境，修复被忽视的情境，然后交错以锁定保留。然后，我们研究一个强化学习教师，仅观察学习者的动作和错误，而不访问其内部记忆状态，是否可以通过交互单独学习这些最优策略。将这些学习到的策略与精确最优策略进行比较，我们展示了一个无模型代理（PPO）在短时间段的计划和长时间段的中等阶段中恢复了分组-修复-交错的模式，但基准测试也在习得主导的阶段中暴露了严重的失败，PPO在此处崩溃为纯分组并错过了一个稀疏的终端纠正。一个热启动诊断表明，这种失败是策略梯度的真正亚稳定性而非调优伪影，分组加切换和纯分组作为竞争吸引子，PPO无法在其中稳定。对观察历史的超参数扫描显示，代理需要很少的行为上下文来最优地规划，这表明部分可观测性并不是找到最优练习计划的主要障碍。最后，我们讨论了我们的框架对运动适应和情境干扰的意义，为教师如何设计有限的练习时段以促进长期保持提供了实用见解。
+
+## Abstract
+A clinician guiding a stroke patient through a 45-minute rehabilitation session, a coach planning a training day, a teacher choosing the order of practice problems, they all face the same question: "given everything practiced so far, what should the next trial be?" The motor-learning literature offers two coarse answers, blocked and interleaved ("random") practice, with a well-known dissociation, blocked practice gives faster acquisition but worse retention, while interleaved practice gives the opposite. We argue that this dissociation is not a fixed property of practice schedules but a shadow of a richer structure. In particular, for a learner whose memory has a fast shared component and slower context-specific components, the best schedule should be a function of the learners current internal state and the time remaining before the retention probe. We make this precise in a minimal two-context fast-slow learner model whose optimal schedules can be computed exactly for short sessions and approximated by a structured beam-search upper bound for longer ones. The optimal schedule is not blocked, not interleaved, and not a single rule; it is a family of schedules determined by how much retention is weighted relative to acquisition. The family has three regimes (alternating, mixed, blocked-with-late-correction) and for long sessions, the optimal schedule has an interpretable structure -- exploit one context, repair the neglected one, then interleave to lock in retention. We then investigate whether a reinforcement-learning teacher, observing only the learners actions and errors without access to their internal memory states, can learn these optimal policies from interaction alone. Comparing these learned policies against the exact optima, we show that a model-free agent (PPO) recovers the short-horizon schedules and the long-horizon block-repair-interleave motif in the intermediate regime, but the benchmark also exposes a sharp failure in the acquisition-dominated regime, where PPO collapses to pure blocking and misses a sparse terminal correction. A warm-start diagnostic shows this failure is a genuine metastability of policy gradients rather than a tuning artifact, with blocked-plus-switch and pure-blocked acting as competing attractors that PPO cannot stabilize between. A hyperparameter sweep over observation history reveals that the agent requires very little behavioral context to plan optimally, demonstrating that partial observability is not a major barrier to finding optimal practice schedules. Finally, we discuss the implications of our framework for motor adaptation and contextual interference, offering practical insights on how instructors can design finite practice sessions to favor long-term retention.

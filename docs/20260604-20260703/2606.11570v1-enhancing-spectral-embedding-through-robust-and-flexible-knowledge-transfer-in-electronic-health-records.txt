@@ -1,0 +1,902 @@
+Title: Enhancing Spectral Embedding through Robust and Flexible Knowledge Transfer in Electronic Health Records
+
+URL Source: https://arxiv.org/pdf/2606.11570v1
+
+Published Time: Thu, 11 Jun 2026 00:29:50 GMT
+
+Number of Pages: 35
+
+Markdown Content:
+# Enhancing Spectral Embedding through Robust and Flexible Knowledge Transfer in Electronic Health Records 
+
+## Feiqing Huang 1, Zongqi Xia 4, Rong Ma 1,2 ∗
+
+## , Tianxi Cai 1,3 †
+
+1 Department of Biostatistics, Harvard T.H. Chan School of Public Health 
+
+2 Department of Data Science, Dana-Farber Cancer Institute 
+
+3 Department of Biomedical Informatics, Harvard Medical School 
+
+4 Department of Neurology, University of Pittsburgh 
+
+Abstract 
+
+We propose a spectral-based, unsupervised representation learning framework to derive low-dimensional embeddings for clinical concepts and patients in rare disease cohorts from electronic health records, where data are high-dimensional but sample sizes are limited. To overcome this challenge, we incorporate a knowledge matrix ex-tracted from a broader population that shares a partially overlapping subspace with the rare-disease cohort. Our method departs from existing approaches by relaxing restrictive one-to-one signal-alignment assumptions between the latent data matrix and knowledge matrix, allowing more flexible and realistic forms of structured shar-ing. We introduce a novel two-step spectral embedding procedure: first, we iden-tify and remove irrelevant components from the knowledge matrix; then, we apply a projection-based method to separately recover shared and heterogeneous compo-nents. Simulations and an analysis of a real-world multiple sclerosis cohort show that the proposed method outperforms competing approaches, particularly in challenging scenarios where shared signals are weak and only partially aligned, as is common in rare-disease data. 
+
+Keywords: transfer learning, unsupervised representation learning, spectral methods, aux-iliary knowledge, electronic health records 
+
+> ∗
+
+Corresponding author:rongma@hsph.harvard.edu 
+
+> †
+
+Corresponding author:tcai@hsph.harvard.edu 
+
+1
+
+> arXiv:2606.11570v1 [stat.ML] 10 Jun 2026
+
+# 1 Introduction 
+
+Rare diseases collectively affect millions of people worldwide, yet they are often difficult to study because individual conditions are uncommon and clinically heterogeneous. Multiple sclerosis (MS) is a representative example: although its global prevalence is only about 35.9 per 100,000 individuals (Walton et al., 2020), it remains a major focus of clinical research because patients vary widely in symptoms, disease severity, and care patterns. This combination of low prevalence and substantial heterogeneity makes MS difficult to study systematically, as researchers must draw insight from limited cohorts while accounting for between-patient variation. Electronic Health Records (EHRs) provide a rich and longitudinal repository of clin-ical data, capturing patient diagnoses, treatments, laboratory results, and clinical notes. This wealth of information has supported unsupervised representation learning methods that estimate low-dimensional embeddings without labels, enabling tasks such as patient profiling (Li et al., 2022; Landi et al., 2020) and critical event identification (Weatherhead et al., 2022). However, the inherently limited sample size of rare disease cohorts presents a major challenge for unsupervised representation learning methods, which typically require large datasets to learn robust representations. General biomedical knowledge graphs offer a potential solution by providing external information to enrich learning from scarce data. Yet, these graphs are often constructed with a focus on common diseases, which can lead to misalignment or irrelevant associations when directly applied to rare disease populations. To state our problem, let X P Rpˆn denote the latent data matrix underlying EHR observations, where n is the number of patients and p is the number of clinical concepts (diagnoses, medications, procedures, laboratory tests, and related records). Because clinical concepts are often disease-specific and tend to co-occur in meaningful concept clusters and 2patient subgroups (Reza et al., 2022), we model X as low-rank. In practice, we observe a noisy version ˆX “ X ` Z, where Z captures measurement noise and nuisance variation. Entries in ˆX can be binary indicators, code counts, or continuous laboratory values. Our goal is to learn low-dimensional embeddings for both clinical concepts and patients in rare disease cohorts, where n can be much smaller than p. In many cases, prior knowledge about relationships among clinical concepts, derived from broader populations or external cohorts, is available and encoded as a reference concept embedding matrix W P Rpˆq with embedding dimension q different from p; we refer to this as the knowledge matrix. We expect W to partially overlap with the latent concept structure in X. Therefore, the central challenge is how to leverage W to improve learning of the low-rank structure of X.Numerous methods have been proposed to learn low-rank representations of X with auxiliary knowledge. They can be broadly grouped into three families: spectral, manifold-based, and deep methods (Section 1.1). In the rare-disease setting, with limited sample size, high dimensionality, and strong interpretability requirements, we center our analysis on spectral methods and assume the latent data and auxiliary knowledge share partially overlapping subspaces. Within this setting, existing methods, including JIVE (Lock et al., 2013), AJIVE (Feng et al., 2018), CJIVE (Murden et al., 2022), and others (Ma and Ma, 2024), face two key limitations. First, many existing spectral transfer methods assume one-to-one signal alignment : each principal component (PC) direction in X perfectly aligns with one PC direction in W ; this yields the diagonal pattern in Figure 1(a). This assump-tion is often overly restrictive in real-world clinical data, where a PC direction of X aligns with multiple directions across W and W K (mixed alignment; Figure 1(b)). Second, existing methods typically rely on sufficiently strong shared signals between X
+
+and W and provide limited safeguards against negative transfer , meaning that incorpo-3Figure 1: Cosine-similarity heatmaps between principal component (PC) directions of W
+
+and its orthogonal complement W K (rows) and PC directions of X (columns). (a) One-to-one alignment: each PC direction of X perfectly aligns with one PC direction of W , with no alignment in W K. (b) Mixed alignment: a PC direction of X can align with multiple directions across both W and W K, indicating cross-component mixing. rating external knowledge leads to worse embedding estimation than using ˆX alone (e.g., PCA). In rare-disease applications, clinically meaningful shared components are often sub-tle and can be overwhelmed by stronger heterogeneous variation (e.g., demographics or common comorbidities) (Zhao et al., 2025), which makes transfer unstable. Although Li et al. (2024) relaxes the one-to-one alignment assumption through subspace-distance min-imization, it does not explicitly address this weak-shared-signal negative-transfer regime. The main contributions of this work can be summarized as follows: 
+
+• Flexible transfer beyond one-to-one alignment. We relax the restrictive one-to-one signal-alignment assumption underlying many existing knowledge-transfer meth-ods and develop a general subspace-based transfer framework. The framework is built on subspace-distance characterization and a newly introduced nonseparability parameter, which jointly capture mixed cross-component correspondence between X
+
+4Figure 2: Performance comparison across simulated datasets with varying shared-to-heterogeneous signal strength ratios. The y-axis shows the concordance index between the estimated concept similarity structure, computed from the estimated concept embed-dings, and the ground truth, with higher values indicating better recovery. When the shared signal is weak relative to the heterogeneous signal (ratio ă1), Li et al. (2024) and AJIVE underperform PCA, indicating negative transfer relative to a non-transfer baseline. and W and support a more refined theoretical analysis. 
+
+• A two-step design to mitigate negative transfer under weak shared signal. 
+
+We introduce a two-step estimator tailored to rare-disease settings where shared sig-nal is weak relative to strong heterogeneous variation: Step I preprocesses the raw knowledge matrix to remove non-transferable directions, and Step II estimates shared and heterogeneous components through projection onto span pW q and span pW Kq,respectively. This design improves recovery of weak shared structure and provides robustness against negative transfer where direct transfer is unstable (Figure 2). 
+
+• Non-asymptotic guarantees for concept and patient embeddings. We pro-vide rigorous theory for both preprocessing and estimation, including consistency of the preprocessing step and non-asymptotic error bounds for concept and patient em-5beddings. In particular, Theorem 4.4 shows that informative concept-level transfer improves not only concept embedding but also patient embedding estimation. To establish these results, we develop technical tools that align with the three con-tributions above. We formalize mixed sharing through subspace-distance and nonsepa-rability quantities, characterize when preprocessing avoids negative transfer, and derive non-asymptotic guarantees for both concept and patient embeddings. In particular, we establish deterministic upper and lower bounds that track strong and weak signal compo-nents individually, rather than analyzing only their aggregate linear span as in prior work (Li et al., 2024; Ma and Ma, 2024). This yields a sharper and more interpretable decompo-sition of subspace estimation error into deterministic bias and stochastic fluctuation. See Supplementary Section S1 for details. The remainder of the paper is organized as follows. Section 1.1 reviews related work. Section 2 introduces the model setup and geometric quantities for knowledge transfer. Sec-tion 3 presents the proposed two-step SENT procedure, including knowledge preprocessing and embedding estimation. Section 4 establishes deterministic and statistical guarantees for concept and patient embeddings. Sections 5 and 6 report simulation and real-data results, respectively. Section 7 concludes with a discussion. 
+
+## 1.1 Related work 
+
+Unsupervised representation learning methods can be broadly grouped into three families: spectral methods (e.g., PCA and factor models) (Bai et al., 2008; Fan et al., 2021), manifold-based methods (e.g., tSNE and UMAP) (Maaten and Hinton, 2008; McInnes et al., 2018), and deep representation methods (e.g., generative and contrastive approaches) (Mansour et al., 2021; Chen et al., 2020). In this paper, our focus is the rare-disease regime with 6limited sample size, high dimensionality, and a strong need for interpretability. In such set-tings, manifold and deep methods can be less stable and harder to interpret geometrically, especially when sample size is small (Arvanitidis et al., 2017; Chennuru Vankadara and von Luxburg, 2018). We therefore focus on spectral approaches, which provide a transparent and statistically tractable foundation for embedding estimation (Allen et al., 2023). Given this spectral focus, methods that incorporate auxiliary knowledge can be grouped into four classes: linear subspace alignment (Lock et al., 2013; Feng et al., 2018; Ma and Ma, 2024), manifold-geometry transfer (Ding and Ma, 2025; Landa et al., 2024), distribu-tional alignment (Pan et al., 2010; David et al., 2010), and deep transfer methods such as adversarial or discrepancy-based alignment (Jiao et al., 2024). These approaches provide useful transfer mechanisms when geometric and distributional assumptions are matched across domains. However, in clinical transfer settings with substantial cohort heterogene-ity, manifold correspondence may be unstable, distributional alignment can be sensitive to covariate shift, and deep transfer methods often require larger sample sizes in both source and target domains. For these reasons, subspace-based spectral transfer methods are the most directly relevant comparison class for our problem. 
+
+Notation. Scalars are denoted by lower-case letters, vectors by bold lower-case letters, and matrices by bold upper-case letters. Universal constants are denoted by C, c, . . . and may vary from line to line. For a, b P R, let a ^ b “ min ta, b u. For sequences tanu
+
+and tbnu, write an À bn (or an Á bn) if an ď Cb n (or an ě Cb n) for some universal constant C ą 0, and an — bn if both hold. For deterministic sequences, an “ Opbnq means 
+
+|an| ď Cb n eventually. For random sequences, Xn “ Oppanq means Xn{an is bounded in probability. For a matrix X, let }X} and }X}F denote the operator and Frobenius norms. Let Op,q “ t X P Rpˆq : XJX “ Iqu, and write Op when p “ q. Supplementary Table S1 7gives a complete notation table. 
+
+# 2 Matrix Denoising Model with Subspace Knowledge 
+
+## 2.1 Model setup 
+
+In this subsection, we introduce the matrix denoising model, define alignment between auxiliary knowledge and the latent data subspace via principal angles, and use this align-ment to decompose the latent subspace into a shared (knowledge-driven) component and a heterogeneous (purely data-driven) component. Suppose we observe ˆX P Rpˆn, generated from a rank-r latent data matrix X plus perturbation Z:ˆX “ X ` Z, where X SVD 
+
+“ U Λ1{2V J “ U F J. (2.1) Here U P Op,r and V P On,r are the left and right singular vector matrices, and Λ “
+
+diag pλ1, . . . , λ rq with λ1 ě ¨ ¨ ¨ ě λr ą 0. For EHR applications, we interpret U as latent concept embeddings and F “ V Λ1{2 as patient embeddings. Let W P Op,r W be a transferable knowledge matrix, where rW ď r. The integer rW
+
+is the transferable knowledge rank (estimated in Section 3), and in Section 2 we treat W
+
+as the ideal informative knowledge matrix. To characterize how W aligns with the latent subspace span pU q, consider the SVD of U JW :
+
+U JW “ r Q1
+
+> rˆrW
+
+Q2 
+
+> rˆp r´rWq
+
+s
+
+»—–
+
+diag pσ1, . . . , σ rW q
+
+0
+
+fi ffi fl OJ, (2.2) where rQ1 Q2s P Or, O P OrW , and 1 ě σ1 ě ¨ ¨ ¨ ě σrW ą 0. Define the principal angles by 
+
+θj :“ arccos pσj q, 1 ď j ď rW . (2.3) 8Smaller θj indicates stronger alignment between the knowledge subspace and the latent data subspace. The matrix Q1 captures directions in span pU q shared with W , while Q2
+
+captures heterogeneous directions orthogonal to W .The angles θj are uniquely defined. For fixed U , Q2 is identifiable up to right multiplica-tion by an orthogonal matrix in Or´rW . The identifiability of Q1 depends on multiplicities of σj : it is unique up to sign when the σj are distinct, and up to blockwise orthogonal rotation within groups of repeated singular values otherwise. This decomposition gives the shared-versus-heterogeneous split used by our estimator in Section 3 and by the nonseparability analysis in Section 2.2. 
+
+## 2.2 Subspace distance, nonseparability, and flexible sharing 
+
+To formalize flexible knowledge transfer and support later theory, we introduce subspace-distance and nonseparability quantities. For orthonormal basis matrices A P Op,q and 
+
+B P Op,k with principal angles ϕ1 ď ¨ ¨ ¨ ď ϕq^k and q ^ k “ min pq, k q, define 
+
+} sin Θ pA, Bq} :“ max  
+
+> 1ďjďq^k
+
+sin ϕj , } sin Θ pA, Bq} F :“
+
+´ q^kÿ
+
+> j“1
+
+sin 2 ϕj
+
+¯1{2
+
+. (2.4) Applying this to U and W , we define 
+
+γ :“ } sin Θ pU , W q} “ sin θrW , γF :“ } sin Θ pU , W q} F “
+
+´ rWÿ
+
+> j“1
+
+sin 2 θj
+
+¯1{2
+
+, (2.5) where θj are the principal angles in (2.3) and θrW is the largest. Let U “ span pU q and W “ span pW q. Since XX J “ U ΛU J, rotating the column vectors of U by rQ1 Q2s from (2.2) gives 
+
+XX J “ r U Q 1 U Q 2sloooooomoooooon 
+
+> rotated eigenbasis
+
+»—–
+
+QJ 
+
+> 1
+
+ΛQ1 QJ 
+
+> 1
+
+ΛQ2
+
+pQJ 
+
+> 1
+
+ΛQ2qJ QJ 
+
+> 2
+
+ΛQ2
+
+fi ffi fl looooooooooooooomooooooooooooooon 
+
+> rotated eigenvalue blocks
+
+rU Q 1 U Q 2sJ.
+
+9Geometrically, this decomposition splits U into two orthogonal components: span pU Q 1q,which overlaps with W, and span pU Q 2q, which is orthogonal to W. The middle block ma-trix shows how signal is allocated across the two components: the diagonal blocks QJ 
+
+> 1
+
+ΛQ1
+
+and QJ 
+
+> 2
+
+ΛQ2 describe signal variation within each component, while the off-diagonal block 
+
+QJ 
+
+> 1
+
+ΛQ2 measures how strongly the two components are mixed. If the two components are not mixed, QJ 
+
+> 1
+
+ΛQ2 “ 0 and we then have perfect separation .The one-to-one alignment setting underlies many multi-matrix learning approaches, e.g., JIVE (Lock et al., 2013), is perfectly separated (see Example 1). However, this setting is often unrealistic. In practice, U typically overlaps with both W
+
+and its orthogonal subspace, leading to the mixed alignment setting where QJ 
+
+> 1
+
+ΛQ2 ‰ 0
+
+(see Example 2). To quantify this, we define the signal nonseparability parameter 
+
+δ :“ } QJ 
+
+> 1
+
+ΛQ2}. (2.6) Larger δ indicates stronger mixing between the shared and heterogeneous components. When all eigenvalues are identical, δ “ 0 because X can be represented using rU Q 1, U Q 2s
+
+without changing Λ, which is effectively another perfectly separated case. When eigenvalues differ, δ is generally nonzero and captures the extent of cross-component mixing. 
+
+Example 1 (One-to-one alignment) . Consider W “ r w1, . . . , wrW s P Op,r W and X “
+
+U Λ1{2, where U “ r u1, . . . , urs P Op,r and Λ “ diag pλ1, . . . , λ rq with distinct eigenvalues. Suppose each wj forms a small angle θj with uj and is orthogonal to all ui for i ‰ j.Then Q1 “ r IrW , 0rW ,r ´rW sJ and Q2 “ r 0r´rW ,r W , Or´rW sJ, where Or´rW P Or´rW . Hence 
+
+QJ 
+
+> 1
+
+ΛQ2 “ 0, so δ “ 0.
+
+Example 2 (Mixed alignment) . Consider r “ 2 and rW “ 1. Write W “ r ws with }w} “ 
+
+1, and let X “ U Λ1{2, where U “ r u1, u2s P Op, 2 and Λ “ diag pλ1, λ 2q with 0 ă λ1 ă λ2.
+
+10 Since rW “ r ´ rW “ 1, write Q1 “ r q1s and Q2 “ r q2s for unit vectors q1, q2 P R2. Let uK
+
+be a unit vector orthogonal to span pU q, and set w “ a1 ´ γ2`γu1 ` a1 ´ γ2u2
+
+˘ ` γuK
+
+for 0 ă γ ă 0.5. Then } sin Θ pU , W q} “ γ. Moreover, the normalized projection of w onto 
+
+span pU q is γu1 ` a1 ´ γ2u2, so q1 “ r γ, a1 ´ γ2sJ, q2 “ r´ a1 ´ γ2, γ sJ, and hence 
+
+δ “ } QJ 
+
+> 1
+
+ΛQ2} “ | qJ 
+
+> 1
+
+Λq2| “ γa1 ´ γ2pλ2 ´ λ1q ą 0.
+
+As shown in Section 4, the subspace-distance quantities γ and γF, together with the nonseparability parameter δ, are central to characterizing the relationship between the latent data and auxiliary knowledge. They appear explicitly in both upper and lower bounds for embedding estimation error (see Theorem 4.1). Section 2 provides the geometric setup under a transferable knowledge matrix W .In practice, we start from a raw matrix W 0, which may combine transferable and non-transferable directions. Section 3 introduces a preprocessing step to construct a transferable matrix from W 0 and gives its sample algorithm. Section 4 then develops theory using Section 2 quantities for the transferable knowledge matrix W constructed in Section 3. 
+
+# 3 Spectral Embedding with Knowledge Transfer 
+
+We present Spectral Embedding with k Nowledge Transfer (SENT) as a two-step procedure for estimating concept and patient embeddings. For simplicity, we assume the true rank 
+
+r of X is known; in practice, r can be consistently estimated using existing rank-selection methods (Choi et al., 2017; Passemier and Yao, 2014; Ke et al., 2023; Donoho et al., 2023). The practical inputs in this section are the observed matrix ˆX and a raw knowledge matrix W 0. Because W 0 may contain both transferable and non-transferable directions, using it directly can induce negative transfer. Step I estimates a transferable rank and a transferable knowledge matrix from W 0; Step II uses this knowledge matrix to estimate 11 embeddings. The corresponding sample estimators are given in Algorithms 1 and 2. Without auxiliary knowledge, the standard non-transfer baseline estimator of U is given by the top-r left singular vectors of ˆX, denoted by ˆU p0q
+
+(Bai and Ng, 2002; Cai and Zhang, 2018). Its consistency requires regularity conditions on the perturbation term 
+
+Z. Under Assumption 1, there exist sequences ε0 “ ε0pn, p q Ñ 0 and ηε0 Ñ 0 such that P
+
+´
+
+} sin Θ p ˆU p0q
+
+, U q} F ď ε0
+
+¯
+
+ě 1 ´ ηε0 . Transferable external knowledge can improve this baseline error, whereas irrelevant or adversarial knowledge can worsen it (negative transfer) (Li et al., 2024; Zhang et al., 2022). This motivates the preprocessing step in Step I. 
+
+## 3.1 Step I: Knowledge preprocessing 
+
+Section 2 introduced the population notion of transferable knowledge. In Step I, we map a raw knowledge matrix W 0 P Rpˆd to a transferable matrix W and its rank rW , where d
+
+is the column dimension of W 0.We compute the SVD of W 0 and denote its left singular vectors by ˜W P Op,d , that is, the knowledge basis matrix. Let ro1, . . . , ods P Od be the right singular vectors of U J ˜W ,and define O1,k “ r o1, . . . , oks P Od,k for 0 ď k ď r ^ d. Then define candidate knowledge matrices W k :“ ˜W O 1,k . Each is a rotated and truncated version of the knowledge basis ˜W . While larger k retains more directions from the knowledge basis, it may also introduce non-transferable ones. Hence, a candidate is transferable if its subspace distance to U is at most the error order ε0 for the non-transfer baseline estimator ˆU p0q
+
+. Specifically, let 
+
+WU,k “ t A P Op,k : DcW ą 0 (independent of n, p ) s.t. } sin Θ pA, U q} F ď cW ε0u , (3.1) for each k ě 1, and set WU, 0 “ H . We call W k a transferable candidate if W k P WU,k .12 Algorithm 1: Knowledge preprocessing 
+
+Input: The baseline left singular matrix estimator ˆU p0q
+
+P Op,r , its error level ε0, a fixed constant cW ą 0, and the raw knowledge matrix W 0 P Rpˆd. ; 
+
+// Build an orthogonal knowledge basis matrix ˜W from the raw knowledge matrix W 0.
+
+1. Perform SVD on W 0 and let ˜W P Op,d be its left singular vectors.; 
+
+// Construct nested candidate matrices ˆW k using ˆU p0q. Each candidate ˆW k is a rotated and truncated version of the knowledge basis matrix ˜W .
+
+2. Perform SVD on ˆU p0qJ ˜W to obtain right singular vectors ˆ op0q 
+
+> k
+
+P Rd for 1 ď k ď r ^ d. Set ˆOp0q 
+
+> 1,k
+
+“ r ˆop0q 
+
+> 1
+
+, . . . , ˆop0q 
+
+> k
+
+s, ˆW k “ ˜W ˆOp0q
+
+> 1,k
+
+.
+
+// Select the largest transferable rank and the transferable knowledge matrix. 
+
+3. Define ˆrW :“ max 
+
+´
+
+t0u Y t 1 ď k ď r ^ d : } sin Θ p ˆW k, ˆU p0q
+
+q} F ď cW ε0u
+
+¯
+
+. (3.4) and set ˆW “ ˆW ˆrW .; 
+
+Return pˆrW , ˆW q.; Among transferable candidates, we choose the largest rank as the transferable rank 
+
+rW “ max pt 0u Y t 1 ď k ď r ^ d : W k P WU,k uq . (3.2) The transferable knowledge matrix is then set to the corresponding candidate, 
+
+W “ W rW P WU,r W if rW ą 0, W “ H if rW “ 0. (3.3) If rW “ 0, no direction extracted from W 0 satisfies the transferability criterion in (3.1). 13 Algorithm 1 is the sample analogue of (3.2)–(3.3): it replaces unknown U with ˆU p0q
+
+and returns pˆrW , ˆW q. Since ε0 is unknown, in practice we calibrate it either from the analytic rate in Cai and Zhang (2018) or from the empirical heuristics described in Supplementary Section S2. If ˆ rW “ r ^ d, then ˆW “ ˜W ; if ˆ rW “ 0, then ˆW “ H (no transferable knowl-edge). The next proposition establishes consistency of this preprocessing step, focusing on the case 0 ă rW ă r ^ d.
+
+Proposition 3.1 (Asymptotic consistency of knowledge preprocessing) . Let cW ą 0 be a sufficiently large fixed constant. Suppose there exists a sequence ε0 “ ε0pn, p q Ñ 0 such that 
+
+lim n,p Ñ8 P
+
+´
+
+} sin Θ p ˆU p0q
+
+, U q} F ď ε0
+
+¯
+
+“ 1. Let rW “ rW pε0q be defined in (3.2) , and assume 
+
+0 ă rW ă r ^ d. Define ˆrW and ˆW k as in Algorithm 1. If lim inf pn,p qÑ8 
+
+`σrW ´ σrW `1
+
+˘ ě
+
+cgap ą 0, where σk is the k-th singular value of U J ˜W and cgap is a fixed constant, then 
+
+lim  
+
+> n,p Ñ8
+
+P
+
+ˆ
+
+} sin Θ p ˆW rW , ˆU p0q
+
+q} F ď cW ε0, } sin Θ p ˆW rW `1, ˆU p0q
+
+q} F ě
+
+b
+
+1 ´ p 1 ´ cgap {4q2
+
+˙
+
+“ 1.
+
+Consequently, 
+
+lim  
+
+> n,p Ñ8
+
+P
+
+´
+
+ˆrW “ rW , ˆW P WU,r W
+
+¯
+
+“ 1.
+
+## 3.2 Step II: Embedding estimation with knowledge transfer 
+
+Step I produces a transferable knowledge matrix and its rank. In this subsection, we describe Step II under the corresponding population setup: the transferable matrix is denoted by W with rank rW (defined in (3.2) and (3.3)). Let W K P Rpˆp p´rW q be an orthonormal basis for the orthogonal complement of W . In practice, Algorithm 2 uses the Step I outputs pˆrW , ˆW q as plug-in estimates. In Algorithm 2, we present a transfer-learning procedure for estimating concept embeddings U and patient embeddings F .Algorithm 2 combines a knowledge-driven block and a data-driven block. The eigen-vectors of W J ˆX ˆXJ
+
+W recover shared directions within the knowledge subspace, while the 14 Algorithm 2: Embedding estimation with knowledge transfer 
+
+Input: Data matrix ˆX P Rpˆn, filtered knowledge matrix W P RpˆrW , its orthogonal complement W K, embedding dimension r, knowledge rank rW
+
+Output: Estimated subspace ˆU P Rpˆr and patient embeddings ˆF P Rnˆr
+
+// Knowledge-driven block: project covariance to span pW q to extract shared directions. 
+
+1. Compute the top rW eigenvectors of W J ˆX ˆXJ
+
+W , denoted ˆΩw;2. Set ˆU w “ W ˆΩw;
+
+// Data-driven block: project to span pW Kq to recover heterogeneous directions. 
+
+if rW ă r then 
+
+3. Compute the top r ´ rW eigenvectors of W JK ˆX ˆXJ
+
+W K, denoted ˆΩwK ;4. Set ˆU wK “ W K ˆΩwK ;
+
+// Combine both blocks for full estimated concept and patient embeddings. 
+
+5. Construct ˆU “
+
+$’’’’’’’’&’’’’’’’’%
+
+ˆU w, rW “ r, 
+
+r ˆU w ˆU wK s, 0 ă rW ă r, 
+
+ˆU p0q
+
+, rW “ 0.
+
+Set ˆF “ ˆXJ ˆU .eigenvectors of W JK ˆX ˆXJ
+
+W K recover heterogeneous directions from its orthogonal com-plement. The estimator adapts to the informativeness of knowledge: it reduces to classical SVD when rW “ 0, uses only knowledge-guided directions when rW “ r, and combines both blocks when 0 ă rW ă r. In practice, ˆU and ˆF are identifiable only up to an or-thogonal transformation, which is sufficient for downstream analyses on concept similarity from concept embeddings and supervised prediction from patient embeddings. 
+
+Remark 1. Given a transferable knowledge matrix W , Algorithm 1 of Li et al. (2024) 
+
+15 can also be applied for transfer to X. In our notation, their method corresponds to the case when 0 ă rW ă r and the knowledge side is noisy. By contrast, our framework first estimates rW and a “noise-less” knowledge matrix via Algorithm 1 and then handles the full range of cases, including rW “ r and rW “ 0.
+
+Remark 2. To estimate the shared component, JIVE and AJIVE use a stacked-SVD step (see equation (6) in Feng et al. (2018)). That construction is not designed to handle mixed or rotationally misaligned signal components between knowledge and data, whereas Algorithm 2 accommodates this through separate projection on span pW q and span pW Kq.
+
+# 4 Theoretical Results 
+
+## 4.1 Deterministic bounds for subspace analysis 
+
+In Section 4, all quantities are defined with respect to the transferable knowledge matrix 
+
+W P RpˆrW in (3.3) with rank rW , rather than the raw knowledge matrix W 0. Propo-sition 3.1 shows that the sample estimator ˆW from Step I consistently recovers W . In this subsection, we study deterministic error bounds for ˆU from Algorithm 2; full technical forms are given in Theorems S.1 and S.2 in the Supplementary. In (2.2), Q1 and Q2 split span pU q into shared and heterogeneous directions. Recall that γ “ } sin Θ pU , W q} and γF “ } sin Θ pU , W q} F measure subspace distance (see (2.5)), while δ “ } QJ 
+
+> 1
+
+ΛQ2} measures cross-component mixing (see (2.6)). Define 
+
+D :“ λQ2,min ´ γ2λQ1,max , eδ :“ δγ F
+
+D ,
+
+where λQ1,max and λQ2,min are the largest and smallest eigenvalues of QJ 
+
+> 1
+
+ΛQ1 and QJ 
+
+> 2
+
+ΛQ2,respectively. Here, D measures the gap between heterogeneous and shared signals, and 16 eδ is the resulting deterministic mixing bias. Let erand denote the stochastic error from finite-sample noise after projection onto span pW Kq, as defined in Theorem S.1. 
+
+Theorem 4.1 (Deterministic subspace estimation bounds (informal)) . Under the condi-tions of Theorems S.1 and S.2 in the Supplementary, if D ą 2δγ , then 
+
+} sin Θ p ˆU , U q} F ď min 
+
+ˆ
+
+γF ` 43eδ ` erand , ?r
+
+˙
+
+. (4.1) 
+
+In addition, the corresponding minimax lower bound satisfies 
+
+inf  
+
+> ˜UPOp,r
+
+sup  
+
+> pX,Z,WqP G
+
+} sin Θ p ˜U , U q} F Á max 
+
+"
+
+γF, min 
+
+ˆeδ ` erand 
+
+?5 , ?r ´ rW
+
+˙* 
+
+, (4.2) 
+
+where G is the model class defined in Theorem S.2. 
+
+Theorem 4.1 gives a three-part decomposition: 
+
+γFlo omo on 
+
+> subspace distance
+
+` eδlo omo on 
+
+> mixing bias
+
+` erand lo omo on 
+
+> finite-sample noise
+
+.
+
+The first term γF is the deterministic distance between span pU q and span pW q. The second term eδ is additional deterministic bias from cross-component mixing, and it becomes larger when mixing is stronger or gap D is smaller. The third term erand is the stochastic error from projected finite-sample perturbation. When rW “ 0, there is no shared knowledge component, so the estimator reduces to the non-transfer baseline estimator ˆU p0q
+
+. In this edge case, the subspace-distance term vanishes ( γF “ 0), the mixing term is absent, and 
+
+erand is interpreted as the estimation error of ˆU p0q
+
+.
+
+Remark 3. The condition D Á γδ means that the heterogeneous signal λQ2,min must be large enough relative to both the misalignment-induced shared contribution γ2λQ1,max and the cross-component mixing term γδ . It can be necessary in mixed-alignment cases with δ ‰ 0.In Example 2, let uq1 :“ U q 1, uq2 :“ U q 2, and z :“ γuq1 ´ a1 ´ γ2 uK. Then tuq2 , zu
+
+17 is an orthonormal basis for a two-dimensional subspace of span pW Kq. In the noiseless setting, the heterogeneous signal direction is recovered from the leading eigendirection of 
+
+W KW JKXX JW KW JK, i.e., the projection of XX J onto span pW Kq. The restriction of this operator to span tuq2 , zu has matrix representation 
+
+»—–
+
+λQ2,min γδ γδ γ2λQ1,max 
+
+fi ffi fl .
+
+Thus D “ λQ2,min ´γ2λQ1,max is the diagonal separation, while γδ is the off-diagonal mixing term. If D does not dominate γδ , the leading eigendirection of this noiseless projected operator cannot stay close to the target heterogeneous direction uq2 , so a small deterministic error bound is impossible even before sampling noise is added. When δ “ 0, the condition reduces to λQ2,min {λQ1,max ą γ2, the form of a standard population eigengap condition; see, for example, the switch-point gap requirement in Ma and Ma (2024). 
+
+The upper bound in Theorem 4.1 is the basis for the statistical convergence results in Section 4.2, while the lower bound shows that this decomposition is sharp up to constants. 
+
+## 4.2 Statistical convergence for embedding estimation 
+
+We now derive statistical convergence guarantees for both the concept subspace estimator ˆU and the patient embedding estimator ˆF . We first establish a subspace error bound, then extend the result to patient embeddings. 
+
+Assumption 1 (Sub-Gaussian error) . The perturbation matrix Z is given by Z “ Σ1{2 
+
+> z
+
+E.Here, Σz is a p ˆ p positive definite matrix with }Σz } ď σ2, and Σ1{2 
+
+> z
+
+is its symmetric square root; E “ p Ei,j q1ďiďp, 1ďjďn is p ˆ n with independent sub-Gaussian entries satisfying 
+
+EpEi,j q “ 0, EpE2 
+
+> i,j
+
+q “ 1, }Ei,j }ψ2 ď ϕ2 for 1 ď i ď p, 1 ď j ď n, where } ¨ } ψ2 is the sub-Gaussian norm and σ2, ϕ 2 are absolute positive constants. 
+
+18 This assumption allows cross-sectional dependence through Σz and is standard in weak-factor analysis (Fan et al., 2024; Onatski, 2010, 2012). To obtain sharper bounds, we control the heterogeneous basis vectors (the columns of U Q 2) individually and then aggregate them. Let λQ1,1 ě ¨ ¨ ¨ ě λQ1,r W denote the eigenvalues of QJ 
+
+> 1
+
+ΛQ1, and let λQ2,1 ě ¨ ¨ ¨ ě λQ2,r ´rW denote the eigenvalues of QJ 
+
+> 2
+
+ΛQ2.
+
+Assumption 2 (Identification of Q1 and Q2). Let K be the number of distinct principal angles between span pU q and span pW q, and partition t1, . . . , r W u into groups S1, . . . , S K
+
+such that angles are equal within each group. Assume that (i) the eigenvalues λQ1,j are distinct across different groups Sk, and (ii) there exists some fixed constant c0 P p 0, 1q such that max tλQ2,j `1, γ 2λQ1,max u ď p 1 ´ c0qλQ2,j for 1 ď j ď r ´ rW with λQ2,r ´rW `1 “ 0.
+
+Part (i) removes rotational ambiguity in the SVD-based decomposition. Part (ii) is a heterogeneous eigengap condition: each λQ2,j must dominate both the next heterogeneous eigenvalue and the misalignment-induced shared contribution γ2λQ1,max . This condition is only needed for the sharper eigenvector-level bound, not for a coarser block-level bound. Since our target application is rare-disease cohorts with limited sample size, we focus on the regime n ď p. Let λQ2,max “ max λQ2,j and recall that λQ2,min “ min λQ2,j , λ Q1,max “
+
+max λQ1,j . Define 
+
+ε2  
+
+> WK
+
+:“
+
+> r´rW
+
+ÿ
+
+> j“1
+
+pλ Q2,max ` np λ2
+
+> Q2,j
+
+, (4.3) which captures the stochastic error from projecting sub-Gaussian noise onto span pW Kq.The following theorem gives a statistical upper bound for subspace estimation. 
+
+Theorem 4.2 (Subspace estimation error) . Suppose Assumptions 1 and 2 hold. If 
+
+λQ2,j Á ?np ` p, λQ2,min ´ γ2λQ1,max Á δ, γF — ?rγ, ε2  
+
+> WK
+
+À ε20,
+
+19 then 
+
+inf 
+
+> OPOr
+
+} ˆU ´ U O }2F À min 
+
+¨˚˝ γ2F ` ε2 
+
+> WK
+
+loooomoooon 
+
+> with knowledge
+
+, ε20lo omo on 
+
+> without knowledge
+
+˛‹‚,
+
+with probability at least 1 ´ C exp ` ´ cp ` log pp r ´ rW q _ 1q˘. Here ε0 is the error order of non-transfer baseline estimator ˆU p0q
+
+without auxiliary knowledge. 
+
+We now briefly interpret the assumptions. First, only the heterogeneous eigenvalues 
+
+λQ2,j in span pW Kq need to be lower bounded. The condition λQ2,j Á ?np ` p is a min-imum signal-strength requirement. Compared with classical factor settings that often re-quire signals of order np (Bai and Ng, 2002; Stock and Watson, 2002), this allows weaker heterogeneous signals; for example, when n — p, it is satisfied by λQ2,j Á np α with 0 ă α ă 1(Bai and Ng, 2023; Onatski, 2012). Second, the condition λQ2,min ´ γ2λQ1,max Á δ is the simplified form of D ą 2γδ condition in Theorem 4.1; see Remark 3 for detailed interpre-tation. Finally, Remark 4 shows that, under standard rates for ε0, the stochastic error εW K
+
+is typically no larger than ε0.
+
+Remark 4 (Rate of ε0). For fixed r, existing results imply εW K À ε0 in standard regimes: 
+
+• Homogeneous strong signals: If λQ2,j — np , then ε0 “ Oppar{n ` ar{pq (Bai and Ng, 2002; Stock and Watson, 2002), and εW K À ε0.
+
+• Homogeneous weak signals: If λQ2,j — λ, then ε0 “ O
+
+´arp pλ ` nq{ λ
+
+¯
+
+(Cai and Zhang, 2018), and εW K À ε0.
+
+• Heterogeneous weak signals: If λQ2,min — np α with 0 ă α ă 1 and λQ2,max À np ,then ε0 “ Opp?r pp1´α{?n ` 1{pαqq . (Bai and Ng, 2023, Prop. 6), and εW K À ε0.
+
+Theorem 4.2 gives a no-negative-transfer guarantee for ˆU by bounding its error with min `γ2F ` ε2  
+
+> WK
+
+, ε 20
+
+˘. The knowledge-assisted term has two parts: γ2F, which captures de-terministic misalignment between U “ span pU q and W “ span pW q, and ε2  
+
+> WK
+
+from (4.3), 20 which captures the stochastic error magnitude in span pW Kq. Therefore, transfer gains tend to be largest when U and W overlap strongly (small γF), when fewer signal directions remain in span pW Kq (small r ´ rW ), and when heterogeneous eigenvalues λQ2,j are large. 
+
+Remark 5. Li et al. (2024) explain transfer gains through an enlarged eigengap. In our notation, their Theorem 1 gives Op
+
+`γ2F ` p λ2 
+
+> r
+
+{λ2
+
+> Q2,min
+
+qr{n˘. When γ2F is non-dominant and 
+
+λQ2,min — λr, this is essentially the same order as standard PCA. Our bound is sharper in heterogeneous spectra because it depends on the full set tλQ2,j u through ε2  
+
+> WK
+
+rather than only λQ2,min . Hence, if many λQ2,j are of order λQ2,max " λr (even when some are small), faster rates are still possible. Under Corollary 4.3, their rate becomes Opppα{nq, which is slower than ours. 
+
+Corollary 4.3. Under the conditions of Theorem 4.2, suppose r — r ´ rW “ Oppαq for some 0 ă α ă 1, n Á log p and γF is sufficiently small. Assume λQ2,j — np 1`0.5α for 
+
+1 ď j ď r ´ rW ´ 1 and λQ2,r ´rW — λr — np . Then, with probability at least 1 ´ Ce ´Cp , we have inf OPOr } ˆU ´ U O }2F À p0.5α{n.
+
+We similarly denote by ˆF p0q
+
+:“ ˆXJ ˆU p0q
+
+the standard non-transfer estimator of F , and measure its relative error by εpatient :
+
+P
+
+˜
+
+inf 
+
+> OPOr
+
+} ˆF p0q
+
+´ F O }F
+
+}F }F
+
+Á εpatient 
+
+¸
+
+ă ηεpatient , (4.4) with εpatient , η εpatient Ñ 0 as n, p Ñ 8 . Define 
+
+ε2  
+
+> F,W K
+
+:“
+
+> r´rW
+
+ÿ
+
+> j“1
+
+pλ Q2,max ` np λQ2,j λ1
+
+, (4.5) where λ1 is the largest eigenvalue of Λ in (2.1). 21 Theorem 4.4 (Patient embedding estimation error) . Suppose the conditions in Theo-rem 4.2 hold. If γ2F À ε2
+
+> patient
+
+, then, with the same probability as in Theorem 4.2, 
+
+inf 
+
+> OPOr
+
+} ˆF ´ F O }2F
+
+}F }2F
+
+À min 
+
+¨˚˚˚˝
+
+λQ1,max 
+
+λ1
+
+γ2F ` ε2 
+
+> F,W K
+
+loooooooooomoooooooooon 
+
+> with knowledge
+
+, ε2
+
+> patient
+
+lo omo on 
+
+> without knowledge
+
+˛‹‹‹‚.
+
+The bound has the same structure as Theorem 4.2: a deterministic term pλQ1,max {λ1qγ2F
+
+and a stochastic term ε2  
+
+> F,W K
+
+. The first decreases as span pW q aligns better with span pU q,and the second decreases as the heterogeneous eigenvalues λQ2,j grow. Using the same argument as in Remark 4, one can verify in standard regimes that ε2  
+
+> F,W K
+
+À ε2patient . Hence subspace estimation gains carry over to patient embeddings when γF is small. 
+
+# 5 Simulation 
+
+We generated data from ˆX “ U Λ1{2V J ` Z, where Z has i.i.d. N p0, 100 q entries, U “
+
+RrIr 0p´rsJ for a random R P Op, and V P On,r . We set Λ “ diag pλ1, . . . , λ rq with 
+
+λj “ np for j ď r ´ rW and λj “ αnp for j ą r ´ rW , where α P p 0, 1q controls the strength of the transferable signal relative to the heterogeneous signal. To mimic imperfect external knowledge, we constructed a raw knowledge matrix W 0 “rW NT αW s P Rpˆd, where W P RpˆrW is the transferable block and W NT P Rpˆp d´rW q
+
+contains non-transferable directions. The same α is used in both Λ and W 0.To construct the transferable block W , we controlled its principal angles with the last 
+
+rW columns of U . For 1 ď j ď rW , we set sin 2 θj “ ¯γ2p1 ` p j ´ 1q{p rW ´ 1qq , where ¯ γ2 con-trols the principal-angle level. Each knowledge direction is defined as wj “ cos θj ur´rW `j `
+
+sin θj uK 
+
+> j
+
+, where ur´rW `j is the pr ´ rW ` jq-th column of U and uK 
+
+> j
+
+is orthogonal to span pU q. Thus, smaller θj implies stronger alignment with transferable directions. The resulting matrix W “ r w1, . . . , wrW s has subspace distance γ2F “ řrW 
+
+> j“1
+
+sin 2 θj “ 1.5 rW ¯γ2.22 Figure 3: Finite-sample performance of SENT versus PCA under the simulation design in Section 5.1. Panels vary (a) the number of concepts p, (b) the number of patients n, and (c) the principal-angle level ¯ γ2. Curves report averages over 100 replicates of the concept subspace error } ˆU ˆU J
+
+´U U J}F, the patient embedding error } ˆF ˆF J
+
+´F F J}F{} F }2, and the knowledge-preprocessing error } ˆW ˆW J
+
+´ W W J}F. Lower values indicate better recovery. Thus, the last rW latent directions are the transferable components aligned with W ,while the first r ´ rW directions remain heterogeneous. We set W NT to have orthonormal columns in the orthogonal complement of span pU q ` span pW q.
+
+## 5.1 Subspace and patient embedding estimation 
+
+This subsection evaluates the full SENT pipeline, including knowledge preprocessing and embedding estimation. We focus on the accuracy of estimated concept and patient em-beddings, and additionally report how accurately knowledge preprocessing recovers the transferable knowledge matrix. We varied one factor at a time while fixing the others. Specifically, we varied p P
+
+23 t500 , 1000 , 1500 , 2000 u with n “ 50, ¯ γ2 “ 0.1, r “ 10, rW “ 5, d “ 30, and α Pt0.1, 0.2, 0.3u; varied n P t 50 , 100 , 150 , 200 u with p “ 1000 and the remaining settings unchanged; and varied ¯ γ2 P t 0.0, 0.1, 0.2, 0.3, 0.4, 0.5u with p “ 1000 and rW “ 5 fixed. Across all settings, ε0 in the knowledge preprocessing step was estimated by the bootstrap heuristic in Supplementary Section S2, with cW “ 0.61. For each replicate, we report the concept subspace error } ˆU ˆU J
+
+´ U U J}F, the patient embedding error } ˆF ˆF J
+
+´ F F J}F{} F }2, and the preprocessing error } ˆW ˆW J
+
+´ W W J}F.Each setting is repeated 100 times, and Figure 3 reports the replicate averages. Figure 3 shows that both the concept subspace and patient embedding errors decrease as p or n increases and increase with the principal-angle level ¯ γ2. SENT consistently out-performs PCA, especially when n is small or the shared signal is weak. The preprocessing error follows the same pattern, indicating that more accurate recovery of W leads to larger gains in knowledge transfer. Supplementary Section S3 further reports transferable rank recovery and an ablation showing that omitting preprocessing can induce negative transfer. 
+
+## 5.2 Comparison of existing methods 
+
+In this subsection, we compared SENT with Li et al. (2024), JIVE (Lock et al., 2013), AJIVE (Feng et al., 2018), and PCA under the simulation design in Section 5.1. We generated ˆX P Rpˆn and W 0 P Rpˆd as in Section 5.1 and varied only the target sample size, taking n P t 50 , 100 , 150 , 200 u with α “ 0.3, p “ 1000, ¯ γ2 “ 0.1, r “ 10, rW “ 5, and d “ 30 fixed. For all methods, we supplied the true rank r. SENT was fitted by Algorithms 1 and 2, whereas the competing transfer methods were given the true rW to make the comparison favorable to the baselines. For concept-relation evaluation, let ˆU pmq
+
+denote the concept subspace estimate from 24 Figure 4: Comparison of SENT and competing methods across sample sizes n under the simulation design in Section 5.2. Panels report (a) area under the receiver operating charac-teristic curve (AUC) for supervised classification based on estimated patient embeddings, (b) concordance index for estimated concept relations, and (c) concept subspace error 
+
+} ˆU ˆU J
+
+´ U U J}F. Higher values are better in (a)–(b), and lower values are better in (c). method m, let ˆSpmq
+
+“ ˆU pmq ˆU pmqJ 
+
+, S “ U U J, and define ˆ spmq “ vech off p ˆSpmq
+
+q and 
+
+s “ vech off pSq, where vech off p¨q stacks upper-triangular off-diagonal entries. We com-puted the concordance index between ˆ spmq and s; details of the calculation are deferred to Supplementary Section S3. For patient embedding evaluation, we defined a classification task with binary labels yi „
+
+Ber psigmoid pβJf iqq , where β “ p 0J 
+
+> r´rW
+
+, βJ 
+
+> 1
+
+qJ and β1 P RrW has i.i.d. Uniform p´ 0.5, 0.5q
+
+entries. We then generated 1000 additional test patients ˆXtest from the same model, computed ˆF pmq 
+
+> test
+
+“ ˆXJ 
+
+> test
+
+ˆU pmq
+
+for each method m, trained logistic regression for binary classification on 200 randomly selected test patients, and evaluated AUC on the remainder. Each experiment was repeated 100 times, and boxplots of AUC (patient embedding classification), concordance index (concept relations), and concept subspace estimation error are shown in Figure 4. The patient embedding error is provided in Supplementary Section S3. Our SENT method consistently outperforms all baselines across settings, and performance improves with larger n. Among baselines, AJIVE outperforms PCA, while 25 JIVE and Li et al. (2024) underperform, likely due to negative transfer. 
+
+# 6 Real Data Analysis 
+
+We analyzed EHR data from patients with multiple sclerosis (MS) in the Comprehensive Longitudinal Investigation of MS (CLIMB) registry at Mass General Brigham (MGB). MS is a relatively rare disease, with a reported global prevalence of approximately 35.9 per 100,000 individuals (Walton et al., 2020), and it exhibits substantial heterogeneity in disease progression and disability outcomes. Quantifying disability severity is central to MS research and clinical management, most commonly through the Expanded Disability Status Scale (EDSS) and the Patient-Determined Disease Steps (PDDS) (Learmonth et al., 2013). In routine clinical data, however, these outcomes are available only for a subset of patients. This makes MS a natural setting for studying whether external knowledge can improve patient and concept representations learned from limited EHR samples. The observed data matrix ˆX P Rpˆn is a concept-by-patient matrix, where each entry ˆxij is the observed occurrence count of concept i in patient j. Rows correspond to retained clinical concepts (e.g., diagnoses, procedures, medications), and columns correspond to sampled patient windows. To construct the columns, we segment each patient’s timeline from MS diagnosis into six-month windows, count concept occurrences within each window, and randomly sample one window per patient. To stress-test limited-sample regimes, we considered two training sizes, n “ 100 and 500. For each size, we repeatedly sampled without replacement 100 MS subcohorts, applied the full estimation and evaluation pipeline to each subcohort, and summarized performance over the sampled subcohorts. As external knowledge, we used ONCE embeddings (Xiong et al., 2023), which are de-rived from large-population EHR corpora and further augmented with contextual biomedi-26 Figure 5: Performance comparison of different methods in the multiple sclerosis (MS) co-hort. (a) Area under the receiver operating characteristic curve (AUC) for three supervised classification tasks based on the estimated patient embeddings. (b) Concordance index and Kendall’s tau-b statistics between embedding-based MS relation scores and the GPT-based reference ranking. cal text embeddings. In our framework, these embeddings provide external concept knowl-edge learned from broader EHR populations. After filtering concepts by ONCE cosine similarity to MS ě 0.1, we formed the raw knowledge matrix W 0 P Rpˆd with p “ 4,268 concepts and d “ 768 embedding dimensions. We compared SENT with standard PCA, JIVE, AJIVE, Li et al. (2024), and a di-rect knowledge-only subspace baseline that uses the external basis without preprocessing (“Knowledge”). Rank r was selected by ScreeNOT in the first repetition and then fixed across repetitions. For SENT, ε0 was estimated by the subsampling heuristic in Supple-mentary Section S2, with cW “ 6. We selected rW by (3.4) for SENT and Li et al. (2024); for JIVE and AJIVE, rW followed their original procedures. For concept relation evaluation based on estimated concept embeddings, we formed 27 a fixed 200-concept set by taking the union of the top 100 concepts with highest cosine similarity to MS across methods and adding 100 random controls. Let t denote the concept corresponding to multiple sclerosis. For each method m, we then quantified the embedding-based relation of concept i to MS by the inner product spmq 
+
+> i
+
+“ x ˆupmq 
+
+> i
+
+, ˆupmq 
+
+> t
+
+y. We then used GPT-4o (Achiam et al., 2023) to construct an external reference ranking gi P r 0, 100 s for evaluation, and measured rank concordance between tspmq 
+
+> i
+
+u and tgiu using concordance index and Kendall’s tau-b correlation coefficient. This evaluation strategy follows Xu et al. (2025); the rank concordance formulation, prompt protocol, and robustness analyses are given in Supplementary Section S4. For patient embedding evaluation, we fixed a held-out set of 1000 patients to form ˆXtest 
+
+and computed their patient embeddings using the concept subspace estimated from each training subcohort. We then trained logistic regression on 75% of the held-out patients using 6-month disability outcomes and evaluated on the remaining 25%. To assess gener-alizability across time horizons and outcome sources, we applied the same fitted models to 12-month EDSS and 24-month PDDS outcomes. Supplementary Section S4 gives the corresponding outcome definitions and preprocessing details. Figure 5 shows that SENT achieves the strongest concept-relation concordance and the best downstream patient-level prediction across all three disability tasks. Among baselines, Li et al. (2024) is typically second, followed by Knowledge; AJIVE gives only modest im-provement over PCA, while JIVE is often comparable to PCA. Figure 6 helps interpret these performance differences. SENT places its largest factor loadings on concepts ranked as highly or extremely relevant to MS, with prominent neurologic and cerebral terms such as brain and cerebral hemisphere structure, while also highlighting some broader cere-brovascular concepts. By contrast, Li et al. (2024) and Knowledge emphasize mobility and 28 Figure 6: Manhattan-style visualization of the loadings of the most significant factor in the logistic regression for each method. Each point represents a concept and is ranked by GPT-4o relevance scores for multiple sclerosis (MS). Concepts farther to the right are more MS-relevant. We provide textual descriptions of the top five concepts for each method. rehabilitation-related concepts such as transfers, hip flexion, and physical therapy exercises, whereas PCA, JIVE, and AJIVE place many of their strongest loadings on broad-utilization or nonspecific concepts, including prenatal, pregnancy, weighing patient, body weight, and edema. Overall, these patterns suggest that SENT recovers a representation more concen-trated on neurologically meaningful MS-related structure, while weaker baselines are more 29 easily dominated by generic utilization or demographic variation. 
+
+# 7 Conclusion and Discussion 
+
+SENT addresses a central challenge in rare disease research: learning meaningful patient and concept representations from high-dimensional noisy data when the target cohort is small. Our framework combines knowledge preprocessing with projection-based spectral estimation, allowing transfer from broad-population concept knowledge while reducing the risk of negative transfer from irrelevant directions. Both the simulation study and the MS application show that this preprocessing step is especially valuable when shared structure is weak or the target sample is limited. More broadly, SENT provides an interpretable and statistically tractable way to in-corporate external concept knowledge into unsupervised EHR representation learning. Al-though we focus on a single knowledge source, the two-step strategy can be extended to multiple knowledge matrices (Gu et al., 2025). Future work includes combining this frame-work with nonlinear or semi-supervised spectral methods, and extending it to longitudinal settings where the relationship between data and knowledge may evolve over time. 
+
+# Data Availability Statement 
+
+The EHR data used in this study come from the Mass General Brigham (MGB) Healthcare System and cannot be shared publicly because of privacy restrictions. The authors do not have authority to release these data. 30 References 
+
+Achiam, J., Adler, S., Agarwal, S., Ahmad, L., Akkaya, I., Aleman, F. L., Almeida, D., Altenschmidt, J., Altman, S., Anadkat, S., et al. (2023). Gpt-4 technical report. arXiv preprint arXiv:2303.08774 .Allen, G. I., Gan, L., and Zheng, L. (2023). Interpretable machine learning for discovery: Statistical challenges and opportunities. Annual Review of Statistics and Its Application ,11. Arvanitidis, G., Hansen, L. K., and Hauberg, S. (2017). Latent space oddity: on the curvature of deep generative models. arxiv. Preprint posted online October , 31. Bai, J. and Ng, S. (2002). Determining the number of factors in approximate factor models. 
+
+Econometrica , 70(1):191–221. Bai, J. and Ng, S. (2023). Approximate factor models with weaker loadings. Journal of Econometrics , 235(2):1893–1916. Bai, J., Ng, S., et al. (2008). Large dimensional factor analysis. Foundations and Trends ®
+
+in Econometrics , 3(2):89–163. Cai, T. T. and Zhang, A. (2018). Rate-optimal perturbation bounds for singular subspaces with applications to high-dimensional statistics. The Annals of Statistics , 46(1):60 – 89. Chen, T., Kornblith, S., Norouzi, M., and Hinton, G. (2020). A simple framework for contrastive learning of visual representations. In International conference on machine learning , pages 1597–1607. PmLR. Chennuru Vankadara, L. and von Luxburg, U. (2018). Measures of distortion for machine learning. Advances in Neural Information Processing Systems , 31. 31 Choi, Y., Taylor, J., and Tibshirani, R. (2017). Selecting the number of principal compo-nents: Estimation of the true rank of a noisy matrix. The Annals of Statistics , pages 2590–2617. David, S. B., Lu, T., Luu, T., and P´ al, D. (2010). Impossibility theorems for domain adaptation. In Proceedings of the Thirteenth International Conference on Artificial In-telligence and Statistics , pages 129–136. JMLR Workshop and Conference Proceedings. Ding, X. and Ma, R. (2025). Kernel spectral joint embeddings for high-dimensional noisy datasets using duo-landmark integral operators. Journal of the American Statistical Association , (just-accepted):1–28. Donoho, D., Gavish, M., and Romanov, E. (2023). Screenot: Exact mse-optimal singular value thresholding in correlated noise. The Annals of Statistics , 51(1):122–148. Fan, J., Wang, K., Zhong, Y., and Zhu, Z. (2021). Robust high dimensional factor models with applications to statistical machine learning. Statistical science: a review journal of the Institute of Mathematical Statistics , 36(2):303. Fan, J., Yan, Y., and Zheng, Y. (2024). When can weak latent factors be statistically inferred? arXiv preprint arXiv:2407.03616 .Feng, Q., Jiang, M., Hannig, J., and Marron, J. (2018). Angle-based joint and individual variation explained. Journal of multivariate analysis , 166:241–265. Gu, T., Han, Y., and Duan, R. (2025). Robust angle-based transfer learning in high dimensions. Journal of the Royal Statistical Society Series B: Statistical Methodology ,87(3):723–745. 32 Jiao, Y., Lin, H., Luo, Y., and Yang, J. Z. (2024). Deep transfer learning: Model framework and error analysis. arXiv preprint arXiv:2410.09383 .Ke, Z. T., Ma, Y., and Lin, X. (2023). Estimation of the number of spiked eigenvalues in a covariance matrix by bulk eigenvalue matching analysis. Journal of the American Statistical Association , 118(541):374–392. Landa, B., Kluger, Y., and Ma, R. (2024). Entropic optimal transport eigenmaps for nonlinear alignment and joint embedding of high-dimensional datasets. arXiv preprint arXiv:2407.01718 .Landi, I., Glicksberg, B. S., Lee, H.-C., Cherng, S., Landi, G., Danieletto, M., Dudley, J. T., Furlanello, C., and Miotto, R. (2020). Deep representation learning of electronic health records to unlock patient stratification at scale. NPJ digital medicine , 3(1):96. Learmonth, Y. C., Motl, R. W., Sandroff, B. M., Pula, J. H., and Cadavid, D. (2013). Validation of patient determined disease steps (pdds) scale scores in persons with multiple sclerosis. BMC neurology , 13(1):37. Li, M. M., Huang, K., and Zitnik, M. (2022). Graph representation learning in biomedicine and healthcare. Nature Biomedical Engineering , 6(12):1353–1369. Li, Z., Qin, K., He, Y., Zhou, W., and Zhang, X. (2024). Knowledge transfer across multiple principal component analysis studies. arXiv preprint arXiv:2403.07431 .Lock, E. F., Hoadley, K. A., Marron, J. S., and Nobel, A. B. (2013). Joint and individual variation explained (jive) for integrated analysis of multiple data types. The annals of applied statistics , 7(1):523. 33 Ma, Z. and Ma, R. (2024). Optimal estimation of shared singular subspaces across multiple noisy matrices. arXiv preprint arXiv:2411.17054 .Maaten, L. v. d. and Hinton, G. (2008). Visualizing data using t-sne. Journal of machine learning research , 9(Nov):2579–2605. Mansour, R. F., Escorcia-Gutierrez, J., Gamarra, M., Gupta, D., Castillo, O., and Kumar, S. (2021). Unsupervised deep learning based variational autoencoder model for covid-19 diagnosis and classification. Pattern Recognition Letters , 151:267–274. McInnes, L., Healy, J., and Melville, J. (2018). Umap: Uniform manifold approximation and projection for dimension reduction. arXiv preprint arXiv:1802.03426 .Murden, R. J., Zhang, Z., Guo, Y., and Risk, B. B. (2022). Interpretive jive: Connections with cca and an application to brain connectivity. Frontiers in Neuroscience , 16:969510. Onatski, A. (2010). Determining the number of factors from empirical distribution of eigenvalues. The Review of Economics and Statistics , 92(4):1004–1016. Onatski, A. (2012). Asymptotics of the principal components estimator of large factor models with weakly influential factors. Journal of Econometrics , 168(2):244–258. Pan, S. J., Tsang, I. W., Kwok, J. T., and Yang, Q. (2010). Domain adaptation via transfer component analysis. IEEE transactions on neural networks , 22(2):199–210. Passemier, D. and Yao, J. (2014). Estimation of the number of spikes, possibly equal, in the high-dimensional case. Journal of Multivariate Analysis , 127:173–183. Reza, N., Yang, Y., Bone, W. P., Singhal, P., Verma, A., Denduluri, S., Adusumalli, S., Ritchie, M. D., and Cappola, T. P. (2022). Unsupervised clustering applied to electronic health record-derived phenotypes in patients with heart failure. medRxiv , pages 2022–10. 34 Stock, J. H. and Watson, M. W. (2002). Forecasting using principal components from a large number of predictors. Journal of the American statistical association , 97(460):1167– 1179. Walton, C., King, R., Rechtman, L., Kaye, W., Leray, E., Marrie, R. A., Robertson, N., La Rocca, N., Uitdehaag, B., van Der Mei, I., et al. (2020). Rising prevalence of multiple sclerosis worldwide: Insights from the atlas of ms. Multiple Sclerosis Journal ,26(14):1816–1821. Weatherhead, A., Greer, R., Moga, M.-A., Mazwi, M., Eytan, D., Goldenberg, A., and Tonekaboni, S. (2022). Learning unsupervised representations for icu timeseries. In 
+
+Conference on Health, Inference, and Learning , pages 152–168. PMLR. Xiong, X., Sweet, S., Liu, M., Hong, C., Bonzel, C., Ayakulangara Panickan, V., et al. (2023). Knowledge-driven online multimodal automated phenotyping system. medrxiv. 
+
+Published online , 2023(29.23296239). Xu, Z., Gan, Z., Zhou, D., Shen, S., Lu, J., and Cai, T. (2025). Inference of dependency knowledge graph for electronic health records. Journal of the Royal Statistical Society Series B: Statistical Methodology , page qkaf061. Zhang, W., Deng, L., Zhang, L., and Wu, D. (2022). A survey on negative transfer. 
+
+IEEE/CAA Journal of Automatica Sinica , 10(2):305–329. Zhao, C., Tang, H., Zhang, J., and Li, X. (2025). Unveiling discrete clues: Superior healthcare predictions for rare diseases. In Proceedings of the ACM on Web Conference 2025 , pages 1747–1758. 35

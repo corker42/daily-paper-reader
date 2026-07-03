@@ -6,55 +6,79 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-02
-- 运行时间：2026-07-02 21:54:18 UTC
+- 最新运行日期：2026-06-04 ~ 2026-07-03
+- 运行时间：2026-07-03 14:40:35 UTC
 - 运行状态：成功
-- 本次总论文数：11
-- 精读区：1
-- 速读区：10
+- 本次总论文数：19
+- 精读区：7
+- 速读区：12
 
 ### 今日简报（AI）
-1) 今日推荐11篇论文，精读1篇高分综述，速读3篇涵盖医学图像多任务、视觉语言智能体及交互式诊断。
-2) 最值得看多标签图像分类综述（8.0分），系统梳理分类法与挑战；医学图像方向可关注BTI-Net的双向解码器交互机制。
-3) 建议普通读者先读综述掌握技术全景，再按兴趣深入医学或视觉智能体领域。
-- 详情：[/202607/02/README](/202607/02/README)
+今天浏览19篇医学AI论文，精读7篇，重点关注临床级医疗代理系统和罕见病诊断推理。  
+最值得看的是《Baichuan-M4》构建连续护理的临床级医疗代理（满分10分），以及《RareDxR1》实现超越人工标注的罕见病自主推理。  
+建议优先精读Baichuan-M4的工作流设计，并关注主动推理在个性化癌症治疗中的应用。
+- 详情：[/20260604-20260703/README](/20260604-20260703/README)
 
 ### 精读区论文标签
-1. [Rethinking Multi-Label Image Classification With Deep Learning: Taxonomy, Challenge, and Outlook](/202607/02/2607.00839v1-rethinking-multi-label-image-classification-with-deep-learning-taxonomy-challenge-and-outlook)  
-   标签：评分：8.0/10、query:fundus-mc
-   evidence：关于多标签图像分类深度学习架构的综述，直接适用于多种视网膜疾病分类
+1. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/20260604-20260703/2606.08982v2-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
+   标签：评分：10.0/10、query:fundus-mc
+   evidence：用于医疗诊断的多智能体系统
+2. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/20260604-20260703/2606.08982v1-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：临床级医疗智能体系统，支持多智能体协调和强化学习
+3. [A specialized reasoning large language model for accelerating rare disease diagnosis: a randomized AI physician assistance trial](/20260604-20260703/2606.24510v1-a-specialized-reasoning-large-language-model-for-accelerating-rare-disease-diagnosis-a-randomized-ai-physician-assistance-trial)  
+   标签：评分：9.0/10、query:fsrh
+   evidence：专门用于罕见病诊断的大语言模型，进行了临床试验
+4. [Can the Environment Speak for Itself? $T^{2}$-GRPO: A Turn-Trajectory Group Relative Policy Optimization for Caregiver Agents](/20260604-20260703/2606.08875v1-can-the-environment-speak-for-itself-t2-grpo-a-turn-trajectory-group-relative-policy-optimization-for-caregiver-agents)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：医疗agent与强化学习
+5. [An AI agent for treatment reasoning over a biomedical tool universe](/20260604-20260703/2606.28692v1-an-ai-agent-for-treatment-reasoning-over-a-biomedical-tool-universe)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：提出ATHENA-R1，一个通过强化学习在生物医学工具上训练的治疗推理AI智能体
+6. [HealthAgentBench: A Unified Benchmark Suite of Realistic Agentic Healthcare Environments for Challenging Frontier AI Agents](/20260604-20260703/2606.31179v1-healthagentbench-a-unified-benchmark-suite-of-realistic-agentic-healthcare-environments-for-challenging-frontier-ai-agents)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：医疗智能体
+7. [Token-Sparse Medical Multimodal Reasoning via Dual-Stream Reinforcement Learning](/20260604-20260703/2606.31599v1-token-sparse-medical-multimodal-reasoning-via-dual-stream-reinforcement-learning)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：强化学习用于医学多模态推理
 
 ### 速读区论文标签
-1. [BTI-Net: Bidirectional Decoder-Level Task Interaction via Uncertainty-Aware Gating for Multi-Task Medical Image Analysis](/202607/02/2606.29102v1-bti-net-bidirectional-decoder-level-task-interaction-via-uncertainty-aware-gating-for-multi-task-medical-image-analysis)  
+1. [RareDxR1: Autonomous Medical Reasoning for Rare Disease Diagnosis Beyond Human Annotation](/20260604-20260703/2607.00147v1-raredxr1-autonomous-medical-reasoning-for-rare-disease-diagnosis-beyond-human-annotation)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：利用大语言模型进行罕见病诊断
+2. [Belief-Space Control for Personalized Cancer Treatment via Active Inference](/20260604-20260703/2606.10376v1-belief-space-control-for-personalized-cancer-treatment-via-active-inference)  
+   标签：评分：7.0/10、query:fsrh
+   evidence：将信念空间控制与主动推断应用于个性化癌症治疗，属于医疗强化学习范畴
+3. [Belief-Space Control for Personalized Cancer Treatment via Active Inference](/20260604-20260703/2606.10376v2-belief-space-control-for-personalized-cancer-treatment-via-active-inference)  
+   标签：评分：7.0/10、query:fsrh
+   evidence：强化学习用于个性化癌症治疗
+4. [Enhancing Spectral Embedding through Robust and Flexible Knowledge Transfer in Electronic Health Records](/20260604-20260703/2606.11570v1-enhancing-spectral-embedding-through-robust-and-flexible-knowledge-transfer-in-electronic-health-records)  
+   标签：评分：7.0/10、query:fsrh
+   evidence：罕见病队列的表示学习
+5. [When LLMs Analyze Scars: From Images to Clinically-Meaningful Features](/20260604-20260703/2606.18063v1-when-llms-analyze-scars-from-images-to-clinically-meaningful-features)  
    标签：评分：7.0/10、query:fundus-mc
-   evidence：多任务医学图像分析可实现同时分类与分割，适用于多视网膜疾病同时分类
-2. [Dynamo: Dynamic Skill-Tool Evolution for Vision-Language Agents](/202607/02/2606.30185v1-dynamo-dynamic-skill-tool-evolution-for-vision-language-agents)  
+   evidence：LLM作为特征工程师用于少量样本医学图像分类
+6. [ASALT: Adaptive State Alignment for Lateral Transfer in Multi-agent Reinforcement Learning](/20260604-20260703/2606.24601v1-asalt-adaptive-state-alignment-for-lateral-transfer-in-multi-agent-reinforcement-learning)  
    标签：评分：7.0/10、query:fundus-mc
-   evidence：多智能体框架用于视觉推理，可应用于医疗诊断
-3. [GRAPE: Graph-Augmented Prototype Explanations for Interactive Medical Image Diagnosis](/202607/02/2606.30901v2-grape-graph-augmented-prototype-explanations-for-interactive-medical-image-diagnosis)  
+   evidence：多智能体强化学习中的状态对齐迁移方法，可应用于医学图像分析
+7. [Prior-Anchored Debiasing for Long-Tailed Multi-Organ Pathology Report Generation](/20260604-20260703/2607.00499v1-prior-anchored-debiasing-for-long-tailed-multi-organ-pathology-report-generation)  
    标签：评分：7.0/10、query:fundus-mc
-   evidence：图增强原型分类器用于医学图像诊断，可扩展到多类眼底病分类
-4. [TaxoMIL: Taxonomy-Constrained Learning for Hierarchical Whole Slide Image Analysis](/202607/02/2606.31100v1-taxomil-taxonomy-constrained-learning-for-hierarchical-whole-slide-image-analysis)  
+   evidence：医学图像分类中的长尾分布处理
+8. [Prior-Anchored Debiasing for Long-Tailed Multi-Organ Pathology Report Generation](/20260604-20260703/2607.00499v2-prior-anchored-debiasing-for-long-tailed-multi-organ-pathology-report-generation)  
    标签：评分：7.0/10、query:fundus-mc
-   evidence：用于医学图像分析的分层深度学习方法，可迁移至眼底分类
-5. [Preventing Error Propagation in Multi-Agent AI through Runtime Monitoring](/202607/02/2606.29026v1-preventing-error-propagation-in-multi-agent-ai-through-runtime-monitoring)  
+   evidence：针对长尾多器官病理报告生成的去偏方法
+9. [Input-Dependent Fisher Information for Local Sensitivity Analysis of Medical Image Classifiers](/20260604-20260703/2606.16362v1-input-dependent-fisher-information-for-local-sensitivity-analysis-of-medical-image-classifiers)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：多智能体通信与错误预防，与医疗诊断系统相关
-6. [APRIL-MedSeg: A Modular Medical Image Segmentation Toolbox Embracing Modern Paradigms](/202607/02/2606.30577v1-april-medseg-a-modular-medical-image-segmentation-toolbox-embracing-modern-paradigms)  
+   evidence：医学图像分类深度学习
+10. [Breaking Failure Cascades: Step-Aware Reinforcement Learning for Medical Multimodal Reasoning](/20260604-20260703/2606.31825v1-breaking-failure-cascades-step-aware-reinforcement-learning-for-medical-multimodal-reasoning)  
+   标签：评分：6.0/10、query:fsrh
+   evidence：提出步感知强化学习方法用于医学多模态推理，解决级联错误问题
+11. [TetraFuse: A Synergistic Four-Dimensional Dynamic Fusion Framework for Efficient and Robust Medical Image Classification](/20260604-20260703/biorxiv-10-64898-2026-06-02-729722-v1-tetrafuse-a-synergistic-four-dimensional-dynamic-fusion-framework-for-efficient-and-robust-medical-image-classification)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：适用于眼底分析的模块化医学分割工具箱
-7. [AEGIS: A Multi-Task Joint-Embedding Predictive Architecture for Mammography](/202607/02/2607.00277v1-aegis-a-multi-task-joint-embedding-predictive-architecture-for-mammography)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：多任务深度学习架构用于医学成像，可应用于眼底分析
-8. [AdaBoosting Text Prompts for Vision-Language Models](/202607/02/2607.00684v1-adaboosting-text-prompts-for-vision-language-models)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：用于视觉-语言分类的少样本学习
-9. [TRCGL-Net: A Long-Tailed Multi-Label Chest X-Ray Classification Framework with Generative Data Augmentation and Label Co-Occurrence Modeling](/202607/02/2607.00975v1-trcgl-net-a-long-tailed-multi-label-chest-x-ray-classification-framework-with-generative-data-augmentation-and-label-co-occurrence-modeling)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：多标签分类框架，可迁移至眼底疾病
-10. [Practical Use of Advanced AI Frameworks on Real-Life Scientific Problems: Three Case Studies](/202607/02/biorxiv-10-64898-2026-06-23-734132-v1-practical-use-of-advanced-ai-frameworks-on-real-life-scientific-problems-three-case-studies)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：自主AI系统在医学预测任务上的评估，与多智能体医疗诊断相关
+   evidence：适用于眼底的高效医学图像分类框架
+12. [Optimal Practice Schedules in a Dual-Rate Model of Motor Adaptation, and Their Recovery by Reinforcement Learning](/20260604-20260703/biorxiv-10-64898-2026-06-17-732970-v1-optimal-practice-schedules-in-a-dual-rate-model-of-motor-adaptation-and-their-recovery-by-reinforcement-learning)  
+   标签：评分：6.0/10、query:fsrh
+   evidence：强化学习用于运动适应
 
 
 <div class="dpr-home-promo-card">
