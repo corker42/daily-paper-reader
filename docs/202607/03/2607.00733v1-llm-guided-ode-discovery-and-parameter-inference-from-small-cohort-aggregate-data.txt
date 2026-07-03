@@ -1,0 +1,1247 @@
+Title: LLM-Guided ODE Discovery and Parameter Inference from Small-Cohort Aggregate Data
+
+URL Source: https://arxiv.org/pdf/2607.00733v1
+
+Published Time: Thu, 02 Jul 2026 00:51:12 GMT
+
+Number of Pages: 38
+
+Markdown Content:
+# LLM-Guided ODE Discovery and Parameter Inference from Small-Cohort Aggregate Data 
+
+Hanning Yang 1∗, Meropi Karakioulaki 2, Lennart Purucker 3, Tim Litwin 1, Cristina Has 2,
+
+Moritz Hess 1
+
+> 1Institute of Medical Biometry and Statistics, Faculty of Medicine and Medical Center, University of Freiburg, Germany
+> 2Department of Dermatology, Medical Faculty and Medical Center, University of Freiburg, Germany
+> 3Prior Labs, University of Freiburg, Germany
+> hanning.yang@uniklinik-freiburg.de
+
+Abstract 
+
+Mechanistic modeling via ordinary differential equations (ODEs) provides inter-pretable descriptions of complex dynamics and enables inference of underlying mechanisms, which is particularly valuable in clinical settings. However, in rare diseases, both the structure and parameters of the model are typically unknown, while individual-level data is scarce, noisy, heterogeneous, and subject to privacy constraints. In such settings, population-level summary statistics provide a practi-cal privacy-preserving data representation, while capturing heterogeneity further requires modeling parameters as distributions rather than fixed values. Yet no existing method jointly discovers ODE structure and refines parameter distributions solely from summary statistics. We present AgentODE, an end-to-end framework that addresses this gap. An LLM proposes candidate ODE structures, while a tool-augmented inference agent iteratively refines parameter distributions through a diagnosis–update loop, operating on population-level summary statistics alone. We evaluate AgentODE on three benchmark problems across different fields and two clinical datasets, including the rare disease recessive dystrophic epidermolysis bullosa (RDEB), with only 231 observations across 46 patients. AgentODE recov-ers functionally consistent ODE structures across all settings, and experiments on RDEB demonstrates that in sparse and noisy data settings reasoning from sum-mary statistics promotes mechanistically principled structure discovery, whereas baselines with individual-level data access recover implausible structures despite better predictive performance. AgentODE opens new possibilities for mechanistic modeling of rare diseases directly from population-level summary statistics, where data scarcity and privacy constraints have traditionally limited such analyses 1.
+
+1 Introduction 
+
+Mechanistic models based on ordinary differential equations (ODEs) provide a principled framework for describing the dynamics of complex systems across domains such as biology, medicine, and engi-neering[Raue et al., 2013]. By explicitly encoding mechanistic relationships between variables, ODE models offer interpretability, support reasoning about underlying processes, and enable extrapolation beyond observed data. These properties make ODEs particularly valuable in clinical settings, where understanding disease mechanisms is critical. However, constructing ODE models typically requires substantial expert knowledge to specify both the functional structure and parameters of the system. In rare diseases, such knowledge is often limited, while available data are typically scarce, noisy, heterogeneous, and subject to privacy constraints [Hilgers et al., 2016]. Capturing this heterogeneity requires modeling parameters as distributions rather than fixed values [Jaqaman and Danuser, 2006]. These challenges make reliable  
+
+> 1Code available at https://github.com/HanningYang/AgentODE .Preprint.
+> arXiv:2607.00733v1 [cs.LG] 1 Jul 2026
+
+model identification difficult in practice, even for approaches that rely on fitting individual-level data. In practice, population-level summary statistics are often used as a pragmatic alternative, as they enable privacy-preserving data sharing and can still provide an informative representation under noise, irregular sampling, and small cohort sizes. While automatic structure discovery methods such as symbolic regression [Makke and Chawla, 2024] and sparse identification [Brunton et al., 2016] can recover governing equations from data, they rely on dense individual-level data for model fitting and evaluation. Recent LLM-based ODE discovery approaches [Holt et al., 2024, Du et al., 2024, Yang et al., 2026, Bideh and Gryak, 2026] extend this paradigm by leveraging scientific knowledge embedded in LLMs to propose candidate structures, but similarly evaluate fitness against individual-level data. Meanwhile, population-level approaches such as nonlinear mixed-effects models [Lavielle, 2014] address data sparsity by pooling information across individuals, but require a pre-specified model structure. Together, these limitations expose a critical gap: no existing method jointly discovers ODE structure and refines parameter distributions from population-level summary statistics alone. Large language models have demonstrated strong capabilities in scientific knowledge retrieval, mathematical reasoning, and code generation [Romera-Paredes et al., 2024, Shojaee et al., 2024], as well as visual interpretation of complex data [Achiam et al., 2023] and proposal of informative prior distributions in scientific contexts [Riegler et al., 2025]. These capabilities map naturally onto the core challenges of ODE discovery in data-scarce settings. Scientific knowledge retrieval and code generation enable the proposal of mechanistically grounded ODE structures without explicit expert input. Visual reasoning allows the model to interpret patterns from summary statistics presented as visual summaries. The ability to propose informative prior distributions motivates modeling parameters as distributions to capture population-level heterogeneity. Finally, the agentic paradigm enables LLMs to interleave reasoning and tool use, iteratively diagnosing and refining outputs based on feedback [Yao et al., 2022]. Building on these insights, we propose AgentODE (Figure 1), an end-to-end framework that jointly discovers ODE structures and refines parameter distributions from population-level summary statistics. At its core, AgentODE consists of two coupled feedback loops mediated by the LLM: an outer structure-discovery loop that proposes and scores candidate ODE structures based on discrepancies between synthetic and empirical summary statistics, and an inner parameter-inference loop that iteratively refines parameter distributions by diagnosing and reducing these discrepancies. The process begins with the LLM proposing candidate ODE structures. For each structure, the parameter inference agent refines parameter distributions through an iterative diagnosis–update loop. At each iteration, the current distributions are used to simulate synthetic data, from which summary statistics are computed and compared with empirical summary statistics to identify discrepancies. The agent then reasons over these discrepancies together with memory of previous high-performing iterations to update the parameter distributions. An experience buffer with dynamic memory stores discovered results and provides examples to guide subsequent ODE structure proposals. We evaluate AgentODE on three synthetic benchmark problems spanning materials science, phar-macokinetics, and molecular biology, as well as two clinical datasets: acute kidney injury (AKI) and recessive dystrophic epidermolysis bullosa (RDEB), a rare skin disorder with only 231 observa-tions across 46 patients. Using GPT-5.2 as the backbone LLM, AgentODE achieves performance comparable to baselines with full trajectory access, while operating on population-level summary statistics. On RDEB, we show that reasoning from population-level summary statistics provides a more robust signal for structure discovery: by condensing population-level patterns while mitigating individual-level noise, summary statistics guide the LLM toward the true underlying mechanism, whereas baselines with access to individual-level data, despite achieving lower prediction error, discover mechanistically implausible or degenerate structures. This demonstrates that in sparse and noisy clinical settings, predictive performance alone is an insufficient criterion for evaluating mechanistic model quality. Our contributions are as follows: • We propose AgentODE, the first framework that jointly discovers ODE structures and refines parameter distributions from population-level summary statistics. • We demonstrate that, in sparse and noisy clinical settings, summary statistics can serve as a robust and informative data representation to guide mechanistic model inference, enabling recovery of underlying dynamical behavior while mitigating overfitting to individual-level noise. 2• We show that the jointly inferred structure and parameter distributions can be used to generate synthetic patient populations that capture observed heterogeneity. Problem 
+
+Specification 
+
+Empirical Data 
+
+Numerical and Visual Summaries 
+
+> LLM
+> Propose ODE
+> Structures
+
+Experience Buffer 
+
+> Fetch Structure Examples
+
+Best ODE Model  Inferred Parameter Distributions 
+
+> Synthetic
+> Data
+> 1. Examine comparative visual summaries
+> Time
+> 2. Call tools to diagnose discrepancies
+> Distribution
+
+## ...      
+
+> Mean 95%CI
+> syn
+> emp
+> Correlation Autocorr.
+> Measure Fit
+> (logSL)
+> Generate
+> Comparative
+> Visual
+> Summaries
+> 1. Read report & key history
+> Past parameter
+> distributions
+> 2. Update distributions
+> •Diagnostics
+> •Key history
+
+DIAGNOSIS  UPDATE  
+
+> Synthetic Empirical 1
+> 0
+> -1
+> Correlation Heatmap
+> Trend
+
+## ... 
+
+Parameter Inference Agent  
+
+> Generate
+> Infer
+> Parameter
+> Distributions
+> Generate Initial dists
+> per
+> structure
+> LLM
+> Diagnostic
+> Report
+> Iterative One-time
+> Corresponding
+> logSL info
+
+Figure 1: Overview of AgentODE . Inputs consist of a problem specification and empirical sum-maries. An LLM proposes candidate ODE structures. For each structure, the agent performs an 
+
+initial inference to obtain starting parameter distributions, from which synthetic data are generated, evaluated using logSL, and used to produce comparative visual summaries against empirical data. The agent then refines the parameters through a diagnosis–update loop. In diagnosis , discrepancies are identified from comparison visuals and quantified using statistical tools to produce a diagnostic report. In update , the agent reads this report and learns from past parameter distributions and corresponding logSL information to update the parameter distributions. An experience buffer stores structures and parameter distributions to guide future structure proposals. AgentODE outputs the best ODE model 
+
+f ∗ and inferred parameter distributions p∗(θ).
+
+2 Related Work 
+
+Agentic reasoning with LLMs. The ReAct framework [Yao et al., 2022] established the paradigm of interleaving reasoning and tool use in LLM agents. Reflexion [Shinn et al., 2023] extended this idea by incorporating reflection over past failures stored in an episodic memory buffer, allowing agents to improve decisions across trials. Related approaches have further explored structured reasoning and planning in LLMs [Yao et al., 2023, Wang et al., 2023]. LLMs have also demonstrated strong capabilities in scientific tasks such as knowledge retrieval [Romera-Paredes et al., 2024, Shojaee et al., 2024], visual interpretation of complex data [Achiam et al., 2023], and the proposal of informative prior distributions [Riegler et al., 2025]. Building on these advances, AgentODE applies agentic reasoning to mechanistic model discovery, where iterative feedback from summary statistics guides both structure discovery and parameter inference. 
+
+Equation and ODE structure discovery. Classical methods including symbolic regression [Makke and Chawla, 2024] and sparse identification [Brunton et al., 2016] recover governing equations 3from data but require individual-level data and rely on predefined operator sets or function libraries. Related advances in scientific machine learning, such as neural ODEs [Chen et al., 2018] and universal differential equations [Rackauckas et al., 2020], enable flexible modeling of dynamical systems but rely on uninterpretable neural components rather than explicit mechanistic structures. LLM-based approaches such as LLM-SR [Shojaee et al., 2024] and LaSR [Grayeli et al., 2024] partially address this gap by leveraging scientific knowledge embedded in LLMs to guide equation discovery through search or reusable concept libraries. Recent approaches including LLM4ED [Du et al., 2024], D3 [Holt et al., 2024], KeplerAgent [Yang et al., 2026] leverage LLMs to propose ODE structures but still depend on individual-level data for evaluation. Population-level approaches such as nonlinear mixed-effects models [Lavielle, 2014] pool information across individuals but require a predefined ODE structure. To our knowledge, AgentODE is the first framework to jointly discover ODE structure and refine parameter distributions from population-level summary statistics. 
+
+Simulation-based inference. Simulation-based inference encompasses likelihood-free parameter estimation methods [Cranmer et al., 2020]. Classical approaches such as approximate Bayesian computation [Beaumont, 2019] compare empirical and synthetic data through summary statistics, while more recent neural methods such as sequential neural likelihood [Papamakarios et al., 2019] and neural posterior estimation [Greenberg et al., 2019] learn posterior distributions using neural density estimators. These approaches can require large simulation budgets and can produce less interpretable outputs. The synthetic likelihood [Wood, 2010] defines a likelihood over summary statistics, enabling parameter inference by comparing synthetic and empirical summary statistics. This aligns with our setting, where parameter inference relies on summary statistics. Table 1 compares existing methods and AgentODE across key capabilities. LLM-SR † denotes our adaptation for ODE discovery. AgentODE is the only method that jointly discovers ODE structure, infers parameter distributions p(θ), and operates on population-level summary statistics. Table 1: Method comparison across key capabilities. †Adaptations for ODE discovery.                          
+
+> Method Discovers structure Infers p(θ)Population-level summaries Interpretable
+> SINDy ✓✗✗✓
+> PySR ✓✗✗✓
+> LLM-SR †✓✗✗✓
+> Neural ODE ✗✗✗✗
+> AgentODE ✓✓✓✓
+
+3 AgentODE 
+
+AgentODE is designed for clinical settings such as rare diseases, operating on population-level summary statistics rather than directly using individual-level data. The framework consists of two tightly coupled components: an LLM-guided ODE structure discovery module (the outer loop; Section 3.4) and a tool-augmented parameter inference agent (the inner loop; Section 3.5). The structure discovery module proposes candidate ODE structures, which are evaluated by the parameter inference agent through iterative refinement of parameter distributions. This evaluation is based on discrepancies between synthetic and empirical summary statistics, which guide subsequent structure proposals, forming a closed-loop process that jointly improves both structure discovery and parameter inference. We first formally introduce the problem setting. 
+
+3.1 Problem Formulation 
+
+Our goal is to infer an ODE structure f ∗ and parameter distribution p∗(θ) such that synthetic data generated by the model produce summary statistics consistent with the empirical data, thereby capturing the underlying dynamical patterns of the system. We consider ODEs of the form dX dt = f (X, θ ), where X ∈ Rd denotes the state variables and θ ∈ Rm
+
+the model parameters. To capture inter-individual heterogeneity, we assume independent LogNormal distributions for parameters, θj ∼ LogNormal( μj , σ 2 
+
+> j
+
+). Given empirical data X = {xi(t)}Ni=1 
+
+consisting of N individual trajectories, we represent the data using population-level summary statistics 
+
+semp = ϕ(X ) ∈ Rq , where ϕ denotes a summary-statistic mapping and q is the number of summary 4statistics. For a candidate structure f and parameter distribution p(θ), synthetic data ˜X (f, p (θ)) are generated, from which summary statistics ssyn = ϕ( ˜X (f, p (θ))) are computed. The objective is to infer f ∗ and p∗(θ) by minimizing a discrepancy between empirical and synthetic summary statistics, 
+
+(f ∗, p ∗(θ)) = arg min f, p (θ) D ssyn , s emp 
+
+, where D(·, ·) denotes a discrepancy function defined over summary statistics, as detailed in Sections 3.2 and 3.3. 
+
+3.2 Summary Statistics 
+
+Summary statistics support both structure discovery and parameter inference. For structure discovery, we use a broad set of statistics capturing distributions, autocorrelation, stationarity, entropy, scaling, trend, volatility, and cross-variable dependencies [Fulcher, 2018, Fulcher and Jones, 2014, Bandt and Pompe, 2002, Kantelhardt et al., 2001, Hyndman and Athanasopoulos, 2018], enabling informative comparison between candidate models. For parameter inference, we use a focused subset of the summary statistics used for structure comparison to provide stable signals for likelihood estimation. To better capture the dynamics of sparse and noisy clinical data, we prioritize distributional shape, temporal autocorrelation, population-level trends, and cross-variable dependencies, which together reflect the most informative aspects of population dynamics while ensuring consistency between parameter inference and structure comparison (complete set of statistics is provided in Appendix A). 
+
+3.3 Scoring 
+
+AgentODE employs two complementary metrics: log synthetic likelihood (logSL) for parameter inference within an ODE structure, and mean normalized summary discrepancy (MNSD) for compar-ison across ODE structures. LogSL evaluates parameter fit within a structure but is not comparable across structures, as each structure has its own parameterization and induces a different distribution over summary statistics. We therefore introduce MNSD for consistent comparison across structures. 
+
+Scoring within a structure (logSL). Given a candidate structure f and parameter distribution 
+
+p(θ) parameterized by ψ = {(μj , σ j )}mj=1 , we perform Nsim simulations by drawing indepen-dent parameter vectors {θ(n)}Nsim  
+
+> n=1
+
+from p(θ). Each simulation generates a population of syn-thetic trajectories ˜X (n)(f, θ (n)), from which summary statistics sSL ,(n)syn = ϕSL ( ˜X (n)(f, θ (n))) are computed. Following [Wood, 2010], we evaluate model fit using the log synthetic likelihood 
+
+log SL( ψ) = − 12
+
+h
+
+log | ˆΣψ | + ( sSL emp − ˆμψ )⊤ ˆΣ−1 
+
+> ψ
+
+(sSL emp − ˆμψ )
+
+i
+
+, where ˆμψ and ˆΣψ denote the mean and covariance of {sSL ,(n)syn }Nsim  
+
+> n=1
+
+. The logSL score is maximized during parameter inference. 
+
+Scoring across structures (MNSD). To compare candidate ODE structures, we quantify discrepan-cies between empirical and synthetic summary statistics using a normalized absolute difference, which we term the mean normalized summary discrepancy (MNSD): MNSD = 1
+
+> |I|
+
+P
+
+> i∈I
+
+|sMNSD emp ,i −sMNSD syn ,i |
+
+> IQR emp
+> i
+
+.
+
+Here, sMNSD emp ,i denotes the i-th empirical summary statistic, and sMNSD syn ,i is computed from synthetic data generated using the inferred parameter distribution for the candidate structure. IQR emp  
+
+> i
+
+is the empirical interquartile range of that statistic [Law, 1986]. The index set I indexes the summary statistics used for structure comparison. Lower MNSD indicates better agreement between empirical and synthetic summary statistics. 
+
+3.4 ODE Structure Discovery Base framework: LLM-SR. We build on LLM-SR [Shojaee et al., 2024], a symbolic regression framework that iteratively generates, evaluates, and refines candidate symbolic equations using LLMs. At each iteration, the LLM proposes equation hypotheses conditioned on the problem description, which are then evaluated based on their fit to individual-level data. The candidate equations and their corresponding fit scores are stored in an experience buffer, which serves as a dynamic memory to guide subsequent proposals. The buffer adopts an island-based model [Tanese, 1989] to maintain diversity and avoid local optima. 
+
+Extension to ODE discovery. We extend this paradigm to dynamical systems by replacing symbolic regression with ODE structure discovery. Unlike LLM-SR, which directly evaluates candidate equations using individual-level data, our framework evaluates ODE structures via a parameter 5inference agent 3.5. For each candidate structure, the agent refines parameter distributions using logSL, after which the structure is scored using MNSD. 
+
+3.5 Parameter Inference Agent 
+
+Given a candidate ODE structure f , the agent operates in two phases: an initial inference producing a starting parameter distribution, followed by an iterative diagnosis–update loop that refines the parameter distribution p(θ), guided by logSL measuring agreement between sSL syn and sSL emp .
+
+Visual summaries. We construct visual summaries from population-level data in a structured and interpretable form to represent temporal dynamics, heterogeneity, and inter-variable relationships. These include (i) mean trajectories with 95% confidence intervals over time, (ii) mean trajectories with 95% confidence intervals stratified by initial-condition quartiles, and (iii) heatmaps of Spearman correlations of first differences between variables. These summaries are used as empirical inputs for initial parameter inference. During diagnosis, empirical and synthetic versions of these summaries are compared to identify discrepancies that guide parameter updates. 
+
+LLM Initial Inference Given the problem specification, candidate ODE structure f , and em-pirical visual summaries, the LLM proposes an initial parameter distribution p(0) (θ). Details in Appendix G.2. 
+
+Diagnosis. The agent diagnoses the current best-performing parameter distribution, as measured by logSL. It first reasons from the problem context and the ODE structure f to infer expected system dynamics, including trajectory behavior, heterogeneity, and relationships between variables. These expectations are grounded by comparing empirical and synthetic visual summaries to identify discrepancies in the simulated dynamics. Beyond the most apparent mismatches, the agent reasons about their underlying causes in the context of f and the problem domain, linking them to parameter roles and the dynamical assumptions implied by the current distribution. The same summary statistics set used for structure scoring are provided as tools to the agent, which selectively evaluates them to quantify discrepancies and support its interpretation. The results are compiled into a structured diagnostic report that characterizes each failure mode by its severity, affected variables, and supporting statistical evidence. Details in Appendix G.3. 
+
+Update. Given the diagnostic report and past parameter distributions with high logSL scores, the agent updates the parameter distribution. First, it examines the diagnosed failure modes and reasons in the context of the ODE structure f and the problem domain to identify which parameters govern the affected dynamics and what directional changes may be required. It then reviews past parameter settings and their associated logSL outcomes to understand how previous configurations influenced model fit, informing the next update and avoiding repeating ineffective configurations. 
+
+4 Experiments and Results 
+
+4.1 Benchmarks and Clinical Datasets 
+
+We evaluate AgentODE on three synthetic benchmarks and two clinical datasets, focusing on ODE structure recovery and inferred parameter distributions. 
+
+Benchmarks. We evaluate AgentODE on three benchmark problems spanning materials science, pharmacokinetics, and molecular biology. To ensure evaluation beyond memorization, we assess recitation risk through contamination analysis (Table 3 in Appendix D). The Apoptosis system models programmed cell death dynamics across three coupled molecular species in molecular biology [Bideh and Gryak, 2026]. The Polymer DA Cross-linking system models Diels–Alder reaction kinetics across four coupled chemical species in materials science [Bideh and Gryak, 2026]. The PKPD-Immune system couples two-compartment pharmacokinetics with immune and effector cell dynamics across four state variables. AgentODE is designed to operate over heterogeneous populations, requiring that benchmark systems accommodate individual-level variability. We therefore sample initial conditions from domain-grounded distributions for all systems. For parameters, we introduce inter-individual variability where meaningful: the PKPD-Immune system naturally accommodates inter-individual variability in pharmacokinetics and immune response, and we assign log-normal parameter distributions accordingly. For the remaining systems, parameters are fixed following prior work [Bideh and Gryak, 2026]. Details in Appendix D. 6Clinical Datasets. We evaluate AgentODE on two clinical datasets. The first is an acute kidney injury (AKI) cohort extracted from MIMIC-IV 3.1 [Johnson et al., 2023], comprising 353 admissions (trajectories) from patients aged 50–64 years, with irregularly spaced measurements of creatinine, blood urea nitrogen (BUN), and potassium over the first 168 hours after admission. Measurements are irregularly spaced with variable numbers of observations per trajectory. The second dataset comprises 46 patients with severe recessive dystrophic epidermolysis bullosa (RDEB) [Bardhan et al., 2020, Reimer et al., 2020, Karakioulaki et al., 2026], a rare genetic skin disease, with 231 total observations across up to 144 months since first hospital visit, a mean of 5 observations per patient, and 16 patients with only 2 time points. We use measurements of serum albumin, log-transformed C-reactive protein (log 10 (CRP +1)), hemoglobin, and BMI relative to age- and sex-matched WHO reference (BMI rel ). 
+
+4.2 Experimental Setup 
+
+We compare AgentODE against state-of-the-art structure discovery baselines spanning sparse regres-sion ( SINDy [Brunton et al., 2016]), evolutionary symbolic regression ( PySR [Cranmer, 2023]), and LLM-guided symbolic regression ( LLM-SR [Shojaee et al., 2024]), as well as Neural ODE [Chen et al., 2018] as a black-box baseline. For PySR, we fit one independent symbolic regression model per state variable and assemble them into a system of equations. LLM-SR † denotes our adaptation of LLM-SR to ODE discovery, where the LLM proposes ODE structure candidates governing all state variables jointly, and parameters are subsequently fitted independently for each trajectory using BFGS, providing a reference with full access to individual-level data. SINDy and PySR are not evaluated on clinical datasets, as they require preprocessing steps such as interpolation and derivative estimation that introduce assumptions incompatible with our setting. We additionally include two summary-level ablations: LLM-based parameter initialization ( k = 5 ), which queries the LLM 5 times given the ODE structure and problem context to propose parameter distributions and selects the one with the highest logSL for evaluation, and AgentODE w/o iterative refinement , which removes the diagnosis–update loop from AgentODE. For parameter inference, AgentODE uses a bounded iteration budget with early stopping (10 iterations per structure with patience 5). LLM-SR †
+
+is evaluated with over 1000 sampled candidates. AgentODE and its ablations use approximately 500 samples per experiment. All other baselines follow their original setups or are tuned to achieve their best performance. Implementation details in Appendix C. 
+
+4.3 Quantitative Results Performance Table 2 reports RMSE across all datasets. Among summary-level methods, Agen-tODE achieves the best performance on four of five datasets. On benchmarks, AgentODE performs competitively with full-trajectory methods, particularly on PKPD, where it achieves an RMSE of 0.064 compared to 0.685 for Neural ODE. On clinical datasets, AgentODE substantially outper-forms Neural ODE on AKI (2.56 vs 6.162) and achieves comparable performance to LLM-SR †.However, in sparse and noisy clinical settings, predictive error alone is insufficient for evaluating mechanistic models: lower RMSE may reflect overfitting to noisy trajectories rather than recovery of clinically meaningful dynamics. Across datasets, AgentODE consistently recovers more compact and mechanistically meaningful ODE structures, despite operating solely on summary-level statistics. Qualitative comparisons of the discovered systems are provided in Appendix F. 
+
+Efficiency Figure 2 shows the best score trajectory over structure discovery iterations for AgentODE, AgentODE w/o iterative refinement, and LLM-based parameter initialization ( k = 5 ) across all datasets. AgentODE exhibits more consistent improvement over the search, with more frequent score improvements and fewer extended plateaus compared to both ablations, indicating that iterative refinement plays a critical role in sustaining productive exploration. The gap between methods is most pronounced on clinical datasets, where AgentODE achieves substantially higher final scores within the same iteration budget. 
+
+Analysis. The ablation results reveal two complementary roles of the framework design. First, visual summaries provide an effective inductive signal for inferring valid parameter distributions, as evidenced by the Invalid results (4/5) for LLM-based parameter initialization (k=5) across datasets. This effect is most pronounced for Apoptosis and Polymer, where parameters are fixed and must be inferred from data patterns, and in clinical settings where visual summaries provide a direct representation of temporal patterns, without which the model produces invalid outcomes on AKI and RDEB. For PKPD, where parameters follow distributions, embedded domain knowledge enables 7Table 2: RMSE : averaged across state variables (lower is better). Bold indicates best performance within each group. N/A : not applicable due to data requirements. Invalid : proposed parameter distributions yielded unstable (e.g., NaN/Inf) or physically unrealistic synthetic trajectories. For RDEB, results are reported in-sample due to limited cohort size. LLM backbone: GPT-5.2 .
+
+Benchmarks Clinical Method Apoptosis Polymer PKPD AKI RDEB 
+
+Full trajectory access 
+
+SINDy 0.004 0.543 1.251 N/A N/A PySR 0.045 0.196 0.981 N/A N/A LLM-SR † 0.024 0.508 0.015 2.583 0.532 Neural ODE 0.134 0.257 0.685 6.162 0.528 
+
+Summary-level only 
+
+LLM-based parameter initialization ( k = 5 ) Invalid Invalid 0.53 Invalid Invalid AgentODE w/o iterative refinement 0.111 1.81 0.259 3.803 0.628 AgentODE 0.079 0.689 0.064 2.56 0.644 100 200 300 400 500                       
+
+> 2.25
+> 2.00
+> 1.75
+> 1.50
+> 1.25
+> 1.00
+> 0.75
+> 0.50
+> Apoptosis
+> 100 200 300 400 500
+> 1.8
+> 1.6
+> 1.4
+> 1.2
+> 1.0
+> 0.8
+> 0.6
+> Polymer
+> 0100 200 300 400 500
+> 8
+> 7
+> 6
+> 5
+> 4
+> 3
+> 2
+> 1
+> PKPD
+> 0100 200 300 400 500
+> 1.4
+> 1.3
+> 1.2
+> 1.1
+> 1.0
+> 0.9
+> AKI
+> 0100 200 300 400 500
+> 1.8
+> 1.7
+> 1.6
+> 1.5
+> 1.4
+> 1.3
+> 1.2
+> 1.1
+> RDEB
+> Number of Candidate ODE Structures
+> Best Score ( MNSD)
+> AgentODE AgentODE w/o iterative refinement LLM-based parameter initialization ( k= 5 )
+
+Figure 2: Ablation study comparing AgentODE, AgentODE w/o iterative refinement, and LLM-based parameter initialization ( k = 5 ) across five datasets. Each panel shows the best score ( −MNSD, higher is better) over the number of candidate ODE structures evaluated. AgentODE consistently achieves higher scores and improves more efficiently than both ablations across all datasets. reasonable initialization, though visual summaries still lead to substantial improvement (0.064 vs 0.259). Second, diagnosis–update loop consistently improves final performance compared to AgentODE w/o iterative refinement, achieving substantially lower RMSE on Polymer (0.689 vs 1.81), PKPD (0.064 vs 0.259), and AKI (2.56 vs 3.803). Figure 2 further shows that refinement leads to more sustained improvement during structure discovery. Finally, benchmark problems comprise clean, fully observed synthetic trajectories, where full trajectory access provides a natural advantage, whereas clinical datasets are scarce, noisy, and heterogeneous, precisely where summary-level inference is particularly valuable. The RDEB case study illustrates this concretely: AgentODE w/o iterative refinement and LLM-SR † achieve lower RMSE yet recover mechanistically implausible or degenerate ODE structures (causal comparison in Figure 7), suggesting that methods fitting directly to noisy individual-level data overfit to noise rather than recovering the true underlying mechanism. Since high-scoring structures guide future proposals through the experience buffer, such degenerate structures can mislead the entire discovery process, as evidenced by the final structures discovered by these baselines ( Appendix F.5). Reasoning from population-level summary statistics provides a more robust signal that mitigates this risk. 
+
+4.4 Qualitative Results Diagnosis–Update Loop Figure 3 illustrates the diagnosis–update loop for a candidate ODE structure on the Polymer benchmark. The logSL score improves substantially from iteration 1 to the best iteration 4. This improvement is reflected in the visual summaries: at iteration 1, the synthetic correlation structure poorly matches the empirical heatmap, and the mean trajectories with 95% CI exhibit clear misalignment. By iteration 4, the synthetic correlation structure closely matches the empirical one, and the mean trajectories with 95% CI align better with the empirical data. 
+
+Analysis. The diagnosis–update loop improves parameter distributions, as reflected by consistent logSL improvements in early iterations (Appendix G.3). However, the non-monotonic behavior, where the score slightly decreases after the best iteration, highlights an inherent limitation: parameter distributions are updated through LLM-based reasoning over few iterations, rather than gradient-8-522.4      
+
+> Iter 0: Initial Inference Invalid
+> (logSL = N/A)
+> Best (iter 4)
+> Diagnosis-Update Iterations
+> logSL
+> Iter 1
+> Spearman Correlation: Empirical vs Synthetic
+> Empirical
+> Synthetic
+> Empirical
+> Synthetic
+> Mean trajectories 95% CI
+> x0 x1 x2 x3
+> Spearman Correlation: Empirical vs Synthetic
+> Mean trajectories 95% CI
+> Iter 4
+
+Figure 3: Diagnosis-update iterations for an ODE structure on polymer. Left: logSL score across iterations, with the best iteration marked. Right: Spearman correlation heatmaps and mean trajectories ± 95% CI comparing empirical and synthetic data at iteration 1 and the best iteration. based optimization, and thus monotonic convergence is not guaranteed. This is further compounded by parameter non-identifiability [Raue et al., 2009], where multiple parameter configurations may yield similarly plausible summary statistics. Nevertheless, for a substantial subset of parameters, the inferred distributions fall within plausible ranges and are more concentrated than empirically fitted distributions obtained via trajectory-level optimization (Figure 8). This behavior is consistent with LLM-based inference concentrating probability mass around plausible values when reasoning from population-level summary statistics, as further supported by correlation heatmaps (Figure 9). 
+
+5 Conclusion 
+
+We introduced AgentODE, an end-to-end framework that jointly discovers ODE structures and infers parameter distributions from population-level summary statistics. Across benchmarks and clinical datasets, AgentODE achieves performance comparable to baselines that rely on individual-level data. The rare disease RDEB case study demonstrates that reasoning from summary statistics provides a robust signal for structure discovery, mitigating overfitting to noisy clinical observations. AgentODE recovers a mechanistically consistent structure aligned with an independently developed expert model, whereas baselines with full data access produce structurally less coherent models that deviate from clinically meaningful relationships. Crucially, operating on population-level summary statistics provides a principled privacy-preserving way to mechanistic modeling for rare disease research. 
+
+Limitations and Broader Impact. AgentODE’s performance relies on knowledge embedded in the LLM and decreases with increasing ODE complexity. It is not intended to replace numerical optimization with full trajectories; parameter identifiability and distribution refinement under data scarcity remain fundamental challenges. Rather, AgentODE provides a practical approach for settings where data are limited, noisy, heterogeneous, or privacy-constrained. AgentODE has direct applications in biomedical research for under-studied diseases where privacy constraints limit access to individual-level data. Recovered structures and distributions should be interpreted as functionally consistent with observed population behavior rather than ground truth, and validated by domain experts before clinical use. 
+
+Future Work and Outlook. AgentODE opens several promising directions. On the methodological side, Meta-Harness–style approaches [Lee et al., 2026] could enable automatic optimization of the agentic pipeline, improving parameter distribution refinement without manual design. Extending the framework to a society of thought [Evans et al., 2026], where multiple specialized agents jointly 9reason over structure and parameters, could further strengthen the diagnosis–update loop. We aim to bring AgentODE into practice to help clinicians understand and cure rare diseases in settings with data scarcity and privacy constraints. 
+
+Acknowledgments and Disclosure of Funding 
+
+Funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) – Project-ID 499552394 – SFB 1597. 
+
+References 
+
+Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, et al. Gpt-4 technical report. 
+
+arXiv preprint arXiv:2303.08774 , 2023. Christoph Bandt and Bernd Pompe. Permutation entropy: a natural complexity measure for time series. Physical review letters , 88(17):174102, 2002. Ajoy Bardhan, Leena Bruckner-Tuderman, Iain LC Chapple, Jo-David Fine, Natasha Harper, Cristina Has, Thomas M Magin, M Peter Marinkovich, John F Marshall, John A McGrath, et al. Epider-molysis bullosa. Nature Reviews Disease Primers , 6(1):78, 2020. Mark A Beaumont. Approximate bayesian computation. Annual review of statistics and its applica-tion , 6(1):379–403, 2019. Amirmohammad Ziaei Bideh and Jonathan Gryak. Llm-ode: Data-driven discovery of dynamical systems with large language models. arXiv preprint arXiv:2603.20910 , 2026. Steven L Brunton, Joshua L Proctor, and J Nathan Kutz. Discovering governing equations from data by sparse identification of nonlinear dynamical systems. Proceedings of the national academy of sciences , 113(15):3932–3937, 2016. Ricky TQ Chen, Yulia Rubanova, Jesse Bettencourt, and David K Duvenaud. Neural ordinary differential equations. Advances in neural information processing systems , 31, 2018. Kyle Cranmer, Johann Brehmer, and Gilles Louppe. The frontier of simulation-based inference. 
+
+Proceedings of the National Academy of Sciences , 117(48):30055–30062, 2020. Miles Cranmer. Interpretable machine learning for science with pysr and symbolicregression. jl. 
+
+arXiv preprint arXiv:2305.01582 , 2023. Brian M De Silva, Kathleen Champion, Markus Quade, Jean-Christophe Loiseau, J Nathan Kutz, and Steven L Brunton. Pysindy: a python package for the sparse identification of nonlinear dynamics from data. arXiv preprint arXiv:2004.08424 , 2020. Mengge Du, Yuntian Chen, Zhongzheng Wang, Longfeng Nie, and Dongxiao Zhang. Llm4ed: Large language models for automatic equation discovery. arXiv preprint arXiv:2405.07761 , 2024. James Evans, Benjamin Bratton, and Blaise Agüera y Arcas. Agentic ai and the next intelligence explosion, 2026. Ben D Fulcher. Feature-based time-series analysis. In Feature engineering for machine learning and data analytics , pages 87–116. CRC press, 2018. Ben D Fulcher and Nick S Jones. Highly comparative feature-based time-series classification. IEEE Transactions on Knowledge and Data Engineering , 26(12):3026–3037, 2014. Arya Grayeli, Atharva Sehgal, Omar Costilla-Reyes, Miles Cranmer, and Swarat Chaudhuri. Symbolic regression with a learned concept library. Advances in Neural Information Processing Systems , 37: 44678–44709, 2024. 10 David Greenberg, Marcel Nonnenmacher, and Jakob Macke. Automatic posterior transformation for likelihood-free inference. In International conference on machine learning , pages 2404–2414. PMLR, 2019. Ralf-Dieter Hilgers, Franz König, Geert Molenberghs, and Stephen Senn. Design and analysis of clinical trials for small rare disease populations. Journal of Rare Diseases Research & Treatment ,1(1):53–60, 2016. Samuel Holt, Zhaozhi Qian, Tennison Liu, James Weatherall, and Mihaela van der Schaar. Data-driven discovery of dynamical systems in pharmacology using large language models. Advances in Neural Information Processing Systems , 37:96325–96366, 2024. Rob J Hyndman and George Athanasopoulos. Forecasting: principles and practice . OTexts, 2018. Khuloud Jaqaman and Gaudenz Danuser. Linking data to models: data regression. Nature Reviews Molecular Cell Biology , 7(11):813–819, 2006. Alistair EW Johnson, Lucas Bulgarelli, Lu Shen, Alvin Gayles, Ayad Shammout, Steven Horng, Tom J Pollard, Sicheng Hao, Benjamin Moody, Brian Gow, et al. Mimic-iv, a freely accessible electronic health record dataset. Scientific data , 10(1):1, 2023. Jan W Kantelhardt, Eva Koscielny-Bunde, Henio HA Rego, Shlomo Havlin, and Armin Bunde. Detecting long-range correlations with detrended fluctuation analysis. Physica A: Statistical Mechanics and its Applications , 295(3-4):441–454, 2001. Meropi Karakioulaki, Hanning Yang, Moritz Hess, Harald Binder, Kilian Eyerich, and Cristina Has. Systemic inflammation in recessive dystrophic epidermolysis bullosa: a five-year longitudinal study. British Journal of Dermatology , page ljag082, 2026. Diederik P Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 , 2014. Marc Lavielle. Mixed effects models for the population approach: models, tasks, methods and tools .CRC press, 2014. John Law. Robust statistics—the approach based on influence functions, 1986. Yoonho Lee, Roshen Nair, Qizheng Zhang, Kangwook Lee, Omar Khattab, and Chelsea Finn. Meta-harness: End-to-end optimization of model harnesses. arXiv preprint arXiv:2603.28052 ,2026. Nour Makke and Sanjay Chawla. Interpretable scientific discovery with symbolic regression: a review. Artificial Intelligence Review , 57(1):2, 2024. George Papamakarios, David Sterratt, and Iain Murray. Sequential neural likelihood: Fast likelihood-free inference with autoregressive flows. In The 22nd international conference on artificial intelligence and statistics , pages 837–848. PMLR, 2019. Christopher Rackauckas, Yingbo Ma, Julius Martensen, Collin Warner, Kirill Zubov, Rohit Supekar, Dominic Skinner, Ali Ramadhan, and Alan Edelman. Universal differential equations for scientific machine learning. arXiv preprint arXiv:2001.04385 , 2020. Andreas Raue, Clemens Kreutz, Thomas Maiwald, Julie Bachmann, Marcel Schilling, Ursula Klingmüller, and Jens Timmer. Structural and practical identifiability analysis of partially observed dynamical models by exploiting the profile likelihood. Bioinformatics , 25(15):1923–1929, 2009. Andreas Raue, Marcel Schilling, Julie Bachmann, Andrew Matteson, Max Schelke, Daniel Kaschek, Sabine Hug, Clemens Kreutz, Brian D Harms, Fabian J Theis, et al. Lessons learned from quantitative dynamical modeling in systems biology. PloS one , 8(9):e74335, 2013. A Reimer, M Hess, A Schwieger-Briel, D Kiritsi, F Schauer, H Schumann, L Bruckner-Tuderman, and C Has. Natural history of growth and anaemia in children with epidermolysis bullosa: a retrospective cohort study. British Journal of Dermatology , 182(6):1437–1448, 2020. 11 Michael A Riegler, Kristoffer H Hellton, Vajira Thambawita, and Hugo L Hammer. Using large language models to suggest informative prior distributions in bayesian regression analysis. Scientific Reports , 15(1):33386, 2025. Bernardino Romera-Paredes, Mohammadamin Barekatain, Alexander Novikov, Matej Balog, M Pawan Kumar, Emilien Dupont, Francisco JR Ruiz, Jordan S Ellenberg, Pengming Wang, Omar Fawzi, et al. Mathematical discoveries from program search with large language models. 
+
+Nature , 625(7995):468–475, 2024. Noah Shinn, Federico Cassano, Ashwin Gopinath, Karthik Narasimhan, and Shunyu Yao. Reflexion: Language agents with verbal reinforcement learning. Advances in neural information processing systems , 36:8634–8652, 2023. Parshin Shojaee, Kazem Meidani, Shashank Gupta, Amir Barati Farimani, and Chandan K Reddy. Llm-sr: Scientific equation discovery via programming with large language models. arXiv preprint arXiv:2404.18400 , 2024. Reiko Tanese. Distributed genetic algorithms for function optimization . University of Michigan, 1989. Lei Wang, Wanyu Xu, Yihuai Lan, Zhiqiang Hu, Yunshi Lan, Roy Ka-Wei Lee, and Ee-Peng Lim. Plan-and-solve prompting: Improving zero-shot chain-of-thought reasoning by large language models. In Proceedings of the 61st annual meeting of the association for computational linguistics (volume 1: long papers) , pages 2609–2634, 2023. Simon N Wood. Statistical inference for noisy nonlinear ecological dynamic systems. Nature , 466 (7310):1102–1104, 2010. Jianke Yang, Ohm Venkatachalam, Mohammad Kianezhad, Sharvaree Vadgama, and Rose Yu. Think like a scientist: Physics-guided llm agent for equation discovery. arXiv preprint arXiv:2602.12259 ,2026. Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik R Narasimhan, and Yuan Cao. React: Synergizing reasoning and acting in language models. In The eleventh international conference on learning representations , 2022. Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Tom Griffiths, Yuan Cao, and Karthik Narasimhan. Tree of thoughts: Deliberate problem solving with large language models. Advances in neural information processing systems , 36:11809–11822, 2023. 12 Appendix 
+
+A Summary Statistics 14 
+
+A.1 Statistics for Within-Structure Scoring (logSL) . . . . . . . . . . . . . . . . . . . 14 A.2 Statistics for Across-Structure Scoring and Diagnosis (MNSD) . . . . . . . . . . . 14 
+
+B Baseline Implementation Details 15 C AgentODE Implementation Details 16 D Benchmark Details 16 
+
+D.1 Apoptosis . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16 D.2 Polymer DA Cross-linking . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17 D.3 PKPD-Immune . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 
+
+E Clinical Dataset Details 18 
+
+E.1 Acute Kidney Injury (AKI) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 E.2 Recessive Dystrophic Epidermolysis Bullosa (RDEB) . . . . . . . . . . . . . . . . 19 
+
+F Additional Results 19 
+
+F.1 Apoptosis . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 F.2 Polymer DA Cross-linking . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 F.3 PKPD-Immune . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21 F.4 AKI . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21 F.5 RDEB . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24 
+
+G Prompts 28 
+
+G.1 Structure Discovery Prompt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 28 G.2 Parameter Initialization Prompt . . . . . . . . . . . . . . . . . . . . . . . . . . . . 29 G.3 Diagnosis–Update Prompts and Example . . . . . . . . . . . . . . . . . . . . . . 31 G.4 Contamination Analysis Prompt . . . . . . . . . . . . . . . . . . . . . . . . . . . 38 13 A Summary Statistics 
+
+A.1 Statistics for Within-Structure Scoring (logSL) 
+
+We provide the full specification of the logSL summary statistic vector introduced in Section 3.2. The logSL summary statistic vector is designed to be compact and interpretable, capturing the key distributional, temporal, and cross-biomarker properties of the observed population while remaining computationally efficient. It comprises the following four categories: 1. Marginal Distribution Statistics. For each biomarker, all simulated values across all patients and time points are pooled and standardized using the mean and standard deviation of the observed data: 
+
+z = y − μobs 
+
+σobs 
+
+.
+
+Let {z1, z 2, . . . , z n} denote the pooled standardized values. After sorting, 
+
+z(1) ≤ z(2) ≤ · · · ≤ z(n), qj = jn + 1 , j = 1 , . . . , n, 
+
+we approximate the empirical quantile function using a first-degree polynomial: 
+
+z(j) ≈ β0 + β1qj .
+
+The two coefficients (β0, β 1) are included per biomarker, where β0 captures location shifts relative to the observed distribution and β1 captures scale and tail spread. This yields 2p
+
+statistics in total. 2. Temporal Dependence Statistics. We compute lag-1 Spearman autocorrelation for each biomarker. Pooling all valid transitions across patients: 
+
+ρ1 = Corr( yt, y t−1).
+
+One autocorrelation coefficient is included per biomarker, yielding p statistics in total. 3. Population-level Trend Statistics. For each biomarker, we compute the Spearman correla-tion between time and the population mean trajectory, capturing the overall directional trend of the biomarker over the observation window. One trend statistic is included per biomarker, yielding p statistics in total. 4. Dynamic Cross-biomarker Statistics. For biomarkers X and Y , first differences are defined as: 
+
+∆Xt = Xt − Xt−1, ∆Yt = Yt − Yt−1.
+
+Pooling all valid first differences across patients, we compute the Spearman correlation: 
+
+ρ∆X, ∆Y = Corr(∆ Xt, ∆Yt).
+
+One correlation is included for each unordered biomarker pair, yielding p(p−1) 2 statistics in total. For p biomarkers, the resulting summary statistic vector has dimension 4p + p(p−1) 2 .
+
+A.2 Statistics for Across-Structure Scoring and Diagnosis (MNSD) 
+
+We list the full set of statistics used for structure comparison via MNSD and as the diagnostic toolkit for the parameter inference agent (Section 3.5). Statistics with empirical IQR < 0.01 across observed trajectories are excluded from MNSD computation to avoid division by near-zero values. 
+
+Per-variable statistics (24 per biomarker): 
+
+• Distribution (6): mean, standard deviation, interquartile range, skewness, outlier fraction, value range. • Autocorrelation (6): lag-1, lag-2, lag-3 autocorrelation, first zero-crossing of ACF, domi-nant frequency, spectral entropy. • Stationarity (2): window mean variation, standard deviation of first differences. 14 • Entropy and Complexity (2): permutation entropy ( m = 3 ), Lempel-Ziv complexity. • Scaling (2): detrended fluctuation analysis exponent, spectral slope. • Model Fit (3): AR(1) coefficient, exponential smoothing alpha, turning point rate. • Trend (1): Spearman correlation of values versus time. • Volatility (2): mean crossing rate, mean absolute first difference. 
+
+Cross-variable statistics: 
+
+• Level correlation: Spearman correlation of levels between two variables. • Difference correlation: Spearman correlation of first differences. • Cross-correlation: cross-correlation at lag 1. 
+
+B Baseline Implementation Details 
+
+We compare AgentODE against baselines encompassing a diverse range of methodologies, from sparse regression and evolutionary symbolic regression to LLM-guided equation discovery and neural network-based approaches. Implementation details for each baseline are provided below. 
+
+SINDy SINDy [Brunton et al., 2016] is a sparse regression method that identifies governing equations by representing the time derivatives of state variables as a sparse linear combination of candidate library functions. We use the PySINDy implementation [De Silva et al., 2020] 2 with a combined function library of polynomial terms up to degree 2 and nonlinear functions including exponential, logarithmic, trigonometric, and rational terms. Derivatives are estimated using smoothed finite differences, and sparse regression is performed using the Sequentially Thresholded Least Squares (STLSQ) algorithm. The sparsity threshold is tuned per system: λ = 0 .02 for Polymer DA and Apoptosis, and λ = 0 .20 for PKPD-Immune. 
+
+PySR PySR [Cranmer, 2023] is an evolutionary symbolic regression method based on asyn-chronous multi-island genetic programming. We use the PySR package 3 and apply it by fitting one symbolic expression per state variable to model its time derivative, estimated from trajectories using Savitzky–Golay smoothing followed by finite differences. The resulting expressions are combined into a full ODE system and integrated forward for evaluation. We use 15 populations of size 33, with 1000 iterations per variable, and allow binary operators {+, −, ×, ÷} and unary operators 
+
+{exp , log , √·, square } with a maximum expression size of 20. 
+
+LLM-SR † We use the official implementation of LLM-SR [Shojaee et al., 2024] 4 and extend it from symbolic regression to ODE structure discovery. Specifically, the LLM proposes candidate ODE structures, which are evaluated by simulating synthetic trajectories using numerical integration (via odeint ). For each proposed structure, parameters are fitted independently for each trajectory using BFGS to minimize trajectory-level discrepancies. This provides a reference setting with full access to individual-level data. 
+
+Neural ODE Neural ODE [Chen et al., 2018] learns system dynamics by parameterizing the right-hand side of an ODE with a neural network, ˙x = fθ (x), and integrating it using a differentiable ODE solver. We use the torchdiffeq library 5 with an MLP consisting of 3 hidden layers of size 64 and tanh activations. The model is trained using the Adam optimizer [Kingma and Ba, 2014] with learning rate 10 −3 and batch size 32 for up to 500 epochs with early stopping (patience 50) and learning rate decay. Missing values are excluded from the loss computation. 
+
+LLM-based parameter initialization ( k = 5 ). This ablation independently queries the LLM k = 5 
+
+times with the ODE structure and problem context to propose parameter distributions, without visual summaries and without any diagnosis–update refinement. The parameter distributions achieving the highest logSL score are selected. This ablation serves as a lower bound, reflecting performance without any data-driven iterative refinement. 
+
+> 2https://github.com/dynamicslab/pysindy
+> 3https://github.com/MilesCranmer/PySR
+> 4https://github.com/deep-symbolic-mathematics/LLM-SR
+> 5https://github.com/rtqichen/torchdiffeq
+
+15 AgentODE w/o iterative refinement. This ablation initializes parameter distributions using the parameter initialization prompt with visual summaries of the empirical data, identical to the full AgentODE framework. However, the diagnosis–update loop is disabled and no iterative refinement is performed after initialization. The resulting parameter distributions are used directly to score the candidate ODE structure via MNSD. 
+
+C AgentODE Implementation Details 
+
+LLM Backbone and Compute AgentODE uses GPT-5.2 as the backbone LLM for both structure discovery and parameter inference, queried with max_tokens = 8192 . Temperature and top-p are not explicitly set. The primary computational cost comes from LLM API calls; ODE simulation supports both CPU and GPU execution and requires no specialized hardware. 
+
+Structure Discovery The outer loop maintains 10 islands [Shojaee et al., 2024], where each island independently evolves a population of candidate ODE structures to promote diversity, with periodic exchange of high-performing structures across islands. Each LLM call generates 4 candidate structures, with 2 high-scoring structures fetched from the experience buffer to guide each proposal. The buffer stores all structures grouped into clusters by −MNSD score. Clusters are sampled via softmax over Z-scored cluster scores, with temperature decaying from 0.1 toward 0.05 over 30,000 programs, favoring exploitation of high-scoring structures while maintaining diversity. Island resets occur every 4 hours, wiping the weakest half of islands and seeding each with the best structure from a surviving island. A structure is registered in the buffer only if parameter inference yields at least one finite logSL, and is scored by −MNSD (higher is better) using a single simulation of 1,000 trajectories. 
+
+logSL Computation The log synthetic likelihood is estimated using Nsim = 150 simulation replicates, each integrating 100 synthetic trajectories. A trajectory is considered valid if all state variables are finite and fall within predefined physically plausible ranges. A replicate is discarded if fewer than 80% of trajectories are valid, in which case logSL → −∞ . A small regularization term 
+
+λ = 10 −6 is added to the diagonal of ˆΣψ before inversion to ensure numerical stability. 
+
+Constraint violation handling. When no parameter distributions proposed so far have yielded a finite logSL, the loop enters constraint violation mode. A violation report is generated for the current parameter distributions, describing which state variables are out of physically plausible range and the fraction of invalid trajectories. A dedicated CONSTRAINT_VIOLATION prompt is constructed with the current parameters and violation report, and sent to the LLM to propose corrected distributions. 
+
+Parameter Inference The inner diagnosis–update loop runs for a default of 10 iterations. If the candidate structure yields a finite logSL and its −MNSD score exceeds the island’s current best, the loop is extended to 20 iterations, allowing more thorough parameter inference for promising structures without committing extra computation to poor ones. Early stopping applies a patience of 5, counting both non-improving steps and consecutive constraint-violating steps. The best iteration is selected by the highest logSL. The diagnosis phase spans up to 5 tool-calling turns, after which an update prompt is constructed with the 3 best parameter sets by logSL from the current iteration log. 
+
+D Benchmark Details 
+
+Standard benchmarks such as Lotka-Volterra and SIR are well-known to be susceptible to LLM recitation. We therefore selected domain-specific systems and verified their resistance to memorization through the contamination analysis in Table 3 using the prompt provided in Appendix G.4. We provide the full ODE specifications, parameter settings, and data generation details for each benchmark below. 
+
+D.1 Apoptosis 
+
+The apoptosis system models programmed cell death through the interactions of three coupled protein concentrations: initiator protein, regulator protein, and effector protein. The governing ODE system 16 Table 3: Contamination analysis for benchmark systems. Recovery counts exact structural fingerprint matches across 5 runs using GPT-5.2 .
+
+Benchmark Variables Key structural features Recovery 
+
+Apoptosis Initiator, regulator, effector Multiplicative feedback 
+
+xeffector (xregulator + 0 .1) ; conservation law 
+
+0/5 
+
+Polymer DA Diene, dienophile, adduct Dual bilinear terms ( x0x1, x0x3); x3
+
+acts as reactant 
+
+0/5 
+
+PKPD-Immune Depot, central, immune, effector Saturating interaction ρ x immune xeffector  
+
+> ximmune +σ
+
+;quadratic effector term 
+
+0/5 
+
+is adapted from Bideh and Gryak [2026]: 
+
+d initiator 
+
+dt = − k1 · initiator · regulator initiator + s1
+
+− k2 · initiator + k3
+
+d regulator 
+
+dt = − k4 · initiator · regulator regulator + s2
+
+− k5 · regulator regulator + s3
+
++ k6 · effector · (regulator + s3)
+
+d effector 
+
+dt = k4 · initiator · regulator regulator + s2
+
++ k5 · regulator regulator + s3
+
+− k6 · effector · (regulator + s3)
+
+with fixed parameters k1 = 0 .40 , k2 = 0 .05 , k3 = 0 .10 , k4 = 7 .95 , k5 = 0 .20 , k6 = 0 .60 ,
+
+s1 = 0 .10 , s2 = 2 .00 , and s3 = 0 .10 . All parameters are fixed across individuals; only initial conditions vary. 
+
+Data Generation. A cohort of 100 trajectories is simulated over t ∈ [0 , 10] with 101 evenly spaced time points ( ∆t = 0 .1). Initial conditions are sampled independently from uniform distributions: initiator ∼ U (0 .001 , 0.05) , regulator ∼ U (0 .05 , 0.50) , effector ∼ U (0 .50 , 3.00) . The cohort is split into 80 inference trajectories and 20 test trajectories drawn from the same initial condition distributions. 
+
+D.2 Polymer DA Cross-linking 
+
+The Diels-Alder (DA) cross-linking system models the reversible covalent reaction between a diene and a dienophile component, a thermally reversible process widely studied in polymer chemistry for self-healing and recyclable materials. The system involves four coupled state variables: diene concentration ( x0), dienophile concentration ( x1), cross-linked adduct concentration ( x2), and de-cross-linked component concentration ( x3). The governing ODE system is adapted from Bideh and Gryak [2026]: 
+
+d x 0
+
+dt = −k1x0x1 − k2x0x3 + k3x1 + k4x2
+
+d x 1
+
+dt = −k1x0x1 + k2x0x3 − k3x1 + k4x2
+
+d x 2
+
+dt = k1x0x1 − k4x2
+
+d x 3
+
+dt = −k2x0x3 + k3x1
+
+with fixed parameters k1 = 0 .03 , k2 = 0 .01 , k3 = 0 .08 , and k4 = 0 .03 . All rate constants are fixed across individuals; only initial conditions vary. 
+
+Data Generation. The original system from Bideh and Gryak [2026] uses fixed initial conditions. To simulate a heterogeneous population suitable for summary-level inference, we extend the initial conditions to be sampled independently from uniform distributions: x0 ∼ U (1 .0, 30 .0) , x1 ∼U(0 .0, 0.1) , x2 ∼ U (0 .0, 0.1) , x3 ∼ U (0 .5, 10 .0) , A cohort of 100 trajectories is simulated over 
+
+t ∈ [0 , 50] with 101 evenly spaced time points ( ∆t = 0 .5). The cohort is split into 80 inference trajectories and 20 test trajectories drawn from the same initial condition distributions. 17 D.3 PKPD-Immune 
+
+The PKPD-Immune system is a composite four-variable ODE coupling two-compartment phar-macokinetics with an immune suppression and effector cell response module. The state variables are: drug amount in the absorption compartment (depot), drug amount in the central compartment (central), immune cell population (immune), and effector cell population (effector). The governing ODE system is: 
+
+d depot 
+
+dt = −ka · depot 
+
+d central 
+
+dt = ka · depot − ke · central 
+
+d immune 
+
+dt = s − d · immune − k1(central /V ) · immune 
+
+IC 50 + central /V d effector 
+
+dt = ρ · immune · effector immune + σ − δ · effector − ε · effector 2
+
+where ε = 0 .05 is a fixed structural parameter governing effector intraspecific competition. Both initial conditions and model parameters vary across individuals, reflecting pharmacokinetic and pharmacodynamic variability in drug response. All parameters are sampled independently from log-normal distributions; Table 4 reports the mean and standard deviation in linear space.                                  
+
+> Parameter Description Mean SD
+> kaAbsorption rate (day −1)1.00 0.25
+> keElimination rate (day −1)0.30 0.08
+> VVolume of distribution 10.0 2.00
+> sImmune cell source rate 1.00 0.20
+> dImmune cell death rate 0.15 0.04
+> k1Drug suppression rate 0.80 0.20
+> IC 50 Half-suppression concentration 0.50 0.15
+> ρEffector recruitment rate 0.40 0.10
+> σRecruitment half-saturation 2.00 0.50
+> δEffector death rate 0.20 0.05
+
+Table 4: PKPD-Immune parameter distributions (log-normal). 
+
+Data Generation. A cohort of 100 trajectories is simulated over t ∈ [0 , 50] days with 101 evenly spaced time points ( ∆t = 0 .5 days). Initial conditions are sampled from log-normal distributions: depot ∼ LogNormal (μ = 5 .0, σ = 1 .0) , central = 0 (central compartment always empty at dose time), immune ∼ LogNormal (μ = 6 .67 , σ = 1 .5) initialized near the drug-free immune steady state, and effector ∼ LogNormal (μ = 1 .0, σ = 0 .30) . The cohort is split into 80 inference trajectories and 20 test trajectories drawn from the same distributions. 
+
+E Clinical Dataset Details 
+
+E.1 Acute Kidney Injury (AKI) Patient Selection. Patients aged 50–64 years at admission are selected from MIMIC-IV 3.1 [John-son et al., 2023] 6. AKI is confirmed using ICD-10 diagnosis codes (N17.*) and/or KDIGO clinical criteria ( ≥0.3 mg/dL creatinine increase within 48 hours, or ≥1.5 × baseline within 7 days). Only admissions with at least 20 unique timepoints within the first 168 hours and at least two of the three core biomarkers present at each timepoint are retained. The final cohort comprises 345 patients (353 admissions, 8,249 timepoints; mean age 57 .4 ± 4.4 years). 
+
+Train/Test Split. The cohort is split at the admission level into 80% inference (282 patients) and 20% test (71 patients). 
+
+> 6https://physionet.org/content/mimiciv/3.1/
+
+18 Preprocessing. No interpolation or imputation is applied. Missing values and irregular sampling are handled natively by AgentODE through population-level summary statistics, and by Neural ODE and LLM-SR-ODE through masked loss computation. 
+
+Ethics. MIMIC-IV is accessed under the PhysioNet Credentialed Health Data License 1.5.0 and the PhysioNet Credentialed Health Data Use Agreement 1.5.0. No individual-level data are released as part of this work. 
+
+Preprocessing. No interpolation or imputation is applied to the raw measurements. Missing values and irregular sampling are handled natively by AgentODE through population-level summary statistics, and by Neural ODE and LLM-SR-ODE through masked loss computation. 
+
+E.2 Recessive Dystrophic Epidermolysis Bullosa (RDEB) Dataset. The dataset comprises 46 patients with severe RDEB [Bardhan et al., 2020, Reimer et al., 2020, Karakioulaki et al., 2026]. Patients ranged from 0 to 30.4 years of age at their first recorded visit. We focus on longitudinal follow-up spanning t ∈ [0 , 144] months since first hospital visit (mean 53.3 months per patient). A total of 231 observations are available across 46 patients, with a mean of 5.0 timepoints per patient and 16 patients having as few as 2 timepoints. 
+
+State Variables. Four state variables are modeled: serum albumin (g/dL), log-transformed C-reactive protein (log 10 (CRP +1), where CRP is in mg/L), hemoglobin (g/dL), and BMI relative to age- and sex-matched WHO reference (BMI rel , kg/m 2). BMI rel is computed as the deviation of each patient’s BMI from the age- and sex-matched WHO healthy reference, such that a value of 0 indicates a healthy BMI and negative values indicate underweight relative to peers. 
+
+Preprocessing. CRP is log 10 (CRP +1) transformed to stabilize variance. BMI rel is computed as the deviation from age- and sex-matched WHO reference values. No interpolation or imputation is applied. 
+
+Evaluation. Due to the limited cohort size, no train/test split is performed and results are reported in-sample, as noted in Table 2. 
+
+Ethics. The RDEB dataset was collected under institutional ethics approval at the authors’ institu-tion. All patients or their legal guardians provided informed consent. No individual-level data are released as part of this work. 
+
+F Additional Results 
+
+F.1 Apoptosis 
+
+Figure 4 compares the ODE structures recovered by different methods on the Apoptosis benchmark. SINDy recovers highly complex equations containing many redundant nonlinear, trigonometric, and exponential terms, producing expressions that are difficult to interpret mechanistically despite achieving strong numerical performance. PySR discovers substantially more compact equations, but the recovered interactions deviate from the underlying system structure and fail to preserve the coupled regulatory dynamics between variables. LLM-SR † recovers a sparse and biologically interpretable structure that closely resembles the ground-truth interaction pattern, correctly identifying key cross-variable couplings between initiator, regulator, and effector dynamics. AgentODE similarly recovers a compact interaction structure. Although the exact symbolic form differs from the ground truth, the discovered system preserves the core dynamical relationships between variables, including inhibitory and recruitment-like interactions that govern the population-level apoptosis behavior. 
+
+F.2 Polymer DA Cross-linking 
+
+Figure 5 compares the ODE structures recovered by different methods on the Polymer DA Cross-linking benchmark. The ground-truth system is governed by sparse reaction-like terms involving cross-linking between reactants, product formation, and de-cross-linking dynamics. SINDy again recovers highly complex equations with many nonlinear, exponential, logarithmic, and trigonometric terms, making the resulting system difficult to interpret mechanistically. PySR produces more compact equations, but the recovered expressions contain nonphysical functional forms such as logarithmic and high-order rational terms, which do not align well with the underlying reaction 19 AgentODE 
+
+> 004C99
+> LLM-SR
+> SINDy
+> PySR
+
+Figure 4: Recovered ODE structures for the Apoptosis benchmark using AgentODE, LLM-SR †,SINDy, and PySR. 20 kinetics. LLM-SR † recovers an interpretable reversible reaction network, but its proposed structure differs from the ground-truth reaction topology. In contrast, AgentODE recovers a compact mass-action-like system with forward cross-linking, reverse de-cross-linking, and side-interaction terms. Although the exact coefficients and terms differ from the ground truth, the recovered structure preserves the main mechanistic motifs of the Polymer system, including reactant-product conversion and coupling through the de-cross-linked component. 
+
+F.3 PKPD-Immune 
+
+Figure 6 compares the ODE structures recovered by different methods on the PKPD-Immune benchmark. The ground-truth system combines two-compartment pharmacokinetics with immune suppression and effector-cell recruitment dynamics. SINDy recovers a simplified structure that captures parts of the depot and central compartment dynamics, but fails to model effector dynamics and omits key immune–effector interactions. PySR produces compact equations but introduces nonphysical terms, including logarithmic effector feedback, and does not recover the mechanistic immune recruitment structure. In contrast, both LLM-SR † and AgentODE recover interpretable PKPD-style systems. LLM-SR † closely matches the ground-truth structure, including absorption, elimination, saturable immune suppression, and effector decay. AgentODE recovers the same core pharmacokinetic and immune-suppression mechanisms while using only summary-level statistics. Although its effector recruitment term differs from the ground truth, the recovered structure preserves the main causal pathway from depot absorption to central drug exposure, immune suppression, and effector dynamics. 
+
+F.4 AKI ODE structure discovered by AgentODE. AgentODE discovers a linear coupled biomarker system: 
+
+dCr 
+
+dt = θ0 − θ1Cr + θ2BUN ,dBUN 
+
+dt = θ3 − θ4BUN + θ5Cr ,dK
+
+dt = θ6 − θ7K + θ8Cr + θ9BUN .
+
+This structure represents each biomarker through a baseline source term, a clearance or recovery term, and cross-biomarker coupling. Creatinine and BUN are mutually coupled, reflecting shared renal dysfunction and azotemia dynamics, while potassium is driven by both creatinine and BUN together with its own elimination term. The resulting system is parsimonious and clinically interpretable. 
+
+ODE structure discovered by LLM-SR †. LLM-SR † discovers the following AKI system: 
+
+dCr 
+
+dt = θ0 + θ1Cr − θ2Cr ,dBUN 
+
+dt = θ3 + θ4Cr + θ5BUN − θ6BUN ,dK
+
+dt = θ7Cr + θ8BUN + θ9 − θ10 K.
+
+This structure also captures clinically plausible AKI dynamics, including creatinine-driven BUN changes and potassium dependence on renal dysfunction markers. However, the positive and negative self-effects for creatinine and BUN reduce to net linear turnover terms, making these effects harder to distinguish under sparse clinical sampling. Compared with AgentODE, the LLM-SR † structure is slightly less parsimonious and lacks direct BUN-to-creatinine coupling. 21 AgentODE 
+
+> LLM-SR
+> SINDy
+> PySR
+
+Figure 5: Recovered ODE structures for the Polymer DA Cross-linking benchmark using AgentODE, LLM-SR †, SINDy, and PySR. 22 AgentODE 
+
+> LLM-SR
+> SINDy
+> PySR
+
+Figure 6: Recovered ODE structures for the PKPD-Immune benchmark using AgentODE, LLM-SR †,SINDy, and PySR. 23 F.5 RDEB ODE structure developed independently by ODE experts in collaboration with RDEB clinicians. 
+
+The expert-derived model uses four state variables: nutrition ( N ), inflammation ( I), anemia state ( A), and general health ( H), along with an unobserved auxiliary inflammatory drive eI. These states were mapped to the previously used clinical proxy variables albumin, C-reactive protein, hemoglobin, and BMI relative to age- and sex-matched WHO reference values, respectively. To facilitate quantitative interpretation of model parameters, clinical variables were standardized to a [0 , 1] range. The model is specified by: 
+
+dN dt = λN (N ∗(I) − N ) , N ∗(I) = kI,N (1 − I)
+
+kI,N + IdI dt = λI
+
+
+
+I∗(H, eI) − I
+
+
+
+, I∗(H, eI) = 11 + eI
+
+ kH,I (1 − H)
+
+kH,I + H + eI
+
+
+
+dA dt = λA (A∗(I) − A) , A∗(I) = kI,A (1 − I)
+
+kI,A + IdH dt = λH (H∗(N, A, I ) − H) , H∗(N, A, I ) = 13
+
+ kI,H (1 − I)
+
+kI,H + I + (1 + kN,H )NkN,H + N + (1 + kA,H )AkA,H + A
+
+
+
+deIdt = pI , eI(0) = 0 
+
+where each observed state relaxes toward a state-specific set point that depends on the current value of the other states. The auxiliary state eI represents the unobserved progressive inflammatory drive and is not used as an observed clinical variable. 
+
+ODE structure discovered by AgentODE. The following ODE structure models the coupled dynamics of serum albumin, log-transformed C-reactive protein ( log -CRP), hemoglobin, and BMI relative to age- and sex-matched WHO reference (BMI rel ). 
+
+d albumin 
+
+dt = θ0 (θ1 − albumin ) − θ2 · log CRP 
+
+d log CRP 
+
+dt = θ3 (θ4 − log CRP ) + θ5 (θ1 − albumin )
+
+d Hb 
+
+dt = θ6 (θ7 − Hb ) − θ8 · log CRP + θ9 (albumin − θ1)
+
+d BMI rel 
+
+dt = θ10 (θ11 − BMI rel ) + θ9
+
+2 (albumin − θ1)
+
+Comparison. The expert-derived model and the model found by AgentODE approach the phe-nomenological relationships between variables differently, but both recognize the key disease loop, as visualized in Figure 7: inflammation (log-CRP) drives worsening of the other clinical variables, while a second variable attenuates inflammation. In the expert model, BMI rel plays this protective role as a proxy for patient health, while AgentODE identifies albumin as the protective variable, interpreted as a proxy for nutritional status. Both models plausibly link the clinical variables into a phenomenological description, for which no unique solution exists. 
+
+ODE structure discovered by AgentODE w/o iterative refinement. The following structure achieves a marginally lower RMSE (0.628 vs 0.644) than the full AgentODE model. However, mecha-nistic inspection reveals several implausibilities. The BMI rel equation reuses parameters θ0, θ 1, θ 2, θ 3
+
+from the albumin equation, imposing the constraint that both variables share identical relaxation rates 24 and baselines, which is clinically implausible as they reflect distinct physiological processes. More fundamentally, higher BMI rel negatively affects albumin and hemoglobin, whereas higher BMI rel 
+
+generally reflects better nutritional status and should be associated with improved clinical markers. Conversely, higher albumin negatively affects BMI rel , which contradicts the established association between good nutritional status and healthy body weight. As shown in Figure 7, the resulting causal structure is dense with exclusively negative cross-variable effects and no clear protective mechanism, in contrast to the parsimonious and clinically interpretable structure recovered by AgentODE. This illustrates that in sparse and noisy clinical settings, lower RMSE may reflect overfitting to noise rather than a more mechanistically valid model. 
+
+d albumin 
+
+dt = θ0 (θ1 − albumin ) − θ2 · log CRP − θ3 · BMI rel 
+
+d log CRP 
+
+dt = θ4 (θ5 − log CRP ) − θ6 · albumin − θ7 · BMI rel 
+
+d Hb 
+
+dt = θ8 (θ9 − Hb ) − θ10 · log CRP − θ11 · BMI rel 
+
+d BMI rel 
+
+dt = θ0 (θ1 − BMI rel ) − θ2 · log CRP − θ3 · albumin 
+
+ODE structure discovered by LLM-SR †. This structure achieves a lower RMSE (0.532) than AgentODE (0.644) by treating BMI rel as a static variable with zero derivative. While this trivially reduces prediction error on a sparse and noisy variable, it entirely forgoes modeling BMI rel dynamics. Since BMI rel is a key indicator of disease progression and nutritional status in RDEB, a model that does not capture its temporal evolution cannot provide mechanistic insights into this clinically important dimension. Furthermore, the albumin and log-CRP equations use constant baseline synthesis terms ( θ0 and θ4) rather than relaxation toward a physiologically meaningful baseline, which limits biological interpretability. As shown in Figure 7, BMI rel is entirely disconnected from the causal structure. This further illustrates that lower RMSE does not necessarily reflect a more mechanistically informative model in sparse and noisy clinical settings. 
+
+d albumin 
+
+dt = θ0 − θ1 · albumin − θ2 · log CRP − θ3 · BMI rel 
+
+d log CRP 
+
+dt = θ4 − θ5 · log CRP − θ6 · albumin − θ7 · BMI rel 
+
+d Hb 
+
+dt = θ8 − θ9 · Hb − θ10 · log CRP + θ11 · albumin 
+
+d BMI rel 
+
+dt = 0 
+
+Analysis. These comparisons highlight a fundamental advantage of summary-level inference in clinical settings. Methods that optimize directly against individual trajectories, such as LLM-SR †, can achieve low RMSE by overfitting to noise rather than recovering the true underlying mechanism. In contrast, reasoning from population-level summary statistics encourages the LLM to identify patterns that are robust across the cohort, promoting mechanistically grounded structure discovery. This distinction becomes particularly consequential in the experience buffer: since high-scoring structures are retrieved to guide future proposals, a mechanistically flawed structure with artificially low RMSE can mislead the search toward implausible regions of the structure space. Summary statistics, by averaging out individual-level noise, provide a more representative and informative signal for clinical ODE discovery than trajectory-level fitting alone. 
+
+Inferred parameter distributions Figure 8 compares the parameter distributions inferred by Agen-tODE against empirical distributions for the RDEB dataset. To obtain the empirical distributions, we fit the discovered ODE structure to each individual trajectory independently via BFGS optimization, 25 Expert-derived      
+
+> Albumin
+> logCRP Hb
+> BMI rel
+> AgentODE
+> Albumin
+> logCRP Hb
+> BMI rel
+> AgentODE w/o iterative refinement
+> Albumin
+> logCRP Hb
+> BMI rel
+> LLM-SR
+> Albumin
+> logCRP Hb
+> BMI rel
+> negative effects positive effects
+
+Figure 7: Causal diagrams for the RDEB ODE structures from ( first ) the expert-derived, ( second )AgentODE, ( third ) AgentODE w/o iterative refinement, and ( fourth ) LLM-SR †. Red arrows indicate negative effects, blue arrows indicate positive effects. yielding one parameter vector per patient. The resulting per-patient parameter values are shown as histograms, with a log-normal curve fitted to each, and compared against the log-normal distributions inferred by AgentODE from population-level summary statistics alone. For the baseline and relaxation parameters ( θ1, θ 4, θ 7, θ 10 ), the inferred and fitted distributions are in close agreement. For the cross-variable coupling parameters ( θ2, θ 5, θ 8, θ 9), the inferred and fitted distributions show certain discrepancies in magnitude, reflecting the inherent difficulty of precisely estimating interaction strengths in this setting: the data are sparse, heterogeneous, and subject to largely missing pairwise observations, only four clinical variables are modeled, and the mechanistic coupling between these variables in RDEB remains an open clinical question with limited established knowledge. Nevertheless, Figure 9 shows that the signs of most pairwise first-difference Spearman correlations are correctly recovered, suggesting that AgentODE captures the directional structure of cross-variable interactions even when magnitudes remain uncertain. The exception is albumin–BMI rel ,which is empirically near zero ( −0.006 ) and carries insufficient signal. 26 10 2 10 1 10 0 10 1
+
+Value 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+2.5 
+
+3.0 
+
+> Density
+
+fitted: 1.43e+00 
+
+inferred: 3.04e-01 
+
+0: albumin relaxation rate 
+
+10 0 10 1
+
+Value 
+
+0.0 
+
+0.1 
+
+0.2 
+
+0.3 
+
+0.4 
+
+0.5 
+
+0.6 
+
+0.7 
+
+0.8 
+
+> Density
+
+fitted: 2.79e+00 
+
+inferred: 2.99e+00 
+
+1: albumin baseline 
+
+10 4 10 3 10 2 10 1 10 0
+
+Value 
+
+0
+
+50 
+
+100 
+
+150 
+
+200 
+
+250 
+
+300 
+
+> Density
+
+fitted region 
+
+fitted: 4.85e-01 
+
+inferred: 2.30e-03 
+
+2: inflammation albumin 
+
+10 1 10 0 10 1
+
+Value 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+2.5 
+
+3.0 
+
+> Density
+
+fitted: 1.25e+00 
+
+inferred: 3.00e-01 
+
+3: log-CRP relaxation rate 
+
+10 1 10 0 10 1
+
+Value 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+1.2 
+
+1.4 
+
+1.6 
+
+> Density
+
+fitted: 1.08e+00 
+
+inferred: 1.31e+00 
+
+4: log-CRP baseline 
+
+10 5 10 4 10 3 10 2 10 1 10 0 10 1
+
+Value 
+
+0
+
+200 
+
+400 
+
+600 
+
+800 
+
+1000 
+
+1200 
+
+1400 
+
+1600 
+
+> Density
+
+fitted: 7.06e-01 
+
+inferred: 4.01e-04 
+
+5: albumin inflammation 
+
+10 1 10 0 10 1
+
+Value 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+2.5 
+
+3.0 
+
+> Density
+
+fitted: 3.90e+00 
+
+inferred: 3.04e-01 
+
+6: Hb relaxation rate 
+
+10 0 10 1
+
+Value 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+0.25 
+
+0.30 
+
+> Density
+
+fitted: 5.94e+00 
+
+inferred: 9.54e+00 
+
+7: Hb baseline 
+
+10 4 10 3 10 2 10 1 10 0
+
+Value 
+
+0
+
+100 
+
+200 
+
+300 
+
+400 
+
+> Density
+
+fitted: 2.82e-01 
+
+inferred: 1.45e-03 
+
+8: inflammation Hb 
+
+10 7 10 6 10 5 10 4 10 3 10 2 10 1 10 0 10 1
+
+Value 
+
+0
+
+2000 
+
+4000 
+
+6000 
+
+8000 
+
+10000 
+
+12000 
+
+14000 
+
+> Density
+
+fitted: 1.19e+00 
+
+inferred: 7.84e-05 
+
+9: albumin Hb/BMI 
+
+10 6 10 5 10 4 10 3 10 2 10 1 10 0
+
+Value 
+
+0
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 
+
+60 
+
+> Density
+
+fitted: 1.42e-01 
+
+inferred: 1.39e-01 
+
+10 : BMI rel relaxation 
+
+10 4 10 3 10 2 10 1 10 0
+
+Value 
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10 
+
+> Density
+
+fitted median: 9.53e-02 
+
+inferred mean: -7.8 
+
+(negative, not shown) 
+
+11 : BMI rel baseline 
+
+10 1 10 0
+
+0.00 
+
+0.25 
+
+0.50 
+
+0.75 
+
+1.00 
+
+1.25 
+
+1.50 
+
+fitted region 
+
+10 1 10 0
+
+0
+
+1
+
+2
+
+3
+
+4
+
+fitted region 
+
+10 1 10 0
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+fitted region Figure 8: Parameter distribution comparisons for the AgentODE-discovered RDEB ODE structure. 
+
+Blue histograms : per-patient parameter values from BFGS fitting to individual trajectories. Blue solid curves : log-normal fits to these values. Orange dashed curves : log-normal distributions inferred by AgentODE from population-level summary statistics. 27 albumin                         
+
+> logCRP
+> Hb
+> BMI rel
+> albumin
+> logCRP
+> Hb
+> BMI rel
+> 1.000 -0.268 0.344 -0.006
+> -0.268 1.000 -0.177 -0.104
+> 0.344 -0.177 1.000 -0.040
+> -0.006 -0.104 -0.040 1.000
+> albumin
+> logCRP
+> Hb
+> BMI rel
+> albumin
+> logCRP
+> Hb
+> BMI rel
+> 1.000 -0.333 0.237 0.044
+> -0.333 1.000 -0.368 -0.306
+> 0.237 -0.368 1.000 0.206
+> 0.044 -0.306 0.206 1.000
+> 1.00
+> 0.75
+> 0.50
+> 0.25
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+
+First-difference Spearman correlation: empirical vs synthetic (RDEB) 
+
+Spearman( v1, v2)Figure 9: RDEB first-difference Spearman correlation heatmaps for empirical and synthetic trajecto-ries from AgentODE discovered ODE structure. 
+
+G Prompts 
+
+All prompts in this section use the PKPD-Immune benchmark as a representative example. Variable names, units, time horizon, and domain context are substituted accordingly for other datasets. 
+
+G.1 Structure Discovery Prompt 
+
+Structure Discovery Prompt (PKPD-Immune) 
+
+You are a helpful assistant tasked with discovering ordinary differential equations ( ODEs ) structures for dynamic processes . Complete the ’ system ’ function below , considering the roles of each input , their interactions , and plausible dynamics . Let ’ s think step by step , but provide only (1) a final brief explanation (2 -5 sentences ) of your reasoning , limitations and unmodeled effects , followed by (2) the completed ODE expressions . """ Find the symbolic skeleton of an ODE system representing a four - variable pharmacokinetic - immunodynamic process . The system involves four coupled state variables : - depot ( amount ) : Drug amount in the absorption compartment . - central ( amount ) : Drug amount in the central compartment . - immune ( cells ) : Immune cell population subject to drug - mediated suppression following saturating dose - response . - effector ( cells ) : Effector cell population recruited through contact - dependent interaction with immune cells . The time unit is days . Observations span t in [0 , 50.0] HARD CONSTRAINT : - The parameter array has at most MAX_NPARAMS = 10 slots . - Do NOT skip indices . - Use only as many parameters as necessary ; avoid introducing redundant parameters . - You must not use any params [ k ] with k >= MAX_NPARAMS . """ import numpy as np MAX_NPARAMS = 10 
+
+28 params = [1.0] * MAX_NPARAMS def system_v0 ( biomarkers : np . ndarray , params : np . ndarray ) -> np . ndarray : """ Symbolic skeleton for a 4 - variable ODE system . Args : biomarkers : A numpy array containing [ depot , central , immune , effector ]. params : Array of numeric constants or parameters to be optimized . You must not use any params [ k ] with k >= MAX_NPARAMS . Returns : A numpy array representing the temporal derivatives ( d / dt ) of the state variables [ d_depot / dt , d_central / dt , d_immune / dt , d_effector / dt ]. """ depot , central , immune , effector = biomarkers # ---- depot dynamics ----d_depot = params [0] * depot # ---- central dynamics ----d_central = params [1] * central # ---- immune dynamics ----d_immune = params [2] * immune # ---- effector dynamics ----d_effector = params [3] * effector d_biomarkers = np . array ([ d_depot , d_central , d_immune , d_effector ] , dtype = float ) return d_biomarkers def system_v1 ( biomarkers : np . ndarray , params : np . ndarray ) -> np . ndarray : """ Improved version of ‘ system_v0 ‘.""" 
+
+G.2 Parameter Initialization Prompt 
+
+You are an expert dynamical systems analyst with deep expertise in mechanistic modeling and parameter distribution inference for coupled pharmacological and immunological systems . Your task is to propose and justify moderately informative priors ( linear - space mean and SD ) for the parameters of the mechanistic ODE model below , such that simulated trajectories align with the observed data over t in [0 , 50]. DEFINITION : MODERATELY INFORMATIVE A prior is moderately informative if it : - Rules out physically implausible values - Is consistent with the observed trajectory patterns - Reflects the degree of variability present in the data ---neither too diffuse nor too concentrated Simulation : t in days , horizon = 50 State variables : depot ( drug depot amount ) , central ( drug central compartment amount ) , immune ( immune cell population ) , effector ( effector cell population ) def system ( biomarkers : np . ndarray , params : np . ndarray ) -> np . ndarray : depot , central , immune , effector = biomarkers # params [0] = absorption rate from depot to central # params [1] = central elimination rate # params [2] = drug effect scale on immune suppression 
+
+29 # params [3] = drug half - saturation constant # params [4] = immune baseline / source rate # params [5] = immune natural decay rate # params [6] = effector recruitment rate from immune contact # params [7] = effector natural decay rate k_a = params [0] k_el = params [1] e_max = params [2] ec50 = params [3] s_imm = params [4] d_imm = params [5] k_recruit = params [6] d_eff = params [7] drug_effect = e_max * central / ( ec50 + central + 1e -12) d_depot = - k_a * depot d_central = k_a * depot - k_el * central d_immune = s_imm - d_imm * immune - drug_effect * immune d_effector = k_recruit * immune * effector - d_eff * effector return np . array ([ d_depot , d_central , d_immune , d_effector ] , dtype = float ) OBSERVED DATA VISUALISATIONS The following plots summarize the observed trajectories . Examine them carefully before reading the ODE structure or proposing any priors . Use trajectory shape , inter - trajectory variability , and cross - variable correlations to anchor your reasoning . - mean_trajectory . png : mean +/ - CI of depot , central , immune , and effector over t in [0 , 50] - diff_corr_heatmap . png : first - difference Spearman correlations between variable trajectory pairs - faceted_by_baseline . png : trajectories stratified by each variable ’ s initial condition quartile ( Q1 lowest , Q4 highest ) PLANNING RULES ( CRITICAL ) - Examine the observed visualisation plots before parsing any parameter - Infer each parameter ’ s role strictly from the ODE structure and the observed trajectory patterns PRIOR POLICY ( HARD ) - All parameters are LogNormal ; report linear - space mean and SD ---do not use log - space means or SDs - Every parameter entry must include : mean , sd , units , and rationale - rationale must be one sentence citing both the inferred role of the parameter in the ODE and a magnitude or timescale check OUTPUT CONTRACT Return a single JSON block : {" summary ": " One sentence describing the overall calibration strategy and key assumptions ." , " params ": {"0": {" mean ": ... , " sd ": ... , " units ": "..." , " rationale ": "..."} , ... }}OUTPUT CHECKLIST ( FOLLOW IN ORDER ) 1. Examine the three observed visualisation plots 2. Parse each parameter ’ s role from the ODE structure 3. Anchor each prior to the observed trajectory patterns 4. Confirm all priors are in linear space 
+
+30 5. Return the output contract --- no additional prose after 
+
+G.3 Diagnosis–Update Prompts and Example 
+
+Diagnosis Prompt 
+
+You are operating under a 5 - turn budget . Before every response , check : if this is turn 4 or later , return the output contract JSON immediately regardless of whether tool calls are complete . A partial answer with JSON is always better than no JSON . You are an expert dynamical systems analyst with deep expertise in mechanistic modeling and Bayesian parameter estimation for coupled pharmacological and immunological systems . Your task is to identify the top failure modes between the observed and synthetic trajectories of depot , central , immune , and effector over t in [0 , 50] , using tool calls to confirm each finding with computed evidence . Simulation : t in days , horizon = 50 State variables : depot ( drug depot amount ) , central ( drug central compartment amount ) , immune ( immune cell population ) , effector ( effector cell population ) def system ( biomarkers : np . ndarray , params : np . ndarray ) -> np . ndarray : depot , central , immune , effector = biomarkers # params [0] = absorption rate from depot to central # params [1] = central elimination rate # params [2] = drug effect scale on immune suppression # params [3] = drug half - saturation constant # params [4] = immune baseline / source rate # params [5] = immune natural decay rate # params [6] = effector recruitment rate from immune contact # params [7] = effector natural decay rate k_a = params [0] k_el = params [1] e_max = params [2] ec50 = params [3] s_imm = params [4] d_imm = params [5] k_recruit = params [6] d_eff = params [7] drug_effect = e_max * central / ( ec50 + central + 1e -12) d_depot = - k_a * depot d_central = k_a * depot - k_el * central d_immune = s_imm - d_imm * immune - drug_effect * immune d_effector = k_recruit * immune * effector - d_eff * effector return np . array ([ d_depot , d_central , d_immune , d_effector ] , dtype = float ) STAT INTERPRETATION NOTE All single - variable statistics are computed per trajectory then averaged across trajectories . Cross - variable statistics are computed per trajectory pair then averaged . COMPARISON VISUALISATIONS ( observed vs synthetic ) The following plots compare the observed trajectories against the synthetic trajectories generated from the best performing parameter distributions so far ( highest log SL ) . 
+
+31 - mean_trajectory . png : mean +/ - CI over time per variable ; blue solid = observed , red dashed = synthetic - diff_corr_heatmap . png : first - difference Spearman correlations ; left panel = observed , right panel = synthetic - faceted_by_baseline . png : mean +/ - CI trajectories stratified by each variable ’ s initial condition quartile ( Q1 lowest , Q4 highest ) PARAMETER DISTRIBUTIONS All parameters follow LogNormal distributions . Means and standard deviations are reported in linear space . INSTRUCTIONS ( CRITICAL ) Reason from the ODE structure as your primary diagnostic framework . Before examining the plots , consider what the system implies for each variable : expected trajectory shape , sources of inter - trajectory heterogeneity , and coupling between depot , central , immune , and effector . Use the comparison plots to ground this reasoning in the observed trajectories . Then compare against the synthetic trajectories : identify where the synthetic distribution fails to reproduce the observed dynamics , and reason from the ODE structure about which parameter roles are most likely responsible for each misalignment . OUTPUT CONTRACT Use tool calls to compute statistics that quantify suspected failure modes . After receiving results , confirm or revise your assessment , call further tools if needed , then return : {" failure_modes ": [{" description ": "..." , " severity ": " high | medium | low " , " affected_variable ": "..." , " supporting_evidence ": " One sentence citing specific tool results ." , " key_stats ": [{" tool ": "..." , " variable ": "..." , " observed ": ... , " synthetic ": ... , " interpretation ": " One sentence explaining what this gap means mechanistically ." }]}]}
+
+Round 1: Tool Calls and Statistics Returned                                                        
+
+> TOOL CALLS : mean ( depot ) , mean ( central ) , mean ( immune ) , mean ( effector ) std ( depot ) , std ( central ) , std ( immune ) , std ( effector ) level_corr ( immune , effector ) , diff_corr ( central , immune ) diff_corr ( depot , central ) , spearman_trend ( immune ) spearman_trend ( effector ) , value_range ( immune ) , value_range ( effector ) STATISTICS RETURNED : stat variable observed synthetic gap rel_gap - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -mean depot 0.133 0.211 +0.078 +58.4% mean central 0.349 0.425 +0.076 +21.7% mean immune 5.649 2.692 -2.957 -52.3% mean effector 1.665 0.681 -0.984 -59.1% std depot 0.622 0.742 +0.120 +19.2% std central 0.732 0.743 +0.011 +1.5% std immune 1.298 1.800 +0.502 +38.7%
+
+32 std effector 0.457 0.147 -0.310 -67.8% level_corr immune vs effector 0.506 -0.294 -0.800 -158.2% diff_corr central vs immune -0.546 0.351 +0.897 +164.3% diff_corr depot vs central 0.578 0.705 +0.127 +22.0% spearman_trend immune 0.882 0.800 -0.082 -9.2% spearman_trend effector 0.518 -0.527 -1.045 -201.8% value_range immune 4.539 6.272 +1.733 +38.2% value_range effector 1.475 0.482 -0.994 -67.4% 
+
+Round 2: Tool Calls and Statistics Returned 
+
+TOOL CALLS : acf_lag1 ( immune ) , acf_lag1 ( effector ) mean_crossing_rate ( immune ) , mean_crossing_rate ( effector ) turning_point_rate ( immune ) , turning_point_rate ( effector ) spectral_entropy ( immune ) , spectral_entropy ( effector ) STATISTICS RETURNED : stat variable observed synthetic gap rel_gap - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -acf_lag1 immune 0.963 0.950 -0.014 -1.4% acf_lag1 effector 0.967 0.972 +0.005 +0.5% mean_crossing_rate immune 0.018 0.020 +0.003 +14.3% mean_crossing_rate effector 0.013 0.020 +0.008 +60.0% turning_point_rate immune 0.011 0.010 -0.001 -5.7% turning_point_rate effector 0.010 0.020 +0.010 +104.1% spectral_entropy immune 1.209 0.912 -0.297 -24.6% spectral_entropy effector 1.261 0.665 -0.596 -47.3% 
+
+Round 3: Tool Calls and Statistics Returned 
+
+TOOL CALLS : dfa_alpha ( immune ) , dfa_alpha ( effector ) spearman_trend ( depot ) , spearman_trend ( central ) level_corr ( central , immune ) , level_corr ( central , effector ) diff_corr ( immune , effector ) , diff_corr ( depot , central ) STATISTICS RETURNED : stat variable observed synthetic gap rel_gap - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -dfa_alpha immune 1.566 1.408 -0.158 -10.1% dfa_alpha effector 2.059 2.086 +0.026 +1.3% spearman_trend depot -0.841 -1.000 -0.159 -19.0% spearman_trend central -0.941 -0.939 +0.002 +0.2% level_corr central vs immune -0.912 -0.878 +0.034 +3.7% level_corr central vs effector -0.503 0.472 +0.975 +193.7% diff_corr immune vs effector 0.136 0.502 +0.366 +269.5% diff_corr depot vs central 0.578 0.705 +0.127 +22.0% 
+
+Diagnosis Output 
+
+{" failure_modes ": [{" description ": " Effector dynamics are qualitatively wrong : synthetic trajectories collapse to a much lower , less variable , and oppositely trending effector population , indicating the model fails to capture the immune - to - effector recruitment feedback ." , " severity ": " high " , " affected_variable ": " effector " , " supporting_evidence ": " Effector mean 1.665 vs 0.681 , std 0.457 vs 0.147 , Spearman trend flips from +0.518 to -0.527." , " key_stats ": [{" tool ": " mean " , " variable ": " effector " , " observed ": 1.665 , " synthetic ": 0.681 , " interpretation ": " Synthetic effector burden far too low , consistent with insufficient recruitment or overly strong decay ."} , {" tool ": " spearman_trend " , " variable ": " effector " , " observed ": 0.518 , " synthetic ": -0.527 , " interpretation ": " Sign reversal implies synthetic system drives effector decline when observed system generally rises ."} ]} , {" description ": " Immune - effector coupling mis - specified : positive co - movement observed but anti - correlation in synthetic trajectories ." , 
+
+33 " severity ": " high " , " affected_variable ": " immune " , " supporting_evidence ": " Level correlation +0.506 observed vs -0.294 synthetic ; diff correlation 0.136 vs 0.502." , " key_stats ": [{" tool ": " level_corr " , " variable ": " immune vs effector " , " observed ": 0.506 , " synthetic ": -0.294 , " interpretation ": " Synthetic model reverses steady - state alignment between immune and effector ."} , {" tool ": " spectral_entropy " , " variable ": " immune " , " observed ": 1.209 , " synthetic ": 0.912 , " interpretation ": " Synthetic immune series too spectrally simple , consistent with missing heterogeneity ."} ]} , {" description ": " Immune dynamics too suppressed and over - dispersed : mean far below observed , variability inflated ." , " severity ": " high " , " affected_variable ": " immune " , " supporting_evidence ": " Immune mean 5.649 vs 2.692; std 1.298 vs 1.800; spectral entropy 1.209 vs 0.912." , " key_stats ": [{" tool ": " mean " , " variable ": " immune " , " observed ": 5.649 , " synthetic ": 2.692 , " interpretation ": " Synthetic immune abundance too low , pointing to excessive suppression or insufficient replenishment ."} ]} , {" description ": " Depot - central PK phase directionally correct but quantitatively too high in absolute mass ." , " severity ": " medium " , " affected_variable ": " depot " , " key_stats ": [{" tool ": " mean " , " variable ": " depot " , " observed ": 0.133 , " synthetic ": 0.211 , " interpretation ": " Synthetic depot persistence too strong , consistent with absorption being too slow ."} ]} , {" description ": " Central broadly captured but downstream coupling to effector has wrong sign ." , " severity ": " medium " , " affected_variable ": " central " , " key_stats ": [{" tool ": " level_corr " , " variable_x ": " central " , " variable_y ": " effector " , " observed ": -0.503 , " synthetic ": 0.472 , " interpretation ": " Model assigns wrong sign of exposure - response association , a mechanistic red flag for the PD coupling ."} ]}]}
+
+Update Prompt 
+
+You are operating under a 5 - turn budget . Before every response , check : if this is turn 4 or later , return the output contract JSON immediately regardless of whether tool calls are complete . A partial answer with JSON is always better than no JSON . You are an expert dynamical systems analyst with deep expertise in mechanistic modeling and parameter distribution inference for coupled pharmacological and immunological systems . 
+
+34 Your task is to propose updated LogNormal parameter distributions that recover the true underlying dynamics of the observed trajectories . Parameter changes must be consistent with the ODE structure and supported by evidence from iteration history . Simulation : t in days , horizon = 50 State variables : depot ( drug depot amount ) , central ( drug central compartment amount ) , immune ( immune cell population ) , effector ( effector cell population ) def system ( biomarkers : np . ndarray , params : np . ndarray ) -> np . ndarray : depot , central , immune , effector = biomarkers # params [0] = absorption rate from depot to central # params [1] = central elimination rate # params [2] = drug effect scale on immune suppression # params [3] = drug half - saturation constant # params [4] = immune baseline / source rate # params [5] = immune natural decay rate # params [6] = effector recruitment rate from immune contact # params [7] = effector natural decay rate k_a = params [0] k_el = params [1] e_max = params [2] ec50 = params [3] s_imm = params [4] d_imm = params [5] k_recruit = params [6] d_eff = params [7] drug_effect = e_max * central / ( ec50 + central + 1e -12) d_depot = - k_a * depot d_central = k_a * depot - k_el * central d_immune = s_imm - d_imm * immune - drug_effect * immune d_effector = k_recruit * immune * effector - d_eff * effector return np . array ([ d_depot , d_central , d_immune , d_effector ] , dtype = float ) CALIBRATION GOAL ( CRITICAL ) Address diagnosed failure modes strictly in order of severity ---high before medium before low . Do not make changes that improve alower - severity mismatch at the cost of worsening a higher - severity one . Reason at the level of parameter roles before reasoning about specific values --- what each parameter does in the system matters more than its index . DIAGNOSED FAILURE MODES The following failure modes and summary statistics were diagnosed from the best performing parameter distributions which have the highest log SL value so far . [... failure modes JSON from diagnosis output above ...] MANDATORY WORKFLOW STEP 1 --- Map failure modes to parameter roles For each diagnosed failure mode : - identify which dynamical property of the ODE is misrepresented - identify which parameter roles in the ODE govern that property - explain how those roles interact jointly --- adjusting one role will affect other properties through shared ODE terms - state the direction of coordinated adjustment needed across all governing roles simultaneously 
+
+35 Reason at the level of parameter roles before reasoning about specific values . STEP 2 --- Check for role conflicts Identify whether correcting one failure mode through its governing parameter roles will worsen another failure mode through shared or coupled roles . If a conflict exists , prioritize the highest severity failure mode and accept the tradeoff explicitly . STEP 3 --- Review iteration history The best - performing iterations are provided in the context message above . For each role adjustment identified in Steps 1 and 2 , find what happened when similar role adjustments were made previously . For every role adjustment you plan to make , cite : one iteration where a similar adjustment helped , one where it hurt or caused aconflict , and the ODE - based reason why . If the history is too thin to establish this , prefer the smallest possible change . STEP 4 --- Propose coherent joint update Propose parameter values that jointly address the highest priority failure modes . Every change must : - correct a specific dynamical property through its governing roles - be consistent with how those roles interact in the ODE - be coordinated across all parameters serving related roles ---not one - at -a - time corrections - be minimal --- prefer the smallest change that addresses the failure mode , since large changes in nonlinear systems have unpredictable joint effects STABILITY CHECK ( HARD ) Before finalising , verify that the proposed parameter values support a stable system equilibrium . If the proposed parameters would drive the system to collapse or explosion , revise them before returning the output contract . ITERATION HISTORY An index of all past iterations is shown below . The best - performing iterations ( full params and logSL breakdown ) are provided in the context message above --- use them to ground your parameter changes . iter type log_sl summary 0 initial_inference N / A Moderately informative priors centered on fast depot absorption , moderate central elimination , saturable but not overwhelming drug suppression of immune cells , and slow - to - moderate effector expansion , chosen to reproduce the observed rapid drug washout , U - shaped immune rebound , and gradual effector rise over 50 days . 1 constraint_violation N / A Corrected the depot absorption / elimination and effector growth / decay priors , because the invalid trajectories are dominated by tiny negative depot values from overly aggressive depletion and extreme effector explosions from too - strong net recruitment . 2 normal -1865719.7 Corrected priors for depot absorption and effector growth / decay because the invalid trajectories are driven by slight depot negativity and runaway effector amplification , 
+
+36 while the remaining parameters were left unchanged as they are broadly consistent with the observed ranges . 3 normal -7530.6 Reduced net immunosuppression and strengthened effector persistence while slightly easing depot exposure , because the dominant error is an immune / effector collapse with sign -reversed coupling that must be fixed before any secondary PK smoothing adjustments . PRIOR POLICY ( HARD ) - All parameters are LogNormal ; report linear - space mean and SD ---do not use log - space means or SDs - Every parameter entry must include : mean , sd , units , and rationale - rationale must be one sentence citing the parameter role in the ODE and the coordinated correction made --- not the parameter index OUTPUT CONTRACT Return a single JSON block containing ALL parameters : {" summary ": " One sentence describing the key role adjustments made and why ." , " params ": {"0": {" mean ": ... , " sd ": ... , " units ": "..." , " rationale ": "..."} , ... }}
+
+Update Output 
+
+{" summary ": " Increase immune replenishment and relax drug - mediated suppression while strengthening effector persistence via conservative recruitment / decay balance , to address the underpowered sign - flipped effector response and suppressed immune level ." , " params ": {"0": {" mean ": 0.500 , " sd ": 0.100 , " units ": "1/ day " , " rationale ": " Slightly reduces depot persistence to address modest PK overprediction without disturbing the PK skeleton ."} , "1": {" mean ": 0.240 , " sd ": 0.050 , " units ": "1/ day " , " rationale ": " Unchanged ; central elimination broadly consistent with observed trend and variability ."} , "2": {" mean ": 0.900 , " sd ": 0.300 , " units ": " dimensionless " , " rationale ": " Reduced to weaken immune suppression in d_immune , raising immune levels and restoring correct coupling ."} , "3": {" mean ": 0.800 , " sd ": 0.200 , " units ": " central units " , " rationale ": " Increased to delay saturation of drug effect , coordinating with lower effect scale ."} , "4": {" mean ": 0.340 , " sd ": 0.100 , " units ": " immune units / day " , " rationale ": " Raised to lift immune baseline toward observed mean , counteracting excessive depletion ."} , "5": {" mean ": 0.030 , " sd ": 0.010 , " units ": "1/ day " , " rationale ": " Slightly reduced to support higher sustained immune level without destabilising the system ."} , "6": {" mean ": 0.012 , " sd ": 0.004 , " units ": "1/( immune * day ) " , " rationale ": " Increased to strengthen immune - to - effector coupling so effector rises with immune availability ."} , "7": {" mean ": 0.032 , " sd ": 0.010 , " units ": "1/ day " , " rationale ": " Lowered to improve effector persistence and correct the sign - reversed downward trend ."} }}
+
+37 G.4 Contamination Analysis Prompt 
+
+Contamination Analysis Prompt (PKPD-Immune) 
+
+You are an expert in dynamical systems modeling . Observable state variables : - depot ( drug amount , a . u .) : drug in absorption compartment - central ( drug amount , a . u .) : drug in central compartment - immune ( cell count , a . u .) : immune cell population - effector ( cell count , a . u .) : effector cell population Time unit : days . Observations span t in [0 , 50]. Task : Propose the most likely ODE structure governing d_depot / dt , d_central / dt , d_immune / dt and d_effector / dt . Write the equations explicitly and identify all parameters . 
+
+38

@@ -1,0 +1,293 @@
+Title: 37001503
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.06.25.734665v1.full.pdf
+
+Published Time: Fri, 03 Jul 2026 21:46:44 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+# Client-server interfaces enable efficient agent-driven variant 1
+
+# calling 2Xian Yu, Zhenxian Zheng, Lei Chen, Zilan Qin, Xinyi Guo, Minggao He, Ruibang Luo *3
+
+> School of Computing and Data Science, University of Hong Kong, Hong Kong, China
+
+4* Corresponding author: rbluo@cs.hku.hk 5
+
+Abstract 6
+
+Background: Large language model (LLM) agents increasingly automate bioinformatics 7analyses, but most existing bioinformatics tools were built for standalone use by human experts. 8An agent driving such a tool must reason about its installation, configuration, and execution from 9documentation for human, spending many turns, tokens, and tool calls per result. How a method 10 is exposed to an agent can therefore matter as much as the method itself. By designing agentic 11 interfaces for these tools, agent can reduce such overhead and improve the reliability of agent-12 driven analyses. 13 
+
+Findings: To test this design , we re-architected Clair3, a widely used deep-learning-based long-14 read variant caller, into a client-server system, Clair3-Connect. The client performs all genomics 15 related processing and holds the identifiable data. The server runs only neural-network inference, 16 and the client sends only feature tensors to the server, while sample identifiers and genomic 17 context remain on the client. The client exposes schema-defined agent-facing tools that an agent 18 invokes through single structured calls. On an APOE diplotyping task, all 60 agent runs were 19 correct. The agentic tools used 12K tokens in 3 turns, 6.8 to 14 times fewer tokens than the shell-20 driven baselines (81K-163K tokens), at about a quarter the wall-clock time and far more stably 21 (4% versus 35% token usage variation). Dropping the pileup and phasing stages to keep the 22 client light left SNP F1 within 0.1-0.3 points of standard Clair3 by 50× coverage, while mutual 23 TLS and AES-256-GCM encryption added 7.2% to end-to-end runtime. 24 
+
+Conclusions: Recasting an established algorithm as developer-built, agentic tools behind a 25 secure client-server boundary makes it more efficient, reliable, and easier to deploy for an LLM 26 agent than a third-party wrapper, which cannot recover the defaults and conventions only its 27 developers know. Agentic interfaces should be a first-class deliverable of bioinformatics tool 28 development. 29 
+
+Keywords: Variant calling, large language model agents, agent-facing tools, client-server 30 architecture, model context protocol, genomic data privacy 31 
+
+Background 32 Large language models (LLMs) increasingly operate as agents that plan and execute multi-step 33 tasks with limited human intervention [1]. The clearest demonstrations have come from software 34 engineering, where coding agents resolve real issues in public repositories, navigate codebases, 35 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+edit across files, and verify changes against test suites [2]. Similar systems are now being 36 explored in the natural sciences, where agents read literature, design analyses or experiments, 37 invoke domain tools, and interpret results [3]. In genomics, agents have begun to automate 38 workflows ranging from general biomedical analysis [4, 5] to specialized tasks such as single-39 cell analysis [6]. 40 In practice, these agents coordinate their use within multi-step analytical workflows instead of 41 replacing domain algorithms. An agent decomposes a high-level intent into executable steps and 42 calls existing software, databases, or services to perform each step [7]. The interface through 43 which an algorithm is exposed therefore becomes part of the computational system. It determines 44 what the agent can call, what information it receives, how errors are represented, and how much 45 reasoning is required to interpret the result. 46 This creates a practical mismatch with current bioinformatics ecosystem, where most widely 47 used genomics tools remain standalone command-line programs designed for expert human users. 48 Bioinformatics tools such as sequence aligners [8-10], de novo assemblers[11, 12], structural-49 variant callers[13-15], and small-variant callers[16, 17] typically communicate through files, 50 logs, and conventions that are clear to experienced users but not always explicit to an agent. A 51 shell-based agent must reason about installation, configuration, file paths, indexes, command 52 flags, and intermediate outputs. It must also infer tool semantics from unstructured text, headers, 53 and final result files. These extra steps consume tokens and turn, and they introduce 54 opportunities for unreliable parsing or unsupported assumptions. 55 Agent-oriented interfaces can reduce this burden by making tool behavior explicit. An agentic 56 tool interface can expose operations, input schemas, structured outputs, error states, and default 57 behavior directly, rather than forcing an agent to reconstruct them from command-line output. 58 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+The wider software ecosystem is moving toward standardized client-server tool interfaces, 59 including protocols such as the Model Context Protocol [18]. In biology, early evidence from 60 agent-designed database access suggests that replacing human-facing interfaces with 61 deterministic, agent-facing ones can improve agent accuracy and reproducibility [19]. 62 Bioinformatics algorithms, however, are still most commonly delivered as standalone tools 63 rather than as semantically explicit services. 64 Moreover, genomics also imposes constraints that make this interface problem more than a 65 software-engineering issue. Sequencing data can contain sensitive or potentially identifying 66 information, and large neural-network-based workflows may require hardware or runtime 67 dependencies that are not available on every client machine. Moving full sequencing files to a 68 remote environment can be undesirable, but local execution can be expensive or difficult to 69 standardize. An agent-facing genomics system therefore needs to address three requirements at 70 once: it must expose the algorithm in a form that agents can use reliably, keep sample-specific 71 context under client control, and allow compute-intensive inference to be shared when 72 appropriate. 73 To examine this design in a mature genomics tool, we use Clair3 as a representative example and 74 re-architect it into Clair3-Connect, a client-server system for agent-facing variant calling. Clair3-75 Connect keeps sample-specific genomic processing on the client and exposes neural-network 76 inference as a stateless server-side service. The agent interacts with the caller through structured 77 tool calls rather than by scripting a command-line program. We evaluate this design by 78 comparing agentic tool access with shell-based agent access, measuring the cost and variability 79 of agent-driven variant calling, quantifying the accuracy trade-off introduced by a lightweight 80 client, and estimating the overhead of secure transport. Together, these experiments test whether 81 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+a mature genomics algorithm can be delivered as agent-facing infrastructure that reduces the 82 interaction overhead for agents while preserving variant-calling performance and providing 83 secure client-server execution. 84 
+
+Findings 85 
+
+Overview of the system 86 Clair3-Connect re-architects Clair3 around a single computational boundary: sample-specific 87 genomic processing remains on the client, whereas neural-network inference is exposed as a 88 stateless server-side service (Figure 1). The client reads the alignments and reference, selects 89 variant candidate sites, constructs Clair3 feature tensors for these sites, and decodes returned 90 probabilities into variant calls. The server runs only the neural network, computing tensors to 91 per-site probabilities without receiving the surrounding genomic or file-system context. Thus, the 92 exchanged data are limited to feature tensors and request identifiers than do not encode sample, 93 genomic or file system context. This keeps sample-specific context on the client and reduces 94 exposure of sensitive or potentially identifying information when inference is performed on 95 shared or remote hardware. 96 The same boundary separates GPU-intensive inference from the client-side genomics workflow. 97 No local GPU is required for the client side, and the server can batch and accelerate inference 98 across requests. The structured client interface also makes Clair3-Connect directly callable by 99 applications and LLM agents. Instead of scripting a command-line program and parsing 100 unstructured files, an agent invokes structured tool calls with defined inputs, outputs and error 101 states. The following sections evaluate the effect of this design on agent cost, variant-calling 102 accuracy, and secure transport overhead. Transport, runtime, and interface details are given in 103 the Methods section. 104 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+Driving Clair3-Connect from an LLM agent 105 We compared three ways of exposing Clair3 to an LLM agent while holding the model and task 106 fixed (Methods). The RawBinary condition only gave the agent shell access to the stock Clair3 107 program [17]. The Skills condition added a skill document provided by Clair3’s developers to 108 the same shell environment. The Tools condition exposed only the Clair3-Connect agentic tool 109 interface. Each condition was run in ten independent repeats per sample. All 60 runs returned the 110 correct APOE diplotype; only the cost and predictability differed (Figure 2). The prompts and 111 per-repeat metrics are reported in Supplementary Note S1, with one representative transcript in 112 Supplementary Note S4. 113 The way Clair3 is exposed affected the cost of driving it, with the Tools condition interface 114 being the most efficient. The RawBinary condition used 81K tokens over 10 turns on average, 115 and Skills used 163K tokens over 7.5 turns. The Tools condition reached the answer in 12K 116 tokens and 3 turns, corresponding to 6.8-fold fewer tokens than the RawBinary condition and 14-117 fold fewer tokens than the Skills condition, with approximately one quarter of the wall-clock 118 time. The Skills condition was most expensive because the skill document was re-injected on 119 every turn. In both shell-based settings, the agent also had to inspect bulky unstructured outputs, 120 including BAM headers, region dumps, command-line logs, and VCF text. 121 The agentic tool interface also reduced run-to-run variability. Token usage varied by only 4% 122 across Tools repeats, compared with approximately 35% in both shell-based conditions (Figure 123 2). Agentic tool calls return compact, task-specific results and restrict the agent to a small action 124 space. Shell access, by contrast, leaves the agent to decide which commands to run, which 125 outputs to inspect, and how much intermediate evidence to re-check. Thus, the interface affects 126 not only the cost of an agentic workflow, but also its run-to-run stability. 127 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+The HG00136 sample illustrates why agent-facing tools should encode algorithm-specific 128 semantics. HG00136 is ε4/ ε4, and the rs7412 site is homozygous for the reference allele. Under 129 Clair3’s default behavior, such sites are absent from the VCF unless reference calls are requested 130 with --print_ref_calls . None of the shell-based runs used this option, and the skill 131 document did not mention it. The shell arms reached the correct answer only because the prompt 132 supplied a benchmark-specific convention: for the two predefined APOE loci, an absent record 133 in Clair3’s variant-only VCF should be treated as reference for the purpose of deriving the 134 diplotype. This was not intended as a general rule for VCF interpretation. In general, the absence 135 of a VCF record should not be interpreted as evidence for a homozygous-reference genotype, 136 because missing records may also reflect low confidence, insufficient coverage, filtering, or non-137 callable regions. 138 The Tools arm did not require this convention in the prompt. The developer-built genotype query 139 returned an explicit 0/0 genotype for positions absent from the VCF (Supplementary Note S4). 140 This example shows a limitation of directly wrapping command line tools for agentic use: 141 defaults, flags, and missing-record conventions are often part of the algorithm’s operational 142 semantics, but they are not reliably recoverable from final output files alone. Exposing them 143 through typed tools allows the agent to use the caller with less parsing, less redundant 144 verification, and fewer opportunities for unsupported assumptions. 145 Together, these results show that a client-server typed-tool interface improves both the efficiency 146 and robustness of agent-driven variant calling. They also suggest that agent-facing infrastructure 147 should be treated as part of bioinformatics algorithm development, not as a thin wrapper added 148 after the fact. 149 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+System performance and implementation trade-offs 150 To minimize client-side computation, Clair3-Connect deviates from the standard Clair3 pipeline. 151 Standard Clair3 first applies a pileup model to all candidate sites, phases and haplotags the reads 152 with WhatsHap[20] or LongPhase[21], then runs the full-alignment model on the remaining sites 153 and merges the outputs. Clair3-Connect builds only the full-alignment tensor and calls from it 154 directly, removing the pileup and phasing stages. 155 The accuracy gap introduced by removing pileup and phasing was concentrated at low coverage 156 and in noisier read data and narrowed to a small residual difference at higher coverage or with 157 higher-accuracy reads. For SNPs on chromosome 20, the full-alignment-only configuration 158 achieved SNP F1 scores 9.5 and 12.5 percentage points lower than standard Clair3 on Illumina 159 and ONT data, respectively (Figure 3). The ONT accuracy gap is driven by precision, which falls 160 to 69.5% from 90.1% as the model retains more false positives where reads are sparse. The gap 161 then narrows with depth, falling below one F1 point by 30× and to 0.1-0.3 points by 50× on both 162 platforms. On PacBio HiFi it stays below 0.1 points at every depth, because per-read accuracy 163 reducing the reliance on phasing. Indels show the same pattern with larger, more persistent gaps, 164 because indel calling is more sensitive to read-level alignment noise and benefits more from 165 phasing and haplotagging. The residual gap is largest on ONT, where the full-alignment-only 166 client loses about 8 F1 points at 10× and still 4 F1 points by 50× (Figure 3, bottom row). The 167 complete benchmark for both chromosomes is in Supplementary Note S2. To conclude, at 168 moderate-to-high depths typical of many whole-genome sequencing applications, Clair3-169 Connect retains most of standard Clair3’s accuracy while reducing the computation that must be 170 performed locally. 171 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+The light client also has a small local footprint (Table 1). It needs no GPU and no deep-learning 172 runtime, completes a chromosome in tens of seconds to a few minutes, and peaks between about 173 4 and 11 GB of RAM using 8 threads, scaling with chromosome size and with platform error rate. 174 
+
+Transport security adds measurable but modest end-to-end overhead 175 A shared or remote inference server raises the question of data exposure in transit. Clair3-176 Connect addresses this risk at two levels. First, the client-server boundary limits what can leave 177 the client. The server receives feature tensors, but not explicit sample identifiers, file paths, 178 genomic coordinates, or other contextual metadata. Second, Clair3-Connect can protect the 179 transmitted tensors with two standard mechanisms. Mutual TLS (mTLS) authenticates both 180 endpoints and encrypts the channel. Per-payload AES-256-GCM encryption (AEAD) encrypts 181 each tensor and binds it to its model, shape, and content. These mechanisms provide standard 182 channel confidentiality, endpoint authentication, and payload integrity. Here, we measure the 183 cost of applying them to Clair3-Connect’s tensor-based workflow. 184 We first measured the transport layers in isolation. The full-alignment tensor used in this 185 benchmark had low byte-level entropy (0.82 bits/byte) and was highly compressible: ZSTD-1 186 reduced the 752 KB ONT tensor to ~22 KB, corresponding to a 34.0× reduction and ~3% of the 187 original size. This benchmark used the full 752 KB tensor without compression and made 188 inference the only server-side work, placing the tensor on the request critical path. Under 189 plaintext transport, per-request latency was 13.4 ms. Latency increased to 20.8 ms with AEAD 190 and to 21.6 ms with mTLS+AEAD (Figure 4a). The absolute AEAD cost was stable at 191 approximately 7.4 ms. 192 The deployment-relevant cost was smaller in the full workflow. In a full-alignment-only run, 193 client-side candidate scanning dominated runtime and absorbed much of the transport overhead. 194 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+Enabling mTLS+AEAD increased end-to-end wall time by 7.2%, or about 2 s on a 29 s run. 195 AEAD alone added 4.5% wall time, whereas mTLS alone added a non-significant 1.1% (Figure 196 4b; both AEAD-containing comparisons, p < 0.01). Transport security is therefore measurable in 197 this workload, but it does not dominate the overall runtime. 198 
+
+Discussion 199 In this study, we use Clair3-Connect to show that the design of a bioinformatics tool interface 200 can strongly affect the efficiency and reliability of LLM-agent tool use. We demonstrated that 201 the agentic interface made agent-driven variant calling more efficient and more stable than shell-202 based access, not by changing the biological task or the underlying model, but by changing what 203 the agent could see and how it could act. This suggests that agent-facing interfaces should be 204 treated as part of bioinformatics tool development, not as optional add-ons developed after the 205 tool is released. 206 The need for such interfaces is especially clear in mature bioinformatics tools. Correct use often 207 depends on defaults, flags, and output conventions that are familiar to developers but difficult to 208 infer from final files alone. A command-line wrapper can expose the executable, but it cannot 209 reliably by itself expose the algorithm’s operational semantics. Agentic tools allow developers to 210 make these operational details explicit, including structured outputs, explicit defaults, error states, 211 version information, and provenance. For agent-driven workflows, this reduces the need for 212 fragile parsing and unsupported interpretation of logs, headers, and intermediate files. 213 Clair3-Connect also reflects the constraints of adapting existing standalone tools to this mode of 214 use. Most bioinformatics software was designed for expert users and file-based workflows, not 215 for agent orchestration through typed calls. In Clair3-Connect, keeping the client lightweight 216 required simplifying the standard Clair3 workflow, and this introduced accuracy costs in the 217 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+regimes where pileup and phasing are most useful. These costs define the coverage, read-quality, 218 and variant-type settings in which the current design is most appropriate rather than a universal 219 replacement for the original caller. Future implementations could recover part of this gap through 220 lighter client-side filters, server-side preprocessing, models trained for lower-depth settings, or 221 additional structured intermediate outputs. 222 More broadly, reliable agent-driven bioinformatics will require conventions that extend beyond a 223 single caller. Aligners, assemblers, variant callers, structural-variant tools, and reference 224 databases would all benefit from agent-facing interface schemas that specify inputs, outputs, 225 defaults, provenance, and failure modes. Clair3-Connect provides one example of this direction: 226 a validated algorithm delivered not only as a standalone program, but also as a semantically 227 explicit interface that agents can call and compose with less ambiguity. 228 
+
+Methods 229 
+
+System architecture and inference workflow 230 Clair3-Connect is implemented in Rust and comprises three components, a client that performs 231 the genomic stages of variant calling, a stateless server that runs the neural network, and the 232 gRPC transport layer between them. The client takes an indexed BAM or CRAM alignment, the 233 reference genome, and the regions to call, supplied as a single interval, a BED file, or a list of 234 intervals. Within each region it selects candidate sites using Clair3’s default allele-frequency 235 criteria, with minimum allele frequency of 0.08 for SNPs and 0.15 for indels at a minimum read 236 depth of 2. We disabled the pileup model and the read phasing module, so the tensor’s haplotype 237 channel in the resulting tensor carries no haplotype assignment. For every candidate the client 238 builds the full-alignment feature tensor defined by Clair3, an int8 tensor with a per-platform read 239 depth of 89 rows for Oxford Nanopore and 55 for PacBio HiFi and Illumina, across 33 flanking 240 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+positions and 8 feature channels. This full-alignment-only configuration is the default 241 configuration, and its accuracy relative to standard Clair3 is characterized in the Findings. The 242 client sends the candidate tensors to the server in batches of 32, receives the per-site genotype 243 probabilities, and decodes them into SNP and indel calls using Clair3’s output logic. It writes the 244 calls to a Clair3-compatible VCF as a self-contained command-line caller or exposes them to an 245 application or LLM agent through the typed tools described below. 246 The server performs only inference. It loads one or more Clair3 models as TorchScript modules 247 using libtorch, on CPU or a specified GPU, and processes each request by running the selected 248 model on a batch of feature tensors and returning the per-site probabilities. A dynamic batcher 249 coalesces concurrent requestsuntil either 64 tensors are available or 4 ms has elapsed, so one 250 server can accelerate inference for many clients. The server is stateless across requests apart 251 from the loaded models. Its request schema has no fields for file paths, genomic coordinates, or 252 sample or read names. Each request carries only a request identifier that does not encode sample, 253 genomic, or file-system context, together with the tensor’s model identifier, data type, and shape. 254 Thus, the server receives no explicit sample identifiers or genomic coordinates and can run on 255 shared or remote hardware. 256 The same client operations are also exposed as typed tools, callable as OpenAI-style function 257 tools or through the Model Context Protocol[18]. Through MCP, the agent can query genotypes 258 at specified positions, inspect BAM metadata such as sequencing platform, and discover 259 available server-side models, all through structured inputs and compact structured outputs rather 260 than shell commands or parsed text files. Each tool returns a compact structured result; the full 261 input and output schemas are in Supplementary Note S1. 262 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+Evaluation for agent inference 263 To measure how the agent-facing interface affects an LLM agent, we fixed the agent model and 264 the task and varied only the interface through which Clair3 was exposed. Three conditions were 265 compared. The RawBinary condition gave the agent a single run_shell tool, which runs one 266 bash command and returns its exit code and output, together with the path to the standard Clair3 267 command-line program. The Skills condition added the expert-authored Clair skill document 268 (https://github.com/HKU-BAL/Clair-skills) to the system prompt of that same shell environment, 269 with the skill’s reference notes and command templates readable through run_shell . The 270 Tools condition removed the shell and exposed only the typed Clair3-Connect tools. The shell 271 conditions were given the sample and reference locations and an invocation template for stock 272 Clair3, whereas the Tools condition referenced datasets by sample name alone. 273 We used APOE diplotyping as a constrained but clinically interpretable task for evaluating 274 agent-driven use of Clair3-Connect. APOE diplotyping determines the ε2/ ε3/ ε4 diplotype from 275 the two SNPs rs429358 (chr19:44908684) and rs7412 (chr19:44908822) on two whole-genome 276 samples, HG00136 and HG00150. Every condition used the same task prompt and the same 277 agent model, deepseek-v4-pro . The prompt gave the two SNP coordinates and stated that, 278 for this predefined task, a site with no called variant is homozygous reference, but it withheld 279 each sample’s sequencing platform. To keep the comparison fair, every condition had to read the 280 platform from the BAM header and select the matching model. The shell conditions did this with 281 
+
+samtools view -H , and the Tools condition, which was not given a sample-metadata 282 shortcut, had to call bam_header . The environment for this clinical task excluded the unrelated 283 benchmark data. 284 The agent ran as an OpenAI-style function-calling loop. At each turn the model, decoding at 285 temperature 0, either issued tool calls, whose results were appended to the conversation, or 286 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+returned a final answer. The loop ended when the model stopped calling tools. A deliberately 287 high turn cap of 50 and a 30-minute wall-clock budget let every condition complete without 288 premature truncation, so the comparison reflects the cost of each interface. If a run reached the 289 budget mid-analysis, a single follow-up request with tools disabled elicited its best conclusion 290 from the evidence already gathered; this step was applied identically to every condition and 291 added no task information. We ran each condition on each sample in ten independent repeats, 292 recording the total tokens, wall-clock time, reasoning turns, and tool calls per run and reporting 293 the mean and standard deviation across repeats. Answers were taken from a final ANSWER: line, 294 with diplotypes scored as unordered allele sets after normalizing ε to e. The system prompts, task 295 prompt, and per-repeat metrics are in Supplementary Note S1, and one representative round’s 296 full transcript in Note S4. 297 
+
+Variant-calling benchmark 298 We compared two configurations on sample HG003, which is held out from Clair3’s training 299 data. Standard Clair3 was the official v2.0.1 GPU release, running its full pipeline of a pileup 300 model, read phasing and haplotagging, and a full-alignment model over the remaining sites. The 301 other configuration was the full-alignment-only client deployed in Clair3-Connect, run as the 302 client-server system with the server performing inference on a GPU. Both used the same Clair3 303 model checkpoints, Clair3-Connect serving TorchScript exports of the checkpoints that standard 304 Clair3 loads, so the comparison isolates the effect of the simplified pipeline rather than a 305 difference in models. We used three platforms on GRCh38, Illumina NovaSeq, Oxford Nanopore, 306 and PacBio HiFi Revio. From each native high-depth alignment we extracted chromosomes 1 307 and 20 and built a coverage titration at 10, 20, 30, 40, and 50× by subsampling reads. Calls from 308 each configuration were compared against the GIAB v4.2.1 benchmark for HG003[22] with 309 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+hap.py [23], restricted to each chromosome and the benchmark’s high-confidence regions. We 310 report F1, recall, and precision for SNPs and indels. Chromosome 20 SNPs and indels are 311 summarized in Figure 3, and the complete titration for both chromosomes is tabulated in 312 Supplementary Note S2. 313 We also profiled the computational cost of the full-alignment-only client. For each platform, we 314 called variants on chromosomes 1 and 20 at 30× coverage in ten repeats and recorded wall-clock 315 time and peak memory usage. The client runs only the genomic stages, offloading inference to 316 the server, whose GPU and host memory we recorded separately. The means are reported in 317 Table 1 and the per-repeat values in Supplementary Note S2. 318 
+
+Transport security 319 All client-server communication uses gRPC, secured by two independent layers that are each 320 optional. Mutual TLS encrypts the channel and requires both endpoints to present a certificate 321 chained to a configured authority. This gives channel confidentiality and integrity and admits 322 only authenticated clients. Before payload encryption, tensor payloads can optionally be 323 compressed with Zstandard (ZSTD).The second layer applies authenticated encryption to each 324 tensor payload, independently of the channel. Each tensor is sealed with AES-256-GCM under a 325 fresh 96-bit random nonce and a 16-byte authentication tag. The additional authenticated data 326 covers the request’s model identifier, data type, tensor shape, and payload hash. This binds each 327 ciphertext to these request metadata fields and prevents it from being accepted into a valid tensor 328 under a different model or shape. Because the seal is end-to-end, a TLS-terminating intermediary 329 that decrypts the channel still sees only the encrypted payload. Key management, including 330 nonce limits and rotation, is documented with the released source code. 331 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+We measured the cost of these layers across four configurations, an unencrypted channel 332 (plaintext), mTLS alone, AEAD alone, and the secure default of mTLS and AEAD together. To 333 control for host drift, all four were served on separate ports simultaneously, given one warm-up 334 run, and measured interleaved within each round. We report the mean and 95% confidence 335 interval over ten rounds and test each configuration against plaintext with a paired Wilcoxon 336 signed-rank test on the per-round differences. All measurements used sample HG003 on Oxford 337 Nanopore chromosome 20, on a 128-core host with one RTX 4090, over loopback, so the 338 reported costs are pure compute and exclude external network latency. The per-request payload 339 was an int8 full-alignment tensor ( ≈752 KB). 340 Cost was measured in two settings. The isolated cost used a pure-inference generator that 341 performs no candidate scan, placing the full payload encryption on the request critical path; for it 342 we report per-request latency. The end-to-end cost was the wall-clock time of a real full-343 alignment-only run over chromosome 20:1-8 Mb, which is bound by the CPU candidate scan. 344 We also verified the layers’ guarantees. For confidentiality we confirmed on a real full-alignment 345 tensor that the AES-256-GCM ciphertext showed no detectable byte-level structure of the 346 plaintext under our tests. Authentication was tested by presenting a valid client certificate, no 347 certificate, and a certificate from an unrelated authority. Integrity was tested with a transport 348 unit-test suite that tampers with the ciphertext, the additional authenticated data, the key, and the 349 nonce length. The full statistics and outcomes are in Supplementary Note S3. 350 
+
+Availability of supporting source code and requirements 351 • Project name: Clair3-Connect 352 • Project home page: https://github.com/HKU-BAL/Clair3-Connect 353 • Operating system(s): Linux 354 • Programming language: Rust (variant-calling engine); Python (agent interface and 355 evaluation harness) 356 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+• Other requirements: Rust 1.85 or later and libtorch 2.5 to build the engine (a CUDA-357 capable GPU is optional and used only by the inference server); a TorchScript-exported 358 Clair3 model; Python 3.11 or later for the agent and evaluation code; hap.py and samtools 359 for the accuracy benchmark 360 
+
+Data availability 361 All data supporting the results of this article are provided within the article and its 362 Supplementary Materials. The accuracy benchmark uses the publicly available HG003 363 sequencing data and the GIAB v4.2.1 benchmark set[22]. The specific download paths for the 364 sequencing samples, the reference genome, and the truth sets, together with the access paths for 365 the tools and models used, are provided in the Supplementary Materials. 366 
+
+List of abbreviations 367 AEAD: authenticated encryption with associated data; AES-256-GCM: Advanced Encryption 368 Standard (256-bit key) in Galois/Counter Mode; BAM: Binary Alignment Map; CRAM: 369 Compressed Reference-oriented Alignment Map; CV: coefficient of variation; GIAB: Genome in 370 a Bottle; GPU: graphics processing unit; gRPC: gRPC Remote Procedure Call; HiFi: high-371 fidelity (PacBio) reads; LLM: large language model; MCP: Model Context Protocol; mTLS: 372 mutual Transport Layer Security; ONT: Oxford Nanopore Technologies; PHI: protected health 373 information; RPC: remote procedure call; SNP: single-nucleotide polymorphism; SV: structural 374 variant; TLS: Transport Layer Security; VCF: Variant Call Format; WGS: whole-genome 375 sequencing. 376 
+
+Competing interests 377 The authors declare that they have no competing interests. 378 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+Funding 379 R.L. was supported by the CRF (C7003-24Y) of the Research Grants Council (RGC) of Hong 380 Kong and the URC fund at HKU. 381 
+
+Authors’ contributions 382 R.L. conceived and supervised the study. X.Y. implemented the software. Z.Z. developed Clair3. 383 X.Y. and Z.Z. wrote the paper. L.C., Z.Q., X.G., M.H., and R.L. reviewed and revised the 384 manuscript. 385 
+
+References 386 1. Ren, S., et al., Towards scientific intelligence: A survey of llm-based scientific agents. arXiv 387 preprint arXiv:2503.24047, 2025. 388 2. Jimenez, C.E., et al. Swe-bench: Can language models resolve real-world github issues? in 389 
+
+International Conference on Learning Representations . 2024. 390 3. Gridach, M., et al., Agentic ai for scientific discovery: A survey of progress, challenges, and 391 
+
+future directions. arXiv preprint arXiv:2503.08979, 2025. 392 4. Huang, K., et al., Biomni: A general-purpose biomedical ai agent. biorxiv, 2025. 393 5. Su, H., W. Long, and Y. Zhang, BioMaster: Multi-agent system for automated bioinformatics 394 
+
+analysis workflow. bioRxiv, 2025: p. 2025.01. 23.634608. 395 6. Xiao, Y., et al., Cellagent: An llm-driven multi-agent framework for automated single-cell data 396 
+
+analysis. arXiv preprint arXiv:2407.09811, 2024. 397 7. Dip, S.A., et al., Large language model agents for biological intelligence across genomics, 398 
+
+proteomics, spatial biology, and biomedicine. Briefings in Bioinformatics, 2026. 27 (2): p. 399 bbag110. 400 8. Li, H., Minimap2: pairwise alignment for nucleotide sequences. Bioinformatics, 2018. 34 (18): p. 401 3094-3100. 402 9. Zhang, P., et al., HAlign-G: rapid and low-memory multiple-genome aligner for large-scale 403 
+
+closely related genomes. Genome Biology, 2025. 26 (1): p. 406. 404 10. Gao, Y., et al., abPOA: an SIMD-based C library for fast partial order alignment using adaptive 405 
+
+band. Bioinformatics, 2021. 37 (15): p. 2209-2211. 406 11. Cheng, H., et al., Haplotype-resolved de novo assembly using phased assembly graphs with 407 
+
+hifiasm. Nature methods, 2021. 18 (2): p. 170-175. 408 12. Kolmogorov, M., et al., Assembly of long, error-prone reads using repeat graphs. Nature 409 biotechnology, 2019. 37 (5): p. 540-546. 410 13. Jiang, T., et al., cuteFC: regenotyping structural variants through an accurate and efficient force-411 
+
+calling method. Genome biology, 2025. 26 (1): p. 166. 412 14. Jiang, T., et al., Long-read-based human genomic structural variation detection with cuteSV. 413 Genome biology, 2020. 21 (1): p. 189. 414 15. Smolka, M., et al., Detection of mosaic and population-level structural variants with Sniffles2. 415 Nature biotechnology, 2024. 42 (10): p. 1571-1580. 416 16. Poplin, R., et al., A universal SNP and small-indel variant caller using deep neural networks. 417 Nature biotechnology, 2018. 36 (10): p. 983-987. 418 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+17. Zheng, Z., et al., Symphonizing pileup and full-alignment for deep learning-based long-read 419 
+
+variant calling. Nature computational science, 2022. 2(12): p. 797-803. 420 18. Hou, X., et al., Model context protocol (mcp): Landscape, security threats, and future research 421 
+
+directions. ACM Transactions on Software Engineering and Methodology, 2025. 422 19. Luebbert, L., et al., Paving the way for agents in biology. 2026. 423 20. Martin, M., et al., WhatsHap: fast and accurate read-based phasing. BioRxiv, 2016: p. 085050. 424 21. Lin, J.-H., et al., LongPhase: an ultra-fast chromosome-scale phasing algorithm for small and 425 
+
+large variants. Bioinformatics, 2022. 38 (7): p. 1816-1822. 426 22. Zook, J.M., et al., An open resource for accurately benchmarking small variant and reference 427 
+
+calls. Nature biotechnology, 2019. 37 (5): p. 561-566. 428 23. Krusche, P., et al., Best practices for benchmarking germline small-variant calls in human 429 
+
+genomes. Nature biotechnology, 2019. 37 (5): p. 555-560. 430 431 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+Tables 432 
+
+Table 1. Runtime and peak memory of the full-alignment-only Clair3-Connect client. Wall-clock time 433 and peak resident set size (RSS) for calling variants across each whole chromosome of sample HG003 at 434 30× coverage, on Illumina, Oxford Nanopore, and PacBio HiFi reads. Values are mean ± standard 435 deviation over ten repeats. 436 Platform Chromosome 1 Chromosome 20 Wall time (s) Peak memory (GB) Wall time (s) Peak memory (GB) Illumina 74.7 ± 2.9 5.01 ± 0.30 25.1 ± 1.1 3.83 ± 0.10 Oxford Nanopore 210.6 ± 21.1 10.66 ± 1.39 43.4 ± 0.3 7.15 ± 0.28 PacBio HiFi 70.5 ± 6.1 6.86 ± 0.14 22.1 ± 0.9 4.76 ± 0.13 437 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+Figures 438 439 
+
+Figure 1. Overview of Clair3-Connect. The top panel shows the client-server architecture. The client 440 (clair3-connect ) reads the BAM/CRAM alignments, selects candidate variant sites, and builds the 441 full-alignment feature tensors, exposing these operations both as a command-line program and as typed 442 agent tools, and decodes the returned probabilities into SNP and indel calls. Only opaque candidate 443 tensors cross the gRPC transport, secured by mutual TLS and per-payload AES-256-GCM authenticated 444 encryption. The server ( clair3-connect-server ) performs dynamic batching and neural-network 445 inference on CPU or GPU and dispatches the per-site probabilities back, so one server serves many 446 clients. The bottom panel shows an LLM agent driving the typed tools on the APOE diplotyping task. 447 From the task prompt, the agent ( deepseek-v4-pro ) reasons and issues three structured calls, 448 
+
+bam_header to read the sequencing platform from the BAM header, discover_models to select 449 the matching model, and genotypes_at to call variants at the two sites, then combines the rs429358 450 and rs7412 genotypes into the clinical diplotype (sample HG00136, ε4/ ε4). 451 452 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+453 
+
+Figure 2. Cost of the APOE diplotyping task under the three deployment surfaces, over ten independent 454 repeats per condition. Columns are the two whole-genome samples (HG00136, HG00150); the top row 455 plots mean total tokens and the bottom row mean wall-clock time, each condition shown as a marker with 456 a whisker of ±1 standard deviation across repeats. All conditions used the same agent model 457 (deepseek-v4-pro ) and returned the correct diplotype in every run. The typed Tools interface is both 458 far affordable and consistent, its token usage varying by 4% across repeats versus about 35% for the shell 459 conditions. Per-repeat metrics are in Supplementary Note S1 and one representative round’s full transcript 460 in Note S4. 461 462 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+463 
+
+Figure 3. Variant-calling accuracy on chromosome 20 as a function of sequencing depth, for standard 464 Clair3 (full pipeline, solid) versus the full-alignment-only client used by Clair3-Connect (pileup and 465 phasing removed, dashed), on Illumina, Oxford Nanopore, and PacBio HiFi reads (one color per 466 platform). The top row is SNPs and the bottom row indels; the shaded band between the two curves 467 marks the accuracy gap. Removing pileup and phasing trades accuracy for far less local computation. 468 SNP gaps are largest at low depth and on the noisier platforms and essentially vanish by 30-50× (and at 469 all depths on HiFi); indel gaps are larger and more persistent, staying a few F1 points wide on ONT even 470 at 50×, because phasing helps indels most. Chromosome 1 and the complete titration are in the 471 Supplementary Materials (Note S2). 472 473 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+474 
+
+Figure 4. Transport-security cost (in absolute units), measured on an Oxford Nanopore whole-genome 475 run (sample HG003, chromosome 20). (a) Isolated per-request latency (a deliberate worst case in which 476 inference is the only work and the full 752 KB payload is encrypted on the critical path) and (b) end-to-477 end wall-clock time of a real full-alignment-only run (the deployment-relevant cost), each for an 478 unencrypted (plaintext) channel and the two security layers. Bars are means over n = 10 paired rounds, 479 whiskers are 95% confidence intervals, and each secured bar is labelled with its absolute increase over 480 plaintext and its paired Wilcoxon significance ( ** p < 0.01, n.s. not significant). The per-request 481 payload-encryption cost ( ≈7.4 ms) is largely absorbed by the CPU-bound candidate scan, so the whole-482 region cost of the secure default is only about 2 s. The confidentiality, mTLS access-control, and AEAD 483 integrity checks are in the Supplementary Materials (Note S3). 484 485 486 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 28, 2026. ;https://doi.org/10.64898/2026.06.25.734665 doi: bioRxiv preprint
+
+Server Client BAM 
+
+Sequencing alignments Select variant candidates Tensor construction Variant Decoding C T G C GSNV G C C G Deletion C A C G T C G A T Insertion Agent tool CLI usage 
+
+Tensor only gRPC transport mTLS 
+
+mTLS + AES-256-GCM AEAD 
+
+... 
+
+Candidate tensors 
+
+... 
+
+Variant probabiltiies Dynamic batching Model inference 
+
+> Scale CPU/GPU resource for parallel GPU calling
+
+... CPU Output dispatching Client 1 Client 2 Client 3 
+
+Clinical genomics. Sample HG00136 is a human whole-genome sequencing dataset registered with the service. Determine its APOE diplotype — the epsilon2/epsilon3/epsilon4 combination that stratifies Alzheimer's-disease risk — defined by two SNPs on chr19 (GRCh38): rs429358 at chr19:44908684 (ref T, alt C) and rs7412 at chr19:44908822 (ref C, alt T). The three common haplotypes are: epsilon4 = rs429358 C, rs7412 Cepsilon3 = rs429358 T, rs7412 Cepsilon2 = rs429358 T, rs7412 TSteps: 1. Determine which sequencing platform this sample is and select the matching Clair3 model. 2. Call variants and read the genotype at both SNP sites. Asite with no called variant is homozygous reference. 3. Combine the two genotypes into the standard clinical diplotype. Finish with one line: ANSWER: <diplotype> For example: ANSWER: e4/e4 
+
+1) Task prompt 2) LLM agent (Deepseek-v4-pro) 3) APOE interpretation 
+
+bam_header() Platform information in bam header 
+
+genotypes_at() Call variants in regions of interest 
+
+discover_models() Select corresponding available model on server 
+
+tool calling 1 tool calling 2 tool calling 3 Reasoning... rs429358 44908684 rs7412 44908822 
+
+e4 (C,C) e3 (T,C) e2 (T,T) 
+
+Sample: HG00136 rs429359: C/C rs7412: C/C 
+
+APOE diplotype: <e4, e4> Agent 050 100 150 200 250 300 
+
+> Total tokens (thousands)  n = 10 repeats
+
+HG00136 
+
+> 78 ± 35K 158 ± 40K 12 ± 0.3K
+
+HG00150 
+
+> 83 ± 22K 167 ± 68K 12 ± 0.5K
+
+RawBinary Skills Tools 
+
+025 50 75 100 125  
+
+> Wall-clock time (s)  84 ± 18 82 ± 12 19 ± 2
+
+RawBinary Skills Tools  
+
+> 99 ± 21 96 ± 27 28 ± 9 80 85 90 95 100
+> SNP F1 (%)
+
+Illumina Oxford Nanopore PacBio HiFi     
+
+> 10 20 30 40 50
+
+Coverage (×)     
+
+> 50 60 70 80 90 100
+> Indel F1 (%)
+> 10 20 30 40 50
+
+Coverage (×)     
+
+> 10 20 30 40 50
+
+Coverage (×) 
+
+Standard Clair3 Full-alignment only Accuracy gap Plaintext mTLS AEAD mTLS+AEAD 0510 15 20 25 
+
+> Per-request latency (ms)
+
++0.6 ms ** 
+
++7.4 ms ** 
+
++8.1 ms ** n = 10 
+
+(a) Isolated cost 
+
+> 13.4
+> ±0.1 14.1
+> ±0.1 20.8
+> ±0.2 21.6
+> ±0.1
+
+Plaintext mTLS AEAD mTLS+AEAD 0510 15 20 25 30 35 40 
+
+> Whole-region wall time (s)
+
++0.3 s n.s. 
+
++1.3 s ** 
+
++2.1 s ** n = 10 
+
+(b) End-to-end cost

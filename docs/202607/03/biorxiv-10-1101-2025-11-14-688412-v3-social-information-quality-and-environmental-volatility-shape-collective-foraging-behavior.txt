@@ -1,0 +1,2083 @@
+Title: Social Information Quality and Environmental Volatility Shape Collective Foraging Behavior
+
+URL Source: https://www.biorxiv.org/content/10.1101/2025.11.14.688412v3.full.pdf
+
+Published Time: Fri, 03 Jul 2026 21:46:00 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+# Social Information Quality and Environmental 1
+
+# Volatility Shape Collective Foraging Behavior 2
+
+## Valerii Chirkov 1,2,* , Ralf H.J.M. Kurvers 2,3 , Dominik Deffner 3,4 , and Pawel 3
+
+## Romanczuk 1,2,5 
+
+> 4
+> 1
+
+Institute for Theoretical Biology, Humboldt Universität zu Berlin, Berlin, Germany 5
+
+> 2
+
+Science of Intelligence, Cluster of Excellence, Berlin, Germany 6
+
+> 3
+
+Center for Adaptive Rationality, Max Planck Institute for Human Development, Berlin, 7
+
+Germany 8
+
+> 4
+
+Department of Psychology, Marburg University, Marburg, Germany 9
+
+> 5
+
+Bernstein Center for Computational Neuroscience, Berlin, Germany 10 
+
+> *
+
+Corresponding author: valerii.chirkov@hu-berlin.de 11 
+
+Abstract 12 
+
+Collective foraging is widespread across the animal kingdom, allowing animals to 13 
+
+more effectively discover resources. However, collective foragers need to balance a 14 
+
+key trade off between private exploration and using social information. Social in-15 
+
+formation can come in very distinct forms, ranging from simple positional cues to 16 
+
+complex payoff information. However, how the types of available social cues and 17 
+
+environmental volatility shape collective foraging behavior is not well understood. 18 
+
+We address this using a spatially-explicit model in which agents track a mobile 19 
+
+resource via multi-agent reinforcement learning. Agents choose between random 20 
+
+exploration, private tracking, and social attraction. We systematically varied re-21 
+
+source volatility and the type of available social cues to analyze their effect on 22 
+
+individual and collective behavior. Our results show that the quality of social in-23 
+
+formation dictates the emerging collective behavior. Low-quality social cues (e.g., 24 
+
+positions, actions) result in a fragile strategy that is effective in stable environments 25 
+
+but fails as volatility increases. Conversely, high-quality social information (e.g., 26 
+
+payoffs) enables behavioral diversity: Agents selectively copy others and flexibly 27 
+
+change between individual tracking or exploration depending on the environmen-28 
+
+tal volatility. Our findings identify the interplay between information quality and 29 
+
+ecological context as an important mechanism governing the emergence of distinct 30 
+
+forms of collective behavior from individual decision rules. 31 
+
+Keywords: Collective Behavior; Social Foraging; Social Learning; Multi-Agent Rein-32 
+
+forcement Learning; Agent-based Simulations 33 
+
+1
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+# 1 Introduction 34 
+
+A fundamental challenge in collective decision-making is determining when to rely on 35 
+
+independent exploration versus when to copy others. Animal social foraging serves as 36 
+
+a prime testbed for understanding this dynamic, as individuals must constantly balance 37 
+
+the costs of discovering resources through private exploration with the benefits of using 38 
+
+socially acquired information from their peers [1–3]. This trade-off between private ex-39 
+
+ploration and the use of social information is a central challenge in behavioral ecology, 40 
+
+as relying on others can provide a valuable shortcut but also risks the propagation of 41 
+
+outdated or erroneous information [4, 5]. 42 
+
+To explain how animals solve this problem, classic models often rely on a fixed set of 43 
+
+heuristics like “copy the successful” or “copy the majority” [6–8]. While there is robust 44 
+
+evidence for the use of such strategies across many contexts, these traditional models 45 
+
+necessarily make specific assumptions about what information social cues provide and 46 
+
+specify predefined functional forms for their integration. As a result, they fail to capture 47 
+
+the processes of how animals flexibly integrate the rich, multidimensional social informa-48 
+
+tion available in their surroundings. Social information can, however, vary from discrete 49 
+
+location cues (e.g., observing the location of others) all the way to graded public infor-50 
+
+mation (e.g., observing foraging success of others) [9, 10]. For instance, a foraging bird 51 
+
+might observe a neighbor’s presence (positional cue), see it actively pecking (action 52 
+
+cue), or witness it successfully extracting grubs (payoff-based public information) [11]. 53 
+
+The adaptive value of each cue is highly context-dependent. In a stable environment, sim-54 
+
+ple cues may already provide useful social information. However, in volatile environments 55 
+
+where resources are ephemeral—such as birds tracking thermal updrafts [12] or predators 56 
+
+hunting mobile prey [13]—simple positional cues often become rapidly outdated, losing 57 
+
+their validity as reliable indicators of resource location. In these contexts, only more 58 
+
+complex social information, such as high-fidelity payoff signals, remains adaptive [14]. A 59 
+
+significant gap remains in understanding how individuals learn to weigh these distinct 60 
+
+cue types based on their reliability and their ecological context. 61 
+
+Deep multi-agent reinforcement learning (MARL) offers a powerful framework to ad-62 
+
+dress this gap. This approach lets the model learn the functional relationships between 63 
+
+cues directly from experience, enabling the discovery of novel strategies that researchers 64 
+
+might not have anticipated. Treating agents as “smart particles” whose decisions and 65 
+
+movements are optimized together [15] allows MARL to generate flexible, adaptive poli-66 
+
+cies through reward maximization. This supports recent efforts to adopt more holistic 67 
+
+views on social learning and collective intelligence [16, 17]. Prior work has shown that 68 
+
+MARL agents can learn biologically plausible behaviors, such as using social information 69 
+
+adaptively [18], converging on collective foraging patterns [19, 20], and spontaneously 70 
+
+acquiring social learning heuristics [21]. Our work builds on this by providing a prin-71 
+
+2
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+cipled simulation-based experimental paradigm to investigate how the quality of social 72 
+
+information interacts with environmental dynamics to shape emergent collective foraging 73 
+
+behavior. 74 
+
+We model a social foraging scenario where agents track a mobile resource performing a 75 
+
+correlated random walk (Fig. 1A), mimicking the directional persistence and path tortu-76 
+
+osity observed in many biological prey species [e.g., 22]. The agents’ behavioral repertoire 77 
+
+(Fig. 1B) is inspired by fundamental strategies observed across diverse animal species. 78 
+
+Agents can engage in a random walk ( exploration ), a widely observed search pattern 79 
+
+when animals lack reliable directional cues [23]. Alternatively, agents can use their private 80 
+
+information to track the resource. This action is modeled as inherently costly, result-81 
+
+ing in a slower effective tracking speed than other actions. This cost operationalizes the 82 
+
+energetic and cognitive demands of actively sensing and pursuing a resource, such as a 83 
+
+predator stalking prey [24], and reflects behavioral constraints like pausing to sense or 84 
+
+orient, a constraint central to gradient-following strategies like infotaxis [25, 26]. Finally, 85 
+
+agents can move toward a peer ( social attraction ), a core mechanism of social learning 86 
+
+where individuals join others to exploit a resource discovered by other agents [11, 27]. 87 
+
+Although we acknowledge that acquiring social information—particularly complex payoff 88 
+
+signals—can involve significant cognitive and opportunity costs in nature [1], we here 89 
+
+choose to model social acquisition as a relatively low-cost alternative to private tracking. 90 
+
+This simplification serves to more clearly isolate how different cue types shape the in-91 
+
+terplay between individual sensing, social information use, and random exploration (the 92 
+
+latter acting as a “zero-information” search baseline), while recognizing that real-world 93 
+
+scenarios may involve more balanced or context-specific costs for social learning. This 94 
+
+action set allows us to probe the fundamental trade-off between relying on costly indi-95 
+
+vidual sensing, using socially acquired information, and engaging in uninformed search. 96 
+
+To investigate the optimal group-level strategies that emerge from these trade-offs, our 97 
+
+primary MARL approach uses centralized training, in which agents share neural net-98 
+
+work weights. This method is known to effectively find such group-level solutions (which 99 
+
+emerge from optimized individual decision rules). We also explored a fully decentralized 100 
+
+version, where each agent learns independently using its own distinct network. We sys-101 
+
+tematically vary both the quality of social cues (from neighbor distance to noisy payoff 102 
+
+signals) and the environmental volatility (resource speed), to study how their interplay 103 
+
+drives emergent collective foraging behavior. 104 
+
+Our results show that the quality of available social information shapes the emergence 105 
+
+of individual-level decision rules as well as the collective performance. And that envi-106 
+
+ronmental volatility shapes the adaptive value of social cues. In stable, slow-changing 107 
+
+environments, agents limited to low-quality social cues converged on a Cohesive Track-108 
+
+ing strategy. This strategy achieved near-maximal performance (Fig. 2) by predomi-109 
+
+nantly relying on costly private tracking supplemented with occasional social attraction 110 
+
+3
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+to maintain a compact cluster (Figs. 3 and 4). However, the performance of this strat-111 
+
+egy deteriorated quickly when environmental volatility increased as simple social cues 112 
+
+became unreliable. Conversely, high-quality payoff information enabled a more robust 113 
+
+behavioral repertoire: When private tracking was viable, agents adopted a Track-or-114 
+
+Copy strategy, using payoff cues to selectively follow more successful peers – a form 115 
+
+of payoff selectivity known to be critical for collective success [7, 14, 28]. As volatility 116 
+
+increased and private tracking became ineffective, the group seamlessly transitioned to 117 
+
+an Explore-or-Copy strategy. This strategy corresponds to a form of distributed col-118 
+
+lective sensing [12, 29, 30], where agents abandon costly tracking to explore randomly, 119 
+
+using payoff cues to aggregate at temporary information hubs created by successful peers 120 
+
+(Figs. 3 and 4). Taken together, our results demonstrate that the interplay between in-121 
+
+formation quality and ecological context plays a key role in how individual decision rules 122 
+
+give rise to distinct, adaptive forms of collective behavior, generating testable predictions 123 
+
+for behavioral research. 124 
+
+# 2 Materials and Methods 125 
+
+## 2.1 The Collective Foraging Model 126 
+
+2.1.1 Environment and Resource Dynamics 127 
+
+To investigate how social information quality and environmental volatility shape the 128 
+
+emergence of individual-level decision rules, we frame collective foraging as a resource-129 
+
+tracking problem where agents are rewarded for tracking a mobile resource (Fig. 1A). The 130 
+
+task takes place in a continuous 20 × 20 unit square arena A with reflective boundaries. 131 
+
+A group of N = 10 identical agents tracks a single mobile resource for T = 1000 discrete 132 
+
+time steps. 133 
+
+Let xR(t) ∈ A be the resource’s position at time t. The movement of the resource 134 
+
+follows a correlated random walk. Turning angles θ are sampled uniformly from [0 , 2π).135 
+
+Step lengths ℓ are drawn from a truncated Pareto distribution with a shape parameter α =136 
+
+1 and 1 ≤ ℓ ≤ 100 . The resource travels at a constant speed vresource which controls the 137 
+
+task’s overall difficulty (see Section 2.3). This truncated power-law distribution generates 138 
+
+occasional long relocations, mixing local diffusion with long-distance movements. While 139 
+
+not a formal Lévy walk (as truncation ensures finite moments), this pattern characterizes 140 
+
+real-world animal and resource movements across a wide range of taxa [31–33]. Tracking 141 
+
+this erratic target encapsulates the ecological challenge of following spatiotemporally 142 
+
+dynamic resources that underlies various types of foraging [24, 34]. 143 
+
+All agents and the resource were initialized randomly for each training and evaluation 144 
+
+episode within a 10 × 10 area in the center of the environment to prevent agents and the 145 
+
+resource from starting near the arena boundaries. 146 
+
+4 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint ... ...
+> Exploration
+> Tracking
+> Attraction
+> Own Reward
+> Neighbor's Action
+> Neighbor's Distance
+> Neighbor's Presence
+> Neighbor's Reward
+> Observables Action Probabilities
+
+## BAFigure 1: Multi-agent social foraging task. A : Schematic of the social foraging scenario. Agents aim to localize and track a continuously moving resource in a 2D environment. The resource consists of a quality gradient (dark-shaded circle with white arrow indicating center and direction of movement; the resource follows a correlated random walk). At each time step, the focal agent (brown) selects one of three discrete actions: random exploration (orange arrow), slow tracking towards the resource’s center (green arrow), or social attraction towards another agent (blue arrow). The focal agent can observe one randomly selected peer (blue agent) within its visual range (dashed circle), and receives rewards based on its proximity to the resource’s center (indicated by the background gradient). B: Schematic of the actor network for a single agent. The network maps local, partial observations to action probabilities. Observations include the agent’s own reward, a binary indicator of whether a neighbor is visible, the distance to the observed neighbor, the neighbor’s current action, and the neighbor’s reward. Available social features depend on the current social information condition (see Methods for details). 
+
+2.1.2 Agent Dynamics and Reward 147 
+
+Let xi(t) ∈ A be the position of agent i at time t. Agents can move at a maximum 148 
+
+speed of vmax = 0 .05 units per step. The absolute value of this speed is less critical than 149 
+
+its value relative to the resource speed (Section 2.3.1) and the effective tracking speed 150 
+
+(Section 2.2.1). At each time step, agent i receives an individual reward ri(t) based on 151 
+
+its proximity to the resource: 152 
+
+ri(t) = 11 + di(t)2 , (1) where di(t) = ∥xi(t) − xR(t)∥2 is the Euclidean distance to the resource. This function 153 
+
+provides a strong, graded incentive for agents to minimize their distance to the resource. 154 
+
+## 2.2 Agent Behavioral Model 155 
+
+2.2.1 Agent Actions 156 
+
+To probe the fundamental trade-off between private exploration and social exploitation, 157 
+
+agents can, at each time step, choose one of three actions, ai(t) ∈ { Exploration, Tracking, Social Attracti 158 
+
+(Fig. 1B). The chosen action dictates the agent’s movement direction, i.e. the direc-159 
+
+tion of its current velocity vector vi(t). The position is updated in discrete time by 160 
+
+5
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+xi(t + ∆ t) = xi(t) + vi(t)∆ t with ∆t = 1 , subject to reflection at arena boundaries. The 161 
+
+actions represent distinct foraging strategies observed in natural systems: 162 
+
+1. Exploration models random search behavior when reliable directional cues are 163 
+
+lacking. The agent performs a correlated random walk at maximum speed ( vmax ). 164 
+
+The movement direction ϕt is updated by ϕt = ϕt−1 + ∆ ϕ, where the turning 165 
+
+angle ∆ϕ is sampled from a von Mises distribution (a circular analogue of the 166 
+
+Gaussian distribution commonly used to model animal orientation; [see e.g. 35, 36]), 167 
+
+∆ϕ ∼ vonMises (μ = 0 , κ = 2) . The resulting movement vector is vi(t) = vmax ·168 
+
+[cos ϕt, sin ϕt].169 
+
+2. Tracking represents costly exploitation based on private information. The agent 170 
+
+attempts to move towards the center of the resource. Let utrack (t) = ( xR(t) −171 
+
+xi(t)) /d i(t) be the unit vector toward the resource. The movement is stochastic to 172 
+
+operationalize the costs associated with acquiring and acting on private information 173 
+
+(e.g., pausing to sense, orient, and handle prey [25]): 174 
+
+vi(t) = 
+
+
+
+vmax · utrack (t) with probability ptrack 
+
+0 with probability 1 − ptrack 
+
+(2) The probability 1 − ptrack of remaining stationary can be interpreted as the tempo-175 
+
+ral cost of selecting the tracking action. A higher cost (larger 1 − ptrack ) reduces 176 
+
+the agent’s effective movement speed when tracking, yielding an effective average 177 
+
+tracking speed of vtracking = ptrack × vmax . For our main experiments, ptrack = 0 .1,178 
+
+resulting in vtracking = 0 .1 × vmax . The cost parameter 1 − ptrack was varied in 179 
+
+robustness analyses (see Section 2.5). 180 
+
+3. Social attraction represents leveraging social information by moving towards 181 
+
+peers, potentially avoiding the cost of slow tracking, a core mechanism of social 182 
+
+foraging [1]. The agent moves at maximum speed ( vmax ) toward its currently ob-183 
+
+served peer j. Let usocial (t) = ( xj (t) − xi(t)) /∥xj (t) − xi(t)∥2 be the unit vector 184 
+
+toward the peer. The movement vector is vi(t) = vmax · usocial (t).185 
+
+The “Tracking” and “Exploration” actions were always available. “Social Attraction” 186 
+
+was only meaningful if a peer was within the visual range. To maintain a consistent 187 
+
+action space while preventing the policy network from processing undefined inputs when 188 
+
+social cues were absent, we introduced a penalty mechanism. If an agent selected “Social 189 
+
+Attraction” when no peer was visible (due to visual range limits or the experimental 190 
+
+condition), it received a large penalty rpenalty = −1, and its movement direction remained 191 
+
+unchanged ( vi(t) = vi(t−1) ). This ensures the policy learns to avoid inapplicable actions. 192 
+
+Such invalid selections are rare, typically occurring only early in training or in edge cases 193 
+
+with limited visibility, and this penalty mechanism had negligible impact on the final 194 
+
+learned strategies. 195 
+
+6
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+2.2.2 Agent Observations 196 
+
+Agents operate under partial observability, receiving only local information. To model 197 
+
+both private information and the different types of social cues (distance, action, payoff), 198 
+
+each agent i perceives its environment through a five-dimensional observation vector oi(t),199 
+
+showed schematically in Fig. 1B. This is constructed based on a visual range rvis = 15 200 
+
+units (see Section 2.5 for robustness checks). 201 
+
+Let Vi(t) = {j̸ = i | ∥ xj (t) − xi(t)∥2 ≤ rvis } be the set of peers visible to agent 202 
+
+i at time t. To model perceptual and attentional constraints often observed in animal 203 
+
+groups [e.g. 37], and to simplify the analysis by avoiding complex social information 204 
+
+aggregation rules, if Vi(t) is not empty, agent i attends to exactly one peer j, sampled 205 
+
+uniformly at random from Vi(t) at each time step. While animals in nature typically bias 206 
+
+their attention toward closer neighbors, this uniform sampling—bounded by a maximum 207 
+
+visual range—simplifies our analysis by avoiding complex distance-weighted aggregation 208 
+
+rules. The agent then uses this focal peer’s information to decide whether to approach 209 
+
+it (via the Social Attraction action) or choose a different behavior. If Vi(t) is empty, no 210 
+
+social information is gathered. Because the focal neighbor is resampled independently at 211 
+
+each time step, the attention process is ergodic: given enough time, an agent will observe 212 
+
+each group member with equal frequency. This corresponds to an effective averaging of 213 
+
+interactions across neighbors over time. Thus, our qualitative results are representative 214 
+
+of a setting where each agent observes all neighbors simultaneously in the limit of a 215 
+
+slowly changing environment, analogous to results on synchronization in blinking network 216 
+
+models [38, 39]. 217 
+
+The observation vector oi(t) = ( o1, o 2, o 3, o 4, o 5) components represent different infor-218 
+
+mation types: 219 
+
+1. o1 = ri(t): Private information about own success (i.e., reward). 220 
+
+2. o2 = I(Vi(t)̸ = ∅): Basic social cue indicating neighbor presence. 221 
+
+3. o3 = dij (t): Positional social cue (distance to observed peer j). Set to 0 if o2 = 0 .222 
+
+4. o4 = aj (t − 1) : Behavioral social cue (observed peer j’s previous action). Set to 0223 
+
+if o2 = 0 .224 
+
+5. o5 = ˜ rj (t): Payoff-based public information (observed peer j’s previous reward), 225 
+
+corrupted by additive Gaussian noise ϵ ∼ N (0 , σ 2) to model imperfect observation. 226 
+
+˜rj (t) = rj (t) + ϵ. Set to 0 if o2 = 0 .227 
+
+## 2.3 Simulation Design 228 
+
+To address the central question of how resource volatility interacts with the quality of 229 
+
+social information, we systematically varied two factors: Resource Speed (proxy for en-230 
+
+vironmental volatility) and Social Information Quality (controlling the type and fidelity 231 
+
+of social cues). 232 
+
+7
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+2.3.1 Resource Speed 233 
+
+To simulate environments ranging from stable to volatile, we varied resource speed 234 
+
+(vresource ) relative to the agents’ maximum speed ( vmax ) across three levels: 235 
+
+• Slow: Resource speed 0.1 (vresource = 0 .1 × vmax ). 236 
+
+• Medium: Resource speed 0.3 (vresource = 0 .3 × vmax ). 237 
+
+• Fast: Resource speed 0.5 (vresource = 0 .5 × vmax ). 238 
+
+2.3.2 Social Information Quality 239 
+
+To explore the value of different social cues (distance, action, payoff) and the fidelity of 240 
+
+the payoff signal, we designed seven experimental conditions that progressively increased 241 
+
+the information available in the agent’s observation vector ( oi(t)). Starting with purely 242 
+
+private information and progressively adding more complex social cues: 243 
+
+1. Private: Only o1 (own reward) available. 244 
+
+2. +Distance: o1, o 2, o 3 available (reward, presence, distance). 245 
+
+3. +Action: o1, o 2, o 3, o 4 available (reward, presence, distance, peer action). 246 
+
+4. +Payoff (High Noise): All components o1, . . . , o 5 available, with high noise on 247 
+
+peer reward o5 (σ = 0 .1). 248 
+
+5. +Payoff (Medium Noise): All components available, with medium noise on o5249 
+
+(σ = 0 .05 ). 250 
+
+6. +Payoff (Low Noise): All components available, with low noise on o5 (σ = 0 .01 ). 251 
+
+7. +Payoff (No Noise): All components available, with no noise on o5.252 
+
+## 2.4 Multi-Agent Reinforcement Learning (MARL) 253 
+
+2.4.1 Training Algorithm 254 
+
+We adopt a MARL approach to train agents to maximize their individual rewards, al-255 
+
+lowing collective strategies to emerge. Specifically, we used Multi-Agent Proximal Policy 256 
+
+Optimization (MAPPO) [40, 41], a widely used algorithm based on the centralized train-257 
+
+ing–decentralized execution (CTDE) paradigm. CTDE is well-suited for partially ob-258 
+
+servable multi-agent problems; the centralized critic leverages global information during 259 
+
+training to stabilize learning and improve coordination [42], while the decentralized actors 260 
+
+learn policies based only on local observations, ensuring scalability during execution. All 261 
+
+agents shared the parameters of a single actor policy network and a single centralized 262 
+
+critic network. 263 
+
+2.4.2 Policy and Critic Architecture 264 
+
+Both the actor (policy) and critic (value) networks were multi-layer perceptrons (MLPs) 265 
+
+with two hidden layers of 256 units each, using tanh activation functions. The actor 266 
+
+8
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+network mapped local observations oi(t) to probabilities for the three actions via a fi-267 
+
+nal sigmoid layer and a categorical distribution (see schematic illustration in Fig. 1B). 268 
+
+The critic network mapped the joint state (approximated using all agents’ local observa-269 
+
+tions during centralized training) to a scalar state-value estimate. We utilized standard 270 
+
+PPO components: a clipped surrogate objective for the policy loss, a mean squared error 271 
+
+loss for the value function, and an entropy bonus to encourage exploration. Advantages 272 
+
+were calculated using Generalized Advantage Estimation (GAE) [43] applying advantage 273 
+
+normalization and value clipping. Key training hyperparameters are detailed in Supple-274 
+
+mentary Information Table S2. 275 
+
+2.4.3 Training and Implementation Details 276 
+
+The simulation environment was implemented using the Vectorized Multi-Agent Simula-277 
+
+tor VMAS v1.4.3 [44]. All MARL training was conducted using PyTorch v2.5.1 [45] and 278 
+
+the TorchRL library v0.6.0 [42], using its TensorDict v0.6.2 data structures. A separate 279 
+
+policy was trained from scratch for each unique combination of Resource Speed, Social 280 
+
+Information Quality, and training seed. Each training run encompassed 480 iterations, 281 
+
+gathering 500000 environment frames per iteration (equivalent to 500 episodes of 1000 282 
+
+steps). This resulted in a total of 240 million environment interactions per run. Training 283 
+
+was performed on a single NVIDIA A100 or V100S GPU, with an average runtime of 284 
+
+17.9 hours (std=1.8). All runs used distinct random seeds for initialization and data gen-285 
+
+eration. Training metrics were logged using wandb v0.19.2 [46]. Figures were generated 286 
+
+using Matplotlib v3.9.0 [47] and Seaborn v0.13.2 [48]. For details of the third-party 287 
+
+software see Supplementary Information Table S1. 288 
+
+## 2.5 Robustness and Sensitivity Analyses 289 
+
+To assess the robustness of the emergent strategies and the sensitivity of our findings to 290 
+
+specific modeling choices, we conducted several additional sets of experiments. 291 
+
+• Tracking Cost / Effective Speed: We systematically varied the tracking cost 292 
+
+1 − ptrack (Eq. (2)) to explore how the intrinsic cost of private information affects 293 
+
+strategy emergence. We tested three levels: 1 − ptrack ∈ { 0.7, 0.8, 0.95 }, correspond-294 
+
+ing to effective tracking speeds vtracking ∈ { 0.3 × vmax , 0.2 × vmax , 0.05 × vmax }.295 
+
+• Decentralized Training: To ensure our results were not dependent on the central-296 
+
+ized training setup, we replicated the main experiments using a fully-decentralized 297 
+
+training algorithm (Independent PPO, IPPO [49]). In IPPO, each agent learns in-298 
+
+dependently using its own actor and critic network, with no parameter sharing or 299 
+
+access to other agents’ information during training. 300 
+
+• Visual Range: To test sensitivity to perceptual limitations, we repeated the main 301 
+
+experiments with reduced visual ranges, setting rvis ∈ { 10 , 5, 1} units, compared to 302 
+
+9
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+the default rvis = 15 .303 
+
+For the Tracking Cost and Decentralized Training analyses, the training procedure, 304 
+
+number of seeds (seven), evaluation methodology, and strategy consistency analysis fol-305 
+
+lowed the same protocols as for the main experiments. The Visual Range analysis fol-306 
+
+lowed the same general training and evaluation procedure but was not reproduced across 307 
+
+multiple seeds. 308 
+
+## 2.6 Data Collection and Evaluation Procedure 309 
+
+2.6.1 Performance Evaluation 310 
+
+Following best practices for RL reproducibility [50], each experimental condition was 311 
+
+trained using seven independent random seeds. Learned policies were evaluated every 312 
+
+20 training iterations during the final phase of training (iterations 400 to 480) to assess 313 
+
+performance near convergence. Each evaluation consisted of 1000 independent rollout 314 
+
+episodes per seed. This resulted in 5 evaluation points × 1000 episodes/point = 5000 315 
+
+evaluation episodes per seed. Final performance metrics (e.g., average reward) reported 316 
+
+in the Results are averaged across these 5000 episodes and then across the 7 seeds. Error 317 
+
+bars represent 95% confidence intervals computed across the 7 independent seeds. 318 
+
+2.6.2 Strategy Consistency Analysis 319 
+
+To confirm that the training process consistently converged to similar behavioral strate-320 
+
+gies across different random seeds within the same condition, we performed a post-hoc 321 
+
+analysis of behavioral strategy similarity. For each condition, we first calculated the aver-322 
+
+age action composition vector (proportion of time spent in Exploration, Tracking, Social 323 
+
+Attraction, analogous to the behavioral analysis described in the Results Section 3.2) for 324 
+
+each of the 7 seeds, averaging across all 5000 evaluation episodes for that seed. We then 325 
+
+computed the pairwise cosine similarity between these 7 strategy vectors. 326 
+
+Agglomerative hierarchical clustering was performed on the cosine distance matrix ( 1−327 
+
+similarity) derived from these vectors. We examined the first bifurcation (split at the root) 328 
+
+of the clustering tree. If the average cosine similarity between the two resulting clusters 329 
+
+fell below a threshold of 0.9, we flagged the smaller cluster as representing a divergent or 330 
+
+potentially unconverged strategy. In such cases, the runs belonging to the smaller cluster 331 
+
+were excluded from the main analysis to ensure reported results reflect the dominant, 332 
+
+consistent behavioral mode. This conservative pruning procedure, implemented using 333 
+
+SciPy [51] and Scikit-learn [52], affected only 5 out of 147 total training runs (approx. 334 
+
+3.5%), mostly in non-social conditions. Overall consistency within the retained dominant 335 
+
+clusters was very high (average cosine similarity > 0.95 ), confirming the robustness of 336 
+
+the emergent strategies (for details see Supplementary Information Table S3). 337 
+
+10 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+2.6.3 Strategy Visualization 338 
+
+To visualize the agents’ emergent behavioral rules (Figs. 4 and 5), we calculated empiri-339 
+
+cal action frequencies from the evaluation data. Specifically, we recorded the continuous 340 
+
+observation states and the corresponding chosen actions across all 1000 evaluation roll-341 
+
+out episodes per seed (see Section 2.6.1 for details). The observation space was then 342 
+
+discretized into a 2D grid, and the relative frequency of each action was calculated within 343 
+
+each bin. The final heatmaps display the median of these empirical frequencies across 344 
+
+5 evaluation points for each independent training seeds. The final visualization (Figs. 4 345 
+
+and 5) is generated via alpha blending, where each action is plotted as a separate color 346 
+
+layer. The opacity (alpha channel) of each cell corresponds directly to the median prob-347 
+
+ability of that action. 348 
+
+# 3 Results 349 
+
+We present our findings as follows. We first establish that the adaptive value of any given 350 
+
+social cue is context-dependent, with high-quality payoff signals becoming essential as en-351 
+
+vironmental volatility increases. We then explore how these performance differences arise 352 
+
+from shifts in individual agent behavior, leading to the emergence of collective tracking 353 
+
+strategies. Finally, we confirm that these emergent strategies are robust outcomes of the 354 
+
+agent-environment interaction by testing their stability against changes in both intrinsic 355 
+
+costs and the learning algorithm itself. 356 
+
+## 3.1 The value of social information depends on environmental 357 
+
+## volatility 358 
+
+To understand how social information quality and environmental volatility shape perfor-359 
+
+mance, we first established their combined effect on foraging success. We denote resource 360 
+
+speed by vresource , the normalized reward (i.e., the collected reward divided by the maxi-361 
+
+mum possible reward) by R, and changes in the reward by ∆R. Unless stated otherwise, 362 
+
+we report medians with 95% bootstrap confidence intervals in brackets; full statistics can 363 
+
+be found in Supplementary Information Table S4. As predicted, access to higher quality 364 
+
+social information consistently improved agent performance, but the magnitude of this 365 
+
+benefit was dictated by environmental volatility (Fig. 2). 366 
+
+In the baseline condition with only private information, performance was generally 367 
+
+low across all resource speeds. As expected, performance was the lowest in the fast 368 
+
+environment. Surprisingly, the median reward for the slow-moving resource ( vresource =369 
+
+0.1 × vmax ) was lower than for the medium-speed resource ( vresource = 0 .3 × vmax ). This 370 
+
+was due to the agents in the slower environment converging to different proportions of 371 
+
+11 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+tracking and exploration across training seeds. This led to larger confidence intervals 372 
+
+and a lower overall median reward, even after pruning based on strategy similarity (see 373 
+
+Supplementary Information Table S3 for strategy consistency results). 374 
+
+Once social information was introduced, clear and consistent performance differences 375 
+
+emerged. In stable environments with a slow-moving resource ( vresource = 0 .1 × vmax ), 376 
+
+agents gained the most from low-quality social cues. The reward jumped substantially 377 
+
+when distance was added ( ∆R = 0 .409[0 .367 , 0.424] ), and again when adding a neighbor’s 378 
+
+action state ( ∆R = 0 .202[0 .139 , 0.214] ). Further adding high-quality payoff signals offered 379 
+
+only modest improvements, suggesting that in predictable environments, simple social 380 
+
+cues are sufficient for effective coordination. 381 
+
+This pattern reversed in volatile environments. For fast-moving resources ( vresource =382 
+
+0.5×vmax ), the limitations of low-quality cues became apparent. While neighbor distance 383 
+
+still provided an initial benefit ( ∆R = 0 .291[0 .285 , 0.294] ), information about a neigh-384 
+
+bor’s action was of little value ( ∆R = 0 .049[0 .041 , 0.060] ). Instead, the most substantial 385 
+
+performance gains came from access to high-quality payoff signals, with foraging success 386 
+
+increasing by ∆R = 0 .252[0 .250 , 0.256] when payoff noise was reduced from high ( σ = 0 .1)387 
+
+to moderate ( σ = 0 .05 ). This highlights that as environmental unpredictability increases, 388 
+
+the ability to accurately assess the success of others becomes critical. Interestingly, in 389 
+
+all environments, performance saturated before payoff signals became noiseless (minimal 390 
+
+gains for σ < 0.05 ), demonstrating that the learned strategies are robust to the moderate 391 
+
+levels of informational noise characteristic of natural systems [2, 30]. 392 
+
+## 3.2 Adaptive shifts in individual foraging strategy 393 
+
+The performance gains documented above were driven by corresponding shifts in the 394 
+
+agents’ individual behavioral strategies. We examined how agents allocated time among 395 
+
+the three available actions—tracking, exploration, and social attraction—and found that 396 
+
+their collective behavior emerged from context-dependent changes in these individual 397 
+
+decisions (Fig. 3). Full statistics can be found in Supplementary Information Table S5. 398 
+
+In stable, slow-moving environments ( vresource = 0 .1), tracking was the dominant be-399 
+
+havior across all conditions. However, as environmental volatility increased, the cost-400 
+
+benefit ratio of private tracking versus the other behaviors shifted. This prompted agents 401 
+
+to rely more on other behaviors. The specific type of social information available de-402 
+
+termined how this shift occurred. With access to only neighbor distance (low-quality 403 
+
+social cue), agents completely avoided exploration across all three resource speeds (mean 404 
+
+exploration = 0[0 , 0] ; Fig. 3, leftmost bars). We interpret this striking behavioral shift 405 
+
+as an emergent solution to the problem of social noise; by collectively ceasing to explore, 406 
+
+the group effectively enhances the reliability of the social signal, ensuring that an agent’s 407 
+
+position is more strongly correlated with the resource location and thus increasing the 408 
+
+12    
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint Private Distance State Payoff
+> =0.1
+> Payoff
+> =0.05
+> Payoff
+> =0.01
+> Payoff
+> (no noise)
+
+Social Information Condition 
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Reward /  Reward
+> Resource Speed
+> 0.1
+> 0.3
+> 0.5
+
+Figure 2: Effect of social information quality on agents’ performance across resource speeds. Median normalized rewards ( ±95% CI) are shown for agents operating under seven social information conditions, across three resource speeds. Point markers indicate median re-ward, while bars represent the relative improvement in reward compared to the immediately preceding social information condition. Social information conditions incrementally add fea-tures: starting from private information only, followed by access to (1) distance to a neighbor, (2) neighbor’s current action (state), and (3) neighbor’s reward signal with decreasing noise (σ = 0 .1 , σ = 0 .05 , σ = 0 .01 , and no noise). Marker shapes and bar colors indicate resource speeds (relative to the constant vmax ). 
+
+13         
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint Distance State Payoff
+> =0.1
+> Payoff
+> =0.05
+> Payoff
+> =0.01
+> Payoff
+> (no noise)
+> Social Information Condition
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Action Probability
+> Distance State Payoff
+> =0.1
+> Payoff
+> =0.05
+> Payoff
+> =0.01
+> Payoff
+> (no noise)
+> Social Information Condition
+> Distance State Payoff
+> =0.1
+> Payoff
+> =0.05
+> Payoff
+> =0.01
+> Payoff
+> (no noise)
+> Social Information Condition
+> tracking exploration attraction
+
+Figure 3: Effect of social information conditions and resource speeds on behav-ioral repertoire. Bars show the average proportion of time agents spent in each behavioral mode—tracking (green), exploration (orange), and social attraction (blue)—under different com-binations of social information and resource speed. Social conditions incrementally add features: starting from private information only, followed by access to (1) distance to a neighbor, (2) neigh-bor’s current action (state), and (3) neighbor’s reward signal with decreasing noise ( σ = 0 .1 ,
+
+σ = 0 .05 , σ = 0 .01 , and no noise). Resource speeds are relative to the constant vmax .
+
+value of simple proximity cues [53]. 409 
+
+When high-quality payoff signals were available, a more dramatic transformation oc-410 
+
+curred. Agents sharply reduced their reliance on costly private tracking, instead adopt-411 
+
+ing a mixed strategy of exploration and social attraction. In the most volatile envi-412 
+
+ronment ( vresource = 0.5) with noiseless payoff signals, agents spent almost no time 413 
+
+tracking ( 1.3%[0 .010 , 0.016] ), dividing their efforts almost equally between exploration 414 
+
+(50 .3%[0 .470 , 0.536] ) and social attraction ( 48 .5%[0 .449 , 0.518] ). This strategic shift en-415 
+
+abled a fundamentally different, and more effective, collective response to environmental 416 
+
+circumstances. 417 
+
+## 3.3 Emergence of distinct collective behaviors 418 
+
+The shifts in individual behavior give rise to distinct, group-level strategies. To illustrate 419 
+
+these findings, Fig. 4 visualizes the learned spatial dynamics and decision rules for these 420 
+
+contrasting strategies, while Fig. 5 provides a conceptual summary and demonstrates 421 
+
+how strategy selection is driven by tracking viability. As summarized by the conceptual 422 
+
+flowchart in Fig. 5A, the quality of social information is the primary determinant of 423 
+
+the group’s behavioral flexibility. Low-quality social cues constrain the group to a single 424 
+
+strategy, whereas high-quality social cues enable a flexible response based on the viability 425 
+
+of private tracking. Below, we detail the three major emergent strategies, focusing on the 426 
+
+most volatile environment ( vresource = 0 .5 × vmax ). 427 
+
+Cohesive Tracking When agents only have access to low-quality social information 428 
+
+(e.g., neighbor distance), they are locked into a single strategy: Cohesive Tracking. In this 429 
+
+mode, agents predominantly rely on private tracking while using social attraction non-430 
+
+14 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+selectively to maintain group cohesion. The underlying rule is simple: an agent follows 431 
+
+a peer unless it is already very close to the resource’s center or the peer itself is very 432 
+
+closeby (Fig. 4, top panels; Supplementary Videos 1). This results in a compact, mobile 433 
+
+cluster that moves as a coherent unit, reminiscent of collective movements where leaders 434 
+
+“pull” followers along [54]. While effective in predictable environments, the strategy’s 435 
+
+strong reliance on private tracking means its performance deteriorates when the resource 436 
+
+becomes more volatile (Fig. 3) or the costs of tracking increase due to lower effective 437 
+
+tracking speed relative to resource speed (Fig. 2 and Fig. S2). 438 
+
+Track-or-Copy When high-quality payoff information is available and private tracking 439 
+
+is viable (i.e., tracking cost is low due to greater effective tracking speed relative to 440 
+
+resource speed), a more straightforward Track-or-Copy strategy emerges. Here, agents 441 
+
+still default to private tracking but now use social information selectively. By observing 442 
+
+a neighbor’s payoff at each time step, they follow a rule akin to the “copy the successful” 443 
+
+heuristic [7]: track privately, but if a more successful neighbor with a higher payoff is 444 
+
+detected, copy them. This decision rule is clearly visible as a diagonal boundary in their 445 
+
+action probability map (Fig. 5B, bottom-left panel; Supplementary Videos 2): agents 446 
+
+choose social attraction only when the observed peer is closer to the resource center (i.e., 447 
+
+has a higher payoff) than themselves; otherwise, they default to private tracking. This 448 
+
+represents a more efficient use of social information than simple cohesion. 449 
+
+Explore-or-Copy and Distributed Sensing When high-quality payoff information 450 
+
+is available but private tracking is rendered ineffective by high environmental volatility 451 
+
+(i.e., the cost of tracking increases due to lower effective tracking speed relative to re-452 
+
+source speed), the group flexibly switches to an Explore-or-Copy strategy. While this 453 
+
+strategy uses the same social rule as Track-or-Copy (i.e., copy a more successful peer), it 454 
+
+is fundamentally different in its default asocial behavior. Agents abandon costly tracking 455 
+
+altogether and instead engage in random exploration. Put simply, if a neighbor with 456 
+
+a higher payoff is detected, copy them; if not, explore randomly (Fig. 4, bottom pan-457 
+
+els; Fig. 5B, bottom-right panel Supplementary Videos 3). This individual rule gives 458 
+
+rise to a powerful emergent behavior that functions as a form of distributed collective 459 
+
+sensing [12, 29, 30]. Successful explorers become temporary information hubs, attracting 460 
+
+other agents and allowing the group as a whole to effectively track the resource in a 461 
+
+decentralized manner. 462 
+
+## 3.4 Robustness of Emergent Strategies 463 
+
+To further test the robustness of our findings, we conducted three additional sets of 464 
+
+experiments where we manipulated key aspects of our model: the intrinsic cost of tracking, 465 
+
+15 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+distance state SIQ 0.1 SIQ 0.05 SIQ 0.01 SIQ 0 
+
+Social Information Features 
+
+Target Speed: 0.1 
+
+no SI distance state SIQ 0.1 SIQ 0.05 SIQ 0.01 SIQ 0 
+
+Social Information Features 
+
+Target Speed: 0.3 
+
+no SI dista 
+
+tracking exploration attraction t t+1 
+
+t t+1 543210
+
+> Private: Distance to Resource
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Social: Distance to Neighbor 543210
+> Private: Distance to Resource
+> 5
+> 4
+> 3
+> 2
+> 1
+> 0
+> Social: Neighbor's Distance to Resource
+
+Low Social information Quality: Cohesive Tracking 
+
+High Social information Quality: Explore or Copy Figure 4: Emergent behavioral rules and group-level patterns. The emergent strate-gies in the most volatile environment ( vresource = 0 .5 × vmax ). The top row corresponds to the low-quality “distance-only” condition, showing the Cohesive Tracking strategy. The bottom row corresponds to the high-quality “noiseless payoff” condition, showing the Explore-or-Copy strategy. Left column : Action probability maps showing the median empirical action frequen-cies recorded during evaluation rollouts. Data were discretized into 2D bins by observation state, with the median frequency calculated across training seeds and evaluation points, plotted as a function of private distance to the resource’s center (x-axis) and social feature (y-axis). Color intensity reflects the probability of each action: tracking (green), exploration (orange), and social attraction (blue). Each action is plotted as a separate color layer, and the opacity of each cell corresponds directly to the median probability of that action. Middle and right columns : Successive frames ( t and t+1 ). Agent colors mark current behavioral states; vectors from their centers show velocity. The large gray disk indicates the moving resource (its size is for illustration only, as the actual resource provides a gradient covering the entire environment). The t−1 and t frames (semitransparent) are superimposed on the t and t+1 frames, respectively, to highlight motion (arrows). Frames are cropped to the active region of the environment. See Supplemental Materials for full videos. 
+
+16 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+the training algorithm itself, and the visual range. 466 
+
+Effective Tracking Speed The main results used a fixed effective tracking speed 467 
+
+vtracking = 0.1 × vmax (resulting from ptrack = 0.1). To test the robustness of our 468 
+
+findings, we systematically varied the effective tracking speed, testing levels vtracking ∈469 
+
+{0.3 × vmax , 0.2 × vmax , 0.05 × vmax } (corresponding to ptrack ∈ { 0.3, 0.2, 0.05 }). Not sur-470 
+
+prisingly, a lower effective tracking speed (i.e., higher tracking cost) disproportionately 471 
+
+harms performance in low-quality social information conditions (“distance” and “action”), 472 
+
+as agents in these scenarios rely heavily on the Cohesive Tracking strategy (Fig. S2). 473 
+
+As the effective tracking speed is reduced (i.e., tracking cost is increased), tracking is 474 
+
+progressively “pushed out” of the agents’ learned policies and replaced by exploration 475 
+
+and attraction (Fig. 5B). With high-quality social information, this leads to a complete 476 
+
+strategic shift: for a high tracking speed ( vtracking = 0 .3 × vmax ), Track-and-Copy is pre-477 
+
+ferred, but for a low tracking speed ( vtracking = 0 .05 × vmax ), agents switch entirely to 478 
+
+Explore-and-Copy (Fig. 5B; Fig. S3). The fact that the behavioral transitions caused 479 
+
+by increasing the internal tracking cost (lowering vtracking in Fig. 5B) mirror those caused 480 
+
+by increasing external environmental volatility (higher vresource in Fig. 3) confirms that 481 
+
+the fundamental driver of strategy selection is the overall viability of private tracking, 482 
+
+whether limited by the environment or by the organism’s own energetic and cognitive 483 
+
+constraints. 484 
+
+Decentralized Training The main results used a centralized training procedure (MAPPO) 485 
+
+known to foster coordination. To test if our findings depend on this, we reproduced our 486 
+
+results using a fully decentralized algorithm (IPPO) where each agent learned fully inde-487 
+
+pendently (see Methods section for more information). The same fundamental strategies 488 
+
+emerged (Fig. S5B-C), confirming the robustness of the core relationships between social 489 
+
+information quality, environmental volatility, and strategy selection. However, decentral-490 
+
+ized training led to a noticeable drop in performance, particularly in low-quality informa-491 
+
+tion conditions (Fig. S4) and an increased reliance on social cues across all settings (Fig. 492 
+
+S5A). Interestingly, the learned policies in the ‘distance-only’ condition under decentral-493 
+
+ized training showed a stronger prioritization of tracking over social attraction compared 494 
+
+to the centralized case (compare Fig. 4 top-left and Fig. S5B). This suggests that the 495 
+
+Cohesive Tracking strategy, which relies on maintaining a tight cluster, may require a 496 
+
+degree of cooperation facilitated by centralized training, while decentralized learning ap-497 
+
+pears to favor individual tracking, potentially at the expense of group cohesion. These 498 
+
+findings highlight that Cohesive Tracking is sensitive not only to ecological conditions, 499 
+
+but also to learning dynamics. 500 
+
+17 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+Visual Range We evaluated the agents’ performance under increasingly restricted per-501 
+
+ceptual limits. Performance remained largely unchanged when the visual range was re-502 
+
+duced to rvis = 10 and rvis = 5 , indicating that the emergent strategies are robust to 503 
+
+moderate perceptual constraints. Performance deteriorated only at the extreme minimal 504 
+
+range of rvis = 1 (full results detailed in Supplementary Information Section S1). 505 543210                    
+
+> Private: Distance to Resource
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Social: Distance to Neighbor 543210
+> Private: Distance to Resource
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Social: Distance to Neighbor 543210
+> Private: Distance to Resource
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Social: Distance to Neighbor 543210
+> Private: Distance to Resource
+> 5
+> 4
+> 3
+> 2
+> 1
+> 0
+> Social: Neighbor's Distance to Resource 543210
+> Private: Distance to Resource
+> 5
+> 4
+> 3
+> 2
+> 1
+> 0
+> Social: Neighbor's Distance to Resource 543210
+> Private: Distance to Resource
+> 5
+> 4
+> 3
+> 2
+> 1
+> 0
+> Social: Neighbor's Distance to Resource no SI distance state SIQ 0.1 SIQ 0.05 SIQ 0.01 SIQ 0
+> Social Information Features
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Action Probability
+> Target Speed: 0.1
+> no SI distance state SIQ 0.1 SIQ 0.05 SIQ 0.01 SIQ 0
+> Social Information Features
+> Target Speed: 0.3
+> no SI distance state SIQ 0.1 SIQ 0.05 SIQ 0.01 SIQ 0
+> Social Information Features
+> Target Speed: 0.5
+> tracking exploration attraction
+
+BA
+
+Is social 
+
+info quality 
+
+high? 
+
+Is tracking 
+
+viable? 
+
+Cohesive Tracking 
+
+Track or Copy 
+
+Explore or Copy 
+
+No 
+
+No 
+
+Yes 
+
+Yes 
+
+Low Social information Quality: Cohesive Tracking 
+
+High Social information Quality: Track/Explore or Copy 
+
+Figure 5: Ecological Conditions Determine the Emergence of Collective Foraging Strategies. A : Schematic illustration of how the interplay of social information quality and the viability of private tracking determines which collective strategy emerges. B: Action probability maps showing the median empirical action frequencies recorded during evaluation rollouts. Data were discretized into 2D bins by observation state, with the median frequency calculated across training seeds and evaluation points. The maps show the action probabilities for agents in the most volatile environment ( vresource = 0 .5 × vmax ) under varying effective tracking speeds (vtracking = 0 .3 × vmax , 0.2 × vmax , and 0.05 × vmax from left to right). Colors indicate the probability of tracking (green), exploration (orange), or social attraction (blue). Each action is plotted as a separate color layer, and the opacity of each cell corresponds directly to the median probability of that action. The top row (low-quality cues) shows that agents remain locked in the Cohesive Tracking strategy, increasing their use of social attraction as tracking becomes less viable. The bottom row (high-quality cues) demonstrates behavioral flexibility, showing a clear transition from a Track-or-Copy strategy (left) to an Explore-or-Copy strategy (right) as tracking viability decreases. 
+
+# 4 Discussion 506 
+
+Our study demonstrates how environmental volatility and the availability and type of 507 
+
+social information interactively shape the emergence of collective foraging strategies. By 508 
+
+systematically varying the type and fidelity of social features in a simulated social foraging 509 
+
+18 
+
+.CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint task, we showed that agents adaptively integrate social cues based on their predictive 510 
+
+value within specific ecological contexts. We identified two distinct behavioral regimes 511 
+
+determined by information quality. The first is a fragile, cohesive strategy reliant on low-512 
+
+quality social cues. The second is flexible and adaptive, emerging only when high-quality 513 
+
+social information is available. 514 
+
+With only access to low-quality social cues (neighbor proximity or action), agents 515 
+
+converged on a Cohesive Tracking strategy. This strategy, effective in stable, slow-moving 516 
+
+resource environments, relies on all agents predominantly using costly private tracking 517 
+
+while using social cues to maintain a cohesive group. However, this strategy was not 518 
+
+robust. Its success was highly sensitive to ecological context; performance degraded 519 
+
+significantly as environmental volatility (resource speed) increased or the cost of private 520 
+
+tracking increased (i.e., lower effective vtracking ; see Fig. 5B). 521 
+
+In sharp contrast, access to high-quality payoff information allowed the group to 522 
+
+be more flexible in their behavior. This enabled them to switch strategies based on 523 
+
+the viability of private tracking. When private tracking was effective (slow resource or 524 
+
+low tracking cost), agents adopted a Track-or-Copy strategy, using social information to 525 
+
+selectively copy more successful peers. When private tracking became ineffective (fast 526 
+
+resource or high tracking cost), the group evolved an Explore-or-Copy strategy. This 527 
+
+emergent behavior functions as a form of distributed sensing, where agents abandon costly 528 
+
+tracking, explore randomly, and use payoff cues to aggregate at temporary information 529 
+
+hubs created by successful explorers (Fig. 4). 530 
+
+The emergence of the “Explore-or-Copy” strategy highlights a flexible dynamic related 531 
+
+to the classic Producer-Scrounger (P-S) dilemma [1, 55–58]. It is important to note that 532 
+
+traditional P-S models typically assume stationary, depleting resources where individuals 533 
+
+actively compete, creating a strict dilemma around information sharing. While our model 534 
+
+features a mobile, non-depleting resource–thereby removing direct competition over the 535 
+
+resource itself–it nonetheless captures the core informational trade-off of the P-S frame-536 
+
+work. In our model, agents are not locked into fixed “Producer” (Exploration/Tracking) 537 
+
+or “Scrounger” (Social Attraction) roles. Rather, the availability of high-fidelity payoff 538 
+
+information enables them to dynamically adopt the most profitable role at any given 539 
+
+time. An agent can act as a producer by exploring. The instant an agent observes a more 540 
+
+successful peer, they switch to the scrounger role to copy that peer. This emergent behav-541 
+
+ior closely mirrors empirical evidence showing that animals conditionally rely on social 542 
+
+information during foraging, by primarily using it when they are unsuccessful themselves 543 
+
+[6, 59–62]. Such selectivity makes strategies based on high-quality social information not 544 
+
+only robust to ecological factors (like volatility) but also robust to social uncertainty. 545 
+
+The group becomes effectively “immune” to the dilemma’s primary pitfall: the risk of 546 
+
+scroungers copying other unsuccessful scroungers, leading to negative information cas-547 
+
+cades [53, 63]. Because successful agents are reliably identified, the incentive to explore 548 
+
+19 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+(produce) is maintained. In natural systems, however, assessing the performance of others 549 
+
+may entail its own time and cognitive costs. Dynamic switching is possible only because 550 
+
+high-quality social information enables agents to differentiate successful peers from un-551 
+
+successful ones. When payoff information is noisy, this filtering capacity breaks down. 552 
+
+This makes agents vulnerable to copying errors, which degrades performance. The highly 553 
+
+flexible, Explore-or-Copy strategy contrasts sharply with the Cohesive Tracking strategy, 554 
+
+which appeared to require significant group-level coordination to maintain a tight forma-555 
+
+tion, forcing agents to prioritize group cohesion over immediate, individual tracking. Our 556 
+
+decentralized training experiments supported this, showing that performance in this low-557 
+
+quality social information regime dropped significantly without a mechanism to establish 558 
+
+this group-wide behavioral consensus. 559 
+
+The emergence and viability of these strategies depend on the assumption that indi-560 
+
+vidual tracking is more costly than using social information. This asymmetry is essential 561 
+
+to generating the central trade-off that we aimed to study. If social learning were equally 562 
+
+or more expensive than private tracking, the incentive to copy others would disappear, 563 
+
+resulting in purely asocial behavior. It is important to note, however, that operational-564 
+
+izing these relative costs when modeling biological systems is crucial, yet highly non-565 
+
+trivial. “Cost” can be expressed in various ways: as temporal delays (as implemented 566 
+
+in our study), reduced precision of private information, or direct energetic costs. At 567 
+
+the same time, acquiring high-fidelity public information, such as accurately assessing a 568 
+
+conspecific’s exact payoff, could also impose its own significant perceptual and cognitive 569 
+
+demands in many naturalistic scenarios. If these social acquisition costs outweigh the 570 
+
+energetic burden of private sensing, we would expect a higher threshold for using social 571 
+
+information, which would likely drive groups toward independent search strategies. 572 
+
+From a broader theoretical perspective, the learned strategies functionally encode the 573 
+
+value of information, reflecting an adaptive valuation based on its utility in reducing 574 
+
+uncertainty [2, 64]. In our model, simple, low-bandwidth cues–analogous to observing 575 
+
+a neighbor’s mere presence–are sufficient to reduce uncertainty in stable environments; 576 
+
+indeed, even when high-bandwidth, high-fidelity signals–analogous to observing a peer’s 577 
+
+actual foraging success–are available, private tracking is still preferred. However, as en-578 
+
+vironmental volatility increases, relying on simple cues becomes less adaptive, and high-579 
+
+fidelity signals become necessary to sustain collective performance. It has been argued, 580 
+
+however, that in many natural systems, animals often only have access to simple behav-581 
+
+ioral cues rather than explicit, payoff-based information, making groups vulnerable to 582 
+
+suboptimal informational cascades [e.g., 53]. Our results show that when high-quality 583 
+
+social cues are unavailable and the environment is highly volatile, social information be-584 
+
+comes fundamentally unreliable. In such contexts, the best an individual can do is refrain 585 
+
+from using social cues entirely and rely instead on private information. Our findings thus 586 
+
+mechanistically demonstrate that adaptive foraging requires constantly balancing infor-587 
+
+20 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+mation sources–a complex trade-off dictated by the specific types of available social cues 588 
+
+and the volatility of the environment. 589 
+
+Using deep reinforcement learning, our study establishes a normative baseline for 590 
+
+navigating these complex trade-offs optimally. While a single animal within its lifetime 591 
+
+would not experience the millions of interactions necessary for our agents to learn arti-592 
+
+ficial network weights, our goal was not to simulate precise biological ontogeny. Rather, 593 
+
+our framework acts as an optimization tool to reveal which collective strategies maxi-594 
+
+mize fitness under specific constraints. In nature, these highly adapted solutions could 595 
+
+be approximated through a combination of evolutionary adaptation and heuristic-based 596 
+
+learning. 597 
+
+We investigated optimal social information usage in a simplified environment with 598 
+
+a single moving resource. Future work could extend this scenario in several directions. 599 
+
+First, exploring multi-resource scenarios could provide valuable insights into collective 600 
+
+shepherding [65, 66] and collective hunting [34] behaviors. Second, investigating hetero-601 
+
+geneous policies could allow for beneficial specialization among agents [67]. While our 602 
+
+decentralized training experiments allowed for such heterogeneity, this primarily led to a 603 
+
+decrease in coordination for the Cohesive Tracking strategy. A promising future direction 604 
+
+would be to explore whether heterogeneity could instead lead to more efficient task distri-605 
+
+bution, such as explicit Producer and Scrounger roles, under different collective foraging 606 
+
+scenarios. Third, our agents operated with significant informational constraints: they 607 
+
+were memory-less (reacting only to the current time step) and perceived only one peer at a 608 
+
+time, sampled uniformly from their visual field. Introducing memory, for instance, would 609 
+
+allow agents to integrate information over time to learn resource trajectories or build 610 
+
+reputations [68, 69]. Similarly, extending the model to incorporate distance-dependent 611 
+
+attention mechanisms, allow for multi-sensor integration–such as combining visual and 612 
+
+audio cues [70–72] (e.g., alarm or food recruitment calls) or aggregating information from 613 
+
+multiple peers simultaneously [73]–would be a critical step toward understanding more 614 
+
+complex attentional mechanisms and collective decision-making, better capturing the rich 615 
+
+social dynamics observed in natural systems. 616 
+
+Data Accessibility. All the source code necessary to reproduce the simulation environ-617 
+
+ment, multi-agent reinforcement learning training, and evaluation pipelines is available on Zen-618 
+
+odo: https://doi.org/10.5281/zenodo.20817076 . The accompanying dataset, which includes 619 
+
+the trained model parameters and aggregated evaluation rollouts required to directly repro-620 
+
+duce the figures and analysis without retraining, is available in a separate Zenodo repository: 621 
+
+https://doi.org/10.5281/zenodo.20819723 .622 
+
+Authors’ Contributions. V.C. and P.R. conceptualized the study. V.C. performed the simu-623 
+
+21 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+lations, curated the data, conducted the analysis, and prepared the figures under the supervision 624 
+
+of P.R. V.C. wrote the original manuscript draft, and all authors contributed to reviewing and 625 
+
+editing the final version. 626 
+
+Competing Interests. The authors declare that they have no competing interests. 627 
+
+Funding. This research has been supported by the Deutsche Forschungsgemeinschaft (DFG, 628 
+
+German Research Foundation) under Germany’s Excellence Strategy – EXC 2002/1 “Science of 629 
+
+Intelligence”. The funders had no role in study design, data collection and analysis, decision to 630 
+
+publish, or preparation of the manuscript. 631 
+
+Acknowledgements. We are grateful to Dr. Mohsen Raoufi and Dr. Valentin Lecheval for 632 
+
+fruitful discussions regarding the simulation design and for their insightful comments on the 633 
+
+manuscript. 634 
+
+22 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+# References 635 
+
+[1] Luc-Alain Giraldeau and Thomas Caraco. Social Foraging Theory , volume 73 of Monographs in 636 
+
+Behavior and Ecology . Princeton University Press, Princeton, New Jersey, 2000. ISBN 978-0-691-637 
+
+04877-2. 638 
+
+[2] Sasha R. X. Dall, Luc-Alain Giraldeau, Ola Olsson, John M. McNamara, and David W. Stephens. 639 
+
+Information and its use by animals in evolutionary ecology. Trends in Ecology & Evolution , 20(4): 640 
+
+187–193, April 2005. ISSN 0169-5347. doi: 10.1016/j.tree.2005.01.010. 641 
+
+[3] Ketika Garg, Wenning Deng, and Dean Mobbs. Utilizing Social Foraging as a Framework to Study 642 
+
+Decisions in Groups. iScience , 0(0), February 2026. ISSN 2589-0042. doi: 10.1016/j.isci.2026.114940. 643 
+
+[4] Marcus W. Feldman, Kenichi Aoki, and Jochen Kumm. Individual Versus Social Learning: Evolu-644 
+
+tionary Analysis in a Fluctuating Environment. Anthropological Science , 104(3):209–231, 1996. doi: 645 
+
+10.1537/ase.104.209. 646 
+
+[5] Wataru Toyokawa, Andrew Whalen, and Kevin N. Laland. Social learning strategies regulate the 647 
+
+wisdom and madness of interactive crowds. Nature Human Behaviour , 3(2):183–193, 2019. ISSN 648 
+
+2397-3374. doi: 10.1038/s41562-018-0518-x. 649 
+
+[6] Kevin N. Laland. Social learning strategies. Learning & Behavior , 32(1):4–14, February 2004. ISSN 650 
+
+1543-4508. doi: 10.3758/BF03196002. 651 
+
+[7] William Hoppitt and Kevin N. Laland. Social Learning: An Introduction to Mechanisms, Methods, 652 
+
+and Models . Princeton University Press, 2013. ISBN 978-0-691-15070-3. 653 
+
+[8] Rachel L. Kendal, Neeltje J. Boogert, Luke Rendell, Kevin N. Laland, Mike Webster, and Patricia L. 654 
+
+Jones. Social Learning Strategies: Bridge-Building between Fields. Trends in Cognitive Sciences ,655 
+
+22(7):651–665, 2018. ISSN 1879-307X. doi: 10.1016/j.tics.2018.04.003. 656 
+
+[9] Thomas J. Valone and Jennifer J. Templeton. Public information for the assessment of quality: A 657 
+
+widespread social phenomenon. Philosophical Transactions of the Royal Society of London. Series 658 
+
+B, Biological Sciences , 357(1427):1549–1557, November 2002. ISSN 0962-8436. doi: 10.1098/rstb. 659 
+
+2002.1064. 660 
+
+[10] Etienne Danchin, Etienne Danchin, Luc-Alain Giraldeau, Thomas J. Valone, and Richard H. Wag-661 
+
+ner. Public information: From nosy neighbors to cultural evolution. Science , 305(5683):487–491, 662 
+
+July 2004. doi: 10.1126/science.1098254. 663 
+
+[11] Bennett G. Galef and Luc-Alain Giraldeau. Social influences on foraging in vertebrates: Causal 664 
+
+mechanisms and adaptive functions. Animal Behaviour , 61(1):3–15, January 2001. ISSN 0003-3472. 665 
+
+doi: 10.1006/anbe.2000.1557. 666 
+
+[12] Máté Nagy, Iain D. Couzin, Wolfgang Fiedler, Martin Wikelski, and Andrea Flack. Synchroniza-667 
+
+tion, coordination and collective sensing during thermalling flight of freely migrating white storks. 668 
+
+Philosophical Transactions of the Royal Society B: Biological Sciences , 373(1746):20170011, March 669 
+
+2018. doi: 10.1098/rstb.2017.0011. 670 
+
+[13] Christopher T. Monk, Matthieu Barbier, Pawel Romanczuk, James R. Watson, Josep Alós, Shinno-671 
+
+suke Nakayama, Daniel I. Rubenstein, Simon A. Levin, and Robert Arlinghaus. How ecology shapes 672 
+
+23 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+exploitation: A framework to predict the behavioural response of human and animal foragers along 673 
+
+exploration–exploitation trade-offs. Ecology Letters , 21(6):779–793, June 2018. ISSN 1461-023X, 674 
+
+1461-0248. doi: 10.1111/ele.12949. 675 
+
+[14] Valerii Chirkov, Ralf Kurvers, Pawel Romanczuk, and Dominik Deffner. Payoff selectivity unlocks 676 
+
+collective intelligence in naturalistic human groups. [Preprint] , September 2025. 677 
+
+[15] Valentin Lecheval and Richard P. Mann. Smart self-propelled particles: A framework to investigate 678 
+
+the cognitive bases of movement. Journal of The Royal Society Interface , 20(204):20230127, July 679 
+
+2023. doi: 10.1098/rsif.2023.0127. 680 
+
+[16] Mirta Galesic, Daniel Barkoczi, Andrew M. Berdahl, Dora Biro, Giuseppe Carbone, Ilaria Giannoc-681 
+
+caro, Robert L. Goldstone, Cleotilde Gonzalez, Anne Kandler, Albert B. Kao, Rachel Kendal, 682 
+
+Michelle Kline, Eun Lee, Giovanni Francesco Massari, Alex Mesoudi, Henrik Olsson, Niccolo 683 
+
+Pescetelli, Sabina J. Sloman, Paul E. Smaldino, and Daniel L. Stein. Beyond collective intelli-684 
+
+gence: Collective adaptation. Journal of The Royal Society Interface , 20(200):20220736, March 685 
+
+2023. doi: 10.1098/rsif.2022.0736. 686 
+
+[17] David Schultner, Lucas Molleman, and Björn Lindström. Feature-based reward learning shapes 687 
+
+human social learning strategies. Nature Human Behaviour , pages 1–16, July 2025. ISSN 2397-688 
+
+3374. doi: 10.1038/s41562-025-02269-4. 689 
+
+[18] Kamal Ndousse, Douglas Eck, Sergey Levine, and Natasha Jaques. Emergent Social Learning 690 
+
+via Multi-agent Reinforcement Learning. In Proceedings of the 38th International Conference on 691 
+
+Machine Learning , volume 139, pages 7991–8004. PMLR, 2021. 692 
+
+[19] Carsten Hahn, Fabian Ritz, Paula Wikidal, Thomy Phan, Thomas Gabor, and Claudia Linnhoff-693 
+
+Popien. Foraging Swarms using Multi-Agent Reinforcement Learning. In Artificial Life Conference 694 
+
+Proceedings 32 , pages 333–340. MIT Press, 2020. doi: 10.1162/isal_a_00267. 695 
+
+[20] Robert C. Löffler, Emanuele Panizon, and Clemens Bechinger. Collective foraging of active par-696 
+
+ticles trained by reinforcement learning. Scientific Reports , 13(1):17055, 2023. doi: 10.1038/ 697 
+
+s41598-023-44268-3. 698 
+
+[21] Seungwoong Ha and Hawoong Jeong. Social learning spontaneously emerges by searching optimal 699 
+
+heuristics with deep reinforcement learning. In Proceedings of the 40th International Conference on 700 
+
+Machine Learning , volume 202, pages 12319–12338. PMLR, 2023. 701 
+
+[22] P. M. Kareiva and N. Shigesada. Analyzing insect movement as a correlated random walk. Oecologia ,702 
+
+56(2-3):234–238, February 1983. ISSN 1432-1939. doi: 10.1007/BF00379695. 703 
+
+[23] Edward A Codling, Michael J Plank, and Simon Benhamou. Random walk models in biology. 704 
+
+Journal of The Royal Society Interface , 5(25):813–834, April 2008. doi: 10.1098/rsif.2008.0014. 705 
+
+[24] Briana Abrahms, Ellen O. Aikens, Jonathan B. Armstrong, William W. Deacy, Matthew J. Kauff-706 
+
+man, and Jerod A. Merkle. Emerging Perspectives on Resource Tracking and Animal Movement 707 
+
+Ecology. Trends in Ecology & Evolution , 36(4):308–320, 2021. doi: 10.1016/j.tree.2020.10.018. 708 
+
+[25] Massimo Vergassola, Emmanuel Villermaux, and Boris I. Shraiman. ‘Infotaxis’ as a strategy for 709 
+
+searching without gradients. Nature , 445(7126):406–409, January 2007. ISSN 1476-4687. doi: 710 
+
+10.1038/nature05464. 711 
+
+24 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+[26] Julian Rode, Maja Novak, and Benjamin M. Friedrich. Information Theory of Chemotactic Agents 712 
+
+Using Both Spatial and Temporal Gradient Sensing. PRX Life , 2(2):023012, June 2024. doi: 713 
+
+10.1103/PRXLife.2.023012. 714 
+
+[27] Mike M Webster and Kevin N Laland. Social information use and social learning in non-grouping 715 
+
+fishes. Behavioral Ecology , 28(6):1547–1552, November 2017. ISSN 1045-2249. doi: 10.1093/beheco/ 716 
+
+arx121. 717 
+
+[28] Ketika Garg, Christopher T Kello, and Paul E Smaldino. Individual exploration and selective social 718 
+
+learning: Balancing exploration–exploitation trade-offs in collective foraging. Journal of The Royal 719 
+
+Society Interface , 19:20210915, 2022. doi: 10.1098/rsif.2021.0915. 720 
+
+[29] Iain Couzin. Collective minds. Nature , 445(7129):715–715, February 2007. ISSN 1476-4687. doi: 721 
+
+10.1038/445715a. 722 
+
+[30] Andrew Berdahl, Colin J. Torney, Christos C. Ioannou, Jolyon J. Faria, and Iain D. Couzin. Emer-723 
+
+gent Sensing of Complex Environments by Mobile Animal Groups. Science , 339(6119):574–576, 724 
+
+February 2013. ISSN 0036-8075, 1095-9203. doi: 10.1126/science.1225883. 725 
+
+[31] G. M. Viswanathan, V. Afanasyev, S. V. Buldyrev, E. J. Murphy, P. A. Prince, and H. E. Stanley. 726 
+
+Lévy flight search patterns of wandering albatrosses. Nature , 381(6581):413–415, 1996. ISSN 1476-727 
+
+4687. doi: 10.1038/381413a0. 728 
+
+[32] V. Zaburdaev, S. Denisov, and J. Klafter. Lévy walks. Reviews of Modern Physics , 87(2):483–530, 729 
+
+2015. doi: 10.1103/RevModPhys.87.483. 730 
+
+[33] Andy M. Reynolds. Current status and future directions of Lévy walk research. Biology Open , 7 731 
+
+(1):bio030106, 2018. ISSN 2046-6390. doi: 10.1242/bio.030106. 732 
+
+[34] Matthew J. Hansen, Paolo Domenici, Palina Bartashevich, Alicia Burns, and Jens Krause. 733 
+
+Mechanisms of group-hunting in vertebrates. Biological Reviews , 98(5):1687–1711, 2023. doi: 734 
+
+10.1111/brv.12973. 735 
+
+[35] Brett T. McClintock, Roland Langrock, Olivier Gimenez, Emmanuelle Cam, David L. Borchers, 736 
+
+Richard Glennie, and Toby A. Patterson. Uncovering ecological state dynamics with hidden Markov 737 
+
+models. Ecology Letters , 23(12):1878–1903, 2020. ISSN 1461-0248. doi: 10.1111/ele.13610. 738 
+
+[36] Ron R. Togunov, Andrew E. Derocher, Nicholas J. Lunn, and Marie Auger-Méthé. Characterising 739 
+
+menotactic behaviours in movement data using hidden Markov models. Methods in Ecology and 740 
+
+Evolution , 12(10):1984–1998, 2021. doi: 10.1111/2041-210X.13681. 741 
+
+[37] Weijia Wang, Ramón Escobedo, Stéphane Sanchez, Clément Sire, Zhangang Han, and Guy 742 
+
+Theraulaz. The impact of individual perceptual and cognitive factors on collective states in 743 
+
+a data-driven fish school model. PLOS Computational Biology , 18(3):e1009437, 2022. doi: 744 
+
+10.1371/journal.pcbi.1009437. 745 
+
+[38] Daniel J. Stilwell, Erik M. Bollt, and D. Gray Roberson. Sufficient Conditions for Fast Switch-746 
+
+ing Synchronization in Time-Varying Network Topologies. SIAM Journal on Applied Dynamical 747 
+
+Systems , 5(1):140–156, 2006. doi: 10.1137/050625229. 748 
+
+25 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+[39] Fatemeh Parastesh, Karthikeyan Rajagopal, Sajad Jafari, Matjaž Perc, and Eckehard Schöll. Blink-749 
+
+ing coupling enhances network synchronization. Physical Review E , 105(5):054304, 2022. doi: 750 
+
+10.1103/PhysRevE.105.054304. 751 
+
+[40] Chao Yu, Akash Velu, Eugene Vinitsky, Jiaxuan Gao, Yu Wang, Alexandre Bayen, and Yi Wu. 752 
+
+The Surprising Effectiveness of PPO in Cooperative, Multi-Agent Games. In Advances in Neural 753 
+
+Information Processing Systems , volume 35, pages 24611–24624. Curran Associates, Inc., 2022. 754 
+
+[41] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal Policy 755 
+
+Optimization Algorithms. CoRR , abs/1707.06347, 2017. 756 
+
+[42] Albert Bou, Matteo Bettini, Sebastian Dittert, Vikash Kumar, Shagun Sodhani, Xiaomeng Yang, 757 
+
+Gianni De Fabritiis, and Vincent Moens. TorchRL: A data-driven decision-making library for 758 
+
+PyTorch. In The Twelfth International Conference on Learning Representations , 2024. 759 
+
+[43] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, and Pieter Abbeel. High-760 
+
+Dimensional Continuous Control Using Generalized Advantage Estimation. In The Fourth Interna-761 
+
+tional Conference on Learning Representations , San Juan, Puerto Rico, 2016. 762 
+
+[44] Matteo Bettini, Ryan Kortvelesy, Jan Blumenkamp, and Amanda Prorok. VMAS: A Vectorized 763 
+
+Multi-agent Simulator for Collective Robot Learning. In Julien Bourgeois, Jamie Paik, Benoît 764 
+
+Piranda, Justin Werfel, Sabine Hauert, Alyssa Pierson, Heiko Hamann, Tin Lun Lam, Fumitoshi 765 
+
+Matsuno, Negar Mehr, and Abdallah Makhoul, editors, Distributed Autonomous Robotic Systems ,766 
+
+pages 42–56, Cham, 2024. Springer Nature Switzerland. doi: 10.1007/978-3-031-51497-5_4. 767 
+
+[45] Jason Ansel, Edward Yang, Horace He, Natalia Gimelshein, Animesh Jain, Michael Voznesensky, 768 
+
+Bin Bao, Peter Bell, David Berard, Evgeni Burovski, Geeta Chauhan, Anjali Chourdia, Will Con-769 
+
+stable, Alban Desmaison, Zachary DeVito, Elias Ellison, Will Feng, Jiong Gong, Michael Gschwind, 770 
+
+Brian Hirsh, Sherlock Huang, Kshiteej Kalambarkar, Laurent Kirsch, Michael Lazos, Mario Lez-771 
+
+cano, Yanbo Liang, Jason Liang, Yinghai Lu, CK Luk, Bert Maher, Yunjie Pan, Christian Puhrsch, 772 
+
+Matthias Reso, Mark Saroufim, Marcos Yukio Siraichi, Helen Suk, Michael Suo, Phil Tillet, Eikan 773 
+
+Wang, Xiaodong Wang, William Wen, Shunting Zhang, Xu Zhao, Keren Zhou, Richard Zou, Ajit 774 
+
+Mathews, Gregory Chanan, Peng Wu, and Soumith Chintala. PyTorch 2: Faster machine learning 775 
+
+through dynamic python bytecode transformation and graph compilation. In 29th ACM Interna-776 
+
+tional Conference on Architectural Support for Programming Languages and Operating Systems, 777 
+
+Volume 2 (ASPLOS ’24) . ACM, April 2024. doi: 10.1145/3620665.3640366. 778 
+
+[46] Lukas Biewald. Experiment Tracking with Weights and Biases, 2020. 779 
+
+[47] J. D. Hunter. Matplotlib: A 2D graphics environment. Computing in Science & Engineering , 9(3): 780 
+
+90–95, 2007. doi: 10.1109/MCSE.2007.55. 781 
+
+[48] Michael L. Waskom. Seaborn: Statistical data visualization. Journal of Open Source Software , 6 782 
+
+(60):3021, April 2021. ISSN 2475-9066. doi: 10.21105/joss.03021. 783 
+
+[49] Christian Schroeder de Witt, Tarun Gupta, Denys Makoviichuk, Viktor Makoviychuk, Philip H. S. 784 
+
+Torr, Mingfei Sun, and Shimon Whiteson. Is Independent Learning All You Need in the StarCraft 785 
+
+Multi-Agent Challenge?, November 2020. 786 
+
+26 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+[50] Peter Henderson, Riashat Islam, Philip Bachman, Joelle Pineau, Doina Precup, and David Meger. 787 
+
+Deep Reinforcement Learning That Matters. Proceedings of the AAAI Conference on Artificial 788 
+
+Intelligence , 32(1), 2018. doi: 10.1609/aaai.v32i1.11694. 789 
+
+[51] Pauli Virtanen, Ralf Gommers, Travis E. Oliphant, Matt Haberland, Tyler Reddy, David Cour-790 
+
+napeau, Evgeni Burovski, Pearu Peterson, Warren Weckesser, Jonathan Bright, Stéfan J. van der 791 
+
+Walt, Matthew Brett, Joshua Wilson, K. Jarrod Millman, Nikolay Mayorov, Andrew R. J. Nelson, 792 
+
+Eric Jones, Robert Kern, Eric Larson, C. J. Carey, İlhan Polat, Yu Feng, Eric W. Moore, Jake Van-793 
+
+derPlas, Denis Laxalde, Josef Perktold, Robert Cimrman, Ian Henriksen, E. A. Quintero, Charles R. 794 
+
+Harris, Anne M. Archibald, Antônio H. Ribeiro, Fabian Pedregosa, and Paul van Mulbregt. SciPy 795 
+
+1.0: Fundamental algorithms for scientific computing in Python. Nature Methods , 17(3):261–272, 796 
+
+March 2020. ISSN 1548-7105. doi: 10.1038/s41592-019-0686-2. 797 
+
+[52] Fabian Pedregosa, Gaël Varoquaux, Alexandre Gramfort, Vincent Michel, Bertrand Thirion, Olivier 798 
+
+Grisel, Mathieu Blondel, Peter Prettenhofer, Ron Weiss, Vincent Dubourg, Jake Vanderplas, 799 
+
+Alexandre Passos, David Cournapeau, Matthieu Brucher, Matthieu Perrot, and Édouard Duch-800 
+
+esnay. Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research , 12(85): 801 
+
+2825–2830, 2011. ISSN 1533-7928. 802 
+
+[53] Luc-Alain Giraldeau, Thomas J. Valone, and Jennifer J. Templeton. Potential disadvantages of 803 
+
+using socially acquired information. Philosophical Transactions of the Royal Society B: Biological 804 
+
+Sciences , 357(1427):1559–1566, November 2002. ISSN 0962-8436. doi: 10.1098/rstb.2002.1065. 805 
+
+[54] Ariana Strandburg-Peshkin, Damien R. Farine, Iain D. Couzin, and Margaret C. Crofoot. Shared 806 
+
+decision-making drives collective movement in wild baboons. Science , 348(6241):1358–1361, June 807 
+
+2015. doi: 10.1126/science.aaa5099. 808 
+
+[55] C.J. Barnard and R.M. Sibly. Producers and scroungers: A general model and its application to 809 
+
+captive flocks of house sparrows. Animal Behaviour , 29(2):543–550, May 1981. ISSN 00033472. doi: 810 
+
+10.1016/S0003-3472(81)80117-0. 811 
+
+[56] William L. Vickery, Luc-Alain Giraldeau, Jennifer J. Templeton, Donald L. Kramer, and Colin A. 812 
+
+Chapman. Producers, Scroungers, and Group Foraging. The American Naturalist , 137(6):847–863, 813 
+
+June 1991. ISSN 0003-0147, 1537-5323. doi: 10.1086/285197. 814 
+
+[57] Guy Beauchamp. A spatial model of producing and scrounging. Animal Behaviour , 76(6):1935–1942, 815 
+
+December 2008. ISSN 0003-3472. doi: 10.1016/j.anbehav.2008.08.017. 816 
+
+[58] Ralf H. J. M. Kurvers, Steven Hamblin, and Luc-Alain Giraldeau. The Effect of Exploration on the 817 
+
+Use of Producer-Scrounger Tactics. PLOS ONE , 7(11):e49400, November 2012. ISSN 1932-6203. 818 
+
+doi: 10.1371/journal.pone.0049400. 819 
+
+[59] Rachel L. Kendal, Isabelle Coolen, Yfke van Bergen, and Kevin N. Laland. Trade-Offs in the 820 
+
+Adaptive Use of Social and Asocial Learning. In Advances in the Study of Behavior , volume 35, 821 
+
+pages 333–379. Academic Press, January 2005. doi: 10.1016/S0065-3454(05)35008-X. 822 
+
+[60] T. J. H. Morgan, L. E. Rendell, M. Ehn, W. Hoppitt, and K. N. Laland. The evolutionary basis of 823 
+
+human social learning. Proceedings of the Royal Society B: Biological Sciences , 279(1729):653–662, 824 
+
+February 2012. ISSN 0962-8452. doi: 10.1098/rspb.2011.1172. 825 
+
+27 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+[61] Charley M. Wu, Dominik Deffner, Benjamin Kahl, Björn Meder, Mark K. Ho, and Ralf H. J. M. 826 
+
+Kurvers. Adaptive mechanisms of social and asocial learning in immersive collective foraging. Nature 827 
+
+Communications , 16(1):3539, April 2025. ISSN 2041-1723. doi: 10.1038/s41467-025-58365-6. 828 
+
+[62] Alexander Schakowski, Dominik Deffner, Raine Kortet, Petri T. Niemelä, Marwa M. Kavelaars, 829 
+
+Christopher T. Monk, Maria Pykälä, and Ralf H. J. M. Kurvers. High-precision tracking of human 830 
+
+foragers reveals adaptive social information use in the wild. Science , 391(6784):eady1055, January 831 
+
+2026. doi: 10.1126/science.ady1055. 832 
+
+[63] Dominik Deffner, David Mezey, Benjamin Kahl, Alexander Schakowski, Pawel Romanczuk, 833 
+
+Charley M. Wu, and Ralf H. J. M. Kurvers. Collective incentives reduce over-exploitation of social 834 
+
+information in unconstrained human groups. Nature Communications , 15(1):2683, March 2024. 835 
+
+ISSN 2041-1723. doi: 10.1038/s41467-024-47010-3. 836 
+
+[64] John R. Krebs and David W. Stephens. Foraging Theory . Princeton University Press, Princeton, 837 
+
+2019. ISBN 978-0-691-20679-0. 838 
+
+[65] Italo Napolitano, Andrea Lama, Francesco De Lellis, and Mario di Bernardo. Emergent Cooperative 839 
+
+Strategies for Multi-Agent Shepherding via Reinforcement Learning. [Preprint] , 2024. doi: 10.48550/ 840 
+
+arXiv.2411.05454. 841 
+
+[66] Andrea Lama and Mario di Bernardo. Shepherding and herdability in complex multiagent systems. 842 
+
+Physical Review Research , 6(3):L032012, July 2024. doi: 10.1103/PhysRevResearch.6.L032012. 843 
+
+[67] Matteo Bettini, Ryan Kortvelesy, and Amanda Prorok. Controlling Behavioral Diversity in Multi-844 
+
+Agent Reinforcement Learning. In Forty-First International Conference on Machine Learning , June 845 
+
+2024. 846 
+
+[68] John M. McNamara and Alasdair I. Houston. Memory and the efficient use of information. Journal 847 
+
+of Theoretical Biology , 125(4):385–395, April 1987. ISSN 00225193. doi: 10.1016/S0022-5193(87) 848 
+
+80209-6. 849 
+
+[69] Andrew M. Berdahl, Albert B. Kao, Andrea Flack, Peter A. H. Westley, Edward A. Codling, 850 
+
+Iain D. Couzin, Anthony I. Dell, and Dora Biro. Collective animal navigation and migratory 851 
+
+culture: From theoretical models to empirical evidence. Philosophical Transactions of the Royal 852 
+
+Society B: Biological Sciences , 373(1746):20170009, May 2018. ISSN 0962-8436, 1471-2970. doi: 853 
+
+10.1098/rstb.2017.0009. 854 
+
+[70] Sarah Partan and Peter Marler. Communication Goes Multimodal. Science , 283(5406):1272–1273, 855 
+
+February 1999. doi: 10.1126/science.283.5406.1272. 856 
+
+[71] Kelly L. Ronald, Esteban Fernández-Juricic, and Jeffrey R. Lucas. Mate choice in the eye and ear 857 
+
+of the beholder? Female multimodal sensory configuration influences her preferences. Proceedings 858 
+
+of the Royal Society B: Biological Sciences , 285(1878):20180713, May 2018. doi: 10.1098/rspb.2018. 859 
+
+0713. 860 
+
+[72] Wouter Halfwerk, Judith Varkevisser, Ralph Simon, Ezequiel Mendoza, Constance Scharff, and 861 
+
+Katharina Riebel. Toward Testing for Multimodal Perception of Mating Signals. Frontiers in 862 
+
+Ecology and Evolution , 7, April 2019. ISSN 2296-701X. doi: 10.3389/fevo.2019.00124. 863 
+
+28 
+
+> .CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint
+
+[73] David Mezey, Dominik Deffner, Ralf H. J. M. Kurvers, and Pawel Romanczuk. Visual social 864 
+
+information use in collective foraging. PLOS Computational Biology , 20(5):1–24, 2024. doi: 865 
+
+10.1371/journal.pcbi.1012087. 866 
+
+29 
+
+.CC-BY 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted June 26, 2026. ;https://doi.org/10.1101/2025.11.14.688412 doi: bioRxiv preprint

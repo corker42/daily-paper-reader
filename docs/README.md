@@ -6,79 +6,58 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-04 ~ 2026-07-03
-- 运行时间：2026-07-03 14:40:35 UTC
+- 最新运行日期：2026-07-03
+- 运行时间：2026-07-03 21:51:58 UTC
 - 运行状态：成功
-- 本次总论文数：19
-- 精读区：7
-- 速读区：12
+- 本次总论文数：12
+- 精读区：5
+- 速读区：7
 
 ### 今日简报（AI）
-今天浏览19篇医学AI论文，精读7篇，重点关注临床级医疗代理系统和罕见病诊断推理。  
-最值得看的是《Baichuan-M4》构建连续护理的临床级医疗代理（满分10分），以及《RareDxR1》实现超越人工标注的罕见病自主推理。  
-建议优先精读Baichuan-M4的工作流设计，并关注主动推理在个性化癌症治疗中的应用。
-- 详情：[/20260604-20260703/README](/20260604-20260703/README)
+今日精选12篇论文，精读5篇，重点关注LLM引导的ODE发现与小样本聚合数据参数推断，以及面向跨模态医学检索的三提示哈希。  
+高分推荐：LLM与ODE结合的范式（9.0分）及不平衡感知的医学检索（8.0分），速读中临床AI技能生态系统与医生代理演化评估值得跟进。  
+建议优先精读高分的两篇，LLM-Guided ODE Discovery可用于数据稀缺场景的参数推断，速读可关注多智能体通信的层级结构。
+- 详情：[/202607/03/README](/202607/03/README)
 
 ### 精读区论文标签
-1. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/20260604-20260703/2606.08982v2-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
-   标签：评分：10.0/10、query:fundus-mc
-   evidence：用于医疗诊断的多智能体系统
-2. [Baichuan-M4: A Clinical-Grade Medical Agent System for Continuous Care](/20260604-20260703/2606.08982v1-baichuan-m4-a-clinical-grade-medical-agent-system-for-continuous-care)  
-   标签：评分：9.0/10、query:fundus-mc
-   evidence：临床级医疗智能体系统，支持多智能体协调和强化学习
-3. [A specialized reasoning large language model for accelerating rare disease diagnosis: a randomized AI physician assistance trial](/20260604-20260703/2606.24510v1-a-specialized-reasoning-large-language-model-for-accelerating-rare-disease-diagnosis-a-randomized-ai-physician-assistance-trial)  
+1. [LLM-Guided ODE Discovery and Parameter Inference from Small-Cohort Aggregate Data](/202607/03/2607.00733v1-llm-guided-ode-discovery-and-parameter-inference-from-small-cohort-aggregate-data)  
    标签：评分：9.0/10、query:fsrh
-   evidence：专门用于罕见病诊断的大语言模型，进行了临床试验
-4. [Can the Environment Speak for Itself? $T^{2}$-GRPO: A Turn-Trajectory Group Relative Policy Optimization for Caregiver Agents](/20260604-20260703/2606.08875v1-can-the-environment-speak-for-itself-t2-grpo-a-turn-trajectory-group-relative-policy-optimization-for-caregiver-agents)  
+   evidence：罕见病建模，LLM指导
+2. [TriPAH: Imbalance-Aware Tri-Prompt Affinity Hashing for Cross-Modal Medical Retrieval](/202607/03/2606.27010v1-tripah-imbalance-aware-tri-prompt-affinity-hashing-for-cross-modal-medical-retrieval)  
    标签：评分：8.0/10、query:fsrh
-   evidence：医疗agent与强化学习
-5. [An AI agent for treatment reasoning over a biomedical tool universe](/20260604-20260703/2606.28692v1-an-ai-agent-for-treatment-reasoning-over-a-biomedical-tool-universe)  
+   evidence：解决医疗检索中的长尾标签问题
+3. [Why Trust Your Agent? Empirical Security Gains from TRiSM-Guided Agentic Workflows in Healthcare](/202607/03/2606.28666v1-why-trust-your-agent-empirical-security-gains-from-trism-guided-agentic-workflows-in-healthcare)  
    标签：评分：8.0/10、query:fsrh
-   evidence：提出ATHENA-R1，一个通过强化学习在生物医学工具上训练的治疗推理AI智能体
-6. [HealthAgentBench: A Unified Benchmark Suite of Realistic Agentic Healthcare Environments for Challenging Frontier AI Agents](/20260604-20260703/2606.31179v1-healthagentbench-a-unified-benchmark-suite-of-realistic-agentic-healthcare-environments-for-challenging-frontier-ai-agents)  
+   evidence：开发TRiSM指导的医疗报告生成智能体工作流
+4. [Social Information Quality and Environmental Volatility Shape Collective Foraging Behavior](/202607/03/biorxiv-10-1101-2025-11-14-688412-v3-social-information-quality-and-environmental-volatility-shape-collective-foraging-behavior)  
    标签：评分：8.0/10、query:fsrh
-   evidence：医疗智能体
-7. [Token-Sparse Medical Multimodal Reasoning via Dual-Stream Reinforcement Learning](/20260604-20260703/2606.31599v1-token-sparse-medical-multimodal-reasoning-via-dual-stream-reinforcement-learning)  
+   evidence：使用多智能体强化学习研究集体觅食行为
+5. [Client-server interfaces enable efficient agent-driven variant calling](/202607/03/biorxiv-10-64898-2026-06-25-734665-v1-client-server-interfaces-enable-efficient-agent-driven-variant-calling)  
    标签：评分：8.0/10、query:fsrh
-   evidence：强化学习用于医学多模态推理
+   evidence：基于LLM代理的医疗变异检测
 
 ### 速读区论文标签
-1. [RareDxR1: Autonomous Medical Reasoning for Rare Disease Diagnosis Beyond Human Annotation](/20260604-20260703/2607.00147v1-raredxr1-autonomous-medical-reasoning-for-rare-disease-diagnosis-beyond-human-annotation)  
-   标签：评分：8.0/10、query:fsrh
-   evidence：利用大语言模型进行罕见病诊断
-2. [Belief-Space Control for Personalized Cancer Treatment via Active Inference](/20260604-20260703/2606.10376v1-belief-space-control-for-personalized-cancer-treatment-via-active-inference)  
+1. [Clinical Harness for Governable Medical AI Skill Ecosystems](/202607/03/2606.26494v1-clinical-harness-for-governable-medical-ai-skill-ecosystems)  
+   标签：评分：7.0/10、query:fundus-mc
+   evidence：运行时治理架构，用于编排AI临床技能
+2. [MedEvoEval: Evaluating Continual Evolution of Doctor Agents through Simulated Clinical Episodes](/202607/03/2606.28900v1-medevoeval-evaluating-continual-evolution-of-doctor-agents-through-simulated-clinical-episodes)  
    标签：评分：7.0/10、query:fsrh
-   evidence：将信念空间控制与主动推断应用于个性化癌症治疗，属于医疗强化学习范畴
-3. [Belief-Space Control for Personalized Cancer Treatment via Active Inference](/20260604-20260703/2606.10376v2-belief-space-control-for-personalized-cancer-treatment-via-active-inference)  
+   evidence：在模拟临床情景中评估医生代理的持续演化
+3. [HiComm: Hierarchical Communication for Multi-agent Reinforcement Learning](/202607/03/2606.29126v2-hicomm-hierarchical-communication-for-multi-agent-reinforcement-learning)  
+   标签：评分：7.0/10、query:fundus-mc
+   evidence：多智能体强化学习的分层通信
+4. [Accelerating Q-learning through Efficient Value-Sharing across Actions](/202607/03/2606.29806v1-accelerating-q-learning-through-efficient-value-sharing-across-actions)  
    标签：评分：7.0/10、query:fsrh
-   evidence：强化学习用于个性化癌症治疗
-4. [Enhancing Spectral Embedding through Robust and Flexible Knowledge Transfer in Electronic Health Records](/20260604-20260703/2606.11570v1-enhancing-spectral-embedding-through-robust-and-flexible-knowledge-transfer-in-electronic-health-records)  
-   标签：评分：7.0/10、query:fsrh
-   evidence：罕见病队列的表示学习
-5. [When LLMs Analyze Scars: From Images to Clinically-Meaningful Features](/20260604-20260703/2606.18063v1-when-llms-analyze-scars-from-images-to-clinically-meaningful-features)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：LLM作为特征工程师用于少量样本医学图像分类
-6. [ASALT: Adaptive State Alignment for Lateral Transfer in Multi-agent Reinforcement Learning](/20260604-20260703/2606.24601v1-asalt-adaptive-state-alignment-for-lateral-transfer-in-multi-agent-reinforcement-learning)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：多智能体强化学习中的状态对齐迁移方法，可应用于医学图像分析
-7. [Prior-Anchored Debiasing for Long-Tailed Multi-Organ Pathology Report Generation](/20260604-20260703/2607.00499v1-prior-anchored-debiasing-for-long-tailed-multi-organ-pathology-report-generation)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：医学图像分类中的长尾分布处理
-8. [Prior-Anchored Debiasing for Long-Tailed Multi-Organ Pathology Report Generation](/20260604-20260703/2607.00499v2-prior-anchored-debiasing-for-long-tailed-multi-organ-pathology-report-generation)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：针对长尾多器官病理报告生成的去偏方法
-9. [Input-Dependent Fisher Information for Local Sensitivity Analysis of Medical Image Classifiers](/20260604-20260703/2606.16362v1-input-dependent-fisher-information-for-local-sensitivity-analysis-of-medical-image-classifiers)  
+   evidence：通过值共享加速Q学习
+5. [Two-Stage Cross-Domain Cervical Abnormality Screening with Cytopathological Image Synthesis and Knowledge Distillation](/202607/03/2606.27678v1-two-stage-cross-domain-cervical-abnormality-screening-with-cytopathological-image-synthesis-and-knowledge-distillation)  
+   标签：评分：6.0/10、query:drl-retina
+   evidence：跨域宫颈异常筛查的域适应方法
+6. [HiComm: Hierarchical Communication for Multi-agent Reinforcement Learning](/202607/03/2606.29126v1-hicomm-hierarchical-communication-for-multi-agent-reinforcement-learning)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：医学图像分类深度学习
-10. [Breaking Failure Cascades: Step-Aware Reinforcement Learning for Medical Multimodal Reasoning](/20260604-20260703/2606.31825v1-breaking-failure-cascades-step-aware-reinforcement-learning-for-medical-multimodal-reasoning)  
+   evidence：多智能体强化学习的分层通信
+7. [Healthy-to-Stroke Translation of EEG-Based BMIs: EEG Characterization and Reinforcement Learning-Based Decoder Evaluation](/202607/03/biorxiv-10-64898-2026-06-23-733831-v1-healthy-to-stroke-translation-of-eeg-based-bmis-eeg-characterization-and-reinforcement-learning-based-decoder-evaluation)  
    标签：评分：6.0/10、query:fsrh
-   evidence：提出步感知强化学习方法用于医学多模态推理，解决级联错误问题
-11. [TetraFuse: A Synergistic Four-Dimensional Dynamic Fusion Framework for Efficient and Robust Medical Image Classification](/20260604-20260703/biorxiv-10-64898-2026-06-02-729722-v1-tetrafuse-a-synergistic-four-dimensional-dynamic-fusion-framework-for-efficient-and-robust-medical-image-classification)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：适用于眼底的高效医学图像分类框架
-12. [Optimal Practice Schedules in a Dual-Rate Model of Motor Adaptation, and Their Recovery by Reinforcement Learning](/20260604-20260703/biorxiv-10-64898-2026-06-17-732970-v1-optimal-practice-schedules-in-a-dual-rate-model-of-motor-adaptation-and-their-recovery-by-reinforcement-learning)  
-   标签：评分：6.0/10、query:fsrh
-   evidence：强化学习用于运动适应
+   evidence：基于Q学习核时差解码器的脑电图脑机接口中风解码
 
 
 <div class="dpr-home-promo-card">
