@@ -1,0 +1,680 @@
+Title: Segmentation and classification of retinal pigment granules in fluorescence lifetime imaging microscopy (FLIM) data
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.06.29.735375v1.full.pdf
+
+Published Time: Sat, 04 Jul 2026 21:15:29 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+1
+
+1 Segmentation and classification of retinal pigment 
+
+2 granules in fluorescence lifetime imaging microscopy 
+
+3 (FLIM) data 
+
+4 Maryam Ali 1,2 , Hala Alhaj Ahmad 3,4 , Hanan Alderzy 4, Martin Hammer 4, Rainer Heintzmann 1,2,5, * , Ondrej Stranik 2
+
+5 1 Institute of Physical Chemistry, Friedrich Schiller University Jena, Jena, Germany 
+
+6 2 Leibniz Institute of Photonic Technology, Jena, Germany 
+
+7 3 Ernst-Abbe University of Applied Sciences, Jena, Germany 
+
+8 4 Jena University Hospital, Jena, Germany 
+
+9 5 Abbe Center of Photonics, Jena, Germany 
+
+10 * Corresponding author 
+
+11 Email: heintzmann@gmail.com 
+
+.CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint 2
+
+12 Abstract 
+
+13 Alterations of fluorescence properties in retinal pigment epithelium (RPE) cells caused by diseases such as age-related macular 
+
+14 degeneration (AMD) highlight the need for detailed analysis of the fluorescent RPE granules at the individual level. Precise 
+
+15 segmentation and classification of these granules remain challenging due to their limited visual separability. In this study, we 
+
+16 present Classi4RPE, a computational algorithm designed to accurately segment RPE granules and classify them into three 
+
+17 categories — lipofuscin (L), melanolipofuscin (ML), and melanin (M) — based on fluorescence lifetime imaging data, which 
+
+18 provide distinctive contrast. The method is implemented in a custom Python framework and employs seeded watershed 
+
+19 segmentation to isolate individual granules. Lipofuscin granules are identified as hyperfluorescent structures with longer 
+
+20 lifetimes, while granules with shorter lifetimes are further analyzed based on their spatial lifetime distribution from the center 
+
+21 to edge, enabling discrimination of ML from other melanin-rich granules. Our approach achieves high performance, with mean 
+
+22 sensitivities of 0.99 for L granules and 0.90 for ML granules, and corresponding specificities of 0.93 and 0.98, respectively, 
+
+23 compared to manually annotated ground truth. These results demonstrate the potential of Classi4RPE to surpass human visual 
+
+24 limitations and provide a robust tool for quantitative RPE analysis. 
+
+25 Introduction 
+
+26 Retinal Pigment Epithelium (RPE) granules are intracellular pigment accumulations formed from non ‑degradable phagocytic 
+
+27 by ‑products. They are generated during the daily phagocytosis of photoreceptor outer segments as well as visual pigment 
+
+28 recycling in the human retina [1] . Because the RPE serves as a critical metabolic and transport interface between the choroid 
+
+29 and the neural retina [2] , [3] , these granules contribute to structural and functional alterations associated with several retinal 
+
+30 diseases [2], including age ‑related macular degeneration (AMD) [2] , [4] . RPE granules are commonly categorized into three 
+
+31 major types based on their autofluorescence properties and morphology. Lipofuscins (L) exhibit strong autofluorescence and 
+
+32 typically display irregular, near ‑spherical shapes with heterogeneous fluorescence distributions. Melanin ‑rich granules, or 
+
+33 melanosomes (M), show minimal autofluorescence in the visible range but stronger emission in the near ‑infrared (NIR) 
+
+34 spectrum [1] , [5] , and their morphology ranges from spherical to spindle ‑like. Melanolipofuscins (ML) contain both melanin 
+
+35 and lipofuscin components; they characteristically exhibit a ring ‑like fluorescence pattern (melanin ‑rich core with fluorescent 
+
+36 periphery) and may appear either spherical or spindle ‑shaped. 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+3
+
+37 Fluorescence lifetime imaging microscopy (FLIM) provides an additional discriminative parameter that enhances granule 
+
+38 characterization [6], and several recent studies have reported FLIM ‑based lifetime alterations associated with AMD progression 
+
+39 [6], [7], [8], [9]. 
+
+40 Quantifying these granules and understanding their statistical distributions is essential for assessing how biochemical alterations 
+
+41 associated with retinal diseases influence RPE physiology. Advances in imaging and image ‑processing techniques have 
+
+42 recently enabled more detailed clinical understanding of such granule ‑related changes [10]. Analyzing individual granules, 
+
+43 thus, promises to achieve a deeper mechanistic understanding of correlations between granule types and AMD progression. 
+
+44 In this study, we used FLIM images acquired via two ‑photon excitation at 960 nm to perform automated segmentation and 
+
+45 classification of RPE granules. This purpose requires higher resolved images and more efficient segmentation approach at the 
+
+46 granule level, which is not typically addressed in most cellular-level studies. Conventional segmentation approaches previously 
+
+47 applied to biological images [11] were unsuitable for this task because they required extensive manual fine ‑tuning, yielding a 
+
+48 low reproducibility of the results. Similarly, recently developed software tools offering pretrained models for microscopic 
+
+49 images [12], [13] still required manual adjustments for unresolved segments, which remained difficult to delineate due to the 
+
+50 highly variable autofluorescence patterns within individual granules. It was also challenging and time consuming to create 
+
+51 human ‑annotated training data, sufficient for training a neural-network based segmentation, thus limiting the feasibility of such 
+
+52 neural ‑network approaches. 
+
+53 Previous studies have made substantial progress in segmenting retinal layers from optical coherence tomography images [14]. 
+
+54 However, segmentation becomes considerably more challenging in the presence of RPE granules. Yu et al. (2023) applied 
+
+55 semantic segmentation to RPE flat ‑mount images, successfully delineating RPE cells. Their findings highlight how AMD alters 
+
+56 RPE cell borders, making it difficult to separate reliably during segmentation [15]. 
+
+57 In contrast, our AMD-effected cross-sections of RPE images contain hundreds of granules belonging to multiple subclasses, 
+
+58 each strongly affected by disease ‑related changes. This complexity necessitates instance ‑level segmentation to accurately 
+
+59 delineate individual granules. To meet this need, seeded water shed segmentation [16] was applied by introducing seed 
+
+60 assignment for each granule, enabling robust instance segmentation that captures nearly all granules present in the dataset. To 
+
+61 further address these challenges, we developed a customized automated algorithm, Classi4RPE, capable of segmenting RPE 
+
+62 granules and classifying them into three major granule types based on their FLIM characteristics. 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+4
+
+63 Methods 
+
+64 RPE samples used 
+
+65 Use of human tissue was approved by institutional review board at the University of Alabama at Birmingham (#N170213002). 
+
+66 Whole eyes of Caucasian donors aged 80 years or older without diabetes mellitus and no reported history of head trauma, 
+
+67 surgeries affecting the retina, or conditions affecting the macula other than AMD were collected within 6 hours of death from 
+
+68 Advancing Sight Network (Birmingham AL USA). After anterior segment removal, eyes were preserved in 4% buffered 
+
+69 paraformaldehyde. Unstained glass slides with 12 μm thick cryosections were shipped on dry ice by overnight courier to Jena 
+
+70 for autofluorescence lifetime microscopy (3-4 slides per eye). 
+
+71 FLIM measurements 
+
+72 Autofluorescence lifetimes were recorded using an inverted multiphoton laser scanning microscope (Axio Observer Z.1 and 
+
+73 LSM 710 NLO, 63x oil immersion objective Plan-Apochromat NA = 1.4, Carl Zeiss, Jena, Germany) in combination with a 
+
+74 femtosecond Ti:Sapphire laser (Chameleon Ultra, Coherent Inc., Santa Clara, CA, repetition rate of 80 MHz with a pulse 
+
+75 duration of 140 fs) and a single photon counting fluorescence lifetime imaging setup (Becker & Hickl GmbH, Berlin, Germany) 
+
+76 with a 20 to 30 ps time resolution, as described [7]. The excitation wavelength for lifetime recordings was set to 960 nm for 
+
+77 two-photon excitation (TPE). The lifetime imaging measurements are based on the principle of time-correlated single photon 
+
+78 counting (TCSPC). The two-photon-excited fluorescence was recorded in two spectral channels. The short-wavelength spectral 
+
+79 channel (SSC) was 500 – 550 nm, and the long-wavelength spectral channel (LSC) was 550 – 700 nm. All FLIM images were 
+
+80 acquired as an average of 100 fast scans (mean photon count per pixel of approximately 1000, pixel dwell time of 3.1 μs) with 
+
+81 a resolution of 256 × 256 pixel and a field of view of 27 × 27 μm. 
+
+82 The fluorescence decay images from the FLIM detectors were analysed using the software SPCImage 8.0 (Becker&Hickl 
+
+83 GmbH, Berlin, Germany). For decay data fitting, a 3x3 pixel binning was applied. The decays where approximated by the 
+
+84 fitting method of maximum likelihood estimation and with a three-exponential model yielding three decay time constants and 
+
+85 three amplitudes. 
+
+86 Structured illumination Microscopy (SIM) 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+5
+
+87 As a technique with higher resolution than 2-photon FLIM, SIM was used to double-check for granule type. Images were taken 
+
+88 using a commercial SIM device (ELYRA-S.1 system; Carl Zeiss, Jena, Germany) with a 40 × NA 1.2 plan-apochromat (Carl 
+
+89 Zeiss, Jena, Germany) water immersion objective lens combined with a 1.6 × optovar. Excited with three different wavelengths 
+
+90 405nm (detected from 420 to 480nm and longer than 750nm), 488nm (detected from 495 to 550nm and longer than 750nm), 
+
+91 642 nm (detected from 655nm and longer). Presented images for this comprehension purpose were from Z-stack measurements 
+
+92 taken with axial distance 3 or 4 μm with 21 slices and three rotations and 5 phase steps of the illumination pattern. 
+
+93 Classi4RPE concept 
+
+94 Lifetime ‑fitted data were exported from the Becker & Hickl GmbH software together with the corresponding intensity images. 
+
+95 The second detection channel (emission >550 nm) was selected for analysis, as it provided better signal quality for the approach 
+
+96 described below; the discussion for this choice is addressed later. Figure 1 summarizes the workflow for RPE granules 
+
+97 segmentation and classification. 
+
+98 1- Division of the image into two sub-images: 
+
+99 The classification of granules is complicated by the heterogeneity of their fluorescence signal. Lipofuscins (L) exhibit 
+
+100 characteristically high fluorescence intensity, whereas Melanosomes (M) produce a comparatively weak signal. The 
+
+101 third granule type, Melanolipofuscin (ML), is a composite structure comprising a weak M-like signal in the center 
+
+102 surrounded by the strong fluorescence characteristic of L. When a segmentation method (seeded watershed 
+
+103 segmentation) is applied directly to the fluorescence intensity image, granules with weak signal (M and ML) are 
+
+104 frequently under-detected, leading to erroneous classification outcomes. To overcome this limitation, we exploited 
+
+105 additional information encoded in the spatial distribution of fluorescence lifetime, specifically the fact that L exhibits 
+
+106 a longer fluorescence lifetime than M. 
+
+107 The fluorescence lifetime histogram (omitting the pixels without any significant intensity signal) was computed, and 
+
+108 a threshold was determined as follows. The lifetime data were assumed to comprise three overlapping clusters, each 
+
+109 described by a Gaussian distribution. A Gaussian mixture model (GMM) [17,18] was fitted to estimate the mean and 
+
+110 standard deviation of each cluster (corresponding to M, L, and their intermediate state). The discriminative threshold 
+
+111 was defined as the mean lifetime of the lowest-lifetime cluster (corresponding to M) plus 25% of its standard deviation. 
+
+112 Pixels with lifetime values exceeding this threshold were assigned to Mask A, in which only L contributions are 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+6
+
+113 expected. The remaining pixels, with lifetime values below the threshold, were assigned to Mask B, which 
+
+114 encompasses the M population and the central M-like region of ML granules, as described above. 
+
+115 2- Segmentation of the two sub-images: 
+
+116 Seeded watershed segmentation [16] was applied independently to each of the two masked intensity sub-images (Mask 
+
+117 A and Mask B) to delineate individual granules. Seed points were identified as the local maxima of the difference-of-
+
+118 Gaussians (DoG, σ₁,₂ = 1.6, 3.0) filtered intensity image. To prevent over-segmentation, a minimum inter-seed 
+
+119 distance criterion was enforced: 7 pixels for Mask B (containing M and ML granules) and 3 pixels for Mask A 
+
+120 (containing L granules), consistent with the given image magnification. A watershed algorithm was subsequently 
+
+121 applied to the inverted intensity images, propagating segmentation regions outward from each seed point to delineate 
+
+122 individual granule boundaries. Segmentation was performed using 8-connected neighborhood connectivity. 
+
+123 3- Classification of the granules: 
+
+124 Classification of L granules identified in the Mask A sub-image is straightforward. All cluster in the image are 
+
+125 classified as L. Additionally; each segment is dilated by one pixel to ensure that granule edges are fully captured 
+
+126 within the segmented region. 
+
+127 Classification of M and ML granules from the Mask B sub-image requires additional analysis. Segments are first 
+
+128 dilated by two pixels to incorporate the outer ring of ML granules — a region dominated by L fluorescence and 
+
+129 therefore absent from Mask B — into the subsequent analysis. For each dilated segment, a radial fluorescence lifetime 
+
+130 profile is extracted and fitted with a quadratic function. For M granules, the radial lifetime distribution is spatially 
+
+131 uniform. For ML granules, however, the radial profile exhibits systematically elevated lifetime values at the periphery 
+
+132 relative to the center, reflecting the longer fluorescence lifetime of the L-rich outer shell compared to the M-like core. 
+
+133 For each granule, the ratio of the lifetime at the edge to that at the center (R_τ) is computed. Granules with R_τ < 1.15 
+
+134 are classified as M, while those with R_τ ≥ 1.15 are classified as ML. 
+
+135 4- Image merging (Classi4RPE output image): 
+
+136 The final Classi4RPE output image is reconstructed by combining all classified segments. As a consequence of the 
+
+137 image subdivision and the dilation steps applied during segmentation, boundary overlap between adjacent granule 
+
+138 segments may occur. In the final composite image, each granule type is rendered in a distinct color (L – red, ML – 
+
+139 blue, M – green), and granule edges are highlighted in white to enable unambiguous distinction between adjacent 
+
+140 granules of the same type. 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+7
+
+141 Fig 1. Classi4RPE workflow. 
+
+142 Classi4RPE [19] is a custom ‑developed Python tool equipped with an interactive graphical user interface. It enables users to 
+
+143 refine the classification and to export the resulting data, including the computed mean lifetime and associated segmentation 
+
+144 information for each individual granule. 
+
+145 Results 
+
+146 Classi4RPE was applied to seven datasets of which three were used to determine optimal threshold values, followed 
+
+147 by evaluation of the overall performance across all datasets. Ground ‑truth images were generated from granule coordinates 
+
+148 identified manually on the segmented images. However, not all granules could be clearly distinguished by eye, and in some 
+
+149 cases the classification was particularly challenging. Consequently, segments that could not be reliably identified were 
+
+150 excluded from the sensitivity and specificity analysis. 
+
+151 Across all datasets, the average sensitivity for detecting L granules was 0.99, and 0.90 for ML granules, with 
+
+152 corresponding specificities of 0.93 and 0.98. M granules were excluded from the evaluation because some images did not 
+
+153 contain them (based on manual inspection), and because distinguishing M from ML is inherently dependent on the imaging 
+
+154 technique used (discussed later). Table 1 summarizes the statistical evaluation of the algorithm performance among the seven 
+
+155 data sets, showing the sensitivity and specificity with and without considering the un-identified granules. 
+
+156 Table 1. statistical evaluation of sensitivity and specificity of ‘Classi4RPE’ performance compared to the 
+
+157 manual ground truth. Including the not identified by ground truth Excluding the not identified by ground truth 
+
+Average 0.99 0.99 
+
+Minimum 0.96 0.96 Sensitivity 
+
+Maximum 1.0 1.0 
+
+Average 0.39 0.93 
+
+Minimum 0.35 0.86 
+
+Lipofuscins (L) 
+
+Specificity 
+
+Maximum 0.45 1.0 
+
+Average 0.90 0.90 Melanolipofuscins (ML) Sensitivity 
+
+Minimum 0.78 0.78 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+8
+
+Maximum 1.0 1.0 
+
+Average 0.89 0.98 
+
+Minimum 0.80 0.97 Specificity 
+
+Maximum 0.98 1.0 
+
+158 159 Fig 2. Classi4RPE high performance results of one of the tested FLIM data sets compared to the manual classification. 
+
+160 a) 2-photon excitation (960 nm) intensity image detected by channel 2 (emission >555 nm). Marked dots referred to the 
+
+161 manual assigned granules coordinates and classified as follows: red: L, blue: ML. b) corresponding FLIM image. c) 
+
+162 SIM image for the same position measured with two wavelengths at 488nm (green) and 642nm (nm). d) Classi4RPE 
+
+163 image. e) generated ground truth image from the manual classification with the same corresponding colors and the 
+
+164 unidentified granules in white. e) Classi4RPE image. The provided table presents the calculated sensitivity and 
+
+165 specificity for the results achieved in (e) compared to (d). Purple arrow: missed area in the segmentation. Yellow and 
+
+166 green arrows: examples of sub-divided segmentation of one expected granule. 
+
+167 Figure 2 illustrates one of the stronger results obtained with Classi4RPE. 2a and 2b show the intensity and lifetime 
+
+168 images from channel 2, with granule coordinates marked on the intensity image. Figure 2c displays the SIM image for the same 
+
+169 position (used for validation), while 2d presents the Classi4RPE output and 2e shows the ground ‑truth classification, where L 
+
+170 and ML granules are colored red and blue, respectively. White, unassigned granules were not labelled because they were either 
+
+171 not clearly visible as granules or too ambiguous to classify. The accompanying table lists the sensitivity and specificity values 
+
+172 calculated between the ground truth (2d) and the Classi4RPE output (2e), demonstrating the high classification performance, 
+
+173 with nearly complete agreement. Both L and ML granules achieved a sensitivity and specificity of 1.0. 
+
+174 Regarding segmentation, the program detected 147 additional granules compared to manual annotation. Some regions 
+
+175 were missed, such as the area indicated by the purple arrow. In addition, segmentation based on the intensity image influenced 
+
+176 the identification of certain granules, which could represent large ML granules (yellow arrow) or clusters of granules that are 
+
+177 visually difficult to resolve. Fortunately, these segmentation differences did not affect the classification outcome for this 
+
+178 dataset. 
+
+179 Fig 3. Classi4RPE results of another tested FLIM data sets compared to the manual classification. a) 2-photon excitation 
+
+180 (960 nm) intensity image detected by channel 2 (emission >555 nm). Marked dots referred to the manual assigned 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+9
+
+181 granules coordinates and classified as follows: red: L, blue: ML, green: M. b) corresponding FLIM image. c) SIM image 
+
+182 for the same position measured with three wavelengths at 488nm (green), 405 nm (blue), and 642nm (nm). d) 
+
+183 Classi4RPE image. e) generated ground truth image from the manual classification with same corresponding colors 
+
+184 and the unidentified granules in white. e) Classi4RPE image. The provided table presents the calculated sensitivity and 
+
+185 specificity for the results achieved in (e) compared to (d). Purple, yellow and green arrows: examples of sub-divided 
+
+186 segmentation of one expected granule that led to wrong classification. Orange arrow: unclear case of mis-classified 
+
+187 Melanin granule (zoomed image in the orange box). 
+
+188 In contrast, segmentation errors have an influence on the classification in the example shown in Figure 3. The yellow 
+
+189 arrow highlights one ML granule that was only partially segmented, leading to its misclassification as L. The lifetime image in 
+
+190 3b and the SIM image in 3c both support its identity as ML, but the intensity ‑based segmentation caused the error. A similar 
+
+191 issue occurred at the green arrow, where one ML granule was split into two MLs and one L. The purple arrow marks a complex 
+
+192 region that was manually classified as a single large M granule; however, the intensity image revealed internal layers, causing 
+
+193 the algorithm to segment it into multiple fragments classified as ML, which disagreed with the ground truth. The SIM image 
+
+194 also shows internal compartments, making it difficult to determine whether the region should be considered M or ML. The 
+
+195 orange arrow indicates another ambiguous granule that was classified as ML by the algorithm, although its identity remains 
+
+196 unclear in the SIM image. The magnified region (orange box) reveals a surrounding ring-like structure in the lifetime image. 
+
+197 However, this feature is difficult to interpret, as the observed border may originate from adjacent or underlying granules rather 
+
+198 than the granule of interest. Due to this ambiguity, the sensitivity for ML and the specificity for L decreased to 0.98 in this 
+
+199 dataset compared with the results shown in Figure 2. 
+
+200 Fig 4. Classi4RPE results of channel 1 (emission 500–555 nm) and channel 2 (emission >550 nm). a-c) channel1. d-f) 
+
+201 channel2. a and d) intensity images. b and e) corresponding FLIM images. c and f) Classi4RPE images with red: L, 
+
+202 blue: ML, and green: M. 
+
+203 Figure 4 compares the results obtained from channel 1 (emission 500–550 nm) and channel 2 (emission >550 nm). 
+
+204 4a–c shows the intensity, lifetime, and Classi4RPE images for channel 1, while 4d–f shows the corresponding images for 
+
+205 channel 2. The comparison demonstrates that segmentation and classification outcomes differ between channels. A slight 
+
+206 increase in the number of segmented granules was observed in channel 2 compared to channel 1, resulting in broader coverage 
+
+207 of both lipofuscin and short-lifetime granules (orange arrow). However, some granules were split into additional segments 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+10 
+
+208 (yellow arrow), and differences in fluorescence between channels resulted in different total segment counts (4c vs. 4f). 
+
+209 Furthermore, classification was affected both by segmentation differences and by variations in lifetime characteristics, resulting 
+
+210 in a substantial increase in short-lifetime granules predominantly classified as M. This behavior appears unrealistic for certain 
+
+211 granules. This figure illustrates why channel 2 was selected over channel 1, as the granules are more easily distinguishable, and 
+
+212 the ring ‑like MLs are more clearly visible. 
+
+213 214 Discussion 
+
+215 Classi4RPE, which demonstrates good sensitivity and specificity for L and ML granules, can successfully segment 
+
+216 and classify RPE FLIM images. However, generating a reliable ground ‑truth image proved challenging. The morphology of 
+
+217 RPE granules is highly complex [1], making it difficult even for human observers to distinguish individual granules or separate 
+
+218 those that are clustered. Classification was particularly difficult for M versus ML granules, as it depends not only on 
+
+219 lifetime ‑image contrast but also on the neighboring area. For example, when an ML or M granule is surrounded by L granules, 
+
+220 delineating the boundaries between them becomes difficult. Similar ambiguity arises when granules overlap or appear stacked. 
+
+221 Consequently, the ground truth included only granules that could be confidently identified by visual inspection, and excluding 
+
+222 uncertain granules from sensitivity and specificity calculations was justified. 
+
+223 The highest sensitivity was achieved for detecting L granules, due to their distinct lifetime contrast, which applied as 
+
+224 the first step in the classification pipeline (pre-classification). Nevertheless, achieving optimal segmentation of L granules 
+
+225 remains challenging. Because segmentation was based on the intensity image, distinguishing true granules from sub ‑granular 
+
+226 intensity variations was not always straightforward. This issue is particularly common for L granules, as previously reported 
+
+227 by Bermond et al. (2020) [1]. Consequently, some L granules were over ‑segmented into multiple fragments—an outcome that 
+
+228 cannot always be confirmed visually. These segmentation errors can lead to misclassification between L and ML granules, as 
+
+229 illustrated in Figure 2: the yellow arrow indicates a large ML granule that was segmented into three parts, with the central 
+
+230 segment classified as ML and the two outer segments as L. SIM imaging may also suggest the presence of multiple granules 
+
+231 when viewed from a different imaging ‑modality perspective. The green arrow highlights a similar case for another granule. 
+
+232 These segmentation uncertainties can propagate into misclassification, as shown in Figure 3. The yellow arrow marks 
+
+233 a ML granule that was incorrectly segmented into two granules (one classified as L and the other as ML) despite both FLIM 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+11 
+
+234 and SIM images indicating that it is a single ML granule. A similar case is shown by the green arrow. One contributing factor 
+
+235 may be the lifetime threshold used during pre ‑classification, which influences segmentation outcomes. Selecting this threshold 
+
+236 is particularly challenging because RPE granules exhibit a wide range of lifetimes that vary between cells, especially in the 
+
+237 case of pathologic cells migrated into the retina (examples in figs. 2 and 3), and the effects of AMD on these lifetimes remain 
+
+238 poorly understood. 
+
+239 The purple arrow in Figure 3 highlights an especially complex case in which a large melanin ‑rich region appears as 
+
+240 multiple layers in the intensity image and is therefore segmented into several granules. Although the lifetime image supports 
+
+241 classification as M, SIM imaging does not clearly reveal how many granules are present or whether they should be labeled M 
+
+242 or ML. 
+
+243 Distinguishing melanosomes (M) from ML granules remains difficult, contributing to the low sensitivity and 
+
+244 specificity for the M class. Because the ground truth itself is uncertain for many M granules, we excluded M ‑related sensitivity 
+
+245 and specificity from the evaluation. This challenge is illustrated by the orange arrow in Figure 3, where a granule classified as 
+
+246 ML by the algorithm was labeled as M in the ground truth, yet SIM imaging also remains inconclusive. The side orange box 
+
+247 on the left illustrates a magnified image on the same granule, and it shows the contrast between the borders (brighter) and the 
+
+248 core (darker). 
+
+249 Another factor influencing M/ML discrimination is the ratio threshold between central and peripheral lifetime values. 
+
+250 Although this threshold was optimized based on the available datasets, it requires a compromise between M and ML 
+
+251 classification. Given our greater interest in accurately identifying ML granules, the threshold was tuned to favor ML detection, 
+
+252 even at the expense of losing some M granules. In addition, the sensitivity and specificity for M were neglected because of the 
+
+253 difficulty classifying them with certainty. 
+
+254 Finally, Classi4RPE, a newly developed algorithm incorporating characteristic lifetime profile computations of 
+
+255 individual RPE granules for sub-classification, demonstrates strong performance in segmenting and classifying RPE into three 
+
+256 types based on lifetime data, capturing details that are not discernible to the human eye. This is illustrated in Figures 2 and 3 
+
+257 (d, e), where the ground truth is compared with the Classi4RPE output. While segmentation performance is influenced by the 
+
+258 quality of the input data, particularly with respect to detection channels, as shown in Figure 4, the algorithm remains robust 
+
+259 across varying conditions Moreover, although the segmentation shows high sensitivity to the intensity image, especially in 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+12 
+
+260 ML cases, where objects may be segmented separately due to thresholded lifetime pixels, the method still provides meaningful 
+
+261 and consistent classification outcomes, even for challenging structures. 
+
+262 Further improvements could focus on optimizing lifetime thresholding and refining the segmentation criteria. In 
+
+263 addition, the Classi4RPE framework may benefit from integration with higher-resolution imaging modalities or extension to 
+
+264 three-dimensional analysis. Such developments could enable more accurate segmentation of SIM images and provide a more 
+
+265 robust comparison with FLIM ‑based performance. Overall, despite the inherent challenges associated with the complex nature 
+
+266 of the data, the algorithm achieves high performance. Its strong sensitivity and specificity relative to annotated ground truth— 
+
+267 and its ability to capture features beyond visual interpretation—highlight its reliability as a tool for RPE granule analysis and 
+
+268 its potential as a practical and effective method for studying RPE cells in AMD research. 
+
+269 Conclusion 
+
+270 Age-related macular degeneration (AMD) induces significant alterations in RPE granules, necessitating further 
+
+271 statistical investigation. Lifetime measurements provide important discriminatory information among these granules and can 
+
+272 be used for their classification. However, visual classification remains challenging due to the difficulty of delineating granule 
+
+273 boundaries, and some granules cannot be unambiguously assigned to a single type. 
+
+274 In this study, we developed a computational framework that provides a robust and efficient approach for RPE 
+
+275 analysis, enabling systematic statistical tracking at the level of individual granules. This approach also mitigates the 
+
+276 limitations associated with the lack of a reliable ground truth. The proposed algorithm, Classi4RPE, segments RPE images 
+
+277 acquired via two-photon excitation using a seeded watershed approach and classifies granules into L, M, and ML types based 
+
+278 on synchronized lifetime data. 
+
+279 High performance was achieved across seven datasets used to optimize the algorithm parameters, with almost 
+
+280 complete coverage of the regions of interest and successful segmentation of most granules. This level of performance is 
+
+281 difficult to achieve with conventional segmentation softwares, which often require extensive manual fine-tuning. Moreover, 
+
+282 the algorithm demonstrated high sensitivity and specificity compared to manual ground truth annotations, highlighting its 
+
+283 capability to exceed the limitations of human visual assessment in both segmentation and classification tasks. 
+
+284 Despite these promising results, several areas for improvement remain. Further refinement of segmentation 
+
+285 parameters could enhance classification accuracy. Additionally, extending the framework to support three-dimensional SIM 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+13 
+
+286 image segmentation represents a valuable direction for future work, potentially enabling higher-resolution analysis and 
+
+287 improved structural characterization. 
+
+288 Acknowledgments 
+
+289 Funding acknowledged from the German Research Foundation (DFG, Project: 542825796 “HiResi4RPE”). 
+
+290 Data availability 
+
+291 Data used for testing can be obtained from the authors upon reasonable request. Python script used for “Classi4RPE” is 
+
+292 available on GitHub: https://github.com/Maryam3Ali/Classi4RPE 
+
+293 References 
+
+294 1. Bermond K, Wobbe C, Tarau I-S, Heintzmann R, Hillenkamp J, Curcio CA, et al. Autofluorescent Granules of 295 the Human Retinal Pigment Epithelium: Phenotypes, Intracellular Distribution, and Age-Related 296 Topography. Invest Ophthalmol Vis Sci. 2020;61: 35. doi:10.1167/iovs.61.5.35 297 2. Sparrow JR, Hicks D, Hamel CP. The retinal pigment epithelium in health and disease. Curr Mol Med. 298 2010;10: 802–823. doi:10.2174/156652410793937813 299 3. Lakkaraju A, Umapathy A, Tan LX, Daniele L, Philp NJ, Boesze-Battaglia K, et al. The cell biology of the 300 retinal pigment epithelium. Prog Retin Eye Res. 2020; 100846. doi:10.1016/j.preteyeres.2020.100846 301 4. Gambril JA, Sloan KR, Swain TA, Huisingh C, Zarubina AV, Messinger JD, et al. Quantifying Retinal Pigment 302 Epithelium Dysmorphia and Loss of Histologic Autofluorescence in Age-Related Macular Degeneration. 303 Invest Ophthalmol Vis Sci. 2019;60: 2481–2493. doi:10.1167/iovs.19-26949 304 5. Jauch AS, Schwenzer N, von der Emde L, Wall K, Wang H, Holz FG, et al. Super-Resolution Near-Infrared 305 Autofluorescence Microscopy Depicts Melanin Containing Organelles of the Retinal Pigment Epithelium in 306 Human Donor Eyes. Invest Ophthalmol Vis Sci. 2025;66: 50. doi:10.1167/iovs.66.13.50 307 6. Sauer L, Andersen KM, Dysli C, Zinkernagel MS, Bernstein PS, Hammer M. Review of clinical approaches in 308 fluorescence lifetime imaging ophthalmoscopy. J Biomed Opt. 2018;23: 1–20. 309 doi:10.1117/1.JBO.23.9.091415 310 7. Schultz R, Gamage KCLK, Messinger JD, Curcio CA, Hammer M. Fluorescence Lifetimes and Spectra of RPE 311 and Sub-RPE Deposits in Histology of Control and AMD Eyes. Invest Ophthalmol Vis Sci. 2020;61: 9. 312 doi:10.1167/iovs.61.11.9 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+14 
+
+313 8. Hammer M, Simon R, Meller D, Klemm M. Combining fluorescence lifetime with spectral information in 314 fluorescence lifetime imaging ophthalmoscopy (FLIO). Biomed Opt Express. 2022;13: 5483–5494. 315 doi:10.1364/BOE.457946 316 9. Dysli C, Wolf S, Berezin MY, Sauer L, Hammer M, Zinkernagel MS. Fluorescence lifetime imaging 317 ophthalmoscopy. Prog Retin Eye Res. 2017;60: 120–143. doi:10.1016/j.preteyeres.2017.06.005 318 10. Ach T, Best G, Rossberger S, Heintzmann R, Cremer C, Dithmar S. Autofluorescence imaging of human RPE 319 cell granules using structured illumination microscopy. Br J Ophthalmol. 2012;96: 1141–1144. 320 doi:10.1136/bjophthalmol-2012-301547 321 11. Berg S, Kutra D, Kroeger T, Straehle CN, Kausler BX, Haubold C, et al. ilastik: interactive machine learning 322 for (bio)image analysis. Nat Methods. 2019;16: 1226–1232. doi:10.1038/s41592-019-0582-9 323 12. Stringer C, Wang T, Michaelos M, Pachitariu M. Cellpose: a generalist algorithm for cellular segmentation. 324 Nat Methods. 2021;18: 100–106. doi:10.1038/s41592-020-01018-x 325 13. Archit A, Freckmann L, Nair S, Khalid N, Hilt P, Rajashekar V, et al. Segment Anything for Microscopy. Nat 326 Methods. 2025;22: 579–591. doi:10.1038/s41592-024-02580-4 327 14. Sousa JA, Paiva A, Silva A, Almeida JD, Junior GB, Diniz JO, et al. Automatic segmentation of retinal layers in 328 OCT images with intermediate age-related macular degeneration using U-Net and DexiNed. PLOS ONE. 329 2021;16: e0251591. doi:10.1371/journal.pone.0251591 330 15. Yu H, Wang F, Teodoro G, Chen F, Guo X, Nickerson JM, et al. Self-supervised semantic segmentation of 331 retinal pigment epithelium cells in flatmount fluorescent microscopy images. Bioinformatics. 2023;39: 332 btad191. doi:10.1093/bioinformatics/btad191 333 16. Beucher S, Meyer F. The Morphological Approach to Segmentation: The Watershed Transformation. 334 Mathematical Morphology in Image Processing. CRC Press; 1992. 335 17. Pattern Recognition and Machine Learning. Available: https://link.springer.com/book/9780387310732 336 18. 2.1. Gaussian mixture models. In: scikit-learn [Internet]. [cited 10 June 2026]. Available: https://scikit-337 learn/stable/modules/mixture.html 338 19. Ali M. Maryam3Ali/Classi4RPE. 2026. Available: https://github.com/Maryam3Ali/Classi4RPE 339 
+
+340 
+
+> .CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
+
+.CC-BY 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 3, 2026. ;https://doi.org/10.64898/2026.06.29.735375 doi: bioRxiv preprint
