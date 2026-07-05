@@ -1,0 +1,1399 @@
+Title: Conformal Prediction with Macro-Coverage Guarantees
+
+URL Source: https://arxiv.org/pdf/2606.28598v1
+
+Published Time: Tue, 30 Jun 2026 00:14:14 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# Conformal prediction with macro-coverage guarantees 
+
+## Aabesh Bhattacharyya 1* Tiffany Ding 2* Rina Foygel Barber 11Department of Statistics, University of Chicago 
+
+> 2
+
+## Department of Statistics, UC Berkeley 
+
+Abstract 
+
+Prediction sets should have high coverage to be useful, but some coverage notions are more practically relevant than others. In the classification setting, class-conditional coverage requires that the prediction set (i.e., the set of candidate labels for a new test point) must achieve the target accuracy level within each class, which may be chal-lenging to satisfy when many classes are rare and have few calibration points. At the other extreme, marginal coverage requires only that coverage holds on average over the distribution of all classes, which can lead to low-probability labels being essentially ignored. To find a middle ground, recent work has introduced macro-coverage, defined as the unweighted average of class-conditional coverages. Macro-coverage offers a compromise between marginal cover-age and class-conditional coverage that is particularly appropriate for long-tailed settings. In this work, we show that label-weighted conformal prediction can be used to produce prediction sets with a finite-sample macro-coverage guar-antee, and more generally a guarantee on a family of generalized macro-coverage objectives that aggregate coverage at the level of arbitrary class groupings and take a weighted average. We further characterize the form of the smallest prediction sets satisfying a given generalized macro-coverage objective and propose a corresponding conformal score function. We validate our theoretical results on two large-scale image classification datasets. 
+
+# 1 Introduction 
+
+Conformal prediction provides a principled way to convert the output of a black-box predictive model into a prediction set with a finite-sample coverage guarantee under exchangeability assumptions (Vovk et al., 2005; Papadopoulos et al., 2002; Lei et al., 2018; Angelopoulos and Bates, 2023). In this work, we focus on multiclass classification, where the goal is to use features X ∈ X to predict a response Y that takes values in a finite label space Y. Of particular interest is long-tailed classification, where the label space is very large and the class frequencies vary by orders of magnitude. Such long-tailed distributions appear in problems such as species identification and medical diagnosis, and in order for prediction sets to be useful in such settings, they should be small enough to be inspected by a human while still reliably containing the true label, even when the true label belongs to a rare class. Given a target miscoverage level α ∈ [0 , 1] , standard split conformal prediction (Vovk et al., 2005) provides a way to construct prediction sets C : X → 2Y that satisfy 
+
+P(Y ∈ C (X)) ≥ 1 − α
+
+under the assumption that the observed data is exchangeable. This guarantee holds on average over the population, which can lead to undesirable behavior. Writing p(y) = P(Y = y), we can decompose marginal coverage as 
+
+P(Y ∈ C (X)) = X
+
+> y∈Y
+
+p(y) · P(Y ∈ C (X) | Y = y).
+
+For a long-tailed distribution, where p(y) is much larger for some y than others, the marginal guarantee places most of its weight on frequent classes. A method may therefore attain marginal coverage while substantially undercovering tail classes. This phenomenon has been observed in recent work on conformal prediction for long-tailed classification, 
+
+> *Equal contribution.
+
+1
+
+> arXiv:2606.28598v1 [stat.ME] 26 Jun 2026
+
+where standard conformal methods tend to overcover common classes and undercover rare classes (Ding et al., 2026; Liu et al., 2026). A natural remedy is to seek class-conditional coverage :
+
+P(Y ∈ C (X) | Y = y) ≥ 1 − α for all y ∈ Y .
+
+Class-conditional coverage treats every class separately and is therefore attractive in class-imbalanced settings. How-ever, it can be too stringent in the long-tailed regime; when the calibration set contains only a few examples from a rare class, or none at all, class-specific quantile estimates become overly conservative. Consequently, classwise conformal methods may produce prediction sets that are very large and hence uninformative (Vovk, 2012; Ding et al., 2023). This creates a tension: standard (marginal) conformal prediction is efficient but can fail on rare classes, whereas class-conditional conformal prediction ensures coverage for every class but can be impractical when many classes have limited calibration data. To balance this tension, Ding et al. (2026) introduced macro-coverage , which can be thought of as a relaxation of class-conditional coverage. This concept is inspired by macro-accuracy in multiclass classification (Lewis, 1991), where “macro” refers to the idea of zooming out to the class level before aggregating. Macro-coverage averages the class-conditional coverages uniformly over labels: 
+
+MacroCov( C) := 1
+
+|Y| 
+
+X
+
+> y∈Y
+
+P(Y ∈ C (X) | Y = y). (1) Unlike marginal coverage, macro-coverage gives each class equal weight in the coverage criterion, regardless of its prevalence. By aiming to achieve macro-coverage, we can hope to do better on rare classes, without going to the extreme of asking for high class-conditional coverage for each class individually. 
+
+Our contribution. In this paper, we propose to use label-weighted conformal prediction to produce prediction sets that directly achieve a macro-coverage guarantee (rather than a stronger, but excessively stringent, class-conditional coverage guarantee), which no existing method is able to do. We prove that label-weighted conformal prediction can be used to not only achieve a macro-coverage guarantee but also to guarantee generalized notions of macro-coverage, where aggregation occurs at the level of an arbitrary grouping of classes and the weights of each group do not have to be equal. Notably, these weights can even be chosen after seeing partial information about the calibration data, allowing us to downweight coverage of groups that do not appear in the calibration data to avoid producing uninformative sets. Furthermore, given a desired generalized macro-coverage objective, we derive the form of the smallest sets that satisfy this objective and propose a corresponding conformal score function for approximating these theoretically optimal sets. 
+
+## 1.1 Related work 
+
+Class-conditional and group-conditional conformal prediction provide stronger guarantees than marginal conformal prediction by requiring coverage within each class or group (Vovk, 2012). In multiclass problems with many classes, however, classwise calibration can lead to large sets because rare classes may have very few calibration examples, necessitating large finite-sample adjustments. Clustered conformal prediction addresses this by targeting the data scarcity issue and groups data from classes with similar score distributions (Ding et al., 2023). On the other hand, rank-calibrated class-conditional conformal prediction directly targets set sizes by introducing a rank-based threshold to the set construction, while maintaining class-conditional coverage (Shi et al., 2024). However, these methods are not designed to handle settings with extreme class imbalance where many classes have few calibration examples. Whereas previous work aims for class-conditional coverage, our work targets weighted averages of group-conditional coverages, which is a more practical objective in highly class imbalanced settings. Our work is most directly motivated by conformal prediction for long-tailed classification (Ding et al., 2026), where the authors introduced macro-coverage and derived the prevalence-adjusted softmax score as an approximately opti-mal score for this objective. Concurrently, Liu et al. (2026) proposed tail-aware conformal methods to reduce coverage disparities between head and tail classes. These methods, although motivated by the limitations of marginal coverage in long-tailed settings, still provide marginal rather than macro-coverage guarantees. We instead use label-weighted 2conformal calibration to obtain finite-sample guarantees for macro-coverage and generalized macro-coverage objec-tives. Technically, our label-weighted conformal prediction approach is related to weighted conformal prediction, which has been used to address covariate shift, label shift, and other departures from exchangeability (Tibshirani et al., 2019; Podkopaev and Ramdas, 2021; Barber et al., 2023). We build most directly on group-weighted conformal prediction (Bhattacharyya and Barber, 2024), adapting its finite-sample arguments from groups defined by features to groups defined by labels. Lastly, our optimal score construction is connected to least ambiguous set-valued classification (Sadinle et al., 2019), but specialized to the generalized macro-coverage objective we introduce. 
+
+# 2 Method 
+
+We first generalize the concept of macro-coverage, as defined in (1), then define an algorithm for producing prediction sets guaranteed to have generalized macro-coverage of at least 1 − α for any user-chosen α ∈ [0 , 1] .
+
+Setting. Let α ∈ [0 , 1] be a desired miscoverage level. Consider independent and identically distributed samples 
+
+(X1, Y 1), . . . , (Xn, Y n), (Xn+1 , Y n+1 ), where {(X1, Y 1), . . . , (Xn, Y n)} form the calibration dataset and (Xn+1 , Y n+1 )
+
+is the test point, with Yn+1 unobserved. We operate in the split conformal prediction setting and assume access to a fixed conformal score function s : X × Y → R trained on data that is separate from the calibration samples, where a larger value of s(x, y ) indicates that y is less likely to be the label corresponding to x.
+
+## 2.1 Generalized macro-coverage 
+
+Let g : Y → K be a grouping function that assigns each class to a group and let w : K → R≥0 be a fixed function assigning weights to each group such that P 
+
+> k∈K
+
+w(k) = 1 . For any prediction set C : X → 2Y , we define the (g, w )
+
+macro-coverage as 
+
+MacroCov g,w (C) := X
+
+> k∈K
+
+w(k) · P Yn+1 ∈ C (Xn+1 ) | g(Yn+1 ) = k,
+
+the weighted average of group-conditional coverages. More generally, we can choose the weights assigned to each group after observing partial information about the calibration data . Formally, denote the group membership of each calibration example as Gi := g(Yi) and record the realized group memberships of the calibration examples in 
+
+H := σ(G1, . . . , G n).
+
+The weight function w can be any H-measurable function. For such weight functions, we express the (g, w ) macro-coverage as 
+
+MacroCov g,w (C | H ) := X
+
+> k∈K
+
+w(k) · P Yn+1 ∈ C (Xn+1 ) | g(Yn+1 ) = k, H.
+
+By choosing g and w appropriately, practitioners can prioritize coverage across head and tail classes, clinically mean-ingful subpopulations, demographic groups, or other pre-specified partitions of interest. 
+
+Examples. We now present some instantiations of generalized macro-coverage. 1. Vanilla macro-coverage. Using the identity group function g(y) = y and uniform weights w(y) = 1 /|Y| yields 
+
+MacroCov , as defined in (1). We will refer to this as simply “macro-coverage.” 2. Tail-focused macro-coverage. Let Ytail ⊂ Y denote the classes in the tail of the class distribution (e.g., Ytail 
+
+could be the 10% of classes with the fewest examples). In some settings, it may be especially important to cor-rectly identify these rare classes. For some upweighting factor λ > 1, the tail-focused macro-coverage (denoted 
+
+MacroCov tail ) is defined to be the (g, w ) macro-coverage with the identity grouping function g(y) = y and weight function 
+
+w(y) = 
+
+( λW if y ∈ Y tail  
+
+> 1
+> W
+
+otherwise, where W = λ|Y tail | + |Y \ Y tail | is a normalization constant. 33. Genus-level macro-coverage. Rather than aggregating at the class level, in settings where classes have a hierar-chical structure, we may instead wish to aggregate at a higher level. For example, in plant identification, each class is a plant species that is further grouped into a genus. We get GenusMacroCov by using the grouping func-tion g : Y → { 1, 2, . . . , M } that groups plant species by genus, where M denotes the total number of genera, and the weight function w(k) = 1 /M for k ∈ [M ] that assigns uniform weights to each genus. By targeting 
+
+GenusMacroCov rather than MacroCov , we upweight the importance of species that are abundant relative to other species in the same genus (and downweight species that are relatively rare within a genus). 4. Marginal coverage. The standard conformal prediction objective of marginal coverage is also an instance of generalized macro-coverage, where g groups all classes into a single group (e.g., g(y) = 1 for all y), so the only valid weight function is w(1) = 1 .
+
+## 2.2 Label-weighted conformal prediction 
+
+For each group k ∈ K , define Ik = {i ∈ [n] : g(Yi) = k} to be the indices of calibration examples in group k and let 
+
+Nk = |I k| be the number of calibration examples in group k. We index the calibration scores corresponding to group 
+
+k as S(k) 
+
+> i
+
+for i = 1 , 2, . . . , |I k|.We then define the (g, w ) label-weighted conformal prediction set as 
+
+C(x) := 
+
+(
+
+y ∈ Y : s(x, y ) ≤ Q1−α
+
+X
+
+> k∈K
+
+w(k)Pk
+
+!) 
+
+, (2) where Q1−α(P) := min {t ∈ R : PV ∼P (V ≤ t) ≥ 1 − α} denotes the 1 − α quantile of distribution P and 
+
+Pk =
+
+( 1
+
+> Nk
+
+PNk 
+
+> j=1
+
+δS(k)
+
+> j
+
+if Nk > 0
+
+δ∞ if Nk = 0 .
+
+In words, we compute the 1 − α quantile of the weighted average of empirical score distributions (where we substitute in a point mass at infinity for groups with no calibration examples), then use this quantile to threshold the score to determine which y values to include in the set. 
+
+Theorem 1. Let K+ = {k ∈ K : Nk > 0} be the set of groups with non-zero calibration examples. Then the prediction set given in (2) satisfies 
+
+MacroCov g,w (C | H ) ≥ 1 − α − max 
+
+> k∈K +
+
+w(k)
+
+Nk
+
+.
+
+Note that conditional on H, max k∈K + 
+
+> w(k)
+> Nk
+
+is a constant. The proof of this result closely follows the proof of validity for the group-weighted conformal prediction approach proposed in Bhattacharyya and Barber (2024), but adapted to label-based groupings. The detailed proof is given in Appendix A. The fact that the guarantee holds conditional on H
+
+makes it stronger than the unconditional macro-coverage guarantee. This theorem directly implies a procedure for producing prediction sets with a (g, w ) macro-coverage guarantee of 
+
+1−α, which we describe in Algorithm 1. In brief, we must simply compute the correction factor ∆ := max k∈K + 
+
+> w(k)
+> Nk
+
+,then construct the label-weighted conformal prediction set at a corrected miscoverage level α′ = α − ∆.
+
+Corollary 1. Let C be the prediction set produced by Algorithm 1 with target miscoverage level α ∈ [0 , 1] . Then 
+
+MacroCov g,w (C | H ) ≥ 1 − α.
+
+When implementing label-weighted conformal prediction, it can be useful to recast it as vanilla weighted conformal prediction, in which a weight is assigned to each calibration point. Let K0 := {k ∈ K : Nk = 0 } be the groups that have no calibration examples. Then (2) is equivalent to 
+
+C(x) = 
+
+(
+
+y ∈ Y : s(x, y ) ≤ Q1−α
+
+> n
+
+X
+
+> i=1
+
+wiδSi + X
+
+> k∈K 0
+
+w(k)δ∞
+
+!) 
+
+, (3) 4Algorithm 1 Label-weighted conformal prediction for guaranteed (g, w ) macro-coverage 
+
+Input: Calibration data {(Xi, Y i)}ni=1 , score function s, grouping function g : Y → K , group weights w : K → R≥0
+
+with P 
+
+> k∈K
+
+w(k) = 1 , target miscoverage α ∈ [0 , 1] , test point Xn+1 
+
+Output: Prediction set C(Xn+1 ) with (g, w ) macro-coverage of at least 1 − α 
+
+> 1:
+
+Compute calibration scores Si ← s(Xi, Y i) and groups Gi ← g(Yi) for i ∈ [n] 
+
+> 2:
+
+for each group k ∈ K do  
+
+> 3:
+
+Ik ← { i ∈ [n] : Gi = k} 
+
+> 4:
+
+Nk ← |I k| 
+
+> 5:
+
+Pk ← 1
+
+> Nk
+
+P 
+
+> i∈I k
+
+δSi if Nk > 0, else Pk ← δ∞ 
+
+> 6:
+
+end for  
+
+> 7:
+
+K+ ← { k ∈ K : Nk > 0} 
+
+> 8:
+
+α′ ← α − max k∈K + 
+
+> w(k)
+> Nk
+> 9:
+
+C(Xn+1 ) ← { y ∈ Y : s(Xn+1 , y ) ≤ Q1−α′
+
+ P  
+
+> k∈K
+
+w(k) Pk
+
+} if α′ ≥ 0, else C(Xn+1 ) = Y
+
+where the weight of calibration point (Xi, Y i) is wi := w(g(Yi)) /N g(Yi). Note that the calibration point weights do not sum to one ( Pni=1 wi̸ = 1 ) if there are groups k ∈ K that have zero calibration examples. Thus, the P 
+
+> k∈K 0
+
+w(k)δ∞
+
+term ensures that we are taking the quantile of a valid probability distribution, with a total mass of one. From this, it is also easy to see that if the total weight of the missing groups exceeds α, the quantile will be infinite, resulting in infinite sets. 
+
+## 2.3 Optimal score function for generalized macro-coverage 
+
+When we construct prediction sets, we generally have two objectives. First, we want the sets to satisfy our coverage criterion. Second, we want the sets to be as informative as possible, subject to the coverage constraint. In this section, we focus on the case where the weights w(k) are fixed and do not depend on the calibration data. We propose a way to approximately achieve the theoretically optimal sets, where we use “optimal” to mean minimizing expected set size subject to the chosen generalized macro-coverage objective. Let p(y) = P(Y = y) be the probability of class y and de-fine ρ(k) = P 
+
+> y:g(y)= k
+
+p(y) for k ∈ K to be the probability that a label belongs to group k. The following proposition characterizes the optimal prediction set that satisfies a chosen generalized macro-coverage constraint. 
+
+Proposition 1 (informal) . The solution to 
+
+min 
+
+> C:X → 2Y
+
+E|C (X)| subject to MacroCov g,w (C) ≥ 1 − α
+
+is of the form 
+
+C∗ 
+
+> t
+
+(x) = 
+
+
+
+y ∈ Y : w(g(y)) 
+
+ρ(g(y)) · p(y|x) ≥ t
+
+
+
+for some threshold t. (4) This result is obtained by showing that the (g, w ) macro-coverage constraint can be expressed as (gI , ˜w) macro-coverage for the identity mapping gI (y) = y and weight function 
+
+˜w(y) := w(g(y)) · p(y)
+
+ρ(g(y)) , (5) then applying Proposition 6 of Ding et al. (2026). The formal statement of the result and its proof is given in Appendix B. Observe that we can rewrite (4) as 
+
+C∗ 
+
+> t
+
+(x) = y ∈ Y : s∗
+
+> g,w
+
+(x, y ) ≤ t for s∗
+
+> g,w
+
+(x, y ) = − w(g(y)) 
+
+ρ(g(y)) · p(y|x).
+
+Thus, combining Proposition 1 and Theorem 1, we know that if we were able to use s∗ 
+
+> g,w
+
+as our score function and construct our prediction set according to Algorithm 1, this would yield the smallest set with (g, w ) macro-coverage of 5at least 1 − α. However, in practice, s∗ 
+
+> g,w
+
+cannot be used since it depends on unknown population-level probabilities, so we instead substitute in plug-in estimates, yielding the score function 
+
+ˆsg,w (x, y ) = − w(g(y)) 
+
+bρ(g(y)) · bp(y|x). (6) We can get bp(y|x) by training any probabilistic classifier. bρ(g(y)) can be obtained using the label distribution in the classifier training dataset. Since Theorem 1 holds for any score function, it holds for ˆsg,w (x, y ), so applying Algorithm 1 with this score function yields the desired generalized macro-coverage guarantee while approximating the smallest set achieving this guarantee. 
+
+## 2.4 Simultaneous coverage guarantees 
+
+In some applications, we want prediction sets that satisfy multiple coverage guarantees simultaneously. For example, we might want to guarantee that our sets have high macro-coverage and high marginal coverage. Formally, consider 
+
+m ≥ 1 constraints: for j = 1 , 2, . . . , m , gj is a grouping function, Hj records the group membership of the calibration examples (as determined by gj ), wj is an Hj -measurable weighting function, and αj is a miscoverage level. Our goal is to generate prediction sets that simultaneously satisfy 
+
+MacroCov gj ,w j (C | H j ) ≥ 1 − αj for j = 1 , 2, . . . , m (7) 
+
+Proposition 2. Fix a score function s and run Algorithm 1 for each condition j = 1 , 2, . . . , m and extract bqj := 
+
+Q1−α′
+
+> j
+
+P 
+
+> k∈K j
+
+wj (k) P jk
+
+
+
+from line 9, where Kj are the groups given by gj and P jk and α′ 
+
+> j
+
+are as computed by Algorithm 1. Then the prediction set 
+
+¯C(x) := {y ∈ Y : s(x, y ) ≤ max( bq1, bq2, . . . , bqm)} (8) 
+
+satisfies (7) .
+
+Proofs for results in this section are given in Appendix C. Proposition 2 says that we can produce sets that satisfy multiple generalized macro-coverage conditions by simply taking the max of their score thresholds. As with the single coverage constraint problem, we can motivate a choice of score function for the multiple constraint setting by deriving the form of the optimal prediction set. 
+
+Proposition 3 (informal) . The solution to 
+
+min 
+
+> C:X → 2Y
+
+E|C (X)| s.t. MacroCov gj ,w j (C) ≥ 1 − αj for all j = 1 , 2, . . . , m 
+
+is of the form 
+
+C∗ 
+
+> t
+
+(x) = 
+
+y ∈ Y : p(y|x)
+
+p(y) ·
+
+> m
+
+X
+
+> j=1
+
+λj ˜wj (y) ≥ t
+
+ for some λ1, λ 2, . . . , λ m and t, (9) 
+
+where ˜wj : Y → R≥0 is the class-level weighting function induced by (gj , w j ), as defined in (5) .
+
+We state a formal version of this proposition in Appendix C and provide the proof there. In practice, to approximate the oracle set in (9), we can use plug-in estimates of p(y|x) and p(y), as in Section 2.3. The additional difficulty in the simultaneous-coverage setting is that the score also depends on the vector λ := ( λ1, . . . , λ m). However, in many applications, only a subset of the coverage constraints is active. For example, if we target both marginal coverage and macro-coverage at the same miscoverage level α in long-tailed classification problems, it is often the case that the macro-coverage constraint is the more demanding one. This because it places more emphasis on covering rare classes, which classifiers struggle more with. In such cases, a procedure that attains the desired macro-coverage level may also attain the marginal coverage target, so that the marginal coverage constraint is inactive in the corresponding oracle problem. Note that for any inactive constraints, the corresponding λj in Proposition 3 will be zero. However, in general, we can set λ using data separate from the calibration data (e.g., held-out data or the data used for classifier training) to do grid search over potential values and selecting the value that gives the smallest estimated average set size. 63 Experiments 
+
+We perform experiments using real data to demonstrate that label-weighted conformal prediction achieves the macro-coverage objectives guaranteed by our theoretical results. We use the softmax score function, given by ssoftmax (x, y ) = 
+
+−ˆp(y|x), which is also called the Least Ambiguous Classifier (LAC) score (Sadinle et al., 2019). We obtain ˆp(y|x)
+
+from a fine-tuned ResNet-50 classifier initialized to ImageNet-pretrained weights and use the resulting softmax scores, following the procedure described in Ding et al. (2026). We also use the approximately optimal score function ˆsg,w 
+
+defined in (6). Our primary evaluation metrics are macro-coverage ( MacroCov ) and average set size ( AvgSize ). We also compute marginal coverage ( MarginalCov ). Code is available at https://github.com/tiffanyding/ macro-guarantees .
+
+Methods. We compare three methods. The first baseline method is S TANDARD conformal prediction, which con-structs prediction sets as 
+
+C(x) = 
+
+(
+
+y : s(x, y ) ≤ Q1−α
+
+1
+
+n + 1 
+
+> n
+
+X
+
+> i=1
+
+δSi + 1
+
+n + 1 δ∞
+
+!) 
+
+and guarantees 1 − α marginal coverage. The second baseline is C LASSWISE conformal prediction, which constructs prediction sets as 
+
+C(x) = 
+
+y : s(x, y ) ≤ Q1−α
+
+ 1
+
+Ny + 1 
+
+> Ny
+
+X
+
+> i=1
+
+δS(y)
+
+> i
+
++ 1
+
+Ny + 1 δ∞
+
+ ,
+
+where Ny and S(y) 
+
+> i
+
+are defined analogously to Nk and S(k) 
+
+> i
+
+in Section 2, for the special case where K = Y (each class is its own group). C LASSWISE guarantees 1 − α class-conditional coverage for all classes. We compare these two baselines against L ABEL -WEIGHTED conformal prediction, as described in Algorithm 1, for group and weight functions (g, w ) described below. 
+
+Data. We use two large-scale image classification datasets: the plant species dataset Pl@ntNet-300K (Garcin et al., 2021) and the 2018 version of iNaturalist (Van Horn et al., 2015), which contains images of plants, animals, insects, and more. We choose these datasets as a test bed due to their high class imbalance, which is the setting in which macro-coverage is most relevant. To ensure reliable evaluation of macro-coverage, which requires computing class-conditional coverage, we use the truncated versions of these datasets created in Ding et al. (2026) by filtering out classes with too few examples for testing. This leaves 330 Pl@ntNet classes and 857 iNaturalist classes. Pl@ntNet is highly skewed, with the most common class being 100 times more common than the rarest class. iNaturalist is less skewed, with a ratio of 10. To compute standard errors, we combine the provided calibration and test splits (resulting in 98,061 total examples for Pl@ntNet and 50,906 for iNaturalist) and do our own random splitting into calibration and test datasets, where each example is assigned to the calibration dataset with probability 0.1. All metrics are computed using 20 random seeds. 
+
+## 3.1 Main results: Achieving macro-coverage 
+
+The goal of this experiment is to construct prediction sets with MacroCov ≥ 1 − α for a user-chosen α ∈ [0 , 1] .To target this goal, we run L ABEL -WEIGHTED with the identity grouping function g(y) = y and uniform weights 
+
+w(y) = 1 /|Y| for all y. Note that for this g and w, the score ˆsg,w is equivalent to the prevalence-adjusted softmax score 
+
+s(x, y ) = −ˆp(y|x)/ˆp(y) proposed in Ding et al. (2026) for approximating the optimal score function for targeting macro-coverage. As a high-level summary, this experiment empirically validates our two main theoretical results: First, that label-weighted conformal prediction can be used to achieve 1 − α macro-coverage for a user-chosen α, and second, that 
+
+ˆsg,w achieves the smallest set size at a given macro-coverage level. Tables 1–2 show the result of running the various conformal prediction methods on Pl@ntNet and iNaturalist at levels α = 0 .05 and α = 0 .1. In the MacroCov column, we bold entries with macro-coverage at least 1 − α, or within one standard error of it. In the AvgSize column, we bold the minimum average size among rows achieving the desired macro-coverage. We report the standard errors as subscripts. We use this presentation style throughout the rest of the paper. 7We observe that S TANDARD , which guarantees 1 − α marginal coverage, does not in general achieve 1 − α macro-coverage. CLASSWISE results are only reported for ssoftmax because C LASSWISE is invariant to class-dependent adjustments to score functions, so ssoftmax and ˆsg,w produce identical results (for any g and w). C LASSWISE does achieve 1 − α macro-coverage, but it overshoots. Although overshooting the coverage target is not itself undesirable, here it comes at the cost of extremely large prediction sets. The cause of this overshooting is that C LASSWISE guar-antees 1 − α class-conditional coverage, which is stronger than the macro-coverage condition we ask for. By contrast, LABEL -WEIGHTED is able to achieve the desired macro-coverage without overshooting. Furthermore, comparing the rows with bolded MacroCov entries (denoting that 1 − α macro-coverage is achieved), we see that L ABEL - 
+
+> WEIGHTED
+
+with ˆsg,w has the smallest average set size, supporting the theoretical results in Section 2.3. Table 1: Targeting macro-coverage on Pl@ntNet 
+
+Goal : MacroCov ≥ 0.9 Goal : MacroCov ≥ 0.95 
+
+Method Score MarginalCov MacroCov AvgSize MarginalCov MacroCov AvgSize 
+
+STANDARD ssoftmax 0.901 ±0.001 0.861 ±0.001 2.8±0.0 0.951 ±0.001 0.929 ±0.001 5.9±0.1
+
+ˆsg,w 0.900 ±0.001 0.886 ±0.001 2.2±0.0 0.950 ±0.001 0.939 ±0.001 3.7±0.0
+
+CLASSWISE ssoftmax 0.940 ±0.001 0.940 ±0.001 58 .1±1.4 0.987 ±0.000 0.992 ±0.000 263 .4±0.9
+
+LABEL -
+
+> WEIGHTED
+
+ssoftmax 0.930 ±0.001 0.901 ±0.001 4.0±0.0 0.966 ±0.001 0.951 ±0.001 9.2±0.1
+
+ˆsg,w 0.915 ±0.001 0.901 ±0.001 2.4±0.0 0.959 ±0.000 0.949 ±0.001 4.4±0.0
+
+Table 2: Targeting macro-coverage on iNaturalist 
+
+Goal : MacroCov ≥ 0.9 Goal : MacroCov ≥ 0.95 
+
+Method Score MarginalCov MacroCov AvgSize MarginalCov MacroCov AvgSize 
+
+STANDARD ssoftmax 0.901 ±0.001 0.894 ±0.001 10 .1±0.1 0.950 ±0.001 0.946 ±0.001 26 .9±0.3
+
+ˆsg,w 0.901 ±0.001 0.898 ±0.001 7.2±0.1 0.950 ±0.001 0.949 ±0.001 18 .6±0.3
+
+CLASSWISE ssoftmax 0.941 ±0.001 0.940 ±0.001 206 .4±3.0 0.998 ±0.000 0.998 ±0.000 826 .9±1.4
+
+LABEL -
+
+> WEIGHTED
+
+ssoftmax 0.908 ±0.001 0.901 ±0.001 11 .3±0.1 0.955 ±0.001 0.951 ±0.001 30 .2±0.4
+
+ˆsg,w 0.903 ±0.001 0.901 ±0.001 7.5±0.1 0.953 ±0.000 0.951 ±0.001 19 .6±0.2
+
+STANDARD achieves closer to the desired macro-coverage on iNaturalist compared to Pl@ntNet. This is likely be-cause the class distribution of iNaturalist, although imbalanced, is closer to uniform than Pl@ntNet. Recall that for a perfectly uniform class distribution, MarginalCov equals MacroCov , so S TANDARD , by targeting MarginalCov , can also indirectly do well on MacroCov when the class distribution is not too imbalanced. 
+
+## 3.2 Results beyond macro-coverage 
+
+We now demonstrate that label-weighted conformal prediction can be used to produce prediction sets that satisfy generalized macro-coverage conditions. We consider two notions of generalized macro-coverage motivated by plant identification. 
+
+(a) Tail-focused macro-coverage. For biodiversity monitoring purposes, it is particularly important to correctly identify rare plant species. Motivated by this application, in this experiment, we seek to produce Pl@ntNet prediction sets with high tail-focused macro-coverage, as defined in Section 2.1. That is, we seek MacroCov tail ≥ 1 − α. To construct Ytail , we take the 33 classes (10% of the 330 total classes) with the fewest examples. We upweight coverage on these classes by λ = 10 .The left panel of Table 3 shows results for α = 0 .1. We observe that L ABEL -WEIGHTED successfully achieves the desired 1−α tail-focused macro-coverage level and that applying the optimal ˆsg,w score results in the smallest average 8set size, by many factors, compared to the commonly used softmax score. Results for α = 0 .05 are qualitatively similar (see Appendix D). 
+
+(b) Genus-level macro-coverage. If we are more interested in equalizing coverage at the genus level rather than the species level, we can aim to construct Pl@ntNet prediction sets satisfying GenusMacroCov ≥ 1−α (see Section 2.1). The right panel of Table 3 shows the results for α = 0 .1, with α = 0 .05 results deferred to Appendix D. We observe that L ABEL -WEIGHTED achieves the desired GenusMacroCov level. S TANDARD with the ˆsg,w score also manages to achieve 1 − α GenusMacroCov , but it overshoots slightly, resulting in a suboptimal average set size. Conversely, LABEL -WEIGHTED achieves 1 − α GenusMacroCov almost exactly and yields the smallest average set size. Table 3: Targeting generalized macro-coverage on Pl@ntNet at α = 0 .1. The left panel targets tail-focused macro-coverage; the right panel targets genus-level macro-coverage. 
+
+Goal : MacroCov tail ≥ 0.9 Goal : GenusMacroCov ≥ 0.9
+
+Method Score MarginalCov MacroCov tail AvgSize MarginalCov GenusMacroCov AvgSize 
+
+STANDARD ssoftmax 0.901 ±0.001 0.656 ±0.002 2.8±0.0 0.901 ±0.001 0.883 ±0.001 2.8±0.0
+
+ˆsg,w 0.900 ±0.001 0.849 ±0.001 2.3±0.0 0.900 ±0.001 0.941 ±0.000 2.8±0.0
+
+CLASSWISE ssoftmax 0.940 ±0.001 0.945 ±0.001 58 .1±1.4 0.941 ±0.001 0.949 ±0.001 10 .7±0.2
+
+LABEL -
+
+> WEIGHTED
+
+ssoftmax 0.984 ±0.000 0.901 ±0.002 24 .3±0.9 0.919 ±0.001 0.902 ±0.001 3.4±0.0
+
+ˆsg,w 0.949 ±0.001 0.899 ±0.002 3.8±0.1 0.764 ±0.002 0.902 ±0.001 1.8±0.0
+
+# 4 Discussion 
+
+We propose label-weighted conformal prediction as a way to produce prediction sets with finite-sample guarantees of (generalized) macro-coverage. Rather than defaulting to the marginal guarantee of standard conformal, which implicitly assumes that the importance of covering a class y is given by its prevalence, our work expands the scope of distribution-free guarantees that are achievable in classification settings. Using our framework, practitioners can precisely specify how much coverage for each class matters, define an aggregated coverage notion that respects the relative importances, then produce prediction sets with a guarantee that their customized coverage is at least 1 − α.Furthermore, using our score function proposal means that these sets will be approximately optimal, in the sense of set size. 
+
+Limitations and future work. Conformal prediction methods, including ours, have an inherent tradeoff between cover-age and set size, which worsens as data becomes more limited. As the number of calibration examples of the smallest class (or, more generally, group) shrinks, the size of the α correction in Algorithm 1 grows, causing prediction set size to increase with it. However, the amount of increase is controlled by the weight assigned to the smallest group. Since our theory allows us to adjust the weight assigned to a group after seeing its calibration count, this allows us to avoid producing uninformative sets. Furthermore, the adjustment our method applies is favorable compared to that required by class-conditional conformal. Whereas the latter applies an adjustment for every class, our method only applies an adjustment for the “worst class” (the class with the highest weight, normalized by the number of calibration examples). Directions for future work include exploring practical ways of simultaneously achieving guaranteed macro-coverage and feature-conditional coverage and operationalizing our framework for real-world classification tasks, such as the plant identification app from which the Pl@ntNet dataset used in our experiments is derived. 
+
+# References 
+
+Anastasios N Angelopoulos and Stephen Bates. Conformal prediction: A gentle introduction. Foundations and Trends in Machine Learning , 16(4):494–591, 2023. Rina Foygel Barber, Emmanuel J Candes, Aaditya Ramdas, and Ryan J Tibshirani. Conformal prediction beyond exchangeability. The Annals of Statistics , 51(2):816–845, 2023. 9Aabesh Bhattacharyya and Rina Foygel Barber. Group-weighted conformal prediction. arXiv preprint arXiv:2401.17452 , 2024. Tiffany Ding, Anastasios Angelopoulos, Stephen Bates, Michael Jordan, and Ryan J Tibshirani. Class-conditional conformal prediction with many classes. Advances in Neural Information Processing Systems , 36:64555–64576, 2023. Tiffany Ding, Jean-Baptiste Fermanian, and Joseph Salmon. Conformal prediction for long-tailed classification. In-ternational Conference on Learning Representations , 2026. Camille Garcin, Alexis Joly, Pierre Bonnet, Jean-Christophe Lombardo, Antoine Affouard, Mathias Chouet, Max-imilien Servajean, Titouan Lorieul, and Joseph Salmon. Pl@ntNet-300K: A plant image dataset with high label ambiguity and a long-tailed distribution. In Advances in Neural Information Processing Systems , 2021. Jing Lei, Max G’Sell, Alessandro Rinaldo, Ryan J Tibshirani, and Larry Wasserman. Distribution-free predictive inference for regression. Journal of the American Statistical Association , 113(523):1094–1111, 2018. David D Lewis. Evaluating text categorization i. In Speech and Natural Language: Proceedings of a Workshop Held at Pacific Grove, California, February 19-22, 1991 , 1991. Shuqi Liu, Jianguo Huang, and Luke Ong. Conformal prediction meets long-tail classification. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 40, pages 23828–23836, 2026. Harris Papadopoulos, Kostas Proedrou, Volodya Vovk, and Alex Gammerman. Inductive confidence machines for regression. In European Conference on Machine Learning , pages 345–356. Springer, 2002. Aleksandr Podkopaev and Aaditya Ramdas. Distribution-free uncertainty quantification for classification under label shift. In Uncertainty in Artificial Intelligence , pages 844–853. PMLR, 2021. Mauricio Sadinle, Jing Lei, and Larry Wasserman. Least ambiguous set-valued classifiers with bounded error levels. 
+
+Journal of the American Statistical Association , 114(525):223–234, 2019. Jun Shao. Mathematical Statistics . Springer Science & Business Media, 2008. Yuanjie Shi, Subhankar Ghosh, Taha Belkhouja, Janardhan R Doppa, and Yan Yan. Conformal prediction for class-wise coverage via augmented label rank calibration. Advances in Neural Information Processing Systems , 37: 132133–132178, 2024. Ryan J Tibshirani, Rina Foygel Barber, Emmanuel Candes, and Aaditya Ramdas. Conformal prediction under covari-ate shift. Advances in Neural Information Processing Systems , 32, 2019. Grant Van Horn, Steve Branson, Ryan Farrell, Scott Haber, Jessie Barry, Panos Ipeirotis, Pietro Perona, and Serge Belongie. Building a bird recognition app and large scale dataset with citizen scientists: The fine print in fine-grained dataset collection. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition ,pages 595–604, 2015. Vladimir Vovk. Conditional validity of inductive conformal predictors. In Asian Conference on Machine Learning ,pages 475–490. PMLR, 2012. Vladimir Vovk, Alexander Gammerman, and Glenn Shafer. Algorithmic Learning in a Random World . Springer, 2005. 10 A Proof of Theorem 1 
+
+Proof. Conditional on H, the group memberships g(Y1), . . . , g (Yn), the counts Nk, the set K+, and the weights w(k)
+
+are fixed. Let 
+
+∆ := max 
+
+> k∈K +
+
+w(k)
+
+Nk
+
+.
+
+If 1 − α − ∆ ≤ 0, then the result is immediate because coverage is nonnegative. Thus, assume 1 − α − ∆ > 0.We first prove the result in the case where all groups are observed, so that K+ = K.For each k ∈ K , let 
+
+(X(k)0 , Y (k)0 )
+
+be a“ghost” sample from the distribution of (X, Y ) | g(Y ) = k that is independent of the calibration data, and define 
+
+S(k)0 := s(X(k)0 , Y (k)0 ).
+
+Since K+ = K, the weighted empirical score distribution is 
+
+bPg,w = X
+
+> k∈K
+
+w(k) 1
+
+NkNkX
+
+> j=1
+
+δS(k)
+
+> j
+
+.
+
+By the definition of (g, w ) macro-coverage, 
+
+MacroCov g,w (C | H ) = X
+
+> k∈K
+
+w(k)P
+
+
+
+S(k)0 ≤ Q1−α( bPg,w ) | H 
+
+
+
+.
+
+Fix k ∈ K and j ∈ { 1, . . . , N k}. Define the ghost-replaced weighted empirical distribution 
+
+bP k,j g,w := bPg,w + w(k)
+
+Nk
+
+
+
+δS(k)0
+
+− δS(k)
+
+> j
+
+
+
+.
+
+That is, bP k,j g,w is obtained from bPg,w by replacing the jth calibration score in group k by the independent ghost score from the same group. Conditional on H, the scores 
+
+S(k)0 , S (k)1 , . . . , S (k)
+
+> Nk
+
+are exchangeable. Therefore, 
+
+P
+
+
+
+S(k)0 ≤ Q1−α( bPg,w ) | H 
+
+
+
+= P
+
+
+
+S(k) 
+
+> j
+
+≤ Q1−α( bP k,j g,w ) | H 
+
+
+
+.
+
+Averaging over j = 1 , . . . , N k and summing over k ∈ K gives 
+
+MacroCov g,w (C | H ) = X
+
+> k∈K
+
+w(k) 1
+
+NkNkX
+
+> j=1
+
+P
+
+
+
+S(k) 
+
+> j
+
+≤ Q1−α( bP k,j g,w ) | H 
+
+
+
+. (10) For every k ∈ K and j ∈ { 1, . . . , N k}, the distributions bPg,w and bP k,j g,w differ only by moving mass w(k)/N k from 
+
+S(k) 
+
+> j
+
+to S(k)0 . Hence 
+
+dTV 
+
+ bPg,w , bP k,j g,w 
+
+
+
+≤ w(k)
+
+Nk
+
+≤ ∆.
+
+Therefore, 
+
+Q1−α( bP k,j g,w ) ≥ Q1−α−∆( bPg,w ).
+
+11 Using this in (10), 
+
+MacroCov g,w (C | H ) ≥ X
+
+> k∈K
+
+w(k) 1
+
+NkNkX
+
+> j=1
+
+P
+
+
+
+S(k) 
+
+> j
+
+≤ Q1−α−∆( bPg,w ) | H 
+
+
+
+= E
+
+X
+
+> k∈K
+
+w(k) 1
+
+NkNkX
+
+> j=1
+
+1
+
+n
+
+S(k) 
+
+> j
+
+≤ Q1−α−∆( bPg,w )
+
+o
+
+H
+
+ .
+
+By the definition of the weighted empirical distribution and of the quantile, 
+
+X
+
+> k∈K
+
+w(k) 1
+
+NkNkX
+
+> j=1
+
+1
+
+n
+
+S(k) 
+
+> j
+
+≤ Q1−α−∆( bPg,w )
+
+o
+
+≥ 1 − α − ∆
+
+almost surely. Therefore, in the all-observed case, 
+
+MacroCov g,w (C | H ) ≥ 1 − α − ∆.
+
+We now handle the general case, where some groups may have Nk = 0 . Let 
+
+W+ := X
+
+> k∈K +
+
+w(k)
+
+be the total weight assigned to observed groups. If Q1−α( bPg,w ) = ∞, then C(x) = Y for all x ∈ X and the macro-coverage guarantee is satisfied trivially. If Q1−α( bPg,w ) < ∞, then we must have W+ > 0. Define normalized weights on the observed groups by 
+
+ew(k) := w(k)
+
+W+
+
+for k ∈ K +,
+
+and define the observed-groups weighted empirical score distribution 
+
+bP+ := X
+
+> k∈K +
+
+ew(k) 1
+
+NkNkX
+
+> j=1
+
+δS(k)
+
+> j
+
+.
+
+By construction, bPg,w = W+ bP+ + (1 − W+)δ∞ and Q1−α( bPg,w ) = Q 1−αW+
+
+( bP+).
+
+Let 
+
+1 − eα := 1 − αW+
+
+, equivalently eα = 1 − 1 − αW+
+
+.
+
+Applying the all-observed result above to the group set K+, the weights ew(k), and the miscoverage level eα, we obtain 
+
+X
+
+> k∈K +
+
+ew(k)P
+
+
+
+S(k)0 ≤ Q 1−αW+
+
+( bP+) | H 
+
+
+
+≥ 1 − αW+
+
+− max 
+
+> k∈K +
+
+ew(k)
+
+Nk
+
+.
+
+Using 
+
+Q 1−αW+
+
+( bP+) = Q1−α( bPg,w ),
+
+and multiplying both sides by W+ gives 
+
+X
+
+> k∈K +
+
+w(k)P
+
+
+
+S(k)0 ≤ Q1−α( bPg,w ) | H 
+
+
+
+≥ 1 − α − W+ · max 
+
+> k∈K +
+
+ew(k)
+
+Nk
+
+.
+
+12 Since 
+
+W+ · max 
+
+> k∈K +
+
+ew(k)
+
+Nk
+
+= max 
+
+> k∈K +
+
+w(k)
+
+Nk
+
+= ∆ ,
+
+we have X
+
+> k∈K +
+
+w(k)P
+
+
+
+S(k)0 ≤ Q1−α( bPg,w ) | H 
+
+
+
+≥ 1 − α − ∆.
+
+Finally, 
+
+MacroCov g,w (C | H ) = X
+
+> k∈K
+
+w(k)P
+
+
+
+S(k)0 ≤ Q1−α( bPg,w ) | H 
+
+
+
+≥ X
+
+> k∈K +
+
+w(k)P
+
+
+
+S(k)0 ≤ Q1−α( bPg,w ) | H 
+
+
+
+≥ 1 − α − ∆.
+
+This proves the theorem. 
+
+# B Proof of Proposition 1 
+
+Proposition 4 (Formal version of Proposition 1) . For t ∈ R, define 
+
+˜Ct(x) = {y ∈ Y : ˜ s(x, y ) ≥ t} where ˜s(x, y ) = w(g(y)) 
+
+ρ(g(y)) · p(y|x). (11) 
+
+If there exists tα such that MacroCov g,w ( ˜Ctα ) = 1 − α, then ˜Ctα is the solution to 
+
+min 
+
+> C:X 7 → 2Y
+
+E[|C (X)|] s.t. MacroCov g,w (C) ≥ 1 − α. (12) 
+
+Remark 1. If there does not exist tα satisfying the equality exactly, the optimal set is still of the thresholded form above but must be combined with randomization to achieve the optimal solution with exact (g, w ) macro-coverage of 
+
+1 − α. Shao (2008, Theorem 6.1) can be used to characterize such a randomized solution. Proof. First, observe that for any grouping function g and weight function w, we can rewrite MacroCov g,w in terms of the identity grouping function gI (y) = y and some weighting function ˜w : Y → R≥0:
+
+MacroCov g,w (C | H ) = X
+
+> k∈K
+
+w(k) P Yn+1 ∈ C (Xn+1 ) | g(Yn+1 ) = k, H
+
+= X
+
+> k∈K
+
+w(k) X
+
+> y:g(y)= k
+
+p(y)
+
+ρ(k) P Y ∈ C (X) | Y = y, H
+
+= X
+
+> y∈Y
+
+˜w(y) P Y ∈ C (X) | Y = y, H (13) for ˜w(y) := w(g(y)) · p(y)
+
+ρ(g(y)) .
+
+In order to find the smallest prediction set C satisfying MacroCov g,w (C | H ) ≥ 1 − α, we use a result from Ding et al. (2026). We restate the relevant part here for completeness. 
+
+Proposition 6 of Ding et al. (2026). Let ω : Y → [0 , 1] be a non-negative weighting function summing to one. For 
+
+t ∈ R, define 
+
+˜Ct(x) = {y ∈ Y : ˜ s(x, y ) ≥ t} where ˜s(x, y ) = ω(y)
+
+p(y) · p(y|x) (14) 13 and p(y|x) denotes the conditional probability of Y given X = x and p(y) is the marginal probability of Y . Let 
+
+α ∈ [0 , 1] . If there exists tα such that MacroCov ω ( ˜Ctα ) = 1 − α, then ˜Ctα is the optimal solution to 
+
+min 
+
+> C:X 7 → 2Y
+
+E[|C (X)|] subject to X
+
+> y∈Y
+
+ω(y)P(y ∈ C (X) | Y = y) ≥ 1 − α. (15) The representation of (g, w ) macro-coverage given in (13) allows us to apply this proposition, which directly yields the desired result. 
+
+# C Proofs of Propositions 2 and 3 
+
+Proof of Proposition 2. Let Cj refer to the prediction set produced by Algorithm 1 for the j-th coverage constraint. By Theorem 1, each Cj satisfies MacroCov gj ,w j ≥ 1−αj . When the true label is in any of these sets, it is also in the union of such sets, so the set union simultaneously satisfies all of the coverage conditions. Because all Cj are constructed by applying the same fixed score function s and comparing against a threshold, the set union can be obtained by taking the max of the score thresholds implied by each constraint. Next, we first state the formal version of Proposition 3 and then prove it. 
+
+Proposition 5 (Formal version of Proposition 3) . Suppose there exist λ = ( λ1, . . . , λ m) ∈ Rm
+
+> ≥0
+
+, not identically zero, and t > 0 such that the deterministic prediction set 
+
+Cλ,t (x) = 
+
+y ∈ Y : p(y | x)
+
+p(y)
+
+> m
+
+X
+
+> j=1
+
+λj ˜wj (y) ≥ t
+
+
+
+is feasible, meaning that 
+
+MacroCov gj ,w j (Cλ,t ) ≥ 1 − αj , j = 1 , . . . , m, 
+
+and satisfies 
+
+λj
+
+MacroCov gj ,w j (Cλ,t ) − (1 − αj ) = 0 , j = 1 , . . . , m. (16) 
+
+Then Cλ,t is an optimal solution to 
+
+min 
+
+> C:X → 2Y
+
+E|C (X)| s.t. MacroCov gj ,w j (C) ≥ 1 − αj , j = 1 , . . . , m. 
+
+Remark 2. The proposition is stated for deterministic prediction sets. If the condition above is not satisfied by any Cλ,t , then an optimal relaxed solution may require randomization on the boundary in order to satisfy the active constraints exactly. Proof. Let c(x, y ) = 1{y ∈ C (x)}. We prove the result by considering the more general relaxed problem in which 
+
+c : X × Y → [0 , 1] 
+
+is allowed to be a randomized set-inclusion rule. Deterministic prediction sets are recovered when c takes values in 
+
+{0, 1}. Fix j ∈ [m]. For each group k ∈ K j , let ρj (k) = P(gj (Y ) = k).For a relaxed rule c, the jth generalized macro-coverage functional is 
+
+MacroCov gj ,w j (C) = X
+
+> k∈K j
+
+wj (k)E[c(X, Y ) | gj (Y ) = k].
+
+14 Expanding over labels inside each group gives 
+
+MacroCov gj ,w j (c) = X
+
+> k∈K j
+
+wj (k) X 
+
+> y:gj(y)= k
+
+P(Y = y | gj (Y ) = k)E[c(X, y ) | Y = y]= X
+
+> k∈K j
+
+wj (k) X 
+
+> y:gj(y)= k
+
+p(y)
+
+ρj (k) E[c(X, y ) | Y = y]= X
+
+> y∈Y
+
+wj (gj (y)) p(y)
+
+ρj (gj (y)) E[c(X, y ) | Y = y]= X
+
+> y∈Y
+
+˜wj (y)E[c(X, y ) | Y = y].
+
+Using Bayes’ rule, 
+
+p(x | y) = p(y | x)p(x)
+
+p(y) ,
+
+we can rewrite this as 
+
+MacroCov gj ,w j (C) = X
+
+> y∈Y
+
+˜wj (y)
+
+Z
+
+c(x, y )p(x | y) dx 
+
+=
+
+Z
+
+p(x) X
+
+> y∈Y
+
+c(x, y ) ˜ wj (y) p(y | x)
+
+p(y) dx. (17) Similarly, the expected size is 
+
+E|C (X)| = E
+
+X
+
+> y∈Y
+
+c(X, y )
+
+ =
+
+Z
+
+p(x) X
+
+> y∈Y
+
+c(x, y ) dx. (18) Thus the relaxed oracle problem is the linear program 
+
+min 
+
+> 0≤c≤1
+
+Z
+
+p(x) X
+
+> y∈Y
+
+c(x, y ) dx s.t. 
+
+Z
+
+p(x) X
+
+> y∈Y
+
+c(x, y ) ˜ wj (y) p(y | x)
+
+p(y) dx ≥ 1 − αj , j = 1 , . . . , m. 
+
+For multipliers μ1, . . . , μ m ≥ 0, the Lagrangian is 
+
+L(c, μ ) = E|C (X)| +
+
+> m
+
+X
+
+> j=1
+
+μj
+
+(1 − αj ) − MacroCov gj ,w j (c)
+
+=
+
+> m
+
+X
+
+> j=1
+
+μj (1 − αj ) + 
+
+Z
+
+p(x) X
+
+> y∈Y
+
+c(x, y )
+
+1 − p(y | x)
+
+p(y)
+
+> m
+
+X
+
+> j=1
+
+μj ˜wj (y)
+
+ dx. 
+
+For fixed μ, the Lagrangian is separable in (x, y ). Therefore, minimizing it over c(x, y ) ∈ [0 , 1] can be done pointwise. The coefficient of c(x, y ) is 
+
+1 − p(y | x)
+
+p(y)
+
+> m
+
+X
+
+> j=1
+
+μj ˜wj (y).
+
+Hence any minimizer of the Lagrangian satisfies 
+
+cμ(x, y ) = 
+
+
+
+1, p(y | x)
+
+p(y)
+
+> m
+
+X
+
+> j=1
+
+μj ˜wj (y) > 1,
+
+0, p(y | x)
+
+p(y)
+
+> m
+
+X
+
+> j=1
+
+μj ˜wj (y) < 1,
+
+any value in [0 , 1] , p(y | x)
+
+p(y)
+
+> m
+
+X
+
+> j=1
+
+μj ˜wj (y) = 1 .
+
+(19) 15 Now take the deterministic set Cλ,t from the proposition statement and let 
+
+cλ,t (x, y ) = 1{y ∈ C λ,t (x)}.
+
+Then cλ,t is a pointwise minimizer of the Lagrangian as given by equation (19) with μj = λj 
+
+> t
+
+.In order to verify optimality, let c be any feasible relaxed rule. Since cλ,t minimizes L(·, μ ),
+
+L(cλ,t , μ ) ≤ L (c, μ ).
+
+Since c is feasible, 
+
+(1 − αj ) − MacroCov gj ,w j (c) ≤ 0 ∀ j, 
+
+and 
+
+L(c, μ ) ≤ E
+
+X
+
+> y∈Y
+
+c(X, y )
+
+ .
+
+On the other hand, since Cλ,t satisfies condition (16), 
+
+L(cλ,t , μ ) = E|C λ,t (X)|.
+
+Combining these inequalities gives 
+
+E|C λ,t (X)| ≤ E
+
+X
+
+> y∈Y
+
+c(X, y )
+
+
+
+for every feasible relaxed rule c. Thus Cλ,t is an optimal deterministic solution to the simultaneous coverage-constrained problem. 
+
+# D Additional Experimental Results 
+
+Table 4 is analogous to Table 3 in the main text, but for α = 0 .05 .Table 4: Targeting generalized macro-coverage on Pl@ntNet at α = 0 .05 . The left panel targets tail-focused macro-coverage; the right panel targets genus-level macro-coverage. 
+
+Goal : MacroCov tail ≥ 0.95 Goal : GenusMacroCov ≥ 0.95 
+
+Method Score MarginalCov MacroCov tail AvgSize MarginalCov GenusMacroCov AvgSize 
+
+STANDARD ssoftmax 0.951 ±0.001 0.785 ±0.002 5.9±0.1 0.951 ±0.000 0.939 ±0.001 5.9±0.1
+
+ˆsg,w 0.949 ±0.001 0.899 ±0.001 3.8±0.1 0.950 ±0.000 0.963 ±0.000 4.5±0.0
+
+CLASSWISE ssoftmax 0.987 ±0.000 0.996 ±0.000 263 .4±0.9 0.970 ±0.000 0.970 ±0.001 60 .2±1.1
+
+LABEL -
+
+WEIGHTED 
+
+ssoftmax 0.993 ±0.000 0.950 ±0.001 71 .5±1.9 0.962 ±0.001 0.952 ±0.001 8.1±0.2
+
+ˆsg,w 0.984 ±0.000 0.951 ±0.001 10 .7±0.3 0.930 ±0.001 0.952 ±0.001 3.4±0.1
+
+16
