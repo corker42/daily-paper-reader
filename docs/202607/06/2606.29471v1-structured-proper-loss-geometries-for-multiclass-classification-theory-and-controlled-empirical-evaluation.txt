@@ -1,0 +1,1405 @@
+Title: Structured Proper Loss Geometries for Multiclass Classification: Theory and Controlled Empirical Evaluation
+
+URL Source: https://arxiv.org/pdf/2606.29471v1
+
+Published Time: Tue, 30 Jun 2026 01:51:23 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Structured Proper Loss Geometries for Multiclass Classification: Theory and Controlled Empirical Evaluation 
+
+Soumyadip Sarkar 
+
+Independent Researcher 
+
+Abstract 
+
+Strictly proper scoring rules identify the true conditional class distribution at population level, but their curvature can alter optimization and finite-sample behavior. We study three multiclass objectives: a class-aware quadratic Bregman score (CAPM), a strongly convex generator with constrained log-cosh ridges (HPG), and an HPG objective with an annealed probability-margin penalty (APMS). CAPM is treated as a structured instance of established quadratic scoring-rule theory. We derive conditional-regret, curvature, range, and logit-gradient bounds for CAPM and HPG, and prove exact penalty-range and conditional-target displacement bounds for APMS. Controlled five-seed experiments use Digits, Wisconsin breast cancer, and synthetic confusion and long-tail problems under clean labels, symmetric and pair-flip corruption, class imbalance, calibration evaluation, input corruption, and first-order adversarial perturbations. The candidates are close to cross-entropy on clean data and show descriptive gains in some noisy-label cells, but the five-seed comparisons are interpreted descriptively rather than as significance evidence. The selected noisy-label baselines perform better on Digits with 40% symmetric label noise, and explicit prior-adjustment methods perform better in the 30:1 synthetic long-tail experiment. Ablations do not show a consistent benefit from the candidate-specific graph, ridge, or margin components. The mathematical analysis establishes the stated properties, and the experiments delimit the empirical evidence; together they do not support a claim of general superiority. 
+
+Keywords: proper scoring rules; Bregman divergence; multiclass classification; label noise; long-tailed learning; calibration. 
+
+## 1 Introduction 
+
+The loss function used to train a probabilistic classifier determines the population quantity being estimated and affects the geometry through which model parameters are optimized. This paper uses softmax cross-entropy as the reference baseline; the corresponding logarithmic score is strictly proper under the usual probability-level interpretation [1]. Nevertheless, finite neural networks trained with cross-entropy can be miscalibrated, and sufficiently expressive networks can fit corrupted labels [2, 3]. These observations have motivated objectives designed for particular failure modes, including focal loss for class imbalance in dense detection [4], generalized and symmetric cross-entropy for noisy labels [5, 6], and prior- or margin-adjusted objectives for long-tailed recognition [7–10]. Strictly proper scoring rules provide a statistical constraint: at the population level, their conditional risk is uniquely minimized by the true class-probability vector [1, 11]. Properness does not, however, determine finite-sample accuracy, calibration after model misspecification, optimization speed, robustness to corrupted labels, or performance under class-prior shift. The curvature of a proper score can therefore matter even when different scores share the same population minimizer. Existing work on composite losses, learned proper losses, and task-tailored proper scores shows that proper objectives can have adaptable geometry [12–15]. This paper studies three multiclass objectives. The first, class-aware proper Mahalanobis loss (CAPM), is a structured quadratic Bregman score. The second, hyperbolic proper generator loss (HPG), adds constrained log-cosh ridge terms to a quadratic generator. The third, annealed probability-margin shaping (APMS), augments HPG with a bounded margin penalty whose coefficient is scheduled toward zero. CAPM is an application-specific parameterization of classical quadratic proper-score theory rather than a new scoring-rule family. HPG and APMS are analyzed as concrete constructions, with the contribution centered on their exact properties and controlled comparison rather than on a broad claim about adaptable proper geometry. The study makes three contributions. First, it gives complete definitions and derives conditional regret, curvature, range, and gradient bounds for CAPM and HPG. Second, it proves the exact range of the APMS margin penalty on the simplex and establishes both square-root and linear bounds on the displacement of its conditional minimizer from the true probability vector. Third, it reports cross-entropy comparisons across the evaluated regimes and targeted comparisons with established noisy-label, long-tail, and calibration baselines. 1
+
+> arXiv:2606.29471v1 [cs.LG] 28 Jun 2026
+
+The empirical results are deliberately interpreted at the scale supported by the experiments: the proposed structures are close to or slightly above cross-entropy in several cells but do not consistently outperform specialized noisy-label or long-tail methods. 
+
+## 2 Related work 
+
+2.1 Proper scoring rules and composite losses 
+
+The Brier score is a classical quadratic probability score [16]. General proper-scoring-rule theory characterizes losses whose expected value is optimized by truthful probabilistic reporting [1]. For differentiable finite-outcome scores, convex entropies and Bregman divergences provide a standard representation under appropriate regularity assumptions [11]. Composite-loss theory separates a probability-level proper loss from a link that maps model outputs to probabilities and characterizes convexity and classification calibration [12, 13, 17]. Recent studies have trained language models with non-logarithmic proper scores [18], learned proper multiclass losses [14], and tailored proper-score curvature to downstream estimation error [15]. These works motivate treating the present contribution as a specific construction and evaluation rather than as a broad novelty claim based solely on replacing log loss with a parameterized proper geometry. 
+
+2.2 Learning with noisy labels 
+
+Robustness to label noise is model- and assumption-dependent. Symmetric-loss analyses establish risk invariance under idealized corruption models [19]. Loss-correction methods use an estimated transition matrix [20]. Generalized cross-entropy interpolates between cross-entropy and an MAE-like objective [5]; symmetric cross-entropy combines ordinary and reverse cross-entropy [6]; bi-tempered logistic loss modifies logarithmic and exponential functions in a Bregman construction [21]; and normalized active–passive losses address the underfitting that can occur with bounded or symmetric objectives [22]. Synthetic symmetric and pair-flip noise are useful controlled settings but do not reproduce the heterogeneity of human annotation errors represented by datasets such as CIFAR-N [23]. 
+
+2.3 Long-tailed learning, calibration, and adversarial evaluation 
+
+Long-tailed learning methods alter sample weights, margins, or class priors. Class-balanced loss uses the effective number of samples [7]; LDAM introduces class-dependent margins [8]; Balanced Softmax modifies the softmax normalization using class frequencies [9]; and logit adjustment incorporates empirical priors during or after training [10]. Focal loss with a positive focusing parameter is classification calibrated but is not a proper probability loss without a correction map [24, 25]. Temperature scaling is a simple post-hoc calibration method that preserves the predicted class for positive temperatures [2]. Adversarial accuracy is distinct from probability-space curvature. FGSM and projected-gradient attacks are empirical evaluation methods [26, 27]; adversarial training objectives such as TRADES optimize an explicit robustness–accuracy trade-off [28]; and attack ensembles such as AutoAttack are designed to reduce evaluation pitfalls [29]. Consequently, the gradient bounds derived below are not adversarial certificates. 
+
+## 3 Structured loss formulations 
+
+3.1 Preliminaries 
+
+Let Y ∈ { 1, . . . , K }, let η ∈ ∆K−1 denote the conditional class distribution, and let p ∈ ∆K−1 be a reported distribution. For a differentiable convex function F defined on a neighborhood of the simplex, its Bregman divergence is 
+
+DF (q, p ) = F (q) − F (p) − ⟨∇ F (p), q − p⟩. (1) We use the negatively oriented categorical score 
+
+ℓF (p, y ) = DF (ey , p ), (2) where ey is the yth standard basis vector. The following standard identity fixes the statistical interpretation of the constructions [1, 11]. 
+
+Lemma 1 (Bregman conditional regret) . For RF (η, p ) = EY ∼η [ℓF (p, Y )] ,
+
+RF (η, p ) − RF (η, η ) = DF (η, p ). (3) 2If F is strictly convex, ℓF is strictly proper. If F is m-strongly convex and M -smooth in Euclidean norm, then 
+
+m
+
+2 ∥η − p∥22 ≤ DF (η, p ) ≤ M
+
+2 ∥η − p∥22. (4) Differentiation of Eq. (2) gives 
+
+∇pℓF (p, y ) = HF (p)( p − ey ), (5) where HF = ∇2F . If HF (p) ⪯ M I , then ∥∇ pℓF ∥2 ≤ M √2. For p = softmax (z/T ), the softmax Jacobian has operator norm at most 1 /(2 T ), yielding 
+
+∥∇ z ℓF ∥2 ≤ M
+
+√2T . (6) This is a bound on the loss gradient with respect to logits, not with respect to the input. 
+
+3.2 Class-aware proper Mahalanobis loss 
+
+Let u = K−11 and define 
+
+FC(p) = 12 (p − u)⊤A(p − u), (7) 
+
+A = λI + BB ⊤ + γL G + δD tail , (8) where λ > 0, B is any real matrix with K rows, LG ⪰ 0 is a graph Laplacian, Dtail ⪰ 0 is diagonal, and γ, δ ≥ 0. The resulting loss is 
+
+ℓC(p, y ) = 12 (ey − p)⊤A(ey − p). (9) The experiments construct LG from training-set class-centroid similarities and Dtail from training class counts. These quantities are descriptive structures; they are not assumed to recover a causal or semantic class graph. 
+
+Proposition 2 (CAPM properties) . Let m = λmin (A) > 0 and M = λmax (A). CAPM is strictly proper and 
+
+RC(η, p ) − RC(η, η ) = 12 (η − p)⊤A(η − p). (10) 
+
+Moreover, Eq. (4) holds, 0 ≤ ℓC(p, y ) ≤ M , and Eq. (6) holds with the same M .
+
+3.3 Hyperbolic proper generator loss 
+
+HPG uses the generator 
+
+FH(p) = s
+
+"
+
+λ
+
+2 ∥p − u∥22 +
+
+> R
+
+X
+
+> r=1
+
+ar ρ2 
+
+> r
+
+log cosh 
+
+ w⊤ 
+
+> r
+
+p − br
+
+ρr
+
+#
+
+, (11) with λ > 0, ar ≥ 0, ρr ≥ ρmin > 0, ∥wr ∥2 ≤ 1, and s > 0. Its gradient and Hessian are 
+
+∇FH(p) = s
+
+"
+
+λ(p − u) + X
+
+> r
+
+ar ρr tanh( vr )wr
+
+#
+
+, (12) 
+
+HFH (p) = s
+
+"
+
+λI + X
+
+> r
+
+ar sech 2(vr )wr w⊤
+
+> r
+
+#
+
+, (13) where vr = ( w⊤ 
+
+> r
+
+p − br )/ρ r . The HPG loss is ℓH(p, y ) = DFH (ey , p ). 
+
+Proposition 3 (HPG curvature and range) . Define 
+
+m = sλ, M = s λ + X
+
+> r
+
+ar ∥wr ∥22
+
+!
+
+. (14) 
+
+Then mI ⪯ HFH (p) ⪯ M I for all p. Therefore HPG is strictly proper, satisfies Eq. (4) , obeys 0 ≤ ℓH(p, y ) ≤ M ,and satisfies Eq. (6) with this value of M . Its Hessian is globally Lipschitz with the valid bound 
+
+LH ≤ s X
+
+> r
+
+4ar
+
+3√3 ρr
+
+∥wr ∥32. (15) 3Table 1: Datasets and evaluated training regimes.                
+
+> Dataset Samples Classes Training regimes Breast cancer 569 2clean; symmetric 20%, 40% Digits 1,797 10 clean; symmetric 20%, 40%; pair-flip 40% Synthetic confusion 2,400 6clean; symmetric 20%; pair-flip 40% Synthetic long-tail 6,000 source 10 clean labels; 30:1 training imbalance
+
+3.4 Annealed probability-margin shaping 
+
+For the HPG core, define the smoothed probability margin 
+
+mτ (p, y ) = py − τ log X 
+
+> j̸=y
+
+exp( pj /τ ) (16) and the bounded penalty 
+
+r(p, y ) = ν softplus 
+
+ κ − mτ (p, y )
+
+ν
+
+
+
+, (17) where τ, ν > 0. At optimization step t, with β0 ≥ 0, Ts > 0, and q > 0, APMS uses 
+
+ℓA,t (p, y ) = ℓH(p, y ) + βtr(p, y ), βt = β0 (1 − min {t/T s, 1})q . (18) For βt > 0, the objective is not generally proper. The schedule is intended to make the terminal objective coincide with HPG, although an early-stopped checkpoint can be selected before βt reaches zero. 
+
+Theorem 4 (APMS penalty range and target displacement) . For K ≥ 2, the exact minimum and maximum of mτ (p, y ) over the simplex and labels are 
+
+mmin = −τ log {exp(1 /τ ) + K − 2}, mmax = 1 − τ log( K − 1) . (19) 
+
+Consequently, 
+
+ν softplus 
+
+ κ − mmax 
+
+ν
+
+
+
+≤ r(p, y ) ≤ Cr := ν softplus 
+
+ κ − mmin 
+
+ν
+
+
+
+. (20) 
+
+Let R0(η, p ) be the conditional risk of a twice differentiable proper Bregman score generated by an F satisfying 
+
+HF ⪰ mI and let 
+
+p⋆β ∈ arg min 
+
+> p∈∆K−1
+
+{R0(η, p ) + β EY ∼η [r(p, Y )] }. (21) 
+
+Then 
+
+∥p⋆β − η∥2 ≤
+
+r 2βC r
+
+m , (22) 
+
+∥p⋆β − η∥2 ≤√2 βm . (23) 
+
+Thus the conditional minimizer converges to η as β → 0, but positive-β properness does not follow. 
+
+## 4 Experimental design 
+
+4.1 Datasets and training regimes 
+
+The experiments use two public scikit-learn datasets and two synthetic classification problems generated with fixed source seeds [30]. Table 1 summarizes the design. For Digits, breast cancer, and synthetic confusion, each random seed defines stratified 60/20/20 training, validation, and test partitions. Feature standardization is fitted on the training partition only. Symmetric corruption replaces a selected training label uniformly with a different class; pair-flip corruption maps a selected label to its successor modulo K. Validation and test labels remain clean. The long-tail problem begins with a balanced 10-class synthetic population. Only the training pool is exponentially subsampled, producing an observed largest-to-smallest class-count ratio of 30:1 for every retained seed. Validation and test splits remain approximately balanced. This design isolates training-prior imbalance but is not a substitute for a natural long-tailed benchmark. 4Table 2: Accuracy for cross-entropy and the three studied objectives. The synthetic long-tail row reports balanced accuracy on the balanced test split; all other rows report ordinary test accuracy. Values are mean ±
+
+sample standard deviation over five matched seeds. The table is descriptive and is not used to assert statistical significance. 
+
+Dataset Training regime CE CAPM HPG APMS Breast cancer Clean 0.975 ± 0.013 0.977 ± 0.013 0.977 ± 0.013 0.977 ± 0.013 Breast cancer Symmetric 20% 0.968 ± 0.016 0.968 ± 0.016 0.970 ± 0.018 0.968 ± 0.017 Breast cancer Symmetric 40% 0.875 ± 0.034 0.872 ± 0.024 0.872 ± 0.024 0.867 ± 0.032 Digits Clean 0.963 ± 0.010 0.967 ± 0.010 0.967 ± 0.012 0.967 ± 0.010 Digits Symmetric 20% 0.939 ± 0.019 0.944 ± 0.012 0.948 ± 0.014 0.948 ± 0.016 Digits Symmetric 40% 0.915 ± 0.021 0.921 ± 0.017 0.920 ± 0.018 0.921 ± 0.017 Digits Pair-flip 40% 0.698 ± 0.038 0.734 ± 0.074 0.733 ± 0.054 0.732 ± 0.052 Synthetic confusion Clean 0.601 ± 0.019 0.602 ± 0.023 0.602 ± 0.025 0.603 ± 0.024 Synthetic confusion Symmetric 20% 0.556 ± 0.044 0.563 ± 0.038 0.562 ± 0.036 0.561 ± 0.037 Synthetic confusion Pair-flip 40% 0.423 ± 0.030 0.431 ± 0.036 0.432 ± 0.033 0.431 ± 0.037 Synthetic long-tail 30:1 imbalance 0.164 ± 0.029 0.163 ± 0.026 0.162 ± 0.028 0.162 ± 0.028 
+
+4.2 Models, optimization, and baselines 
+
+All primary comparisons use a two-hidden-layer multilayer perceptron with ReLU activations and dropout 0.1. Hidden width is 96 for input dimension at least 24 and 64 otherwise. AdamW uses weight decay 10 −4, gradient clipping at 5, a maximum of 45 epochs, a minimum of 12 epochs, and patience 8. The learning rate is fixed at 10 −3 in the primary comparison. A separate sensitivity analysis evaluates 3 × 10 −4, 10 −3, and 3 × 10 −3 using validation NLL. Early stopping selects the checkpoint with the lowest clean validation NLL; model and loss state are restored together. CAPM and HPG are positively rescaled to match a common mean-curvature target. The geometry seed is fixed independently of the data and model seed, and all losses receive the same deterministic minibatch order within a dataset–regime–seed cell. CAPM class structure is computed from the training partition only. The general baselines are cross-entropy, label smoothing [31], Brier loss, categorical MAE, focal loss, generalized cross-entropy, symmetric cross-entropy, active–passive loss, Poly-1 [32], and bi-tempered logistic loss. The long-tail experiment additionally includes class-balanced cross-entropy, Balanced Softmax, training-time logit adjustment, and LDAM. Hyperparameters are fixed before test evaluation, so the reported comparisons are claims about this retained experimental configuration rather than about exhaustive per-loss tuning. 
+
+4.3 Metrics and statistical analysis 
+
+The reported metrics are accuracy, balanced accuracy for the long-tail balanced test split, negative log-likelihood (NLL), multiclass Brier score, and 15-bin expected calibration error (ECE). ECE is interpreted jointly with accuracy and proper scores because a low-confidence, low-accuracy classifier can have a small binning-based calibration error. Temperature scaling is fitted on validation logits and evaluated separately on the test split [2]. Each reported cell uses five matched random seeds. Means and sample standard deviations summarize variability. Paired two-sided Wilcoxon signed-rank tests compare each loss with cross-entropy on matched seeds, followed by Holm correction [33, 34]. With five nonzero pairs, the smallest attainable exact two-sided Wilcoxon 
+
+p-value is 0 .0625; the study is therefore descriptive and underpowered for conventional significance claims. 
+
+4.4 Input-corruption and adversarial probes 
+
+Models trained on clean Digits are evaluated under Gaussian noise ( σ ∈ { 0.1, 0.2}), salt-and-pepper corruption (fraction 0.1), FGSM ( ϵ ∈ { 0.05 , 0.1, 0.2}), and projected-gradient attack ( ϵ ∈ { 0.1, 0.2}). Pixel intensities are scaled to [0 , 1]. The attacks maximize cross-entropy against each evaluated model. These tests measure local sensitivity of the trained models; they are not robustness certificates and do not replace adversarial training or standardized attack suites. 5Table 3: Digits test performance with 40% symmetric corruption applied only to training labels. Lower NLL, Brier score, and ECE are better. Values are mean ± sample standard deviation over five seeds. 
+
+Loss Accuracy NLL Brier score ECE SCE 0.936 ± 0.013 0.246 ± 0.069 0.101 ± 0.020 0.037 ± 0.003 GCE 0.934 ± 0.016 0.244 ± 0.063 0.101 ± 0.018 0.027 ± 0.008 APL 0.928 ± 0.019 0.261 ± 0.082 0.109 ± 0.023 0.028 ± 0.005 MAE 0.926 ± 0.021 0.266 ± 0.085 0.112 ± 0.025 0.028 ± 0.003 BTL 0.923 ± 0.014 0.470 ± 0.039 0.183 ± 0.014 0.211 ± 0.019 CAPM 0.921 ± 0.017 0.684 ± 0.035 0.279 ± 0.016 0.350 ± 0.028 APMS 0.921 ± 0.017 0.705 ± 0.032 0.290 ± 0.015 0.368 ± 0.031 HPG 0.920 ± 0.018 0.695 ± 0.034 0.285 ± 0.016 0.360 ± 0.030 CE 0.915 ± 0.021 0.762 ± 0.035 0.316 ± 0.013 0.391 ± 0.025 0 5 10 15 20 25 30 35 40 
+
+> Symmetric label-noise rate (%)
+> 0.92
+> 0.93
+> 0.94
+> 0.95
+> 0.96
+> raw accuracy
+> Digits accuracy under symmetric label noise
+> APL
+> APMS
+> Bi-tempered
+> Brier
+> CAPM
+> CE
+> Focal
+> GCE
+> HPG
+> Label smoothing
+
+Figure 1: Digits test accuracy under symmetric training-label corruption. The horizontal axis is the training-label corruption rate, validation and test labels are clean, and the vertical axis is ordinary test accuracy. Points summarize five retained seeds for each loss, with uncertainty drawn from those retained runs; higher values are better. 
+
+## 5 Results 
+
+5.1 Overall predictive performance 
+
+Table 2 shows that CAPM, HPG, and APMS are close to cross-entropy on the clean breast-cancer, Digits, and synthetic-confusion tasks. Their largest descriptive accuracy differences relative to cross-entropy occur under pair-flip noise on Digits, where the candidate means are approximately 0.73 compared with 0.70 for cross-entropy. Variability is also larger in this cell. On the synthetic long-tail problem, all three candidates remain close to cross-entropy and have low balanced accuracy. Because each cell uses only five matched seeds, the empirical conclusions below are based on effect patterns and consistency rather than significance declarations. 
+
+5.2 Synthetic label corruption 
+
+Under 40% symmetric corruption on Digits, SCE, GCE, APL, and MAE have higher mean accuracy and substantially lower NLL and Brier score than cross-entropy and the three structured objectives (Table 3). This result is consistent with those methods being proposed or commonly used for noisy-label robustness; it does not follow from boundedness or strict propriety alone. CAPM, HPG, and APMS modestly exceed cross-entropy in mean accuracy but remain behind the selected robust-loss baselines in this setting. 60.0 0.2 0.4 0.6 0.8 1.0 
+
+> Mean confidence
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Empirical accuracy
+
+Reliability curves: Digits with 40% symmetric training noise 
+
+> Perfect calibration
+> CE
+> GCE
+> Brier
+> CAPM
+> HPG
+> APMS
+
+Figure 2: Reliability curves on Digits after training with 40% symmetric label corruption. The horizontal axis is mean top-class confidence and the vertical axis is empirical accuracy within confidence bins; the diagonal is perfect calibration. Curves are descriptive finite-test-set summaries and are not population calibration guarantees. The reliability diagram in Fig. 2 illustrates that raw confidence behavior differs substantially across objectives under the same corruption level. The figure is descriptive: calibration curves from a small test set and five fitted models should not be interpreted as population calibration proofs. 
+
+5.3 Long-tailed training 
+
+Balanced Softmax, logit adjustment, class-balanced cross-entropy, and LDAM have higher reported balanced accuracy than the generic objectives on the balanced test split (Table 4). Balanced Softmax and training-time logit adjustment have matching rounded values in this implementation at τ = 1 because their additive log-count and log-prior terms differ only by a class-independent constant. The structured curvature in CAPM does not compensate for the training-prior shift in this experiment: CAPM, HPG, APMS, and cross-entropy remain near 0.16 balanced accuracy. For K = 10, a uniform forecast has NLL log 10 and multiclass Brier score 0 .9. The observed values are close to both, so the small ECE values are consistent with near-uniform, low-information predictions rather than useful discrimination. 
+
+5.4 Calibration and perturbation sensitivity 
+
+Validation-set temperature scaling reduces NLL and ECE for the selected methods on clean Digits (Table 5) without changing predicted labels. This post-hoc improvement does not establish that one training loss is intrinsically better calibrated, because the temperature is estimated after training and uses finite validation data. The input-perturbation probes show small descriptive differences among clean-trained Digits models under Gaussian noise, salt-and-pepper corruption, FGSM, and projected-gradient attacks (Figs. 4 and 5). Since the models were not adversarially trained and the attack suite is limited, these observations support only a local sensitivity comparison. 7Table 4: Performance on the balanced test split after training on a synthetic 30:1 long-tailed sample. Low ECE is not sufficient evidence of useful probabilities when balanced accuracy is low; NLL and Brier score are therefore reported jointly. 
+
+Loss Balanced accuracy NLL Brier score ECE Logit adjustment 0.629 ± 0.012 1.128 ± 0.035 0.517 ± 0.012 0.051 ± 0.012 Balanced Softmax 0.629 ± 0.012 1.128 ± 0.035 0.517 ± 0.012 0.051 ± 0.011 CB-CE 0.628 ± 0.019 1.158 ± 0.043 0.514 ± 0.015 0.058 ± 0.006 LDAM 0.613 ± 0.008 1.663 ± 0.024 0.719 ± 0.010 0.376 ± 0.010 CE 0.164 ± 0.029 2.295 ± 0.007 0.898 ± 0.001 0.042 ± 0.012 CAPM 0.163 ± 0.026 2.295 ± 0.008 0.898 ± 0.002 0.035 ± 0.020 APMS 0.162 ± 0.028 2.295 ± 0.007 0.898 ± 0.002 0.037 ± 0.016 HPG 0.162 ± 0.028 2.295 ± 0.008 0.898 ± 0.002 0.036 ± 0.016 
+
+Table 5: Digits clean-set NLL and ECE before and after validation-set temperature scaling. Means over five seeds.                         
+
+> Loss Raw NLL Cal. NLL Raw ECE Cal. ECE CE 0.136 0.124 0.038 0.021 Brier 0.148 0.125 0.055 0.023 CAPM 0.145 0.126 0.050 0.024 HPG 0.147 0.125 0.053 0.022 APMS 0.150 0.126 0.054 0.023
+
+5.5 Ablation results 
+
+The candidate-specific ablations do not show a large, consistent benefit from the added structures. On the synthetic-confusion task, CAPM variants without graph or tail terms can match or exceed the full configuration. Increasing the number of HPG ridge terms does not produce monotonic gains across the evaluated cells. Varying the initial APMS coefficient changes mean accuracy only slightly and inconsistently. These negative results are important because they weaken the interpretation that the graph, ridge, or temporary margin component is responsible for the candidate performance. 
+
+## 6 Discussion 
+
+The theoretical and empirical results distinguish population identification from finite-sample robustness. CAPM and HPG are strictly proper because their generators are strongly convex, and their excess conditional risks are controlled by squared probability error. These properties establish a well-defined population target and bounded probability-space gradients. They do not imply resistance to corrupted labels or class-prior shift. The noisy-label experiments support this distinction in the evaluated setting: the selected noisy-label baselines outperform the proper structured candidates under 40% symmetric corruption on Digits. The long-tail result is similarly instructive. Adding a class-frequency-dependent diagonal to a proper quadratic geometry changes curvature but does not implement the prior correction used by Balanced Softmax or logit adjustment. In the present synthetic setting, that distinction is large enough to separate low balanced accuracy near 0.16 from balanced accuracy above 0.62. A future class-aware proper score intended for long-tail learning would need a statistical treatment of prior shift rather than curvature modification alone. HPG provides a smooth, globally controlled alternative to a purely quadratic generator, but the ablations do not establish that its log-cosh ridges improve predictive performance. APMS has a clear asymptotic relationship to its proper core, yet finite optimization can select a checkpoint while the margin coefficient remains positive. The displacement bounds describe conditional minimizers as β decreases; they do not prove that stochastic neural optimization follows that path or improves generalization. Overall, the proofs support the mathematical validity of the formulations, while the experiments do not support a claim that they replace established losses. Their most defensible role in this paper is as controlled examples for studying how proper-score curvature and temporary margin shaping affect optimization and probability quality. 80.0 0.1 0.2 0.3 0.4 0.5 0.6 
+
+> Balanced accuracy
+> SCE
+> APL
+> MAE
+> HPG
+> APMS
+> Brier
+> CAPM
+> Focal
+> CE
+> Label smoothing
+> Bi-tempered
+> Poly-1
+> GCE
+> LDAM
+> CB-CE
+> Balanced Softmax
+> Logit adjusted
+> Synthetic long-tail benchmark (five seeds)
+
+Figure 3: Balanced accuracy on the balanced synthetic test split after 30:1 long-tailed training. Bars summarize five retained seeds; higher values are better. The plot separates prior-adjustment and margin/weighting methods from the generic losses in this particular synthetic-prior-shift design. 
+
+## 7 Limitations 
+
+The empirical study uses small tabular and low-resolution image-feature datasets with a compact multilayer perceptron. Conclusions may not transfer to convolutional networks, transformers, or large natural datasets. The label corruption is synthetic and excludes instance-dependent, annotator-dependent, and open-set noise. The long-tail experiment uses a generated distribution and a balanced test set; natural long-tailed recognition can involve representation and domain effects not present here. Five seeds provide limited precision and make exact paired rank tests underpowered. A common learning rate controls compute but cannot guarantee equal optimization quality for every loss. Although a three-rate sensitivity analysis is retained in the supplementary results, exhaustive per-loss tuning was not performed. ECE is bin-dependent, and temperature scaling reuses the validation split used for checkpoint selection rather than a fully nested calibration partition. The adversarial tests use a small attack set, no adversarial training, and no certified verification. The logit-gradient bound in Eq. (6) does not control the network input Jacobian. Finally, the paper does not establish historical priority for the exact HPG or APMS formulas; it evaluates and analyzes the stated constructions without an absolute novelty claim. 
+
+## 8 Conclusion 
+
+This study examined two structured proper scoring rules and an annealed margin-augmented objective for multiclass neural classification. CAPM instantiates a class-structured quadratic Bregman geometry. HPG adds bounded-curvature log-cosh ridges while retaining strict propriety. APMS temporarily perturbs HPG and has a conditional minimizer whose distance from the true class distribution is bounded by the stated quantities that vanish with the margin coefficient. The controlled experiments do not identify a universal winner. The candidates are close to cross-entropy in several clean and noisy cells, but the selected noisy-label baselines perform better on Digits with 40% symmetric label noise and explicit prior-adjustment methods perform much better in the 30:1 synthetic long-tail experiment. Ablations provide no consistent evidence that the added graph, ridge, or margin structures are beneficial in the evaluated settings. The appropriate conclusion is therefore limited: the formulations satisfy the stated propriety and bound results and are empirically testable, but broader utility requires larger datasets, stronger architectures, realistic noise, and adequately powered comparisons. 9Clean 
+
+Gaussian .10 
+
+Gaussian .20 
+
+Salt-pepper .10 
+
+0.84 
+
+0.86 
+
+0.88 
+
+0.90 
+
+0.92 
+
+0.94 
+
+> Accuracy
+
+Natural corruption accuracy 
+
+APL 
+
+APMS 
+
+Bi-tempered 
+
+Brier 
+
+CAPM 
+
+CE 
+
+Focal 
+
+GCE 
+
+HPG 
+
+Label smoothing Figure 4: Accuracy of clean-trained Digits models under synthetic input corruptions. The conditions are the uncorrupted test set, Gaussian noise with standard deviations 0.10 and 0.20 on [0 , 1]-scaled pixels, and salt-and-pepper corruption with fraction 0.10. The vertical axis is ordinary test accuracy; higher values are better. 0.06 0.08 0.10 0.12 0.14 0.16 0.18 0.20 
+
+radius 
+
+0.0 
+
+0.1 
+
+0.2 
+
+0.3 
+
+0.4 
+
+0.5 
+
+0.6 
+
+0.7 
+
+0.8 
+
+> Accuracy
+
+White-box FGSM accuracy on Digits 
+
+> APL
+> APMS
+> Bi-tempered
+> Brier
+> CAPM
+> CE
+> Focal
+> GCE
+> HPG
+> Label smoothing
+
+0.10 0.12 0.14 0.16 0.18 0.20 
+
+radius 
+
+0.0 
+
+0.1 
+
+0.2 
+
+0.3 
+
+0.4 
+
+0.5 
+
+> Accuracy
+
+White-box PGD accuracy on Digits 
+
+> APL
+> APMS
+> Bi-tempered
+> Brier
+> CAPM
+> CE
+> Focal
+> GCE
+> HPG
+> Label smoothing
+
+Figure 5: Accuracy of clean-trained Digits models under white-box cross-entropy-driven FGSM and projected-gradient attacks. The left panel reports FGSM accuracy and the right panel reports projected-gradient accuracy as the perturbation radius increases. These finite attack evaluations are local sensitivity probes and are not certified robustness results. digits / clean     
+
+> digits / symmetric_40
+> synthetic_confusion / clean
+> synthetic_longtail / clean
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Mean accuracy
+> CAPM ablation (five seeds)
+> Graph
+> Graph+tail
+> Identity
+> Tail digits / clean
+> digits / symmetric_40
+> synthetic_confusion / clean
+> synthetic_longtail / clean
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Mean accuracy
+> HPG ablation (five seeds)
+> 0 ridges
+> 16 ridges
+> 4 ridges
+> 8 ridges digits / clean
+> digits / symmetric_40
+> synthetic_confusion / clean
+> synthetic_longtail / clean
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Mean accuracy
+> APMS ablation (five seeds)
+> 0= 0
+> 0= . 05
+> 0= . 2
+> 0= . 5
+
+Figure 6: Candidate-specific accuracy ablations. The left panel compares CAPM geometry variants, the middle panel compares HPG ridge counts, and the right panel compares APMS initial margin coefficients across the retained ablation cells. Values are descriptive five-seed means; higher accuracy is better, and no statistical significance claim is attached to these differences. 10 References 
+
+[1] Tilmann Gneiting and Adrian E. Raftery. “Strictly Proper Scoring Rules, Prediction, and Estima-tion”. In: Journal of the American Statistical Association 102.477 (2007), pp. 359–378. doi : 10.1198/ 016214506000001437 .[2] Chuan Guo et al. “On Calibration of Modern Neural Networks”. In: Proceedings of the 34th International Conference on Machine Learning . 2017. [3] Devansh Arpit et al. “A Closer Look at Memorization in Deep Networks”. In: Proceedings of the 34th International Conference on Machine Learning . Vol. 70. Proceedings of Machine Learning Research. 2017, pp. 233–242. [4] Tsung-Yi Lin et al. “Focal Loss for Dense Object Detection”. In: Proceedings of the IEEE International Conference on Computer Vision . 2017. [5] Zhilu Zhang and Mert R. Sabuncu. “Generalized Cross Entropy Loss for Training Deep Neural Networks with Noisy Labels”. In: Advances in Neural Information Processing Systems . 2018. [6] Yisen Wang et al. “Symmetric Cross Entropy for Robust Learning with Noisy Labels”. In: Proceedings of the IEEE/CVF International Conference on Computer Vision . 2019. [7] Yin Cui et al. “Class-Balanced Loss Based on Effective Number of Samples”. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 2019. [8] Kaidi Cao et al. “Learning Imbalanced Datasets with Label-Distribution-Aware Margin Loss”. In: Advances in Neural Information Processing Systems . 2019. [9] Jiawei Ren et al. “Balanced Meta-Softmax for Long-Tailed Visual Recognition”. In: Advances in Neural Information Processing Systems . 2020. [10] Aditya Krishna Menon et al. “Long-Tail Learning via Logit Adjustment”. In: International Conference on Learning Representations . 2021. [11] Evgeni Y. Ovcharov. “Proper Scoring Rules and Bregman Divergences”. In: Bernoulli 24.1 (2018). Preprint first posted 2015, pp. 53–79. [12] Mark D. Reid and Robert C. Williamson. “Composite Binary Losses”. In: Journal of Machine Learning Research 11 (2010), pp. 2387–2422. [13] Mark Reid, Robert Williamson, and Peng Sun. “The Convexity and Design of Composite Multiclass Losses”. In: Proceedings of the 29th International Conference on Machine Learning . 2012. [14] Kevin Lam et al. “LegendreTron: Uprising Proper Multiclass Loss Learning”. In: Proceedings of the 40th International Conference on Machine Learning . Vol. 202. Proceedings of Machine Learning Research. 2023, pp. 18454–18470. [15] Roman Plaud et al. “Tailoring Strictly Proper Scoring Rules for Downstream Tasks: An Application to Causal Inference”. In: arXiv preprint arXiv:2606.03332 (2026). [16] Glenn W. Brier. “Verification of Forecasts Expressed in Terms of Probability”. In: Monthly Weather Review 78.1 (1950), pp. 1–3. [17] Peter L. Bartlett, Michael I. Jordan, and Jon D. McAuliffe. “Convexity, Classification, and Risk Bounds”. In: Journal of the American Statistical Association 101.473 (2006), pp. 138–156. doi : 10. 1198/016214505000000907 .[18] Chenze Shao et al. “Language Generation with Strictly Proper Scoring Rules”. In: Proceedings of the 41st International Conference on Machine Learning . Vol. 235. Proceedings of Machine Learning Research. 2024, pp. 44474–44488. [19] Aritra Ghosh, Himanshu Kumar, and P. S. Sastry. “Robust Loss Functions under Label Noise for Deep Neural Networks”. In: Proceedings of the Thirty-First AAAI Conference on Artificial Intelligence . 2017, pp. 1919–1925. [20] Giorgio Patrini et al. “Making Deep Neural Networks Robust to Label Noise: A Loss Correction Approach”. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2017, pp. 1944–1952. [21] Ehsan Amid et al. “Robust Bi-Tempered Logistic Loss Based on Bregman Divergences”. In: Advances in Neural Information Processing Systems . 2019. [22] Xingjun Ma et al. “Normalized Loss Functions for Deep Learning with Noisy Labels”. In: Proceedings of the 37th International Conference on Machine Learning . 2020. [23] Jiaheng Wei et al. “Learning with Noisy Labels Revisited: A Study Using Real-World Human Annotations”. In: International Conference on Learning Representations . 2022. 11 [24] Nontawat Charoenphakdee et al. “On Focal Loss for Class-Posterior Probability Estimation: A Theoretical Perspective”. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition .2021, pp. 5202–5211. [25] Viacheslav Komisarenko and Meelis Kull. “Improving Calibration by Relating Focal Loss, Temperature Scaling, and Properness”. In: arXiv preprint arXiv:2408.11598 (2024). [26] Ian J. Goodfellow, Jonathon Shlens, and Christian Szegedy. “Explaining and Harnessing Adversarial Examples”. In: International Conference on Learning Representations . 2015. [27] Aleksander Madry et al. “Towards Deep Learning Models Resistant to Adversarial Attacks”. In: Interna-tional Conference on Learning Representations . 2018. [28] Hongyang Zhang et al. “Theoretically Principled Trade-off between Robustness and Accuracy”. In: 
+
+Proceedings of the 36th International Conference on Machine Learning . 2019. [29] Francesco Croce and Matthias Hein. “Reliable Evaluation of Adversarial Robustness with an Ensemble of Diverse Parameter-Free Attacks”. In: Proceedings of the 37th International Conference on Machine Learning . 2020. [30] Fabian Pedregosa et al. “Scikit-learn: Machine Learning in Python”. In: Journal of Machine Learning Research 12 (2011), pp. 2825–2830. [31] Christian Szegedy et al. “Rethinking the Inception Architecture for Computer Vision”. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2016, pp. 2818–2826. [32] Zhaoqi Leng et al. “PolyLoss: A Polynomial Expansion Perspective of Classification Loss Functions”. In: 
+
+International Conference on Learning Representations . 2022. [33] Frank Wilcoxon. “Individual Comparisons by Ranking Methods”. In: Biometrics Bulletin 1.6 (1945), pp. 80–83. [34] Sture Holm. “A Simple Sequentially Rejective Multiple Test Procedure”. In: Scandinavian Journal of Statistics 6.2 (1979), pp. 65–70. 12 A Proofs 
+
+A.1 Proof of Lemma 1 
+
+Linearity of expectation gives 
+
+RF (η, p ) = X
+
+> y
+
+ηy F (ey ) − F (p) − ⟨∇ F (p), η − p⟩, (24) 
+
+RF (η, η ) = X
+
+> y
+
+ηy F (ey ) − F (η). (25) Subtracting yields Eq. (3) . Strict convexity makes DF (η, p ) = 0 if and only if p = η. For twice differentiable F ,writing d = q − p gives 
+
+DF (q, p ) = 
+
+Z 10
+
+(1 − t)d⊤HF (p + td )d dt. (26) The spectral bounds mI ⪯ HF ⪯ M I and R 10 (1 − t)dt = 1 /2 yield Eq. (4). 
+
+A.2 Softmax Jacobian bound 
+
+For a unit vector v,
+
+v⊤{Diag( p) − pp ⊤}v = Var I∼p(vI ). (27) Popoviciu’s inequality bounds this variance by one quarter of the squared range of the coordinates of v. A unit vector has coordinate range at most √2, so the operator norm is at most 1 /2. The temperature-scaled softmax contributes the factor 1 /T , which yields Eq. (6) after applying Eq. (5). 
+
+A.3 Proof of Proposition 2 
+
+The Hessian of FC is the constant positive-definite matrix A. Lemma 1 gives strict propriety and the stated conditional regret. Rayleigh-quotient bounds give Eq. (4). Since ∥ey − p∥22 ≤ 2 on the simplex, 
+
+ℓC(p, y ) ≤ 12 M ∥ey − p∥22 ≤ M. (28) Equation (6) follows from Eq. (5) and the softmax Jacobian bound. 
+
+A.4 Proof of Proposition 3 
+
+Each ridge contributes 
+
+ar sech 2(vr )wr w⊤ 
+
+> r
+
+⪰ 0 (29) to the unscaled Hessian and is bounded above by ar ∥wr ∥22I. Adding the quadratic term and multiplying by s
+
+proves mI ⪯ HFH ⪯ M I . Lemma 1 gives strict propriety and the quadratic regret bounds, while ∥ey − p∥22 ≤ 2gives the loss-range bound. For one ridge, differentiation of the Hessian in direction h yields 
+
+− 2sa r
+
+ρr
+
+sech 2(vr ) tanh( vr )( w⊤ 
+
+> r
+
+h)wr w⊤ 
+
+> r
+
+. (30) The maximum of 2 t(1 − t2) on t ∈ [0 , 1] is 4 /(3 √3). Taking operator norms and summing over ridges proves Eq. (15). 
+
+A.5 Proof of Theorem 4 
+
+Fix a = py . For this value of a, minimizing mτ (p, y ) is equivalent to maximizing the log-sum-exp term over the competing probabilities with total mass 1 − a. A convex function attains a maximum over a simplex at a vertex, so the smallest margin at fixed a is 
+
+a − τ log {exp((1 − a)/τ ) + K − 2}. (31) Its derivative with respect to a is 1 + exp((1 − a)/τ )exp((1 − a)/τ ) + K − 2 > 0, (32) 13 so the global minimum occurs at a = 0. One competitor then has probability one and the remaining K − 2competitors have probability zero. This gives mmin in Eq. (19). For the maximum margin at fixed a, the log-sum-exp term is minimized when the K − 1 competing probabilities are equal. The largest margin at fixed a is therefore 
+
+a − τ log 
+
+
+
+(K − 1) exp 
+
+ 1 − a
+
+(K − 1) τ
+
+ 
+
+= Ka − 1
+
+K − 1 − τ log( K − 1) , (33) which is increasing in a and is maximized at a = 1. This gives mmax in Eq. (19) . Because softplus is increasing in κ − mτ , Eq. (20) follows. Optimality of p⋆β relative to p = η gives 
+
+DF (η, p ⋆β ) ≤ βC r . (34) Strong convexity then yields Eq. (22). For the linear bound, 
+
+∇pmτ = ey − q−y , (35) where q−y is a softmax distribution supported on the competing classes. Hence ∥∇ pmτ ∥2 ≤ √2. The derivative of the outer softplus with respect to mτ has magnitude at most one, so the norm of the conditional penalty gradient is at most √2. The Bregman identity gives ∇pR0(η, p ) = HF (p)( p − η), and therefore 
+
+⟨∇ pR0(η, p ⋆β ), p ⋆β − η⟩ ≥ m∥p⋆β − η∥22. (36) Combining this inequality with the first-order variational inequality at p⋆β gives 
+
+m∥p⋆β − η∥22 ≤ β√2∥p⋆β − η∥2, (37) which proves Eq. (23). 
+
+A.6 Why APMS with a positive margin coefficient is not generally proper 
+
+A binary counterexample is sufficient. Let p = ( x, 1 − x), η = (0 .8, 0.2), κ = 0, and ν = 1. In the binary case the two margins are 2 x − 1 and 1 − 2x. The derivative of the conditional penalty risk at the truthful report 
+
+x = 0 .8 is 
+
+−2(0 .8) σ(−0.6) + 2(0 .2) σ(0 .6) ̸ = 0 , (38) where σ is the logistic function. The proper core has zero derivative at x = 0 .8, so adding any positive multiple of this penalty shifts the conditional stationary point. Thus positive-β APMS is not a proper score in general. 
+
+## B Supplementary empirical results 
+
+The remaining supplementary figures collect the retained theoretical diagnostics and empirical summaries. Unless a caption states otherwise, empirical panels visualize retained run summaries and should be read as descriptive checks rather than additional inferential evidence. Accuracy and balanced accuracy are better when larger; NLL, ECE, mean rank, gradient norm, and runtime are better when smaller for the purposes stated in their captions. 14 0.8 0.9 1.0 1.1 1.2 1.3 1.4 
+
+> Hessian eigenvalue
+> 0
+> 100
+> 200
+> 300
+> 400
+> 500
+> Count
+
+HPG sampled curvature within certified envelope 
+
+> Smallest eigenvalue
+> Largest eigenvalue
+> Theoretical lower
+> Theoretical upper
+
+Figure 7: HPG curvature diagnostic. The histogram shows sampled Hessian eigenvalues for the retained HPG construction, while the vertical reference lines mark the smallest and largest sampled eigenvalues and the analytical lower and upper bounds from Proposition 3. The plot is an implementation check of the sampled configuration; the guarantee is the analytical envelope, not the sample. 10 4 10 3 10 2 10 1     
+
+> 10 5
+> 10 4
+> 10 3
+> 10 2
+> 10 1
+> 10 0
+> p * 2
+
+APMS conditional-target displacement   
+
+> Numerical optimum displacement
+> 2/m
+> 2Cr/m
+
+Figure 8: APMS conditional-target displacement diagnostic. The numerical curve shows the optimized distance between the positive-β APMS conditional minimizer and the true conditional distribution, and the two reference curves show the square-root and linear upper bounds in Theorem 4. The display illustrates that the plotted displacement and both bounds decrease as the margin coefficient decreases. 15 CE 
+
+> Label smoothing
+> Brier
+> MAE
+> Focal
+> GCE
+> SCE
+> APL
+> Poly-1
+> Bi-tempered
+> CAPM
+> HPG
+> APMS
+> CB-CE
+> Balanced Softmax
+> Logit adjusted
+> LDAM
+
+0
+
+2
+
+4
+
+6
+
+8
+
+> Number of validation selections
+
+Learning-rate sensitivity study 
+
+Learning rate 
+
+0.0003 
+
+0.001 
+
+0.003 Figure 9: Learning-rate sensitivity summary. For each loss, the bars count how often validation NLL selected one of the three candidate learning rates, 3 × 10 −4, 10 −3, and 3 × 10 −3, across the retained sensitivity runs. The figure reports selection frequency only; it is not a test-set performance comparison. 0.0 0.2 0.4 0.6 0.8 1.0             
+
+> True-class probability py
+> 0
+> 1
+> 2
+> 3
+> 4
+> 5
+> Per-example loss
+> Binary loss profiles
+> CE
+> Brier
+> CAPM
+> HPG 0.0 0.2 0.4 0.6 0.8 1.0
+> True-class probability py
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Absolute true-logit gradient
+> Binary logit-gradient profiles
+> CE
+> Brier
+> CAPM
+> HPG 0.0 0.1 0.2 0.3 0.4 0.5
+> Contamination fraction
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 1.25
+> 1.50
+> 1.75
+> 2.00
+> Generic clean excess-risk upper bound
+> Bounded-loss contamination bound
+> B=1
+> B=2
+
+Figure 10: Binary theoretical diagnostics. From left to right, the panels show per-example loss as the true-class probability varies, the absolute true-logit gradient as the true-class probability varies, and the generic bounded-loss contamination upper bound for two illustrative loss bounds. The first two panels compare CE, Brier, CAPM, and HPG in the binary setting; the third panel is a theoretical bound illustration rather than an empirical result. 2 4 6 8 10 
+
+> Eigenvalue index
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5
+> 3.0
+> Eigenvalue
+
+CAPM Digits geometry spectrum 0.40 0.45 0.50 0.55 0.60 0.65 0.70     
+
+> DF(,p)/ p22
+> 0
+> 25
+> 50
+> 75
+> 100
+> 125
+> 150
+> 175
+> Count
+
+HPG regret-to-distance ratio 
+
+> Lower bound
+> Upper bound
+
+Figure 11: Additional theory diagnostics. The left panel shows the eigenvalue spectrum of the CAPM geometry matrix used for Digits, confirming positive eigenvalues for the retained configuration. The right panel shows sampled values of the HPG regret-to-squared-distance ratio together with the lower and upper quadratic-regret bounds implied by the curvature envelope. 16 breast_cancer / clean 
+
+> breast_cancer / symmetric_20
+> breast_cancer / symmetric_40
+> digits / clean
+> digits / pairflip_40
+> digits / symmetric_20
+> digits / symmetric_40
+> synthetic_confusion / clean
+> synthetic_confusion / pairflip_40
+> synthetic_confusion / symmetric_20
+> synthetic_longtail / clean
+
+CE 
+
+Label smoothing 
+
+Brier 
+
+MAE 
+
+Focal 
+
+GCE 
+
+SCE 
+
+APL 
+
+Poly-1 
+
+Bi-tempered 
+
+CAPM 
+
+HPG 
+
+APMS 
+
+Mean test accuracy across executed benchmark cells 
+
+0.2 
+
+0.3 
+
+0.4 
+
+0.5 
+
+0.6 
+
+0.7 
+
+0.8 
+
+0.9 
+
+> raw accuracy breast_cancer / clean
+> breast_cancer / symmetric_20
+> breast_cancer / symmetric_40
+> digits / clean
+> digits / pairflip_40
+> digits / symmetric_20
+> digits / symmetric_40
+> synthetic_confusion / clean
+> synthetic_confusion / pairflip_40
+> synthetic_confusion / symmetric_20
+> synthetic_longtail / clean
+
+CE 
+
+Label smoothing 
+
+Brier 
+
+MAE 
+
+Focal 
+
+GCE 
+
+SCE 
+
+APL 
+
+Poly-1 
+
+Bi-tempered 
+
+CAPM 
+
+HPG 
+
+APMS 
+
+Mean test negative log-likelihood 
+
+0.25 
+
+0.50 
+
+0.75 
+
+1.00 
+
+1.25 
+
+1.50 
+
+1.75 
+
+2.00 
+
+2.25 
+
+> raw nll breast_cancer / clean
+> breast_cancer / symmetric_20
+> breast_cancer / symmetric_40
+> digits / clean
+> digits / pairflip_40
+> digits / symmetric_20
+> digits / symmetric_40
+> synthetic_confusion / clean
+> synthetic_confusion / pairflip_40
+> synthetic_confusion / symmetric_20
+> synthetic_longtail / clean
+
+CE 
+
+Label smoothing 
+
+Brier 
+
+MAE 
+
+Focal 
+
+GCE 
+
+SCE 
+
+APL 
+
+Poly-1 
+
+Bi-tempered 
+
+CAPM 
+
+HPG 
+
+APMS 
+
+Mean top-label ECE 
+
+0.1 
+
+0.2 
+
+0.3 
+
+0.4 
+
+> raw ece
+
+Figure 12: Aggregate empirical heatmaps. Columns are dataset–training-regime cells, rows are losses, and colors encode retained-run means for accuracy, negative log-likelihood, and top-label ECE, respectively. Accuracy is better when larger; NLL and ECE are better when smaller, although ECE should be interpreted jointly with accuracy and proper-score metrics. 0.14 0.16 0.18 0.20 0.22 0.24 
+
+NLL (lower is better) 
+
+0.950 
+
+0.955 
+
+0.960 
+
+0.965 
+
+> Accuracy (higher is better)
+
+APL 
+
+APMS 
+
+Bi-tempered 
+
+Brier CAPM 
+
+CE 
+
+Focal 
+
+GCE 
+
+HPG 
+
+Label smoothing 
+
+MAE 
+
+Poly-1 
+
+SCE 
+
+Accuracy NLL trade-off on clean Digits 0 2 4 6 8 10 
+
+Mean rank (lower is better) 
+
+Focal 
+
+Label smoothing 
+
+MAE 
+
+APMS 
+
+CE 
+
+APL 
+
+Brier 
+
+SCE 
+
+HPG 
+
+CAPM 
+
+Bi-tempered 
+
+GCE 
+
+Poly-1 
+
+Descriptive rank across cells and metrics 
+
+Figure 13: Clean-Digits and rank summaries. The left panel plots each loss by clean-Digits test NLL on the horizontal axis and test accuracy on the vertical axis, so the upper-left region is preferable for those two metrics. The right panel reports descriptive mean rank across retained cells and metrics, where lower rank is better; it is not a statistical significance analysis. 0 5 10 15 20 25 30 35 40 
+
+Symmetric label-noise rate (%) 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> raw nll
+
+Digits NLL under symmetric label noise 
+
+APL 
+
+APMS 
+
+Bi-tempered 
+
+Brier 
+
+CAPM 
+
+CE 
+
+Focal 
+
+GCE 
+
+HPG 
+
+Label smoothing 0.0 0.2 0.4 0.6 0.8 1.0 
+
+Top-class confidence 
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10 
+
+12 
+
+14 
+
+> Density
+
+Confidence distributions under noisy-label training 
+
+CE 
+
+GCE 
+
+Brier 
+
+CAPM 
+
+HPG 
+
+APMS 
+
+Figure 14: Additional Digits symmetric-label-noise diagnostics. The left panel shows test NLL as the symmetric training-label corruption rate increases; lower NLL is better. The right panel shows density estimates of top-class confidence after training with 40% symmetric label corruption for CE, GCE, Brier, CAPM, HPG, and APMS; it describes confidence distributions and does not by itself establish calibration. 17 0 2 4 6 8
+
+Predicted class 
+
+0
+
+2
+
+4
+
+6
+
+8
+
+> True class
+
+CE confusion matrix: Digits, 40% symmetric noise 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Row-normalized frequency
+
+0 2 4 6 8
+
+Predicted class 
+
+0
+
+2
+
+4
+
+6
+
+8
+
+> True class
+
+CAPM confusion matrix: Digits, 40% symmetric noise 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Row-normalized frequency
+
+0 2 4 6 8
+
+Predicted class 
+
+0
+
+2
+
+4
+
+6
+
+8
+
+> True class
+
+HPG confusion matrix: Digits, 40% symmetric noise 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Row-normalized frequency
+
+0 2 4 6 8
+
+Predicted class 
+
+0
+
+2
+
+4
+
+6
+
+8
+
+> True class
+
+APMS confusion matrix: Digits, 40% symmetric noise 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Row-normalized frequency
+
+0 2 4 6 8
+
+Predicted class 
+
+0
+
+2
+
+4
+
+6
+
+8
+
+> True class
+
+GCE confusion matrix: Digits, 40% symmetric noise 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Row-normalized frequency
+
+Figure 15: Digits confusion matrices after 40% symmetric training-label corruption. Panels show CE, CAPM, HPG, APMS, and GCE, with predicted class on the horizontal axis and true class on the vertical axis. Frequencies are row-normalized, so diagonal mass corresponds to correct predictions within each true class. 0 2 4 6 8
+
+Class index (increasing index is rarer in training) 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+1.0 
+
+> Class accuracy
+
+Per-class accuracy on balanced long-tail test set 
+
+CE 
+
+CB-CE 
+
+Balanced Softmax 
+
+CAPM 0.00 0.05 0.10 0.15 0.20 0.25 0.30 0.35 0.40 
+
+Mean accuracy on classes 7--9 
+
+SCE 
+
+Poly-1 
+
+MAE 
+
+Label smoothing 
+
+GCE 
+
+HPG 
+
+CE 
+
+Focal 
+
+APMS 
+
+Bi-tempered 
+
+CAPM 
+
+Brier 
+
+APL 
+
+LDAM 
+
+Balanced Softmax 
+
+Logit adjusted 
+
+CB-CE 
+
+Tail-class accuracy 
+
+Figure 16: Long-tail diagnostics on the balanced synthetic test split. The left panel shows per-class accuracy for representative methods, with larger class index indicating rarer classes in the imbalanced training sample. The right panel summarizes mean accuracy on tail classes 7–9 across losses; higher values indicate better tail-class recognition in this synthetic design. 18 APL      
+
+> GCE
+> Bi-tempered
+> CAPM
+> HPG
+> Brier
+> APMS
+> CE
+> Label smoothing
+> Focal
+> 0.000
+> 0.025
+> 0.050
+> 0.075
+> 0.100
+> 0.125
+> 0.150
+> 0.175
+> 0.200
+> ECE
+> Calibration before and after validation-fitted temperature scaling
+> Raw
+> Temperature-scaled 0.0 0.2 0.4 0.6 0.8 1.0
+> Mean input-gradient norm of CE
+> HPG
+> APMS
+> Brier
+> CAPM
+> CE
+> Poly-1
+> Label smoothing
+> Focal
+> Bi-tempered
+> GCE
+> SCE
+> APL
+> MAE
+
+Local input sensitivity of trained classifiers Figure 17: Calibration and local-sensitivity diagnostics. The left panel compares raw and validation-temperature-scaled ECE for the retained losses; lower ECE is better but should be interpreted with NLL and accuracy. The right panel compares mean input-gradient norms of trained classifiers using the normalization indicated on the horizontal axis; it is a local sensitivity summary, not an adversarial robustness certificate. 0 10 20 30 40 
+
+Epoch 
+
+0.5 
+
+1.0 
+
+1.5 
+
+2.0 
+
+> Validation NLL
+
+Digits clean validation trajectories      
+
+> APL
+> APMS
+> Bi-tempered
+> Brier
+> CAPM
+> CE
+> Focal
+> GCE
+> HPG
+> Label smoothing 0.0 0.1 0.2 0.3 0.4 0.5
+> Mean training time per run (s)
+> MAE
+> APL
+> SCE
+> GCE
+> CE
+> Brier
+> Label smoothing
+> Focal
+> Poly-1
+> CAPM
+> HPG
+> APMS
+> Bi-tempered
+
+Measured CPU training time 
+
+Figure 18: Optimization diagnostics. The left panel shows clean-Digits validation-NLL trajectories over epochs for the retained losses, with lower validation NLL preferred for checkpoint selection. The right panel reports measured mean CPU training time per run; lower runtime means faster training under the retained implementation and hardware conditions. 19
