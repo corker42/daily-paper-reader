@@ -1,0 +1,170 @@
+Title: Uncertainty-Aware Last-Layer Adaptation of RETFound for Referable Diabetic Retinopathy Screening Under Dataset Shift
+
+URL Source: https://arxiv.org/pdf/2607.02569v1
+
+Published Time: Tue, 07 Jul 2026 00:02:37 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# Uncertainty-Aware Last-Layer Adaptation of RETFound for Referable Diabetic Retinopathy Screening Under Dataset Shift 
+
+Karim Mardhani Master of Science in Artificial Intelligence University of Colorado Boulder Boulder, CO, USA 
+
+Karim.Mardhani@colorado.edu 
+
+Repository: https://github.com/kmardhani/uncertainty-aware-retfound 
+
+arXiv categories: cs.CV (primary), cs.LG (secondary) 
+
+Abstract 
+
+This paper presents a safety-centered empirical evaluation of uncertainty-aware last-layer adaptation for referable diabetic retinopathy screening using RETFound, a self-supervised vision-transformer retinal foundation model used here as a frozen feature encoder, and the public APTOS 2019 and DDR diabetic retinopathy fundus-image datasets. We compare a cached-feature softmax head, post-hoc temperature scaling, variational Bayesian last-layer heads, a diagonal Laplace last-layer approximation, and an SNGP-style cached-feature head. On AP-TOS, uncertainty-aware operating points improved sensitivity and selective-referral behavior. The strongest APTOS selective-referral result deferred approximately 20% of cases and reduced accepted-case false negatives to zero while preserving high accepted-case specificity. However, threshold tuning also reduced false negatives at high false-positive cost, so false-negative re-duction alone was not unique to Bayesian modeling. On DDR, native Bayesian heads qualita-tively reproduced the APTOS direction but with weaker tradeoffs, while the APTOS-trained SNGP checkpoint transferred poorly and failed to provide useful external selective-referral be-havior. These results highlight the value of safety-centered evaluation beyond aggregate accu-racy: uncertainty-aware last-layer heads can improve internal safety-oriented operating points, but trustworthy retinal screening claims require explicit safety–coverage evaluation and second-dataset validation under shift. 
+
+# 1 Introduction 
+
+Deep retinal screening systems are often evaluated with aggregate discrimination metrics such as area under the ROC curve and overall accuracy. Those metrics matter, but they do not directly answer the safety question that matters most for screening: how many referable cases are missed, under which operating point, and with what human-review burden. In referable diabetic retinopa-thy (DR) screening, false negatives are especially consequential because a missed positive case can delay referral and treatment [Gulshan et al., 2016, Ting et al., 2017]. This project studies a deliberately limited setting: frozen RETFound retinal features [Zhou et al., 2023] combined with small last-layer adaptation methods. The goal is not to claim a new foundation-model state of the art. The goal is to ask a narrower and more practical question: can uncertainty-aware last-layer heads produce safer operating points than a deterministic cached-feature baseline, and do those gains survive a second-dataset validation check? The study evaluates five methodological families: 1
+
+> arXiv:2607.02569v1 [cs.CV] 30 Jun 2026
+
+1. a cached-feature softmax linear head; 2. post-hoc temperature scaling [Guo et al., 2017]; 3. variational Bayesian last-layer heads; 4. a diagonal Laplace last-layer approximation [Ritter et al., 2018, Daxberger et al., 2021]; 5. an SNGP-style cached-feature head with random Fourier features and a diagonal precision proxy [Liu et al., 2020]. The main result is mixed, which is scientifically useful. On APTOS, uncertainty-aware last-layer heads improved high-sensitivity operating points and selective-referral behavior. On DDR, native Bayesian heads qualitatively reproduced the APTOS direction, but with weaker specificity and no zero-false-negative operating point at practical coverage. The APTOS-trained SNGP checkpoint evaluated directly on DDR without retraining performed poorly, providing a negative transfer result rather than evidence of shift robustness. 
+
+Main claim. Uncertainty-aware last-layer heads can improve internal safety-oriented operating points, but false-negative reduction is not unique to Bayesian modeling, threshold tuning can also reduce false negatives at high false-positive cost, and uncertainty estimates that appear useful internally may fail under external dataset shift. Therefore, uncertainty-aware retinal screening systems should be evaluated using explicit safety–coverage tradeoffs and second-dataset validation. 
+
+# 2 Related Work 
+
+RETFound is a retinal foundation model pretrained for ophthalmic image representation learning and has become a natural frozen-backbone starting point for downstream retinal tasks [Zhou et al., 2023]. Our work uses RETFound as a fixed feature extractor rather than fine-tuning it end to end, which keeps the methodological question focused on last-layer uncertainty rather than repre-sentation learning. Recent ophthalmic foundation-model studies have also begun to compare and combine eye-specific foundation models across multiple retinal and ophthalmic diagnostic tasks, including FusionFM, which evaluates several ophthalmic foundation models and explores fusion strategies for ophthalmic diagnosis [Zou et al., 2025]. Uncertainty estimation for neural networks has a large literature, including approximate Bayesian inference, variational methods, Laplace approximations, and distance-aware posteriors [Neal, 1996, Blundell et al., 2015, Ritter et al., 2018, Daxberger et al., 2021, Liu et al., 2020]. In medical imaging, calibration and uncertainty matter because ranking errors by confidence may support safer deci-sion support or defer-to-human workflows. That motivation aligns with selective prediction and selective classification work, where a model is allowed to abstain on uncertain examples instead of making every decision automatically [El-Yaniv and Wiener, 2010, Geifman and El-Yaniv, 2017]. What is still easy to overclaim in this area is causal uniqueness. If a Bayesian or uncertainty-aware model reduces false negatives, that does not by itself prove that Bayesian modeling was required. A lower decision threshold may sometimes do the same thing with worse false-positive burden. Our study therefore reports both threshold-sweep controls and selective-referral analyses, and it tests whether internal findings survive a second dataset. 2Table 1: Dataset sizes after binary referable diabetic retinopathy mapping.                   
+
+> Dataset Total Non-ref Ref Train Val Test APTOS 2019 3662 2175 1487 2930 366 366 DDR 12522 6896 5626 8765 1878 1879
+
+Table 2: Frozen RETFound feature extraction settings used for cached-feature experiments.                      
+
+> Dataset Backbone Checkpoint Dim Resize Crop Device Batch APTOS 2019 RETFound_mae RETFound_mae_natureCFP.pth 1024 224 224 cuda 8DDR RETFound_mae RETFound_mae_natureCFP.pth 1024 224 224 cuda 16
+
+# 3 Materials and Methods 
+
+3.1 Datasets and binary referable-DR mapping 
+
+We study binary referable DR classification on two datasets. APTOS 2019 is a public diabetic retinopathy grading dataset of color fundus photographs, while DDR is a larger public diabetic retinopathy grading dataset used here as a second-dataset validation setting. Native DDR softmax and Bayesian heads test whether the APTOS findings qualitatively reproduce on a harder second dataset. The APTOS-trained SNGP checkpoint evaluated directly on DDR is an APTOS-to-DDR transfer evaluation without retraining. For both datasets, grades 0 and 1 were mapped to non-referable DR, and grades 2, 3, and 4 were mapped to referable DR. That mapping is clinically motivated by the screening question of whether a case should be referred onward for further ophthalmic review. 
+
+3.2 Frozen RETFound feature extraction 
+
+All downstream models operate on frozen RETFound feature vectors rather than raw pixels. Fea-tures were extracted from the RETFound_mae checkpoint RETFound_mae_natureCFP.pth . Each image is passed through the pretrained RETFound encoder, and the resulting 1024-dimensional feature vector is used to train lightweight last-layer classifiers. Images were resized and center-cropped to 224 ×224, and the exported feature dimensionality was 1024 for both datasets. This cached-feature design reduces compute cost, keeps the adaptation space small, and isolates the research question of how last-layer uncertainty affects screening-oriented operating points. 
+
+3.3 Last-layer heads 
+
+The deterministic baseline is a softmax linear head trained on cached RETFound features. Tem-perature scaling is applied post hoc on the validation predictions and therefore changes probability calibration without changing the ranking-based confusion matrix at a fixed threshold [Guo et al., 2017]. The variational Bayesian head models the final linear layer weights with diagonal Gaussian posteriors and optimizes cross-entropy plus a KL term. The Laplace baseline first trains a deter-ministic final layer, then fits a diagonal Gaussian approximation around the final-layer optimum. The SNGP-style head applies an optional spectral-normalized projection, fixed random Fourier fea-tures, and a diagonal precision estimate over the random-feature activations. This is an SNGP-style cached-feature head, not full end-to-end SNGP RETFound. 33.4 Calibration, thresholding, and selective referral 
+
+Three evaluation modes are central to this study. 1. Full coverage : every example receives an automated prediction. 2. Threshold sweeps : the positive-class probability threshold is varied to test whether low-false-negative behavior can be reached by ordinary threshold control. 3. Selective referral : the most uncertain examples are deferred to human review, and metrics are computed on accepted automated cases only. For selective referral, coverage denotes the accepted fraction and referral rate denotes the de-ferred fraction. This distinction matters because accepted-case performance should not be inter-preted as full-population performance. 
+
+3.5 Evaluation metrics 
+
+We report accuracy, AUC, sensitivity, specificity, balanced accuracy, calibration metrics (ECE, NLL, Brier score), and confusion-matrix-derived false-positive and false-negative counts. The prin-cipal safety interpretation uses sensitivity, false negatives, and selective-referral behavior rather than accuracy alone. 
+
+# 4 Experiments 
+
+4.1 APTOS internal validation 
+
+APTOS is used to establish internal full-coverage baselines, threshold-sweep controls, and selective-referral behavior. The central question is whether uncertainty-aware last-layer heads can move the operating point toward fewer missed referable cases without collapsing specificity. 
+
+4.2 DDR second-dataset validation 
+
+DDR provides a harder second-dataset validation setting. Native DDR softmax and Bayesian heads test whether the qualitative APTOS findings reproduce when the frozen RETFound features are reused on a different retinal dataset with its own train/validation/test split. 
+
+4.3 APTOS-to-DDR SNGP transfer evaluation 
+
+The APTOS-trained SNGP sensitivity-selected checkpoint is evaluated directly on DDR cached features without retraining. The fitted diagonal precision state is restored from the APTOS check-point rather than recomputed on DDR. This makes the experiment a transfer test rather than a native DDR re-fit. 
+
+# 5 Results 
+
+5.1 Full-coverage model results 
+
+APTOS full-coverage results show that several uncertainty-aware heads improved screening-oriented operating points relative to the cached softmax baseline. The sensitivity-selected variational 4Table 3: APTOS validation comparison for full-coverage cached-feature heads.                                                                                 
+
+> Model Acc AUC Sens Spec Bal Acc ECE FN FP Softmax 0.8798 0.9580 0.8896 0.8726 0.8811 0.0348 17 27 Softmax+Temp 0.8798 0.9580 0.8896 0.8726 0.8811 0.0186 17 27 Bayes (val-loss) 0.8934 0.9650 0.8831 0.9009 0.8920 0.0216 18 21 Bayes (max-sens) 0.8934 0.9613 0.9610 0.8443 0.9027 0.0320 633 Bayes (balanced) 0.9016 0.9617 0.9545 0.8632 0.9089 0.0275 729 Laplace (val-loss) 0.8962 0.9666 0.8636 0.9198 0.8917 0.0972 21 17 Laplace (sens) 0.8962 0.9586 0.9481 0.8585 0.9033 0.0900 830 SNGP (val-loss) 0.9071 0.9756 0.8831 0.9245 0.9038 0.0288 18 16 SNGP (sens) 0.9098 0.9711 0.9805 0.8585 0.9195 0.0287 330
+
+Table 4: DDR validation comparison for full-coverage native DDR heads and APTOS-to-DDR SNGP transfer.                                         
+
+> Model Acc AUC Sens Spec Bal Acc ECE FN FP DDR Softmax 0.7939 0.8688 0.7773 0.8075 0.7924 0.0223 188 199 DDR Bayes (val-loss) 0.7966 0.8782 0.7275 0.8530 0.7902 0.0174 230 152 DDR Bayes (sens) 0.7678 0.8634 0.8472 0.7031 0.7751 0.0097 129 307 APTOS->DDR SNGP 0.5990 0.5833 0.2701 0.8675 0.5688 0.2168 616 137
+
+Bayesian model reduced false negatives from 17 to 6. The sensitivity-selected Laplace model re-duced false negatives to 8. The SNGP sensitivity-selected model reduced false negatives to 3 while keeping AUC at 0.9711 and balanced accuracy at 0.9195. 
+
+Figure 1: APTOS full-coverage false-negative and false-positive counts for key internal models. These APTOS improvements did not justify a broad superiority claim. The softmax base-line plus temperature scaling remained a strong calibration reference, and the operating points differed by purpose. For example, the val-loss-selected Bayesian model improved NLL and Brier 5score relative to the deterministic baseline, while the sensitivity-selected Bayesian operating point emphasized false-negative reduction at a specificity cost. DDR results were more sobering. The native DDR Bayesian sensitivity-selected model reduced false negatives from 188 to 129 relative to DDR softmax, which qualitatively reproduced the APTOS direction. However, specificity fell to 0.7031. The APTOS-to-DDR SNGP transfer result was a clear negative result: sensitivity fell to 0.2701, AUC to 0.5833, and false negatives rose to 616. 
+
+Figure 2: DDR full-coverage false-negative and false-positive counts. The APTOS-trained SNGP transfer checkpoint performs poorly under shift. 
+
+Figure 3: DDR sensitivity and specificity comparison for native DDR heads and the APTOS-to-DDR SNGP transfer evaluation. 6Table 5: DDR threshold-sweep summary for balanced and low-false-negative operating points.                                                         
+
+> Sweep Policy Thr Sens Spec Bal Acc FN FP Softmax+Temp Best bal acc 0.50 0.7773 0.8075 0.7924 188 199 Softmax+Temp Lowest FN 0.03 10.1025 0.5512 0928 Bayes (val-loss) Best bal acc 0.40 0.8104 0.7785 0.7945 160 229 Bayes (sens) Best bal acc 0.55 0.8152 0.7524 0.7838 156 256 Bayes (sens) Lowest FN 0.03 10.0532 0.5266 0979 APTOS->DDR SNGP Best bal acc 0.45 0.3069 0.8424 0.5746 585 163 APTOS->DDR SNGP Lowest FN 0.01 0.9882 0.0155 0.5018 10 1018
+
+5.2 Threshold-sweep results 
+
+Threshold sweeps showed that false-negative reduction was not unique to Bayesian modeling. On APTOS, the SNGP sensitivity-selected checkpoint reached zero false negatives at threshold 0.20 but required 67 false positives. The earlier cached softmax and Bayesian APTOS sweeps showed the same pattern: the softmax baseline, Bayesian max-sensitivity model, and Bayesian balanced model all reached zero false negatives at different low thresholds but converged to the same high-false-positive operating point. On DDR, the same control remained important. The native DDR Bayesian sensitivity-selected model reached zero false negatives at threshold 0.03, but produced 979 false positives. The DDR temperature-scaled softmax model also reached zero false negatives at threshold 0.03, but with 928 false positives and specificity of only 0.1025. This is clinically different from selective referral because it treats almost the entire validation set as positive. 
+
+Figure 4: DDR threshold-sweep comparison across balanced and low-false-negative operating points. 7Table 6: DDR selective-referral comparison at approximately 80% accepted coverage.                                                         
+
+> Signal Coverage Referral Sens Spec Bal Acc FN FP DDR Bayes confidence 0.8003 0.1997 0.8966 0.7596 0.8281 72 194 DDR Bayes entropy 0.8003 0.1997 0.8966 0.7596 0.8281 72 194 DDR Bayes prob var 0.8003 0.1997 0.8887 0.7298 0.8093 75 224 DDR Bayes MI 0.8003 0.1997 0.8783 0.7284 0.8033 83 223 APTOS->DDR SNGP entropy 0.8003 0.1997 0.2160 0.9298 0.5729 519 59 APTOS->DDR SNGP variance 0.8003 0.1997 0.3042 0.8370 0.5706 478 133 APTOS->DDR SNGP combined 0.8003 0.1997 0.2165 0.9284 0.5725 521 60
+
+5.3 Selective-referral results 
+
+Selective referral was the strongest internal APTOS safety result. For the SNGP sensitivity-selected checkpoint, predictive entropy at approximately 80% coverage deferred 73 of 366 cases and re-duced accepted-case false negatives to zero while preserving accepted-case specificity of 0.9146 and accepted-case accuracy of 0.9522. On DDR, native Bayesian uncertainty signals remained useful but weaker. At approximately 80% coverage, DDR Bayesian confidence or predictive entropy reduced accepted-case false negatives from 129 to 72, while improving accepted-case balanced accuracy to 0.8281. Probability variance and mutual information were weaker than confidence or entropy on DDR. By contrast, the APTOS-trained SNGP transfer checkpoint did not yield useful DDR selective-referral behavior. At approximately 80% coverage, its entropy-based referral still left 519 accepted-case false negatives, and the variance-only signal left 478. The problem was not simply poor calibration; the cross-dataset ranking itself was weak. 
+
+Figure 5: Accepted-case false negatives at approximately 80% coverage for DDR Bayesian and APTOS-to-DDR SNGP uncertainty signals. Lower is better. 8Table 7: SNGP internal APTOS validation versus APTOS-to-DDR transfer evaluation.                         
+
+> Setting Acc AUC Sens Spec Bal Acc ECE FN FP APTOS internal 0.9098 0.9711 0.9805 0.8585 0.9195 0.0287 330 APTOS->DDR transfer 0.5990 0.5833 0.2701 0.8675 0.5688 0.2168 616 137
+
+Figure 6: APTOS internal validation versus APTOS-to-DDR transfer for the sensitivity-selected SNGP checkpoint. 
+
+5.4 SNGP transfer failure 
+
+The SNGP internal-versus-transfer comparison is the clearest negative result in the study. Internally on APTOS, the sensitivity-selected SNGP model achieved sensitivity 0.9805, balanced accuracy 0.9195, and only 3 false negatives. The same checkpoint evaluated directly on DDR without retraining dropped to sensitivity 0.2701 and balanced accuracy 0.5688. This should be interpreted conservatively. The result does not show that SNGP is universally ineffective; it shows that this SNGP-style cached-feature implementation did not improve cross-dataset robustness in this experiment. 
+
+# 6 Discussion 
+
+6.1 What worked 
+
+Three findings were consistently useful. 1. Frozen RETFound cached features were strong enough to support informative last-layer com-parisons on both datasets. 2. Variational Bayesian last-layer heads improved screening-oriented full-coverage operating points on both APTOS and DDR relative to the default deterministic baseline. 93. Selective referral meaningfully improved accepted-case safety when the uncertainty signal pre-served a useful ranking, especially for APTOS and for the native DDR Bayesian sensitivity-selected model. 
+
+6.2 What did not transfer 
+
+The APTOS-trained SNGP checkpoint did not transfer well to DDR. Its full-coverage discrimination was weak, its calibration was poor, and its uncertainty signals did not reliably surface dangerous missed-positive cases under shift. This is an important negative result because internal validation alone could have suggested a stronger robustness story than the data support. 
+
+6.3 Why threshold tuning matters 
+
+Threshold tuning is a necessary control because it limits overclaiming. If a deterministic or Bayesian model can eliminate false negatives simply by lowering the decision threshold, then zero false negatives alone cannot support a claim that Bayesian uncertainty was uniquely responsible. The relevant comparison is the full tradeoff among false negatives, false positives, specificity, and human-review burden. 
+
+6.4 Why selective referral is clinically meaningful 
+
+Selective referral addresses a different workflow from threshold-only screening. Lowering the thresh-old pushes more cases into automated positive predictions. Selective referral instead defers uncer-tain cases to human review. In this study, that workflow preserved much stronger accepted-case accuracy and specificity than low-threshold zero-false-negative screening on APTOS, and it re-mained meaningfully useful on DDR for the native Bayesian model. 
+
+6.5 Limitations 
+
+This is not a clinical deployment study. It is a research-grade empirical evaluation on two retinal datasets using frozen RETFound features. The study is limited by the absence of raw-image fine-tuning, limited uncertainty families, and evaluation on a single external dataset rather than multiple independent cohorts. The manuscript package in this repository also reconstructs publication tables from locked summary results because the full raw experiment output directories are not included in this checkout. 
+
+# 7 Conclusion 
+
+Uncertainty-aware last-layer adaptation on frozen RETFound features produced useful internal safety-oriented operating points, especially when evaluated through selective referral rather than accuracy alone. However, the study also shows three constraints on what can be honestly claimed. First, false-negative reduction is not unique to Bayesian modeling because threshold tuning can also reduce false negatives at substantial false-positive cost. Second, uncertainty signals that look useful internally may weaken or fail under external dataset shift. Third, negative transfer results such as the APTOS-to-DDR SNGP evaluation are essential evidence, not side notes. The practical conclusion is that uncertainty-aware retinal screening systems should be evaluated using explicit safety–coverage tradeoffs and second-dataset validation, rather than relying on aggregate accuracy or in-distribution gains alone. 10 Table 8: Reproducibility metadata for the manuscript package.               
+
+> Item Value Repository https://github.com/kmardhani/uncertainty-aware-retfound
+> Author Karim Mardhani Affiliation Master of Science in Artificial Intelligence; University of Colorado Boulder; Boulder, CO, USA Email Karim.Mardhani@colorado.edu
+> Title Uncertainty-Aware Last-Layer Adaptation of RETFound for Referable Diabetic Retinopathy Screening Under Dataset Shift arXiv primary cs.CV arXiv secondary cs.LG Project status Independent research initiative; not sponsored, supervised, or formally endorsed by the university Task Binary referable diabetic retinopathy Backbone Frozen RETFound_mae Feature dimension 1024 APTOS split 2930 / 366 / 366 DDR split 8765 / 1878 / 1879
+
+# 8 Reproducibility 
+
+The repository contains scripts for metadata preparation, frozen feature extraction, cached-feature training, calibration, threshold sweeps, selective referral, and manuscript asset generation. The paper assets can be regenerated from the repository root with: 
+
+uv run python paper/scripts/make_paper_assets.py 
+
+A stable release tag should be used for archival reproduction. 
+
+# Acknowledgments 
+
+This work was conducted as an independent research initiative by the author. The author is enrolled in the part-time, course-based Master of Science in Artificial Intelligence program at the University of Colorado Boulder; however, this project was not sponsored, supervised, or formally endorsed by the university. 
+
+# A Additional Notes on Clinical Interpretation 
+
+Accepted-case selective-referral metrics are conditional on non-deferred cases and should not be interpreted as full-population screening performance. Likewise, the APTOS-to-DDR SNGP result should be interpreted specifically as a transfer evaluation without retraining, not as a statement about every possible SNGP design. 
+
+# References 
+
+Charles Blundell, Julien Cornebise, Koray Kavukcuoglu, and Daan Wierstra. Weight uncertainty in neural networks. In Proceedings of the 32nd International Conference on Machine Learning ,pages 1613–1622, 2015. 11 Erik Daxberger, Agustinus Kristiadi, Alexander Immer, Runa Eschenhagen, Matthias Bauer, Philipp Hennig, Eric Nalisnick, and Mohammad Emtiyaz Khan. Laplace redux – effortless bayesian deep learning. Advances in Neural Information Processing Systems , 34:20089–20103, 2021. Ran El-Yaniv and Yair Wiener. On the foundations of noise-free selective classification. Journal of Machine Learning Research , 11:1605–1641, 2010. Yonatan Geifman and Ran El-Yaniv. Selective classification for deep neural networks. Advances in Neural Information Processing Systems Workshops , 2017. Workshop version commonly used for selective prediction background. Varun Gulshan, Lily Peng, Marc Coram, Martin C. Stumpe, Derek Wu, Arunachalam Narayanaswamy, Subhashini Venugopalan, Kasumi Widner, Tom Madams, Jorge Cuadros, R. Kim, Rajiv Raman, Philip C. Nelson, Jessica L. Mega, and Dale R. Webster. Develop-ment and validation of a deep learning algorithm for detection of diabetic retinopathy in retinal fundus photographs. JAMA , 316(22):2402–2410, 2016. doi: 10.1001/jama.2016.17216. Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q. Weinberger. On calibration of modern neural networks. In Proceedings of the 34th International Conference on Machine Learning , pages 1321– 1330, 2017. Jeremiah Liu, Zirui Lin, Siddhartha Padhy, Dustin Tran, Tania Bedrax-Weiss, and Balaji Laksh-minarayanan. Simple and principled uncertainty estimation with deterministic deep learning via distance awareness. Advances in Neural Information Processing Systems , 33:7498–7512, 2020. Radford M. Neal. Bayesian Learning for Neural Networks . Springer, 1996. doi: 10.1007/ 978-1-4612-0745-0. Hippolyt Ritter, Aleksandar Botev, and David Barber. A scalable laplace approximation for neural networks. In International Conference on Learning Representations , 2018. Daniel S. W. Ting, Carol Y.-L. Cheung, Gilbert Lim, Gih Han Tan, Nguyen Duc Quang, Alfred Gan, Hazlita Hamzah, Richard Garcia-Franco, I-Wei San Yeo, S. Y. Lee, Eugenia Y. M. Wong, and et al. Development and validation of a deep learning system for diabetic retinopathy and related eye diseases using retinal images from multiethnic populations with diabetes. JAMA , 318 (22):2211–2223, 2017. doi: 10.1001/jama.2017.18152. Yukun Zhou, Mark A. Chia, Siegfried K. Wagner, Mahmut S. Ayhan, Dominic J. Williamson, Robbert Struyven, Mingzhe Liu, Mauricio G. Lozano, Phoebe Woodward-Court, Erin Xu, and et al. A foundation model for generalizable disease detection from retinal images. Nature , 622 (7984):156–163, 2023. doi: 10.1038/s41586-023-06555-x. Ke Zou, Jocelyn Hui Lin Goh, Yukun Zhou, Tian Lin, Samantha Min Er Yew, Sahana Srinivasan, Meng Wang, Rui Santos, Gabor M. Somfai, Huazhu Fu, Haoyu Chen, Pearse A. Keane, Ching-Yu Cheng, and Yih Chung Tham. Fusionfm: Fusing eye-specific foundational models for optimized ophthalmic diagnosis. arXiv preprint arXiv:2508.11721 , 2025. 12

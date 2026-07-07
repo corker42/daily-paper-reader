@@ -1,0 +1,402 @@
+Title: Causal-RetiGraph: Cross-Cohort Retinal Support and Same-Subject Pathway Analysis for Diabetic Retinopathy
+
+URL Source: https://arxiv.org/pdf/2607.05204v1
+
+Published Time: Tue, 07 Jul 2026 03:37:26 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Causal-RetiGraph: Cross-Cohort Retinal Support and Same-Subject Pathway Analysis for Diabetic Retinopathy 
+
+Inam Ullah ∗
+
+University of Southampton Southampton, United Kingdom i1n23@soton.ac.uk 
+
+Imran Razzak 
+
+Mohamed bin Zayed University of Artificial Intelligence United Arab Emirates imran.razzak@mbzuai.ac.ae 
+
+Shoaib Jameel 
+
+University of Southampton Southampton, United Kingdom M.S.Jameel@southampton.ac.uk 
+
+> ∗
+
+Corresponding author: i1n23@soton.ac.uk 
+
+Abstract —Diabetic retinopathy (DR) is a local retinal lesion process and a visible manifestation of systemic microvascular injury. Modern retinal AI can grade images accurately, but often leaves unanswered how local lesion evidence, retinal vascular structure, and systemic disease pathways are connected. This paper introduces Causal-RetiGraph , a compact biomedical in-formatics framework that links retinal graph phenotypes with NHANES-anchored pathway modelling. The retinal-image fold constructs an interpretable X1234 phenotype from vessel maps, lesion evidence, image embeddings, and AutoMorph biomarkers through spatial X12 and Jacobian X34 branches. The NHANES fold models systemic exposures, covariates, a same-subject retinal mediator family R∗, and downstream outcome families. X1234 
+
+is used for retinal support and pathway prioritisation, while 
+
+R∗ is used for participant-level pathway summaries. On the retinal fold, X1234 achieves 0.9055 binary DR accuracy and 0.9711 AUROC, with graded DR QWK of 0.8312. The results show that lesion and biomarker streams improve contextual retinal representation under scarce and imbalanced data. In NHANES, HbA1c, urine albumin, pulse pressure, fasting glucose, and systolic blood pressure are the strongest binary DR anchors. Participant-level pathway analysis identifies glycaemic–renal and glycaemic–haemodynamic pathways as the clearest mediator-style signals. These results suggest that retinal graph phenotypes can help prioritise systemic pathways in DR while preserving the distinction between image-derived support and same-subject mediation. 
+
+Index Terms —Retinal Imaging, Causal Learning, Explainable AI, Oculomics, Biomarkers, Cardiovascular Diseases 
+
+I. I NTRODUCTION 
+
+Diabetes is a systemic metabolic disorder in which impaired insulin production or insulin action leads to chronic hypergly-caemia and progressive vascular injury. Over time, persistent glycaemic burden interacts with blood-pressure stress, dyslipi-daemia, inflammation, renal dysfunction and disease duration, producing both macrovascular and microvascular complica-tions [1, 2]. Diabetic retinopathy, diabetic nephropathy and diabetic neuropathy are among the major microvascular com-plications of diabetes, and they share several upstream mech-anisms related to endothelial dysfunction, capillary damage and metabolic stress [3, 4, 5, 6]. DR is therefore not only an isolated ocular disease; it is a local retinal expression of systemic diabetic microvascular burden [7]. The retina is particularly important because it provides a non-invasive view of the human microcirculation. Unlike many vascular beds, the retinal circulation can be repeatedly imaged using colour fundus photography, allowing vessel structure, lesion burden and microvascular remodelling to be measured at scale. This has led to growing interest in retinal biomarkers and oculomics, where retinal imaging is used to study ocular, cardiovascular, renal and systemic health [8]. Recent retinal biomarker roadmaps emphasise that retinal imaging may support cardiovascular and systemic disease assessment when image-derived biomarkers are standardised and linked to interpretable physiology [9]. Reviews of DR imaging similarly highlight the importance of vascular calibre, vessel density, tortuosity, fractal dimension and multimodal retinal measurements for early DR characterisation and risk assessment [10]. Automated DR screening systems have shown that fun-dus photographs contain sufficient information for detecting referable disease [11]. However, the development of reliable medical image models remains constrained by data scarcity, class imbalance, inconsistent annotation quality and dataset shift. These problems are especially important in DR because severe and proliferative cases are less frequent than no-DR or mild cases, while lesion-level expert annotations are much harder to obtain than image-level labels. Recent reviews of DR deep learning and data-centric retinal AI highlight lim-ited high-quality datasets, inconsistent labels, restricted lesion annotation and imbalance as persistent barriers to clinically reliable systems [12, 13, 14]. Previous work on data imbalance and diversity in DR modelling has also shown that model performance can be affected by dataset composition and class distribution [15]. These limitations motivate representations that are not only predictive, but also robust, interpretable and clinically grounded. A second gap is interpretability. A DR grade is supported by visible lesion types, lesion burden, lesion location and vascular morphology. Microaneurysms, haemorrhages, hard exudates, cotton-wool spots and neovas-cularisation provide local disease evidence [16], while retinal 
+
+> arXiv:2607.05204v1 [cs.CV] 6 Jul 2026
+
+Fig. 1: Causal-RetiGraph workflow. Steps 1–4 construct and evaluate the image-derived retinal graph phenotype X1234 from a DR retinal cohort. Steps 5–8 use NHANES 2005–2008 as an independent systemic anchoring source for exposure–DR association analysis, cross-cohort pathway prioritisation, and participant-level R∗-based pathway summaries. Step 9 summarises the main framework outputs. vessel calibre, CRAE, CRVE, AVR, vessel density, tortuosity and fractal structure describe the vascular bed [7]. Saliency methods such as Grad-CAM can highlight class-discriminative image regions [17], and image-mining approaches have shown that weak heatmaps can reveal disease-relevant retinal pat-terns [18]. However, heatmaps alone do not quantify lesion evidence [19], whether it is macular, vessel-adjacent, artery-related, vein-related or biomarker-sensitive. Conversely, tab-ular oculomics can associate retinal vascular measurements with disease severity, but it loses the spatial arrangement of lesions and vessels. Automated tools such as AutoMorph now allow retinal vascular morphology to be quantified at scale [20], and lesion-aware representation learning can improve disease-sensitive embeddings [21]. What remains missing is a framework that explicitly links lesion evidence, spatial vessel context, image embeddings and retinal biomarkers. A third gap is systemic pathway interpretation. Epidemi-ological datasets such as NHANES [22] can identify rela-tionships between systemic exposures and DR, including gly-caemic, renal, haemodynamic, lipid and inflammatory factors. However, standard exposure–outcome models rarely include an interpretable retinal intermediate that connects local retinal evidence with systemic risk. This makes it difficult to ask whether retinal features behave only as passive correlates, as downstream biomarkers, or as mediator-like signals within systemic diabetic microvascular pathways. A biomedical in-formatics framework for DR should therefore connect three levels: retinal image evidence, retinal vascular biomarkers and participant-level systemic variables. In light of the above, this paper presents Causal-RetiGraph ,a two-fold framework for retinal-systemic pathway analysis in DR. The first fold constructs an image-derived retinal sup-port phenotype, denoted X1234 , from four evidence streams: vessel structure (X1), lesion evidence (X2), image/lesion embeddings (X3), and AutoMorph biomarkers (X4). The spatial X12 branch captures lesion–vessel geometry, while the Jacobian X34 branch captures embedding–biomarker sensitiv-ity. These branches are fused into an interpretable retinal graph phenotype for DR grading, severity-trend analysis and lesion– biomarker hypothesis generation. The second fold anchors systemic analysis in NHANES 2005–2008 diabetic participants. In this fold, systemic ex-posures E, adjustment blocks Z/G , retinal mediator-family variables R∗, and outcome variables Y are modelled at the participant level. The key design rule is that X1234 and 
+
+R∗ are related but not identical. X1234 is an image-derived retinal support phenotype used for cross-source pathway pri-oritisation, whereas R∗ is the same-subject NHANES retinal mediator family used for participant-level pathway summaries. This separation avoids the overclaim that an externally derived image phenotype has been measured on the same NHANES participants, while still allowing retinal image evidence to guide systemic pathway discovery. The proposed framework operationalises the idea that the eye can serve as a window to systemic health. Rather than treating the retina only as an image-classification input or only as an epidemiological outcome, Causal-RetiGraph treats retinal evidence as a structured biomedical layer for pathway prioritisation and hypothesis generation. This may support pathway prioritisation, reveal lesion–vascular coupling, and motivate future same-subject tests of whether retinal graph phenotypes behave as correlates, mediator-like variables or modifiers of systemic diabetic risk. The contributions are fourfold. First, we construct a retinal graph phenotype X1234 that combines spatial lesion–vessel evidence and Jacobian embedding–biomarker sensitivity. Sec-ond, we build an NHANES binary DR anchor to identify glycaemic, renal and haemodynamic systemic factors asso-ciated with DR. Third, we introduce a cross-source prioriti-sation strategy that combines observed NHANES exposure– DR effects with retinal X1234 support. Fourth, we report participant-level pathway summaries through NHANES R∗,identifying glycaemic–renal and glycaemic–haemodynamic axes as dominant DR-related pathway families. II. R ELATED WORK 
+
+A. DR AI and explainability 
+
+Deep learning systems have achieved strong performance for DR screening from retinal fundus photographs [23]. Their usefulness in practice depends not only on classification accuracy but also on whether the output can be related to clinically meaningful evidence. Grad-CAM and related class activation methods are valuable for weak localisation, but they should not be interpreted as expert lesion segmentation [17]. Lesion-aware representation learning offers a complementary direction by shaping embeddings around disease-relevant vi-sual structures [21]. Causal-RetiGraph uses these ideas to build a retinal phenotype that can be linked to pathway-level analysis rather than only to class prediction. Unlike standard DR screening models, Causal-RetiGraph uses image-derived evidence to support pathway-level analysis rather than only disease classification. 
+
+B. Retinal biomarkers and oculomics 
+
+Retinal imaging biomarkers provide a quantitative link between the eye and systemic vascular biology. AutoMorph extracts artery, vein and vessel morphology features at scale, including calibre, density, tortuosity, fractal dimension, CRAE, CRVE and AVR. Biomarker roadmaps argue that retinal measurements can contribute to cardiovascular and systemic disease assessment when they are standardised and phys-iologically interpretable [8]. Structural and functional DR imaging reviews further motivate early biomarker discovery for diabetic eye disease [7]. These developments motivate retinal phenotypes that combine images, lesions and vessel biomarkers. Unlike purely tabular oculomics analyses, Causal-RetiGraph retains lesion–vessel spatial context through the 
+
+X12 branch and links it with biomarker sensitivity through 
+
+X34 .
+
+C. Pathway modelling in biomedical data 
+
+Causal graphical models and mediation analysis provide tools for decomposing exposure–mediator–outcome relation-ships [24, 25]. Generalised additive models provide a flexible way to represent nonlinear biomedical relationships while retaining interpretable smooth terms [26, 27]. In this paper, these ideas are used in a conservative way: X1234 supports pathway ranking, whereas NHANES R∗ supports participant-level pathway summaries. The goal is pathway prioritisation and biomedical hypothesis generation rather than proof of biological causality. Unlike standard mediation models that require all variables in one cohort, Causal-RetiGraph sepa-rates cross-cohort pathway prioritisation through X1234 from same-subject pathway summaries through R∗.III. M ETHODOLOGY 
+
+A. Overview of the Causal-RetiGraph workflow 
+
+Fig. 1 summarises the complete Causal-RetiGraph work-flow. The framework is organised as a sequential retinal– systemic analysis pipeline instead of a standalone DR clas-sifier. The workflow contains nine connected steps. Steps 1–4 form the retinal-image support fold, where an external DR-retinal Cohort is used to construct, train, validate and test the image-derived retinal graph phenotype denoted X1234 .Steps 5–8 form the systemic pathway fold, where NHANES 2005–2008 participant-level data are used to anchor sys-temic exposures, estimate binary DR associations, prioritise candidate pathways using X1234 -based retinal support, and perform participant-level pathway analysis using the same-subject NHANES retinal mediator family R∗. Step 9 sum-marises the main outputs of the framework. The workflow separates retinal-image evaluation from participant-level sys-temic pathway modelling. The fused retinal phenotype X1234 
+
+is learned and evaluated within the external DR-XAI im-age cohort using train–validation–test splits. This establishes 
+
+X1234 as a validated image-derived retinal support phenotype for DR discrimination and severity-sensitive representation. NHANES then provides an independent systemic anchoring source. In NHANES, systemic exposures, covariates, reti-nal/context variables and outcomes are measured at the partic-ipant level through SEQN-linked records. Therefore, X1234 is used as retinal support for cross-cohort pathway prioritisation, whereas R∗ is used for same-subject pathway summaries within NHANES. This distinction avoids overclaiming that the externally derived X1234 phenotype has been directly measured on the same NHANES participants. Table I provides an overview of all constructs used in the framework, their data provenance, analytical roles, and interpretations. 
+
+B. Steps 1–2: Retinal image cohort and dual-edge evidence streams 
+
+The retinal-image support fold begins with a curated DR im-age cohort derived from the APTOS 2019 Blindness Detection TABLE I: Data provenance and analytical roles in Causal-RetiGraph.                           
+
+> Construct Source and role Interpretation
+> X1Retinal cohort; vessel stream Artery, vein and vessel segmentation
+> X2Retinal cohort; lesion-evidence stream Grad-CAM heatmap and lesion-summary evidence
+> X3Retinal cohort; embedding stream Lesion-sensitive representation vector used in the X34 Jacobian branch
+> X4Retinal cohort; biomarker stream AutoMorph biomarkers or tabular oculomics
+> X1234 Retinal cohort; fused retinal graph phenotype Held-out binary and graded DR evaluation
+> ENHANES; exposure block Glycaemic, renal, haemodynamic, lipid and inflammatory variables
+> Z, G NHANES; adjustment blocks Baseline covariates and ancestry-proxy/sensitivity variables
+> R∗NHANES; same-subject retinal mediator family Participant-level retinal/context family summarised by
+> Rstar family pca1
+> YNHANES; outcome block Binary DR and renal, haemodynamic or inflammatory outcome
+
+dataset [28]. This cohort is internal to the retinal-image fold but external to the NHANES participant-level pathway fold. We use a carefully curated, non-augmented subset of 2,910 fundus images with image-level DR grades from 0 to 4. The data are split using a stratified 60/20/20 protocol into 1,746 training images, 582 validation images and 582 test images. This split is used to train, validate and test the image-derived retinal graph phenotype X1234 before it is used as retinal support evidence in the cross-cohort pathway analysis. Each retained image is represented by four aligned evidence streams. The first stream, X1, captures segmentation-derived retinal vascular anatomy, comprising artery, vein, whole-vessel, and macular-region maps that preserve vessel topology and spatial geometry. The second stream, X2, comprises lesion evidence maps and lesion-summary statistics derived from weak DR-XAI localisation. In this study, X2 is interpreted as class-discriminative lesion evidence in lieu of expert-annotated lesion segmentation. Grad-CAM-style localisation is used to obtain image regions contributing to DR prediction [17]. The third stream, X3, is a lesion-sensitive image embedding. A Huang-style lesion-based contrastive ResNet50 checkpoint is used to obtain high-dimensional image features, which are then projected into the canonical 128-dimensional embedding schema [21]. The fourth stream, X4, contains AutoMorph-derived retinal morphometric biomarkers, including vessel density, tortuosity, average vessel width, fractal dimension, CRAE, CRVE and AVR [20]. The stream order is fixed to avoid ambiguity between lesion evidence and image embeddings. In particular, X2 denotes the spatial lesion-evidence stream used with vessel maps in the 
+
+X12 spatial branch, whereas X3 denotes the vector embedding stream used in the X34 Jacobian branch. This distinction is important because the two streams serve different roles: X2
+
+preserves local image-space evidence, while X3 provides a compact representation for embedding–biomarker sensitivity analysis. 
+
+C. Step 3: Dual-branch representation and fusion 
+
+The four streams are organised into two complementary branches. The first branch is the spatial branch, denoted X12 .It combines vessel structure (X1) and lesion evidence (X2)
+
+in image space to model lesion–vessel geometry. Let Ai, Ri
+
+and Vi denote artery, vein and whole-vessel maps for image i,let Li denote lesion evidence, and let Zi denote macular-zone information. The spatial interaction channels are defined as 
+
+M 12  
+
+> i
+
+= {Ai, R i, V i, L i, L i ⊙ Ai, L i ⊙ Ri, L i ⊙ Vi, Z i}, (1) where ⊙ denotes pixel-wise interaction. A spatial representa-tion z12  
+
+> i
+
+is extracted from these channels, and image similarity in the spatial branch is computed as 
+
+E12  
+
+> ij
+
+= cos( z12  
+
+> i
+
+, z 12  
+
+> j
+
+). (2) This edge family measures whether two images share similar lesion–vessel geometry rather than only similar DR labels. The second branch is the Jacobian branch, denoted X34 .It links the lesion-sensitive embedding stream (X3) with the biomarker stream (X4). A differentiable mapper is learned from the embedding to a reduced biomarker representation: 
+
+ˆx4,i = fθ (x3,i ), Ji = ∂f θ (x3,i )
+
+∂x 3,i 
+
+. (3) The Jacobian Ji summarises representation-space sensitivity between image embeddings and retinal biomarkers. The X34 
+
+descriptor includes reduced X3, reduced X4, the Frobenius norm of Ji, and input/output sensitivity summaries. The cor-responding branch similarity is 
+
+E34  
+
+> ij
+
+= cos( z34  
+
+> i
+
+, z 34  
+
+> j
+
+). (4) The Jacobian descriptor is used as an interpretability signal and is not interpreted as biological causality. The two branches are fused using two-token attention: 
+
+hi = α12  
+
+> i
+
+ϕ12 (z12  
+
+> i
+
+) + α34  
+
+> i
+
+ϕ34 (z34  
+
+> i
+
+), (5) where ϕ12 and ϕ34 are branch-specific projection functions, and α12  
+
+> i
+
+and α34  
+
+> i
+
+are attention weights. The resulting fused retinal graph phenotype is denoted X1234 .
+
+D. Step 4: External evaluation of X1234 
+
+Step 4 evaluates the fused retinal graph phenotype X1234 
+
+within the external DR-XAI retinal cohort. In this step, the retinal model is trained, validated and tested on the DR image dataset using held-out evaluation. Binary evaluation measures TABLE II: APTOS-DR5 class test performance ( n = 582 ).                                                
+
+> Stream/model Acc. QWK Macro-F1 MAE Adj. Acc.
+> X1vessel .6409 .5038 .2832 .6186 .7887
+> X2lesion evidence .7388 .6720 .4256 .4244 .8729
+> X3Huang LCL .8110 .8265 .5934 .2749 .9278
+> X4biomarkers .6770 .5809 .3553 .5498 .8076
+> X12 spatial .7354 .6890 .4258 .4124 .8832
+> X34 Jacobian .8007 .8280 .5826 .2835 .9296 Full graph X1234 .8076 .8312 .5915 .2749 .9330
+
+TABLE III: Binary DR test performance for X1234 phenotype.             
+
+> Model Acc. Bal. Acc. Sens. Spec. AUROC AUPRC
+> X1234 .9055 .9038 .8964 .9111 .9711 .9423
+
+the ability of X1234 to separate no-DR from DR grades 1– 4, while graded evaluation measures severity-sensitive perfor-mance across DR grades 0–4. The reported metrics include AUROC, AUPRC, quadratic weighted kappa and adjacent-grade accuracy. In the workflow, this step is labelled as external evalua-tion because the DR-XAI retinal cohort is external to the NHANES systemic pathway dataset. It does not mean that 
+
+X1234 is directly measured or externally validated on the same NHANES participants. Instead, Step 4 establishes that 
+
+X1234 captures meaningful lesion–vascular and biomarker-sensitive retinal structure within an independent retinal-image cohort. The arrow from Step 4 to Step 5 therefore represents analytical anchoring: the evaluated X1234 phenotype provides retinal support evidence that is carried forward into cross-cohort pathway prioritisation, while NHANES provides the independent systemic exposure and outcome anchor. 
+
+E. Step 5: NHANES 2005–2008 anchoring 
+
+The systemic fold uses NHANES 2005–2008 diabetic par-ticipants with retinal photographs linked to systemic health and laboratory variables. Participants are linked through SEQN identifiers. This fold provides the same-subject epidemiologi-cal anchor for systemic exposure–DR analysis. The NHANES subset includes binary DR status, systemic exposures, covari-ates, retinal/context variables and outcome-family variables. Let E denote systemic exposures, Z baseline covariates, 
+
+G an ancestry-proxy or sensitivity block, R∗ the NHANES retinal mediator family, and Y binary DR or outcome-family variables. Table I summarises the provenance, definitions, and analytical roles of these constructs. In contrast to X1234 ,which is obtained from the external retinal-image cohort, R∗
+
+is constructed within NHANES and is therefore available at the same participant level as E, Z, G, and Y . This makes 
+
+R∗ the appropriate retinal construct for same-subject pathway summaries. 
+
+F. Step 6: NHANES binary DR association analysis 
+
+For each systemic exposure Ej , the binary DR anchor estimates the association between systemic variation and DR status: 
+
+logit P (YDR = 1) = α + βj Ej + γ⊤Z + δ⊤G. (6) Here, βj represents the adjusted exposure–DR association, while Z and G account for baseline covariates and sensitivity variables. This step identifies systemic factors most strongly associated with DR in the NHANES diabetic subset. In the workflow, example exposures include HbA1c, urine albumin and pulse pressure. These variables represent gly-caemic burden, renal microvascular injury and haemodynamic stress, respectively. This stage defines the systemic association side of the framework. It estimates exposure–DR association strength only and does not by itself estimate mediation. 
+
+G. Step 7: Cross-cohort pathway prioritisation with X1234 support 
+
+The cross-cohort prioritisation layer combines NHANES exposure–DR association strength with retinal support from 
+
+X1234 . For each exposure family j, the indirect-priority index is defined as 
+
+Pj = norm {| ˆβj | × SX1234  
+
+> j
+
+× [− log 10 (qj )] }, (7) where ˆβj is the NHANES exposure–DR coefficient, qj is the FDR-adjusted association value, and SX1234  
+
+> j
+
+is the retinal support score derived from the externally evaluated image-based phenotype. The support score reflects whether the reti-nal graph phenotype contains lesion–vascular or biomarker-sensitive evidence consistent with the pathway family. This score ranks candidate exposure–retina–DR pathways. For example, HbA1c-linked pathways are interpreted as gly-caemic lesion–vascular pathways, pulse-pressure-linked path-ways as haemodynamic stress pathways, and albuminuria-linked pathways as renal microvascular injury pathways. The priority score is not a natural indirect effect and is not inter-preted as participant-level mediation. It is a cross-source rank-ing index that combines systemic evidence from NHANES with retinal support from X1234 . Its purpose is to identify biologically plausible pathway families for future same-subject testing. 
+
+H. Participant-level R* pathway summaries 
+
+Participant-level pathway analysis is performed within NHANES using the same-subject retinal mediator family: 
+
+R∗ = Rstar family pca1 . (8) The pathway structure is defined as 
+
+E → R∗ → Y | Z, G. (9) Because R∗, E, Z, G and Y are all defined within the NHANES participant-level dataset, this step is the appro-priate part of the framework for TE-, NDE- and NIE-style summaries. These summaries are estimated using bootstrap confidence intervals and FDR correction. The pathway quantities are described as mediation-style summaries rather than definitive causal effects because they depend on model specification, cross-sectional assumptions and the available NHANES variables. This step is therefore used for hypothesis generation about whether retinal vari-ables behave as downstream correlates, mediator-like signals or structured intermediate markers in diabetic microvascular pathways. (a) FDR-corrected grade trends. (b) FDR-corrected lesion–biomarker associations. 
+
+Fig. 2: Retinal support evidence for X1234 . (a) FDR-corrected grade-trend analysis showing severity-sensitive graph, lesion and biomarker components across DR grades. Positive associations indicate features increasing with DR severity, while negative associations indicate features decreasing with severity. (b) FDR-corrected lesion–biomarker associations showing that weakly supervised lesion evidence is coupled with AutoMorph vascular measurements. Together, the panels support the interpretation that X1234 captures disease-severity structure and lesion–vascular coupling, rather than only image-level classification performance. IV. R ESULTS 
+
+A. Retinal support evidence 
+
+The retinal-image validation results indicate that X1234 
+
+captures clinically relevant DR-related information across both disease detection and severity assessment. For binary DR classification, X1234 achieved an accuracy of 0.9055, balanced accuracy of 0.9038, sensitivity of 0.8964, specificity of 0.9111, AUROC of 0.9711, and AUPRC of 0.9423 (Table III). For five-class DR grading, performance reached an accuracy of 0.8076, QWK of 0.8312, macro-F1 score of 0.5915, and adjacent-grade accuracy of 0.9330 (Table II). Fig 2 further supports the biological relevance of the learned phenotype. As DR severity increases, calibre- and Jacobian-related features show increasing trends, whereas vessel-density and graph-neighbourhood features generally decline (Fig. 2a). These patterns suggest that X1234 reflects progressive microvascular alterations associated with disease advancement. In addition, lesion-evidence features demon-strate consistent associations with AutoMorph-derived vascu-lar biomarkers (Fig. 2b), supporting the integration of lesion, vascular, and biomarker information through the X12 and X34 
+
+graph branches. Collectively, these findings support the use of 
+
+X1234 as a severity-sensitive retinal phenotype for cross-cohort pathway prioritization. 
+
+B. NHANES association layer and cross-cohort prioritisation 
+
+Fig. 3 shows the NHANES binary DR association layer. The strongest adjusted systemic factors are HbA1c, urine albumin, pulse pressure, fasting glucose and systolic blood pressure, placing glycaemic burden first, followed by renal microvascular stress and haemodynamic load. These results define the systemic exposure–DR side of the framework before retinal support is introduced. Table IV reports the top five cross-cohort X1234 -centred pathway priorities. The association terms β, OR and FDR are estimated from the NHANES binary DR anchor, whereas the priority score com-bines this systemic association strength with X1234 -based retinal support. HbA1c produces the highest-ranked pathway, followed by pulse pressure, fasting glucose, urine albumin and systolic blood pressure. These pathways should be interpreted as prioritisation hypotheses, not participant-level mediation effects. 
+
+C. NHANES anchor and prioritisation 
+
+The strongest adjusted NHANES binary DR anchors are HbA1c (OR 2.0669), urine albumin (OR 1.8335), pulse pres-sure (OR 1.5734), fasting glucose (OR 1.5566) and systolic blood pressure (OR 1.3489). These results place glycaemic burden first, followed by renal microvascular stress and haemodynamic load. Figure 3 shows the observed systemic side of the framework before any retinal prioritisation is ap-plied. Cross-source prioritisation ranks HbA1c → X1234 →Fig. 3: NHANES binary DR association anchor in the 884-row diabetes subset. Model 1 is crude, Model 2 adjusts for Z,and Model 3 adjusts for Z + G. The strongest adjusted factors are HbA1c, urine albumin, pulse pressure, fasting glucose and systolic blood pressure. glycaemic lesion–vascular burden as the leading candidate pathway, followed by fasting glucose, pulse pressure, urine albumin and systolic blood pressure. The prioritisation figure should be read as a decision-support layer for model devel-opment: it combines a systemic association signal with an image-derived retinal support score, but it does not estimate a participant-level indirect effect. 
+
+D. Participant-level R* pathway summaries 
+
+Fig. 4 reports the same-subject NHANES pathway analysis using R∗. The renal panel shows the clearest mediator-style signals, especially for HbA1c-linked pathways to UACR and serum creatinine. The haemodynamic panel also shows a visible HbA1c-linked pathway to pulse pressure. In contrast, pathways involving C-reactive protein (CRP), a common biomarker of systemic inflammation, exhibit weaker and less consistent effects. These results suggest that the NHANES 
+
+R∗ family aligns more strongly with glycaemic–renal and glycaemic–haemodynamic axes than with broad inflammation. Importantly, these are R∗-based same-subject pathway sum-maries and should not be interpreted as E → X1234 → Y
+
+mediation. V. D ISCUSSION 
+
+Causal-RetiGraph provides a compact biomedical informat-ics framework for connecting retinal image evidence with systemic pathway analysis in DR. The main finding is the recurrence of glycaemic, renal and haemodynamic axes across the retinal-image and NHANES folds. In the retinal fold, 
+
+X1234 shows strong binary and graded DR performance and captures severity-sensitive lesion–vascular structure. In the NHANES fold, HbA1c, urine albumin, pulse pressure, fasting glucose and systolic blood pressure dominate the systemic DR association landscape. In the participant-level pathway fold, R∗-based summaries highlight glycaemic–renal and glycaemic–haemodynamic pathways more clearly than inflammatory pathways. This pattern supports the interpreta-tion that retinal graph phenotypes can provide a structured intermediate layer between local retinal injury and systemic diabetic microvascular stress. The framework does not claim that X1234 is a measured NHANES mediator. Instead, X1234 
+
+provides image-derived retinal support for pathway prioritisa-tion, while R∗ provides the same-subject retinal construct for NHANES pathway summaries. This distinction is central to the validity of the study. TABLE IV: Top five cross-cohort X1234 -centred pathway priorities. 
+
+Pathway β OR FDR Priority 
+
+LBXGH → X1234 → glycaemic lesion–vascular pathway .7260 2.0669 1.16 × 10 −14 10.1186 PulsePressure mean → X1234 → haemodynamic vascular stress .4533 1.5734 2.88 × 10 −6 2.5114 LBXGLU → X1234 → glycaemic lesion–vascular pathway .4425 1.5566 6.25 × 10 −4 1.4179 URXUMA → X1234 → albuminuria microvascular injury .6062 1.8335 8.03 × 10 −3 1.2701 SBP mean → X1234 → blood-pressure vascular stress .2993 1.3489 6.25 × 10 −4 .9588 
+
+Note: β, OR and FDR are estimated from the NHANES binary DR anchor. Priority is the cross-cohort ranking score combining NHANES exposure–DR association strength with X1234 -based retinal support. These pathways are prioritisation hypotheses, not participant-level mediation effects. LBXGH = HbA1c; LBXGLU = fasting glucose; URXUMA = urine albumin; SBP = systolic blood pressure. LBDLDL -> R* -> UACR     
+
+> LBXTR -> R* -> UACR
+> LBXTR -> R* -> LBXSCR
+> LBDLDL -> R* -> LBXSCR
+> NonHDL_C -> R* -> UACR
+> NonHDL_C -> R* -> LBXSCR
+> LBXGLU -> R* -> LBXSCR
+> LBXGLU -> R* -> UACR
+> LBXGH -> R* -> LBXSCR
+> LBXGH -> R* -> UACR
+> 0.2 0.1 0.0 0.1 0.2
+> *
+> *
+
+Renal Microvascular NIE (95% CI)               
+
+> -0.00 [-0.03,0.03]
+> -0.00 [-0.04,0.03]
+> -0.00 [-0.04,0.03]
+> 0.01 [-0.02,0.05]
+> -0.02 [-0.05,0.01]
+> -0.03 [-0.09,0.01]
+> 0.04 [-0.00,0.07]
+> 0.05 [0.00,0.10]
+> 0.07 [0.02,0.12]*
+> 0.07 [0.03,0.11]*
+> LBXTR -> R* -> MAP
+> LBDLDL -> R* -> MAP
+> NonHDL_C -> R* -> MAP
+> LBDLDL -> R* -> SBP
+> LBDLDL -> R* -> PulsePressure
+> LBXTR -> R* -> SBP
+> LBXTR -> R* -> PulsePressure
+> LBXGLU -> R* -> MAP
+> NonHDL_C -> R* -> SBP
+> LBXGH -> R* -> MAP
+> LBXGLU -> R* -> SBP
+> NonHDL_C -> R* -> PulsePressure
+> LBXGLU -> R* -> PulsePressure
+> LBXGH -> R* -> SBP
+> LBXGH -> R* -> PulsePressure
+> 0.2 0.1 0.0 0.1 0.2
+> *
+
+Hemodynamic NIE (95% CI)                    
+
+> 0.00 [-0.01,0.01]
+> -0.00 [-0.01,0.01]
+> 0.00 [-0.01,0.02]
+> 0.00 [-0.02,0.01]
+> 0.00 [-0.02,0.03]
+> -0.00 [-0.02,0.01]
+> -0.00 [-0.03,0.02]
+> -0.01 [-0.03,0.01]
+> -0.01 [-0.05,0.00]
+> -0.01 [-0.04,0.02]
+> 0.01 [-0.01,0.03]
+> -0.02 [-0.04,0.00]
+> 0.03 [0.00,0.06]
+> 0.04 [0.00,0.07]
+> 0.07 [0.04,0.09]*
+> LBDLDL -> R* -> LBXCRP
+> LBXTR -> R* -> LBXCRP
+> NonHDL_C -> R* -> LBXCRP
+> LBXGLU -> R* -> LBXCRP
+> LBXGH -> R* -> LBXCRP
+> 0.2 0.1 0.0 0.1 0.2
+
+Inflammatory NIE (95% CI)      
+
+> -0.00 [-0.01,0.01]
+> 0.00 [-0.01,0.01]
+> 0.00 [-0.01,0.02]
+> -0.01 [-0.04,0.01]
+> 0.01 [-0.03,0.04]
+
+Top 30 Pathways Split by Outcome Family   
+
+> E -> R* -> Y | Z: RIDAGEYR, RIAGENDR, INDFMPIR | G: GREF_AMR, GREF_EUR, GREF_SAS, GREF_entropy | R*: Rstar_family_pca1
+> Effect Size
+> TE NDE NIE
+
+Fig. 4: Participant-level NHANES pathway summaries split by outcome family. The mediator is the same-subject NHANES retinal mediator family R∗ = Rstar family pca1 , not the image-derived X1234 phenotype. Renal microvascular, haemo-dynamic and inflammatory outcome families are shown separately. Points and intervals indicate TE-, NDE- and NIE-style summaries with bootstrap confidence intervals. The strongest mediator-style signals occur in glycaemic–renal and glycaemic– haemodynamic pathways, while inflammatory pathways show weaker and less consistent patterns. 
+
+A. Glycaemic, renal and haemodynamic axes 
+
+The recurrence of these pathway families is the main result. HbA1c and fasting glucose define the glycaemic axis. Urine albumin and serum creatinine define the renal microvascular axis. Pulse pressure and systolic blood pressure define the haemodynamic axis. These axes are biologically connected: hyperglycaemia damages microvascular structure, renal dys-function reflects systemic microvascular injury and haemody-namic stress can influence vessel calibre and vascular remod-elling. Retinal imaging provides a measurable location where these processes may become visible as lesion burden, calibre change, density change and graph-neighbourhood disruption. The ranking in Table IV is consistent with Fig. 3, where glycaemic, renal and haemodynamic variables dominate the adjusted systemic association landscape. 
+
+B. Interpretability beyond classification 
+
+The retinal branch does not only improve prediction. It decomposes retinal evidence into spatial and vector-space rela-tions. The spatial X12 branch asks where lesion-like evidence occurs relative to vessels and macular zones. The Jacobian X34 
+
+branch asks which retinal biomarker directions are sensitive to lesion/image embedding changes. This separation makes the representation useful for biomedical interpretation: a model output can be inspected through severity trends, lesion– biomarker links, branch-level sensitivity and graph topology, rather than through a single probability score.The patterns in Fig. 2 show why the retinal fold is interpretable beyond classification: X12 preserves lesion–vessel geometry, while 
+
+X34 links embedding changes to biomarker sensitivity. C. Why X1234 and R* must remain distinct 
+
+The distinction between X1234 and R∗ is essential. X1234 
+
+is an image-derived support phenotype and is used for cross-source prioritisation. R∗ is an NHANES same-subject media-tor family and is used for participant-level pathway summaries. The study therefore does not claim E → X1234 → Y
+
+mediation in NHANES. Instead, it provides a sequence: de-fine interpretable retinal phenotypes, use them to prioritise systemic pathways and then test the corresponding media-tor structure in same-subject data. This is the safest way to combine image-derived retinal AI with population-scale biomedical data without overstating causal claims. Fig. 4 fur-ther supports this separation by showing that participant-level pathway summaries are estimated through R∗, not through 
+
+X1234 .
+
+D. Biomedical informatics contribution 
+
+The main contribution of Causal-RetiGraph is to connect retinal image evidence with participant-level systemic pathway analysis while preserving data provenance. The retinal fold converts lesion, vessel, embedding and biomarker information into the interpretable X1234 graph phenotype. The NHANES fold anchors systemic exposure–DR associations and uses R∗
+
+for same-subject pathway summaries. This structure allows retinal AI outputs to be used as biomedical evidence rather than only as classification scores. VI. L IMITATIONS 
+
+Several limitations define the current scope. First, X1234 
+
+is not observed on the same NHANES participants, so the prioritisation analysis is not a participant-level mediation es-timate. Second, R∗ is an NHANES retinal grading/context mediator family and may not contain all information in image-derived X1234 . Third, lesion evidence is weak DR-XAI-style evidence rather than expert lesion segmentation. Fourth, the nonlinear smooth branch is exploratory because the linear branch currently gives the more stable pattern. VII. C ONCLUSION 
+
+Causal-RetiGraph links retinal graph phenotypes, NHANES systemic anchoring and same-subject pathway modelling for diabetic retinopathy. The framework shows that X1234 pro-vides interpretable retinal support, NHANES anchors systemic exposure–DR associations, and R∗ supports participant-level pathway summaries. Across these folds, glycaemic, renal and haemodynamic axes consistently dominate. The next step is same-subject retinal-systemic modelling in which X1234 
+
+is computed directly on SEQN-linked retinal images and 
+
+E → X1234 → Y can be estimated without cross-source bridging. REFERENCES 
+
+[1] S. A. Antar, N. A. Ashour, M. Sharaky, M. Khattab, N. A. Ashour, R. T. Zaid, E. J. Roh, A. Elkamhawy, and A. A. Al-Karmalawy, “Diabetes mellitus: Classification, mediators, and complications; a gate to identify potential targets for the development of new effective treatments,” 
+
+Biomedicine & Pharmacotherapy , vol. 168, p. 115734, 2023. [2] A. Giannakogeorgou, M. Roden, and K. Pafili, “Dia-betes mellitus as a multisystem disease: understanding subtypes, complications, and the link with steatotic liver diseases in humans,” Hormones , vol. 25, no. 1, pp. 61– 80, 2026. [3] World Health Organization, “Diabetes,” https: //www.who.int/news-room/fact-sheets/detail/diabetes, Nov. 2024, fact sheet. Accessed 2026-07-03. [4] Y. Lu, W. Wang, J. Liu, M. Xie, Q. Liu, and S. Li, “Vascular complications of diabetes: A narrative review,” 
+
+Medicine , vol. 102, no. 40, p. e35285, 2023. [5] M. Zakir, N. Ahuja, M. A. Surksha, R. Sachdev, Y. Kalariya, M. Nasir, M. Kashif, F. Shahzeen, A. Tayyab, M. S. M. Khan, M. Junejo, F. M. Kumar, G. Varrassi, S. Kumar, M. Khatri, and T. Mohamad, “Cardiovascular complications of diabetes: From mi-crovascular to macrovascular pathways,” Cureus , vol. 15, no. 9, p. e45835, 2023. [6] A. Kulkarni, A. R. Thool, and S. Daigavane, “Un-derstanding the clinical relationship between diabetic retinopathy, nephropathy, and neuropathy: A comprehen-sive review,” Cureus , vol. 16, no. 3, p. e56674, 2024. [7] L. Wei, X. Sun, C. Fan, R. Li, S. Zhou, and H. Yu, “The pathophysiological mechanisms underlying diabetic retinopathy,” Frontiers in Cell and Developmental Biol-ogy , vol. 10, p. 963615, 2022. [8] Z. Zhu, Y. Wang, Z. Qi, W. Hu, X. Zhang, S. K. Wagner, Y. Wang, A. R. Ran, J. Ong, E. Waisberg et al. ,“Oculomics: Current concepts and evidence,” Progress in Retinal and Eye Research , vol. 106, p. 101350, 2025. [9] E. Y. Chew, S. A. Burns, A. G. Abraham et al. , “Stan-dardization and clinical applications of retinal imag-ing biomarkers for cardiovascular disease: A roadmap from an NHLBI workshop,” Nature Reviews Cardiology ,vol. 22, no. 1, pp. 47–63, 2025. [10] Z. Zhang, C. Deng, and Y. M. Paulus, “Advances in structural and functional retinal imaging and biomarkers for early detection of diabetic retinopathy,” Biomedicines ,vol. 12, no. 7, p. 1405, 2024. [11] V. Gulshan, L. Peng, M. Coram, M. C. Stumpe, D. Wu, A. Narayanaswamy, S. Venugopalan, K. Widner, T. Madams, J. Cuadros et al. , “Development and valida-tion of a deep learning algorithm for detection of diabetic retinopathy in retinal fundus photographs,” JAMA , vol. 316, no. 22, pp. 2402–2410, 2016. [12] M. W. Nadeem, H. G. Goh, V. Ponnusamy, I. Andonovic, M. A. Khan, and M. Hussain, “Deep learning for diabetic retinopathy analysis: A review, research challenges, and future directions,” Sensors , vol. 22, no. 18, p. 6780, 2022. [13] S. Dey, Z. Khan, T. A. PramodKumar, B. U. Shankar, A. K. Dhara, R. Rajalakshmi, R. Raman, and S. Mitra, “Managing diabetic retinopathy with deep learning: A data centric overview,” arXiv preprint arXiv:2604.02448 ,2026. [14] G. Kwon, E. Kim, S. Kim, S. Bak, M. Kim, and J. Kim, “Bag of tricks for developing diabetic retinopathy analy-sis framework to overcome data scarcity,” arXiv preprint arXiv:2210.09558 , 2022. [15] Inamullah, S. Hassan, S. B. Belhaouari, and I. Amin, “Deciphering the impact of diversity in cnn-based en-sembles on overcoming data imbalance and scarcity in medical datasets: A case study on diabetic retinopathy,” 
+
+Informatics in Medicine Unlocked , vol. 49, p. 101557, 2024. [16] K. Djoumessi, Z. Huang, L. K¨ uhlewein, A. Rickmann, N. Simon, L. M. Koch, and P. Berens, “An inherently interpretable ai model improves screening speed and accuracy for early diabetic retinopathy,” PLOS Digital Health , vol. 4, no. 5, p. e0000831, 2025. [17] R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, “Grad-CAM: Visual explana-tions from deep networks via gradient-based localiza-tion,” in Proceedings of the IEEE International Confer-ence on Computer Vision , 2017, pp. 618–626. [18] G. Quellec, K. Charri` ere, Y. Boudi, B. Cochener, and M. Lamard, “Deep image mining for diabetic retinopathy screening,” Medical Image Analysis , vol. 39, pp. 178– 193, 2017. [19] M. Ghassemi, L. Oakden-Rayner, and A. L. Beam, “The false hope of current approaches to explainable artificial intelligence in health care,” The lancet digital health ,vol. 3, no. 11, pp. e745–e750, 2021. [20] Y. Zhou, S. K. Wagner, M. A. Chia, A. Zhao, P. Woodward-Court, M. Xu, R. R. Struyven, D. C. Alexander, and P. A. Keane, “AutoMorph: Automated retinal vascular morphology quantification via a deep learning pipeline,” Translational Vision Science & Tech-nology , vol. 11, no. 7, p. 12, 2022. [21] Y. Huang, L. Lin, P. Cheng, J. Lyu, and X. Tang, “Lesion-based contrastive learning for diabetic retinopathy grad-ing from fundus images,” in Medical Image Computing and Computer Assisted Intervention – MICCAI 2021 .Springer, 2021, pp. 113–123. [22] National Center for Health Statistics, “National health and nutrition examination survey: Questionnaires, datasets, and related documentation,” https://wwwn.cdc.gov/nchs/nhanes/, 2026, accessed July 2026. [23] R. Gargeya and T. Leng, “Automated identification of di-abetic retinopathy using deep learning,” Ophthalmology ,vol. 124, no. 7, pp. 962–969, 2017. [24] J. Pearl, Causality: Models, Reasoning, and Inference .Cambridge University Press, 2009. [25] K. Imai, L. Keele, and D. Tingley, “A general approach to causal mediation analysis,” Psychological Methods ,vol. 15, no. 4, pp. 309–334, 2010. [26] T. J. Hastie and R. J. Tibshirani, Generalized Additive Models . Chapman and Hall, 1990. [27] S. N. Wood, Generalized Additive Models: An Introduc-tion with R . CRC Press, 2017. [28] Karthik, Maggie, and S. Dane, “Aptos 2019 blindness detection,” https://kaggle.com/competitions/ aptos2019-blindness-detection, 2019, kaggle.

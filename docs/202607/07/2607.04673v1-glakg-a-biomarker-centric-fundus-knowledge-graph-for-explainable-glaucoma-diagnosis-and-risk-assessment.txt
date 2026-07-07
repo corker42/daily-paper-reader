@@ -1,0 +1,609 @@
+Title: GlaKG: A Biomarker-Centric Fundus Knowledge Graph for Explainable Glaucoma Diagnosis and Risk Assessment
+
+URL Source: https://arxiv.org/pdf/2607.04673v1
+
+Published Time: Tue, 07 Jul 2026 02:46:21 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# GlaKG: A Biomarker-Centric Fundus Knowledge Graph for Explainable Glaucoma Diagnosis and Risk Assessment 
+
+Cheng Huang 1,2 , Jia Zhang 2, Yi Jiang 1, Yang Liu 1, Karanjit Kooner 1, Yadi Liu 3,Tsengdar Lee 4, Yang Xie 1,† , Wenqi Shi 1,† , Guanghua Xiao 1,† 
+
+> 1
+
+University of Texas Southwestern Medical Center , 2Southern Methodist University, 
+
+> 3
+
+Nanyang Technological University , 4National Aeronautics and Space Administration 
+
+{yang.xie,wenqi.shi,guanghua.xiao }@utsouthwestern.edu 
+
+† Corresponding Author, Github: GlaKGraph 
+
+Abstract —Glaucoma is a leading cause of irreversible blindness worldwide, yet most automated diagnosis systems rely on opaque deep-learning models that offer little clinical interpretability. We present GlaKG, a biomarker-centric fundus knowledge graph that integrates structural biomarkers, clinically grounded rules, and image features to produce traceable reasoning for glaucoma diagnosis and risk stratification. GlaKG encodes six entity types (Fundus Image, Optic Disc, Neural Rim, Pathology, Diagnosis, Risk Level), eight relation types, and 11 clinically validated rules into a unified graph, so that every prediction is accompanied by an explicit reasoning chain linking biomarker evidence to activated clinical rules. To keep knowledge-based reasoning strictly separate from label information, we adopt a post-processing fusion framework that combines ResNet50 image embeddings with a normalized KG reasoning-chain score via a tunable weight α, with all fitting confined to the training split. On a publicly available, AI-annotated fundus dataset, GlaKG reaches F1 = 0.9953 for binary glaucoma classification and 0.930 accuracy with 0.922 weighted F1 for four-class risk stratification; we report openly that the dataset’s biomarker annotations are highly label-correlated, and therefore frame these figures as an upper bound attainable with clean structured biomarkers rather than as leakage-free image-only performance. Feature-importance analysis shows KG-derived and biomarker features contributing near-equally (51.1% vs. 48.9%), and the reasoning chain flags borderline cases by exposing low chain scores rather than failing silently. GlaKG’s central contribution is therefore a clinically auditable reasoning framework that complements raw predictive performance by explicitly exposing the biomarker evidence and rule activations behind each decision. 
+
+Index Terms —Glaucoma Diagnosis, Knowledge Graph, Ex-plainable AI, Risk Stratification, Graph Neural Network 
+
+I. I NTRODUCTION 
+
+Glaucoma affects over 76 million people worldwide and is projected to reach 111.8 million by 2040 [1]. Early detection is critical, as structural damage to the optic nerve is irreversible. While deep learning approaches have achieved high accuracy in fundus image analysis [2], [3], they suffer from a funda-mental limitation: their decision processes are opaque, making it difficult for clinicians to trust or verify automated diagnoses. Knowledge graphs (KGs) have emerged as a promising paradigm for representing structured medical knowledge, en-abling interpretable reasoning over clinical entities and their relationships [4], [5]. However, existing ophthalmic AI sys-tems rarely incorporate structured clinical knowledge such as the ISNT rule, cup-to-disc ratio (CDR) thresholds, or patholog-ical signs like bayoneting and notching. These biomarkers are well-established in clinical practice but are seldom explicitly encoded in automated systems. In this paper, we present the GlaKG, a biomarker-centric fundus knowledge graph that addresses the lack of structured clinical knowledge integration and interpretable reasoning in existing glaucoma AI systems. Our main contributions are:  
+
+> •
+
+A fundus knowledge graph encoding 6 node types, 8 re-lation types, and 11 clinically validated rules grounded in established ophthalmic guidelines, with any data-informed thresholds fit on the training split only.  
+
+> •
+
+A post-processing framework combining ResNet50 visual features with KG reasoning chain scores via a tunable weight α, achieving strong performance on this dataset without end-to-end retraining.  
+
+> •
+
+Comprehensive experiments on binary glaucoma classi-fication and four-class risk stratification, with ablation studies, GNN comparisons, feature importance analysis, and error analysis, each accompanied by an interpretable reasoning chain grounded in clinical rules. II. R ELATED WORK 
+
+A. Automated Glaucoma Detection & Knowledge Graph 
+
+Convolutional neural networks have demonstrated strong performance in glaucoma detection from ophthalmic pho-tographs [2], [6]–[8], with methods such as GlaBoost [9] fur-ther improving accuracy via multimodal biomarker integration and biomarker relationship mining. Recent surveys confirm that deep learning systems analyzing fundus photographs routinely achieve specialist-level sensitivity and specificity [3], [10], yet systematic reviews also highlight persistent chal-lenges in interpretability and clinical deployment [11], [12]. However, these approaches lack explicit clinical knowledge 
+
+> arXiv:2607.04673v1 [cs.CV] 6 Jul 2026
+
+and provide limited interpretability. Knowledge graphs have been successfully applied in drug discovery [13], clinical decision support [14], and disease ontology construction [15], yet structured KGs for glaucoma with explicit biomarker encoding remain underexplored. 
+
+B. Graph Neural Network & Explainable AI in Healthcare 
+
+GNNs have shown promise in protein interaction net-works [16], [17] and electronic health record analysis [5]. Recent work has further demonstrated GNN effectiveness in detecting glaucomatous visual field defects [18], un-derscoring the potential of graph-structured representations for ophthalmic biomarker analysis. Graph attention net-works (GAT) [19] extend GCNs [20] with node-level at-tention, enabling heterogeneous feature weighting suitable for multi-biomarker clinical graphs. Existing XAI methods for ophthalmic AI primarily rely on gradient-based saliency maps [21], providing pixel-level but not clinical-concept-level explanations, a limitation increasingly recognized in recent XAI surveys [22]. GlaKG addresses this gap via reasoning chains grounded in established clinical criteria. III. M ETHODOLOGY 
+
+Fig. 1 illustrates the end-to-end GlaKG framework, com-prising an image branch, a KG branch, and a post-processing fusion module. The image branch extracts visual features via ResNet50 [23] and produces a glaucoma probability p(i)
+
+> img
+
+,while the KG branch parses structured biomarker annotations into a heterogeneous graph and computes a normalized reason-ing chain score s(i)
+
+> KG
+
+. The two branches are fused at inference time via Eq. 12 to produce the final prediction.      
+
+> Fig. 1. End-to-end GlaKG framework. The image branch (top) extracts ResNet50 embeddings reduced via PCA and trains a Gradient Boosting classifier to produce p(i)
+> img . The KG branch (bottom) parses JSON annotations into a heterogeneous graph governed by 11 clinical rules, computing a normalized reasoning chain score s(i)
+> KG . The two scores are fused via a tunable weight α∗=0 .5to produce final predictions for binary classification, risk stratification, and interpretable reasoning chains.
+
+A. GlaKG Construction 1) Formal Graph Definition: As shown in Fig. 2, GlaKG consists of six entity types connected by eight directed relation types, organized into structural and inference edge categories. We formally define GlaKG as a typed, directed, attributed heterogeneous graph: 
+
+G = ( V, E, Tv , Te, X , ϕ, ψ ) (1) where V is the node set, E ⊆ V × V is the directed edge set, Tv = {FundusImage, OpticDisc, NeuralRim, Pathology, Diagnosis, RiskLevel } is the node type set with |T v | = 6 , Te
+
+is the edge relation type set with |T e| = 8 , X : V → Rd is the node feature mapping, ϕ : V → T v is the node type function, and ψ : E → T e is the edge type function. ClinicalRule nodes serve as auxiliary rule anchors used to materialize   
+
+> SUPPORTS RULE
+
+edges and are not counted among the six entity types in Tv ; including the 11 rule nodes accounts for the total node count reported in Table VII. 
+
+> Fig. 2. GlaKG entity-relation schema. Node shapes denote entity types: circles (FundusImage, OpticDisc, NeuralRim, Pathology), diamond (Diagnosis), star (RiskLevel), square (ClinicalRule). Solid edges represent structural relations; dashed edges represent inference relations.
+
+The node set is partitioned by type: 
+
+V = [
+
+> t∈T v
+
+Vt, Vi ∩ V j = ∅ ∀ i̸ = j (2) The edge set is partitioned into structural edges Es and inference edges Ei:
+
+E = Es ∪ E i, Es ∩ E i = ∅ (3) where Es encodes factual associations (HAS OPTIC DISC , 
+
+> HAS RIM
+
+, HAS PATHOLOGY , HAS DIAGNOSIS , 
+
+> HAS RISK
+
+) and Ei encodes reasoning relationships (SUPPORTS DIAGNOSIS , GOVERNED BY , SUPPORTS RULE ). 
+
+2) Node Feature Mapping: Each node v ∈ V is associated with a feature vector xv ∈ Rdϕ(v) , where dϕ(v) depends on node type. For FundusImage nodes, features are extracted via a pretrained ResNet50 encoder fθ : RH×W ×3 → R2048 ,subsequently projected to R64 via PCA: 
+
+ximg v = P⊤fθ (Iv ) ∈ R64 , P ∈ R2048 ×64 (4) For biomarker nodes, features are structured attribute vectors derived from clinical annotations: 
+
+xv = [ a(v)1 , . . . , a (v) 
+
+> dϕ(v)
+
+]⊤ ∈ Rdϕ(v) (5) where a(v) 
+
+> j
+
+∈ { 0, 1} for boolean attributes and a(v) 
+
+> j
+
+∈ R for continuous attributes (e.g., CDR). All node features are zero-padded to a unified dimension d = 64 for GNN processing. 
+
+B. Clinical Rule Encoding 1) Rule Formalization: We define a set of K=11 clinical rules R = {r1, . . . , r K }, where each rule is a 4-tuple: 
+
+rk = ( bk, ▷◁ k, τ k, s k) (6) with bk the target biomarker attribute, ▷◁ k∈ {≥ , ≤, =} the comparison operator, τk the threshold value, and sk ∈ { 1, 2, 3}
+
+the strength weight (weak [24], moderate [25], strong [26], [27] respectively). 
+
+2) Rule Activation: For a diagnosis node vdiag associated with biomarker node vb, rule rk is activated if and only if: 
+
+⊮[rk, v b] = 
+
+(
+
+1 if a(vb) 
+
+> bk
+
+▷◁ k τk
+
+0 otherwise (7) The activated rule set for a diagnosis node is: 
+
+R(vdiag ) = {rk ∈ R : ⊮[rk, v b] = 1 } (8) A SUPPORTS RULE edge (vdiag , r k) is created for each rk ∈R(vdiag ), forming the explicit reasoning chain. 
+
+3) Reasoning Chain Score: The reasoning chain score aggregates weighted rule activations: CS (vdiag ) = 
+
+> K
+
+X
+
+> k=1
+
+sk · ⊮[rk, v b] = 3 nstrong + 2 nmoderate + nweak 
+
+(9) where nstrong = |{ rk ∈ R (vdiag ) : sk = 3 }| , and nmoderate ,
+
+nweak are defined analogously. The maximum achievable score is CS max = 3 × 3 + 2 × 4 + 1 = 18 . This maximum reflects the largest mutually compatible rule subset (3 strong, 4 moderate, 1 weak): several rules are mutually exclusive (e.g., CDR ≥ 0.7 and CDR < 0.4 cannot co-activate), so the attainable maximum of 8 co-activated rules is below the total K = 11 .
+
+C. KG-Fusion Inference Framework 
+
+To avoid data leakage between KG-derived features and classification labels, we adopt a post-processing fusion strategy operating entirely at inference time. 
+
+1) Image-Based Probability: Let zi = P⊤fθ (Ii) ∈ R64 
+
+denote the PCA-projected image embedding for sample i. A Gradient Boosting classifier g : R64 → [0 , 1] is trained to produce: 
+
+p(i) 
+
+> img
+
+= g(zi) ∈ [0 , 1] (10) where p(i) 
+
+> img
+
+represents the probability of glaucoma from visual features alone. 
+
+2) KG Reasoning Score Normalization: The raw chain score CS (v(i) 
+
+> diag
+
+) is min-max normalized across the dataset D:
+
+s(i) 
+
+> KG
+
+= CS (v(i) 
+
+> diag
+
+) − min j∈D CS (v(j) 
+
+> diag
+
+)max j∈D CS (v(j) 
+
+> diag
+
+) − min j∈D CS (v(j) 
+
+> diag
+
+) + ϵ (11) where ϵ = 10 −8 ensures numerical stability, yielding s(i) 
+
+> KG
+
+∈
+
+[0 , 1] .
+
+3) Fusion and Prediction: The final prediction probability is a convex combination of the image-based and KG-based scores: 
+
+p(i) 
+
+> final
+
+= (1 − α) p(i) 
+
+> img
+
++ α s (i)
+
+> KG
+
+, α ∈ [0 , 1] (12) The predicted label is: 
+
+ˆyi = ⊮
+
+h
+
+p(i) 
+
+> final
+
+≥ 0.5
+
+i
+
+(13) The optimal fusion weight α∗ = arg max α F1(α)
+
+is determined via 5-fold cross-validation over α ∈{0.0, 0.3, 0.5, 0.7, 1.0}, yielding α∗ = 0 .5.
+
+D. Graph Neural Network Variant 1) Per-Case Subgraph Construction: For each sample i,we extract a local subgraph G(i) ⊂ G centered on the corresponding FundusImage node: 
+
+G(i) =
+
+
+
+V(i), E(i)
+
+(14) where V(i) = {v(i) 
+
+> img
+
+, v (i) 
+
+> od
+
+, v (i)
+
+> rim
+
+, v (i)
+
+> path
+
+, v (i) 
+
+> diag
+
+} with |V (i)| = 5 ,and |E (i)| = 14 including both forward and reverse edges to support bidirectional message passing. Node features are assembled as: 
+
+X(i) =
+
+h
+
+x(i) 
+
+> v1
+
+, . . . , x(i)
+
+> v5
+
+i⊤
+
+∈ R5×64 (15) 
+
+2) GCN Message Passing: The l-th layer of the GCN updates node representations via: 
+
+h(l) 
+
+> v
+
+= σ
+
+W(l) X 
+
+> u∈N (v)∪{ v}
+
+h(l−1) 
+
+> u
+
+p|N (v)||N (u)|
+
+ (16) where W(l) ∈ Rdl×dl−1 is a learnable weight matrix, N (v)
+
+denotes the neighbor set of v, σ is ReLU activation, and h(0)  
+
+> v
+
+=
+
+xv .
+
+3) GAT Message Passing: The l-th layer of the GAT computes multi-head attention: 
+
+h(l) 
+
+> v
+
+= Mm=1 
+
+σ
+
+ X 
+
+> u∈N (v)∪{ v}
+
+α(m,l ) 
+
+> vu
+
+W(l) 
+
+> m
+
+h(l−1) 
+
+> u
+
+ (17) where M = 4 is the number of attention heads, ∥ denotes concatenation. Let e(m,l ) 
+
+> vu
+
+=
+
+LeakyReLU 
+
+
+
+a⊤
+
+> m
+
+[W(l) 
+
+> m
+
+h(l−1)  
+
+> v
+
+∥W(l) 
+
+> m
+
+h(l−1)  
+
+> u
+
+]
+
+
+
+, then the attention coefficient is: 
+
+α(m,l ) 
+
+> vu
+
+= exp( e(m,l ) 
+
+> vu
+
+)
+
+P  
+
+> w∈N (v)∪{ v}
+
+exp( e(m,l ) 
+
+> vw
+
+) (18) with am ∈ R2dl a learnable attention vector. For the final layer (l = L), mean aggregation replaces concatenation to obtain a fixed-size output representation: 
+
+h(L) 
+
+> v
+
+= σ
+
+ 1
+
+M
+
+> M
+
+X
+
+> m=1
+
+X 
+
+> u∈N (v)∪{ v}
+
+α(m,L ) 
+
+> vu
+
+W(L) 
+
+> m
+
+h(L−1) 
+
+> u
+
+ (19) 
+
+4) Graph-Level Prediction: After L = 2 message-passing layers, a graph-level representation is obtained via global mean pooling: 
+
+hG(i) = 1
+
+|V (i)|
+
+X
+
+> v∈V (i)
+
+h(L) 
+
+> v
+
+∈ RdL (20) The final classification is: 
+
+ˆyi = arg max  
+
+> c∈{ 0,1}
+
+softmax (W2 σ(W1 hG(i) + b1) + b2)c
+
+(21) where W1, W2, b1, b2 are learnable parameters of the two-layer MLP head. Both GCN and GAT are optimized with cross-entropy loss: 
+
+L = − 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+[yi log ˆ pi + (1 − yi) log(1 − ˆpi)] (22) using Adam optimizer with learning rate 10 −3, weight decay 
+
+10 −4, and batch size 32 for 60 epochs. IV. D ATASET & I MPLEMENTATION 
+
+A. Dataset 1) Data Source: We use a publicly available fundus dataset [28] with rich structured annotations. Each sample includes a fundus image (178–408 px), binary annotation (glaucoma/normal), and a structured JSON description encod-ing 11 biomarker fields, risk assessment levels (high risk / moderate risk / healthy / very healthy), and confidence scores. 
+
+2) Dataset Characteristics: The dataset contains 689 sam-ples with a class imbalance of 63.7% glaucoma and 36.3% normal, motivating F1-score as the primary evaluation metric. CDR values are well-separated between classes (glaucoma: mean = 0.767, σ = 0.072; normal: mean = 0.400, σ = 0.063). Among glaucoma cases, rim thinning and ISNT rule violation are universal (100% prevalence), bayoneting, notching, and rim pallor appear in ∼73% of cases, and laminar dot sign in 55%. All pathological signs are absent in normal cases (0%); as discussed in Sec. IV-B1, this strong separation reflects the label-correlated nature of the AI-generated annotations. The risk level distribution is: high risk (55.2%), moderate risk (6.7%), healthy (1.2%), and very healthy (36.9%). The original train/test partition yields 551 training and 138 test samples with no leakage across splits. 
+
+3) Pre-Processing Pipeline: each sample’s structured JSON description is parsed to extract 11 biomarker fields, including cup-to-disc ratio (CDR), ISNT rule compliance, rim thin-ning, rim pallor, bayoneting, notching, and laminar dot sign. Boolean fields are mapped to binary values {0, 1} and CDR is retained as a continuous variable. The dataset is split into training and test sets following the original partition (train-00000-of-00001 and test-00000-of-00001), with a split ratio of approximately 80%/20%. Fundus images are resized to 224 × 224 pixels, normalized with ImageNet mean and standard deviation, and passed through a pretrained ResNet50 backbone (fc layer replaced by Identity) to extract 2048-dimensional embeddings, which are subsequently reduced to 64 dimensions via PCA for GNN node feature initialization. All continuous features are standardized to zero mean and unit variance prior to classifier training. 
+
+B. Implementation 1) Data Leakage Prevention and Annotation-Label Cor-relation: We handle the relationship between the structured 
+
+description field and the classification annotation on three fronts: strict pipeline hygiene, open reporting of a label-correlated dataset property, and grounding our contribution in interpretability rather than raw accuracy.  
+
+> •
+
+Pipeline hygiene. All fitting is confined to the training split: (i) the 551/138 partition follows the dataset’s origi-nal split; (ii) PCA P and feature standardization are fit on training embeddings only; (iii) rule thresholds τk derive from clinical guidelines (e.g., CDR ≥ 0.7), not labels; (iv) α∗ is chosen by 5-fold CV within the training split, with the test set held out. The KG score s(i) 
+
+> KG
+
+never enters training: g sees only ResNet50 embeddings, and s(i) 
+
+> KG
+
+is fused at inference (Eq. 12). This precludes both split leakage and s(i) 
+
+> KG
+
+acting as a label proxy.  
+
+> •
+
+Annotation-label correlation. The biomarker annota-tions are strongly discriminative: rim thinning and ISNT violation are universal in glaucoma (100%), all patho-logical signs are absent in normal cases (0%), and the KG-only model ranks the classes near-perfectly (AUC =1.000 , Table III). We state this openly: the annotations, from an independent AI pipeline, are themselves label-correlated on this dataset. The fused F1 = 0 .9953 is therefore an upper bound achievable with clean struc-tured biomarkers, not a claim of leakage-free image-only performance.  
+
+> •
+
+Interpretability is leakage-invariant. GlaKG’s contribu-tion does not depend on the metrics being leakage-free. For every prediction it exposes which rules fired, at what strength, and how they aggregate, a clinician-style audit trail that holds regardless of annotation correlation. The single missed case (CDR = 0 .700 ; chain score 9 vs. a correct-case mean of 15.91) shows the chain flagging its own uncertainty on borderline inputs rather than failing silently. 
+
+2) Hyperparameter: the KG-fusion framework uses Gra-dient Boosting as the image-based classifier (100 estimators, learning rate = 0.1) trained on 64-dimensional PCA-reduced ResNet50 embeddings. The fusion weight α is selected from {0.0, 0.3, 0.5, 0.7, 1.0} via cross-validation, with α=0 .5
+
+achieving optimal performance. For GCN, hidden dimension is set to 128 with dropout 0.3. For GAT, hidden dimension is 64 with 4 attention heads and dropout 0.3. Both GNN models are trained with Adam optimizer (learning rate = 1e-3, weight decay = 1e-4) for 60 epochs with batch size 32. All experiments use random seed 42 for reproducibility. 
+
+3) Hardware: all experiments were conducted on a server equipped with 4×NVIDIA A100 GPUs (80GB each). Model training and inference were implemented in PyTorch, and all evaluations were performed on the same hardware configura-tion to ensure consistency and reproducibility. 
+
+4) Evaluation Metrics: for binary glaucoma classification, we report Accuracy, Precision, Recall, F1-score, and Area Under the ROC Curve (AUC). F1-score is the primary metric given the class imbalance (glaucoma: 63.7%, normal: 36.3%). For four-class risk stratification, we additionally report macro-averaged F1 (F1 mac ) and weighted F1 (F1 wt ) to account for label imbalance across risk levels. All metrics are reported as the mean over 5-fold stratified cross-validation folds; per-fold variance is small, indicating that the reported results are stable across splits rather than an artifact of a single favorable partition. For knowledge graph quality assessment, we report four structural metrics. Graph density measures the ratio of actual edges to all possible edges, reflecting graph sparsity. 
+
+Largest connected component (LCC) ratio measures the pro-portion of nodes in the largest weakly connected component, indicating overall graph connectivity. Average rules per diag-nosis quantifies the mean number of activated clinical rules per case, reflecting reasoning chain richness. Rule coverage 
+
+reports the percentage of diagnoses activated by at least k
+
+rules ( k ∈ { 1, 3}), measuring the completeness of clinical knowledge encoding. Additionally, KG feature contribution 
+
+is measured via Mean Decrease in Impurity (MDI) feature importance, quantifying the relative decision-making weight of KG-derived versus biomarker features. V. E XPERIMENTAL RESULT 
+
+A. Experimental Setup 1) Baseline Model: we evaluate four image-only baselines to assess the contribution of KG reasoning chains. Logistic Regression (LR) [29] serves as a linear baseline with ℓ2
+
+regularization (max iter = 1000). Random Forest (RF) [30] uses 200 estimators with default hyperparameters. Gradient Boosting (GB) uses 100 estimators and serves as the backbone classifier for our KG-fusion framework. Multilayer Perceptron (MLP) [31] consists of two hidden layers (256, 64) with ReLU activation and 500 training epochs. All baselines op-erate exclusively on ResNet50 [23] image embeddings and are evaluated under identical 5-fold stratified cross-validation (seed = 42). For GNN baselines, we evaluate GCN [20] and GAT [19] operating on per-case KG subgraphs with unified 64-dimensional node features. 
+
+2) Task Definition: We evaluate GlaKG on two classifica-tion tasks:  
+
+> •
+
+Task 1: Binary Glaucoma Classification Given a fundus image and its associated KG subgraph, the model predicts whether the sample belongs to the glaucoma or normal class. This is a standard binary classification task with class imbalance (glaucoma: 63.7%, normal: 36.3%).  
+
+> •
+
+Task 2: Four-class Risk Stratification Given the same inputs, the model predicts one of four risk levels: high risk, moderate risk, healthy, or very healthy. This task is more fine-grained than binary classification and evaluates the model’s ability to distinguish adjacent risk levels that may share similar visual appearances. 
+
+B. Comparative Experiment 
+
+Table I presents the binary glaucoma classification results across all methods. Image-only baselines achieve F1 scores in the range of 0.903–0.909 and AUC in the range of 0.942– 0.949, reflecting the inherent difficulty of distinguishing glau-comatous cases from visual features alone. GCN improves over the best image-only baseline by 1.2 and 1.5 percent-age points in F1 and AUC, confirming that graph-structured biomarker representations provide complementary information beyond raw image embeddings. GAT further improves over GCN by 5.3 and 2.7 percentage points in F1 and AUC, demonstrating that attention-based aggregation effectively cap-tures the heterogeneous diagnostic importance of different biomarker nodes. Our KG-fusion method achieves the high-est overall performance with F1 = 0.9953 and AUC = 0.9988, outperforming the best image-only baseline by 8.3 and 5.0 percentage points in F1 and AUC, respectively.                                            
+
+> TABLE I BINARY GLAUCOMA CLASSIFICATION COMPARISON
+> Method Acc Prec Rec F1 AUC B1 LR (img) 0.8854 0.8945 0.9250 0.9094 0.9417 B2 RF (img) 0.8723 0.8388 0.9836 0.9053 0.9423 B3 GB (img) 0.8869 0.8771 0.9509 0.9124 0.9487 B4 MLP (img) 0.8767 0.8811 0.9274 0.9029 0.9417 GCN 0.9072 0.9277 0.9227 0.9247 0.9641 GAT 0.9710 0.9555 1.0000 0.9772 0.9912
+> Ours ( α=0.5) 0.9942 1.0000 0.9906 0.9953 0.9988
+
+For four-class risk stratification (Table II), image-only baselines achieve weighted F1 in the range of 0.781–0.823, with macro F1 substantially lower (0.475–0.537), indicating difficulty in distinguishing minority risk levels. Our method achieves accuracy of 0.930 and weighted F1 of 0.922, out-performing all baselines by at least 9.8 and 9.9 percentage points in accuracy and weighted F1, respectively. We note that the four-class AUC does not exceed the strongest image-only baseline, consistent with AUC being less sensitive to the minority-class gains that KG reasoning chains provide. The improvement in accuracy and weighted F1 is more pronounced for risk stratification than binary classification, suggesting that KG reasoning chains provide particularly strong evidence for distinguishing adjacent risk levels that are visually ambiguous. 
+
+C. Ablation Study 
+
+We conduct two groups of ablation experiments to evaluate the contribution of individual components in GlaKG. TABLE II RISK STRATIFICATION COMPARISON (4-CLASS )Method Acc F1 mac F1 wt AUC B1 LR (img) 0.8316 0.5343 0.8230 0.7752 B2 RF (img) 0.8012 0.4746 0.7802 0.8382 B3 GB (img) 0.8273 0.5343 0.8205 0.7774 B4 MLP (img) 0.8186 0.5370 0.8110 0.8286     
+
+> Ours ( α=0.5) 0.9303 0.6127 0.9222 0.8010
+
+1) KG Fusion Weight (Binary Classification): Table III reports the effect of varying α on binary classification. When α=0 (image only), the model achieves F1 = 0.9124 and AUC = 0.9466. Introducing KG reasoning chain scores progressively improves performance, peaking at F1 = 0.9953 and AUC = 0.9988 at α=0 .5. Beyond this point, performance degrades as the KG signal dominates, confirming that visual features and KG reasoning chains are complementary and neither is sufficient in isolation. At α = 1 .0, the KG score ranks cases near-perfectly (AUC 
+
+= 1 .000 ) yet F1 drops to 0.8412: with a fixed 0.5 decision threshold, precision is 1.000 but recall falls to 0.726, i.e., the ranking is separable but the operating point is conservative. This confirms that the KG signal’s separating power derives from label-correlated biomarkers (Sec. IV-B1), which is pre-cisely why fusion with independent visual features, rather than the KG alone, is necessary for a calibrated decision.                                   
+
+> TABLE III ABLATION : KG F USION WEIGHT α(B INARY CLASSIFICATION )
+> αAcc Prec Rec F1 AUC 0.0 0.8868 0.8769 0.9508 0.9124 0.9466 0.3 0.9318 0.9222 0.9719 0.9464 0.9896
+> 0.5 0.9942 1.0000 0.9906 0.9953 0.9988
+> 0.7 0.9797 1.0000 0.9672 0.9833 0.9999 1.0 0.8302 1.0000 0.7260 0.8412 1.0000
+
+2) KG Fusion Weight (Risk Stratification): Table IV presents the ablation for risk stratification. Accuracy, macro-F1, and weighted-F1 all peak at α=0 .5 (0.9303 / 0.6127 / 0.9222), consistent with the binary-classification optimum, while AUC peaks earlier at α=0 .3 (0.8679). Performance degrades as α → 1.0, confirming that visual and KG signals are complementary for risk stratification as well.                                
+
+> TABLE IV ABLATION : KG F USION WEIGHT α(R ISK STRATIFICATION )
+> αAcc F1 mac F1 wt AUC 0.0 0.8273 0.5360 0.8213 0.7793 0.3 0.8476 0.5487 0.8409 0.8679 0.5 0.9303 0.6127 0.9222 0.8010 0.7 0.9173 0.5435 0.8960 0.8429 1.0 0.8200 0.4254 0.7939 0.8085
+> Fig. 3. Reasoning chain visualization for a representative high-risk glaucoma case. Left: FundusImage and biomarker nodes. Right: activated ClinicalRule nodes linked via SUPPORTS RULE edges. Edge width indicates rule strength (strong/moderate/weak).
+
+D. Analysis 1) Explainability: Fig. 3 visualizes the reasoning chain for a representative high-risk glaucoma case, tracing diagnostic evidence from biomarker nodes to activated clinical rules via   
+
+> SUPPORTS RULE
+
+edges. The case activates 6 rules including all 3 strong rules (CDR threshold, rim thinning, ISNT viola-tion), yielding a chain score of 15 (3 strong plus 3 moderate rules), well above the single false negative case (chain score: 9). Feature importance analysis (MDI) reveals that KG features contribute 51.1% of model decisions, with n_rules (0.3352) and chain_score (0.1565) ranking 1st and 3rd among all features, as shown in Fig. 4.          
+
+> Fig. 4. Feature importance (MDI) for glaucoma classification. Blue bars denote KG features ( n_rules ,chain_score , etc.); teal bars denote biomarker features. KG features collectively contribute 51.1% of model decisions.
+
+Biomarker features contribute 48.9%, with 
+
+rim_thinning (0.3047) and isnt_violated (0.1478) ranking 2nd and 4th (Table V). This near-equal contribution confirms the complementary nature of structured knowledge and visual biomarkers.                     
+
+> TABLE V TOP -5 F EATURE IMPORTANCE (MDI) Rank Feature Type Importance 1n_rules KG 0.3352 2rim_thinning Biomarker 0.3047 3chain_score KG 0.1565 4isnt_violated Biomarker 0.1478 5cup_to_disc_ratio Biomarker 0.0365
+
+2) Error Analysis: Table VI summarizes prediction out-comes on the test set ( n=138 ). Our method achieves zero false positives and only one false negative (FN rate = 0.7%), corresponding to an overall accuracy of 99.3%. The single missed case exhibits CDR = 0.700, precisely at the clinical threshold, and activates only 3 rules compared to a mean of 6.39 for correctly classified cases (chain score: 9 vs. 15.91). This indicates that the primary failure mode is borderline cases where both visual and KG evidence are simultaneously weak.                    
+
+> TABLE VI ERROR ANALYSIS ON TEST SET (n= 138 )Type Count Rate True Positive (TP) 85 61.6% True Negative (TN) 52 37.7% False Positive (FP) 00.0% False Negative (FN) 10.7% FN: Avg CDR 0.700 (TP: 0.767) FN: Avg chain score 9.00 (TP: 15.91) FN: Avg nrules 3.00 (TP: 6.39)
+
+3) Knowledge Graph Quality: Table VII reports structural and coverage metrics. The LCC ratio of 1.000 confirms full graph connectivity. Glaucoma cases activate an average of 3.69 strong rules vs. 1.00 for normal cases, validating the discriminative power of the encoded clinical knowledge. KG feature contribution of 51.1% confirms that encoded rules provide non-redundant signals beyond raw biomarker features. 
+
+E. Clinical Implications 
+
+GlaKG offers several clinically meaningful advantages over conventional deep learning approaches for glaucoma screen-ing. 
+
+1) Interpretable Reasoning Chains: unlike black-box CNN models, GlaKG provides an explicit reasoning chain for every diagnosis, listing activated clinical rules with their evidence strength. For example, a severe high-risk case that activates the full set of eight mutually compatible rules attains the maximum chain score of 18, giving clinicians a structured audit trail that mirrors their own diagnostic reasoning process. 
+
+2) Alignment with Clinical Guidelines: the 11 encoded rules are grounded in established ophthalmic guidelines, in-cluding the ISNT rule and the CDR ≥ 0.7 threshold recom-mended by the International Council of Ophthalmology. This                          
+
+> TABLE VII GLA KG G RAPH STATISTICS AND QUALITY METRICS . A VERAGE RULES AND CHAIN SCORES ARE COMPUTED OVER ALL 689 DIAGNOSES
+> (INCLUDING NORMAL CASES )AND ARE THEREFORE LOWER THAN THE TRUE -POSITIVE SUBSET MEANS REPORTED IN TABLE VI. Metric Value Total nodes 3,460 Total edges 15,472 Node / edge types 6 / 8 Clinical rules 11 Graph density 1.23 ×10 −3
+> Largest CC ratio 1.000 Avg degree 8.94 Avg rules per diagnosis 4.36 Avg chain score 11.04 Covered ( ≥1 rule) 689/689 (100.0%) Covered ( ≥3 rules) 427/689 (62.0%) Avg strong rules (glaucoma) 3.69 Avg strong rules (normal) 1.00 KG feature contribution 51.1%
+
+alignment ensures that GlaKG’s reasoning chains are imme-diately interpretable to ophthalmologists without additional training. 
+
+3) Failure Mode Transparency: the single false nega-tive case (CDR = 0.700, chain score = 9) demonstrates that GlaKG’s reasoning chain explicitly signals diagnostic uncer-tainty: a low chain score flags borderline cases for clinician review rather than producing a silent misclassification. This property is clinically critical, as missed glaucoma diagnoses carry higher risk than false positives. 
+
+4) Integration Potential: GlaKG’s modular design separates image-based inference from knowledge-based reasoning, al-lowing either component to be updated independently. New clinical biomarkers (e.g., RNFL thickness, visual field indices) can be incorporated as additional ClinicalRule nodes without retraining the image encoder, facilitating seamless integration into existing ophthalmic AI workflows. VI. C ONCLUSION 
+
+In this paper, we presented GlaKG, a biomarker-centric fundus knowledge graph for explainable glaucoma diagnosis and risk assessment. GlaKG encodes 6 entity types, 8 relation types, and 11 clinically validated rules into a unified graph structure, so that every prediction is accompanied by an ex-plicit reasoning chain linking biomarker evidence to activated clinical rules. On a publicly available, AI-annotated fundus dataset, the proposed post-processing fusion framework attains F1 = 0.9953 for binary glaucoma classification and 0.930 accu-racy with 0.922 weighted F1 for four-class risk stratification, surpassing image-only baselines in accuracy and weighted F1. We report openly that the dataset’s biomarker annotations are highly label-correlated, and therefore frame these figures as an upper bound attainable with clean structured biomarkers rather than as leakage-free image-only performance; the value of GlaKG lies not solely in raw performance metrics but in a clinically auditable reasoning chain that exposes its own uncer-tainty on borderline cases. Feature-importance analysis further shows KG-derived and biomarker features contributing near-equally (51.1% vs. 48.9%), confirming their complementarity. GlaKG establishes a foundation for trustworthy, clinically interpretable glaucoma screening systems. VII. L IMITATION & F UTURE WORK 
+
+GlaKG has several limitations. First, it relies on structured JSON annotations for biomarker extraction, which may limit real-world deployment. Future work will explore automatic biomarker extraction from raw fundus images through joint image-KG learning. Second, the current graph is static and does not capture disease progression over time. Incorporat-ing longitudinal biomarkers and temporal edges may enable progression modeling and early intervention prediction. Third, its generalizability across fundus datasets and imaging devices requires further validation through cross-dataset evaluation and domain adaptation. Finally, extending GlaKG to other oph-thalmic diseases, such as diabetic retinopathy and age-related macular degeneration, may broaden its clinical applicability. ACKNOWLEDGMENT 
+
+This work is supported in part by the Cancer Prevention and Research Institute of Texas (CPRIT) under Grant RP250561. REFERENCES [1] Y.-C. Tham, X. Li, T. Y. Wong, H. A. Quigley, T. Aung, and C.-Y. Cheng, “Global prevalence of glaucoma and projections of glaucoma burden through 2040: A systematic review and meta-analysis,” Oph-thalmology , vol. 121, no. 11, pp. 2081–2090, 2014. [2] Z. Li, Y. He, S. Keel, W. Meng, R. T. Chang, and M. He, “Efficacy of a deep learning system for detecting glaucomatous optic neuropathy based on color fundus photographs,” Ophthalmology , vol. 125, no. 8, pp. 1199–1206, 2018. [3] S. Akter et al. , “Explainable AI for glaucoma detection and classifica-tion: A comprehensive review,” Artificial Intelligence Review , 2025. [4] M. Rotmensch, Y. Halpern, A. Tlimat, S. Horng, and D. Sontag, “Learning a health knowledge graph from electronic medical records,” 
+
+Scientific Reports , vol. 7, no. 1, p. 5994, 2017. [5] E. Choi, Z. Xu, Y. Li, M. Dusenberry, G. Flores, Y. Xue, and A. Dai, “Graph convolutional transformer: Learning the graphical structure of electronic health records,” in Proceedings of the AAAI Conference on Artificial Intelligence , 2020, pp. 606–613. [6] J. I. Orlando et al. , “REFUGE challenge: A unified framework for evaluating automated methods for glaucoma assessment from fundus photographs,” Medical Image Analysis , vol. 59, p. 101570, 2020. [7] C. Huang, W. Xie, T. Lee, K. Kooner, J.-K. Wang, N. Zhang, and J. Zhang, “X-gan: A generative ai-powered unsupervised model for main vessel segmentation of glaucoma screening,” in International Conference on Neural Information Processing . Springer, 2025, pp. 67–81. [8] C. Huang, “AI-driven biomarker discovery & progression modeling for precision diagnosis of glaucoma,” PhD Dissertation, Southern Methodist University, 2026, computer Science and Engineering Theses and Disser-tations, No. 53. [9] C. Huang et al. , “GlaBoost: Boosting glaucoma detection with multi-modal biomarker integration,” in Proceedings of the IEEE Engineering in Medicine and Biology Conference (EMBC) , 2026. [10] White et al. , “A systematic review of AI for predicting glaucoma progression: Challenges and recommendations towards clinical imple-mentation,” npj Digital Medicine , vol. 9, p. 140, 2026. [11] W. Y. L. Yang et al. , “Artificial intelligence in the prediction of glaucoma development and progression: A systematic review,” Survey of Ophthalmology , vol. 71, pp. 235–247, 2025. [12] C. Huang, W. Xie, T. Lee, K. Kooner, N. Zhang, and J. Zhang, “Glalstm: A concurrent lstm stream framework for glaucoma detection via biomarker relationship mining,” in 2025 47th Annual International Conference of the IEEE Engineering in Medicine and Biology Society (EMBC) , 2025. [13] M. Zitnik, M. Agrawal, and J. Leskovec, “Modeling polypharmacy side effects with graph convolutional networks,” Bioinformatics , vol. 34, no. 13, pp. i457–i466, 2018. [14] J. Shang, C. Xiao, T. Ma, H. Li, and J. Sun, “Pre-training of graph aug-mented transformers for medication recommendation,” in Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) ,2019, pp. 3953–3959. [15] L. M. Schriml et al. , “Human disease ontology 2018 update: Classifica-tion, content and workflow expansion,” Nucleic Acids Research , vol. 47, no. D1, pp. D955–D962, 2019. [16] A. Fout, J. Byrd, B. Shariat, and A. Ben-Hur, “Protein interface prediction using graph convolutional networks,” in Advances in Neural Information Processing Systems (NeurIPS) , 2017, pp. 6530–6539. [17] J. Shen, M. A. A. Haqqani, B. Hu, C. Huang, X. Xie, T. Lee, and J. Zhang, “Temporal graph neural network-powered paper recommen-dation on dynamic citation networks,” AAAI Workshop on Scientific Document Understanding (SDU@AAAI-2024) , 2024. [18] D. R. da Costa et al. , “Convolutional graph isomorphism network to detect glaucomatous visual field defects,” Ophthalmology Science , vol. 6, no. 3, p. 101041, 2025. [19] P. Veliˇ ckovi´ c, G. Cucurull, A. Casanova, A. Romero, P. Li` o, and Y. Ben-gio, “Graph attention networks,” in Proceedings of the International Conference on Learning Representations (ICLR) , 2018. [20] T. N. Kipf and M. Welling, “Semi-supervised classification with graph convolutional networks,” in Proceedings of the International Conference on Learning Representations (ICLR) , 2017. [21] R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, “Grad-CAM: Visual explanations from deep networks via gradient-based localization,” in Proceedings of the IEEE International Conference on Computer Vision (ICCV) , 2017, pp. 618–626. [22] M. Nandan, S. Mitra, and D. De, “GraphXAI: A survey of graph neural networks (GNNs) for explainable AI (XAI),” Neural Computing and Applications , vol. 37, pp. 10 949–11 000, 2025. [23] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , 2016, pp. 770–778. [24] H. A. Quigley, E. M. Addicks, W. R. Green, and A. E. Maumenee, “Optic nerve damage in human glaucoma: II. the site of injury and susceptibility to damage,” Archives of Ophthalmology , vol. 99, no. 4, pp. 635–649, 1981. [25] G. L. Spaeth, “The optic disc in glaucoma: Pathogenetic correlations,” 
+
+Transactions of the American Ophthalmological Society , vol. 79, pp. 619–674, 1981. [26] J. B. Jonas, W. M. Budde, and S. Panda-Jonas, “Ophthalmoscopic evaluation of the optic nerve head,” Survey of Ophthalmology , vol. 43, no. 4, pp. 293–320, 1999. [27] N. Harizman, C. Oliveira, A. Chiang, C. Tello, J. M. Liebmann, R. Ritch, and K. Mehta, “The ISNT rule and differentiation of normal from glaucomatous eyes,” Archives of Ophthalmology , vol. 124, no. 11, pp. 1579–1583, 2006. [28] A. C. Manoj, “Glaucoma diagnosis JSON analysis dataset,” https://huggingface.co/datasets/AswanthCManoj/glaucoma diagnosis json analysis, 2024, accessed: 2025. [29] D. R. Cox, “The regression analysis of binary sequences,” Journal of the Royal Statistical Society: Series B (Methodological) , vol. 20, no. 2, pp. 215–232, 1958. [30] L. Breiman, “Random forests,” Machine Learning , vol. 45, no. 1, pp. 5–32, 2001. [31] D. E. Rumelhart, G. E. Hinton, and R. J. Williams, “Learning repre-sentations by back-propagating errors,” Nature , vol. 323, no. 6088, pp. 533–536, 1986.
