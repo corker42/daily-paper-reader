@@ -6,70 +6,49 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-07
-- 运行时间：2026-07-07 22:27:29 UTC
+- 最新运行日期：2026-07-09
+- 运行时间：2026-07-09 22:18:12 UTC
 - 运行状态：成功
-- 本次总论文数：16
-- 精读区：7
-- 速读区：9
+- 本次总论文数：9
+- 精读区：2
+- 速读区：7
 
 ### 今日简报（AI）
-今日16篇医疗AI论文精读，聚焦眼底疾病筛查与多模态分析，眼病方向成热点头条。  
-最值得关注的方向：不确定性感知的视网膜病变筛查适配（RETFound改进）与基于ViT及集成学习的青光眼多模态检测，两者均获9分推荐。  
-建议下一步深入探索测试时适应（如胸片诊断中的病理共现利用）及眼科视觉语言系统的场景驱动生成。
-- 详情：[/202607/07/README](/202607/07/README)
+1) 今日精读聚焦强化学习数学方法与罕见病药物重定位基准数据集，速读涵盖文档VQA、癌症免疫治疗剂量优化及放射学报告生成。  
+2) 最值得关注：强化学习基础理论（9.0分）和罕见病药物重定位数据集（8.0分），其次可参考领域自适应VLM在文档问答中的对比研究。  
+3) 建议优先精读两篇高分论文夯实方法基础，再针对性浏览速读中与自身领域相关的应用方向。
+- 详情：[/202607/09/README](/202607/09/README)
 
 ### 精读区论文标签
-1. [Uncertainty-Aware Last-Layer Adaptation of RETFound for Referable Diabetic Retinopathy Screening Under Dataset Shift](/202607/07/2607.02569v1-uncertainty-aware-last-layer-adaptation-of-retfound-for-referable-diabetic-retinopathy-screening-under-dataset-shift)  
-   标签：评分：9.0/10、query:fundus-mc
-   evidence：直接匹配：使用眼底图像进行糖尿病视网膜病变筛查
-2. [An Automated Multimodal Glaucoma Detection Framework Using ViT and a Stacking-Based Ensemble](/202607/07/2607.02692v1-an-automated-multimodal-glaucoma-detection-framework-using-vit-and-a-stacking-based-ensemble)  
-   标签：评分：9.0/10、query:fundus-mc
-   evidence：使用眼底图像和ViT集成的自动化多模态青光眼检测
-3. [Reinforcement Learning for Evidence-Seeking Diagnostic Reasoning with Large Language Models](/202607/07/2607.02983v1-reinforcement-learning-for-evidence-seeking-diagnostic-reasoning-with-large-language-models)  
+1. [Mathematical methods of reinforcement learning](/202607/09/2607.06935v1-mathematical-methods-of-reinforcement-learning)  
    标签：评分：9.0/10、query:fsrh
-   evidence：使用强化学习进行医疗诊断，结合大语言模型
-4. [Model Confidence-Guided Multi-Image Fusion of Fundus Images for Diabetic Retinopathy Diagnosis](/202607/07/2607.03643v1-model-confidence-guided-multi-image-fusion-of-fundus-images-for-diabetic-retinopathy-diagnosis)  
-   标签：评分：9.0/10、query:fundus-mc
-   evidence：眼底图像用于糖尿病视网膜病变分类
-5. [GlaKG: A Biomarker-Centric Fundus Knowledge Graph for Explainable Glaucoma Diagnosis and Risk Assessment](/202607/07/2607.04673v1-glakg-a-biomarker-centric-fundus-knowledge-graph-for-explainable-glaucoma-diagnosis-and-risk-assessment)  
-   标签：评分：9.0/10、query:fundus-mc
-   evidence：眼底知识图谱用于青光眼诊断
-6. [Causal-RetiGraph: Cross-Cohort Retinal Support and Same-Subject Pathway Analysis for Diabetic Retinopathy](/202607/07/2607.05204v1-causal-retigraph-cross-cohort-retinal-support-and-same-subject-pathway-analysis-for-diabetic-retinopathy)  
-   标签：评分：9.0/10、query:fundus-mc
-   evidence：直接匹配：视网膜疾病分类（糖尿病视网膜病变）
-7. [FAMUS: A Few-Shot Learning Framework for Large-Scale Protein Annotation](/202607/07/biorxiv-10-64898-2026-03-08-710366-v2-famus-a-few-shot-learning-framework-for-large-scale-protein-annotation)  
-   标签：评分：9.0/10、query:fsrh
-   evidence：用于蛋白质注释的少样本学习框架
+   evidence：强化学习数学基础的综合综述
+2. [Clinical Trial and Ontology-Derived Positive and Negative Benchmark Datasets for Drug Repurposing Across Rare Diseases](/202607/09/biorxiv-10-64898-2026-06-15-732135-v2-clinical-trial-and-ontology-derived-positive-and-negative-benchmark-datasets-for-drug-repurposing-across-rare-diseases)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：罕见病药物重定位基准数据集
 
 ### 速读区论文标签
-1. [CPR: Chained Perceptual Refinement for Coarse-to-Fine Medical Image Classification](/202607/07/2607.02591v1-cpr-chained-perceptual-refinement-for-coarse-to-fine-medical-image-classification)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：方法桥梁：适用于眼底图像的粗到精医学图像分类
-2. [Leveraging Pathology Co-occurrence for Test-Time Adaptation in Chest X-Ray Diagnosis](/202607/07/2607.03715v1-leveraging-pathology-co-occurrence-for-test-time-adaptation-in-chest-x-ray-diagnosis)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：利用病理共现进行测试时自适应，处理医学图像分类中的长尾分布
-3. [IRIS: An Intelligent Vision-Language System for Ocular Surface Diseases via Topic Tree and Scene-Driven VQA Generation](/202607/07/2607.04344v1-iris-an-intelligent-vision-language-system-for-ocular-surface-diseases-via-topic-tree-and-scene-driven-vqa-generation)  
-   标签：评分：7.0/10、query:retina-agent
-   evidence：眼表疾病的智能视觉语言系统，涉及大模型和医疗AI智能体
-4. [Multi-Large Language Model Orchestrated Severity Assessment of Clinical Records (MOSAIC)](/202607/07/2607.05032v1-multi-large-language-model-orchestrated-severity-assessment-of-clinical-records-mosaic)  
-   标签：评分：7.0/10、query:fundus-mc
-   evidence：多LLM代理系统从电子病历中进行医疗严重性评估
-5. [Uncertainty Estimation in Pathology Foundation Models via Deep Mutual Learning](/202607/07/2606.30020v1-uncertainty-estimation-in-pathology-foundation-models-via-deep-mutual-learning)  
+1. [Comparative Study of Domain-adapted VLMs for General Document Visual Question Answering](/202607/09/2607.07179v1-comparative-study-of-domain-adapted-vlms-for-general-document-visual-question-answering)  
+   标签：评分：7.0/10、query:fsrh
+   evidence：在文档VQA上对VLM进行少样本学习评估
+2. [Mechanistically informed adaptive dosing for cancer immunotherapy using AI-guided decision making](/202607/09/biorxiv-10-64898-2026-06-09-730783-v1-mechanistically-informed-adaptive-dosing-for-cancer-immunotherapy-using-ai-guided-decision-making)  
+   标签：评分：7.0/10、query:fsrh
+   evidence：强化学习用于个性化免疫治疗剂量调整
+3. [CogRad: A Cognitively-Inspired Multi-Agent Framework for Radiology Report Generation](/202607/09/2607.03853v1-cograd-a-cognitively-inspired-multi-agent-framework-for-radiology-report-generation)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：用于医学图像分析的深度学习不确定性估计
-6. [Clinically Structured Rank-Gated LoRA for Cross-Benchmark Medical Question Answering](/202607/07/2606.31432v3-clinically-structured-rank-gated-lora-for-cross-benchmark-medical-question-answering)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：医学问答的参数高效适配方法，涉及医疗诊断中的大语言模型
-7. [MedCAGD: Context-Aware Gated Decoder for Efficient Medical Image Segmentation](/202607/07/2607.00409v1-medcagd-context-aware-gated-decoder-for-efficient-medical-image-segmentation)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：适用于眼底图像的医学图像分割解码器
-8. [CONFLUX: A Latent Diusion Model for 3D Chest-CT Synthesis with RL Post-Training](/202607/07/2607.02998v1-conflux-a-latent-diusion-model-for-3d-chest-ct-synthesis-with-rl-post-training)  
+   evidence：面向放射学报告生成的多智能体框架，与多智能体医学诊断相关
+4. [Toward Trustworthy Large Language Model Agents in Healthcare](/202607/09/2607.05055v1-toward-trustworthy-large-language-model-agents-in-healthcare)  
    标签：评分：6.0/10、query:fsrh
-   evidence：强化学习后训练用于3D医学图像合成
-9. [PulmoSight-XAI: An Explainable Multi-View Attention Ensemble with Gradient Boosting Meta-Learning for Multi-Label Chest X-Ray Classification](/202607/07/2607.04478v1-pulmosight-xai-an-explainable-multi-view-attention-ensemble-with-gradient-boosting-meta-learning-for-multi-label-chest-x-ray-classification)  
+   evidence：基于大语言模型的对话agent用于医疗物流
+5. [OBBSeg: Irregular Lesion Segmentation under Oriented Bounding Box Annotations](/202607/09/2607.06007v1-obbseg-irregular-lesion-segmentation-under-oriented-bounding-box-annotations)  
    标签：评分：6.0/10、query:fundus-mc
-   evidence：多标签胸部X光分类处理类不平衡和长尾分布
+   evidence：可用于眼底图像分析的弱监督医学图像分割方法
+6. [MSA-DCNN: A Data-Efficient Multi-Scale Deformable CNN for Medical Image Classification](/202607/09/2607.06083v1-msa-dcnn-a-data-efficient-multi-scale-deformable-cnn-for-medical-image-classification)  
+   标签：评分：6.0/10、query:fundus-mc
+   evidence：用于医学图像分类的数据高效多尺度可变形CNN
+7. [Application of class-balancing algorithms to diverse plasma metabolomics datasets using brain tumor as an example](/202607/09/biorxiv-10-64898-2026-07-02-735756-v1-application-of-class-balancing-algorithms-to-diverse-plasma-metabolomics-datasets-using-brain-tumor-as-an-example)  
+   标签：评分：6.0/10、query:fundus-mc
+   evidence：类别平衡算法处理医疗数据中的类别不平衡
 
 
 <div class="dpr-home-promo-card">
