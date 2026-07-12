@@ -1,0 +1,3938 @@
+Title: Spectral Analysis of Dueling Q-Learning
+
+URL Source: https://arxiv.org/pdf/2607.08340v1
+
+Published Time: Fri, 10 Jul 2026 01:01:06 GMT
+
+Number of Pages: 43
+
+Markdown Content:
+# Spectral Analysis of Dueling Q-Learning 
+
+Donghwan Lee 
+
+Department of Electrical Engineering, Korea Advanced Institute of Science and Technology (KAIST) Daejeon 34141, South Korea (email: donghwan@kaist.ac.kr )
+
+Abstract 
+
+Q-learning is a fundamental algorithm in reinforcement learning (RL) for solving discounted Markov decision processes (MDPs) when the transition kernel is unknown. The deep Q-network (DQN) extends Q-learning by using a deep neural network for Q-function approximation, which makes Q-learning applicable to more practical high-dimensional problems. Dueling Q-learning decomposes the Q-function into a value function and an advantage function and learns the two components jointly, which can improve learning efficiency. However, the theoretical understand-ing of dueling Q-learning is still limited. Recent work has initiated an analysis of tabular dueling Q-learning, but existing guarantees focus on a regularized formulation and leave the pure tab-ular update less completely understood. This paper strengthens that line of analysis by adding a direct interpretation of the centered tabular decomposition and by establishing convergence guarantees for the unregularized, unprojected constant step-size recursion. In particular, we de-rive an exact switching linear system representation for deterministic dueling Q-learning and a finite-time error bound in expectation for the sampled stochastic version. The analysis clar-ifies how the value and advantage updates act as different gains on the action-common (value function) and action-differential (advantage function) components of the Q-function. 
+
+# 1 Introduction 
+
+Q-learning [ 7] is a foundational algorithm in reinforcement learning (RL) [ 10 ] for solving discounted Markov decision processes (MDPs) [ 8] with unknown transition kernels. The deep Q-network (DQN) [ 14 ] extends Q-learning by using a deep neural network for Q-function approximation, which makes value-based RL applicable to high-dimensional problems in which a tabular representation is not practical. The dueling network architecture [ 15 ] further modifies DQN by separating the Q-function approximation into a value stream and an advantage stream. This decomposition can improve learning efficiency because the value component can share state-wise information across actions while the advantage component captures action-dependent deviations. Despite its empirical usefulness, the theoretical understanding of dueling Q-learning is still much less complete than that of standard tabular Q-learning. A recent study of action-value temporal-difference methods [ 13 ] that learn state values for-malized tabular versions of dueling methods and introduced regularized dueling Q-learning. That work clarified important aspects of dueling Q-learning (also called AV-learning) and provided a theoretical solution analysis for a regularized formulation of dueling Q-learning. However, the pure tabular dueling Q-learning recursion, without a regularization term or projection step, still leaves room for a more direct convergence analysis. The present paper addresses this gap by analyzing the unregularized dueling Q-learning recursion with constant step-sizes and by deriving a finite-time error bound in expectation for its sampled stochastic version. 1arXiv:2607.08340v1 [cs.LG] 9 Jul 2026 The analysis begins by interpreting dueling Q-learning through an orthogonal common and differential decomposition of the tabular Q-function. For a tabular Q-function Q, define the state-wise mean ¯VQ(s) := 1
+
+|A| 
+
+∑
+
+> b∈A
+
+Q(s, b ),
+
+and identify this state vector with its action-repeated lift (Π Q)( s, a ) := ¯VQ(s), s ∈ S , a ∈ A .
+
+Thus Π Q is the projection of Q onto the subspace of vectors that are constant across actions in each state. The action-differential component is the complementary centered projection 
+
+A(s, a ) = Q(s, a ) − (Π Q)( s, a ) = Q(s, a ) − 1
+
+|A| 
+
+∑
+
+> b∈A
+
+Q(s, b ).
+
+Therefore, Q is written as the sum of two components, denoted by V and A, where V = Π Q is the projected action-common component and A is the centered action-differential component. In this paper, V and A are component coordinates induced by Q; they are motivated by, but are not identified with, the conventional policy-dependent value and advantage functions unless explicitly stated. This interpretation leads to a deterministic update in which the Bellman residual is multi-plied by different gains on the two subspaces: the value update uses the action-common gain |A| α,whereas the advantage update uses the action-differential gain β. Based on this decomposition, we develop a centered AV-learning update (also dueling Q-learning) and prove a convergence condition for it. The algorithm studied here is close to, but not identical in presentation to, the AV-learning update discussed by Daley et al. [ 13 ]. Their formulation uses the same scalar gain for the value and advantage updates and maintains an advantage variable whose state-wise mean does not affect the reconstructed Q-function. In contrast, we work with the centered representative A = Π ⊥Q, allow two gains α and β, and keep the identity Q = V + A throughout the analysis. We also introduce a Q-only version of the same recursion. The centered AV-learning update and the Q-only update are shown to generate exactly the same Q-iterates under the centered identification. We first study a deterministic version of the recursion to isolate the main mechanism, and then we treat the sampled stochastic RL version. The analysis uses switching linear system (SLS) theory from control [ 3–5]. An SLS is a dynamical model in which one matrix from a prescribed family is applied at each iteration, and the active matrix may change over time according to a switching signal. Its worst-case exponential growth rate is characterized by the joint spectral radius (JSR) [ 1, 2], which is the asymptotic maximal growth rate of finite products of matrices from the switching family. If the JSR is less than one, the SLS is exponentially stable under arbitrary switching. We express the deterministic dueling Q-learning (or centered AV-learning) error recursion as an SLS and obtain convergence from a JSR condition. For the sampled recursion with constant step-sizes, the same construction yields a finite-time error bound in expectation under a JSR condition. The conclusion is convergence to a first-moment neighborhood of the optimal Q-function, and the size of this neighborhood goes to zero as the common scalar gain goes to zero. This paper treats only the independent and identically distributed (i.i.d.) sampling case to keep the formulas transparent. The same conditional-mean and noise decomposition can be combined with Markovian-observation stochastic-approximation arguments, as in [ 12 ], to extend the setting beyond i.i.d. samples. 22 Related Work 
+
+This section positions the present paper relative to existing value–advantage and value-augmented action-value methods. Baird’s advantage updating [ 16 ] is an early approach that stores state values and state-action advantages separately. It is conceptually related to the decomposition used here because it separates a state-common quantity from action-dependent deviations. However, advan-tage updating is not identical to the centered AV-learning (dueling Q-learning) analyzed in this paper, and it did not establish a theoretical convergence analysis for the centered recursion studied here. Wang et al. [ 15 ] introduced the dueling network architecture for deep Q-networks (DQNs), in which separate value and advantage streams are combined to produce Q-values. That work motivates the value–advantage parameterization and demonstrates empirical benefits in deep rein-forcement learning, but it does not analyze convergence of the corresponding tabular recursion. A related line of work learns state values together with action values. QV( λ)-learning [ 17 ] and the QV family [ 18 ] maintain Q-values together with a separate state-value function and include both on-policy and off-policy variants. These algorithms show that augmenting action-value learning with state-value estimates can improve empirical behavior. Their mechanism is nevertheless different from the present one: QV methods use separate estimates for the Q-function and the value function in their bootstrap targets, whereas the recursion studied here reconstructs Q = V + A through an orthogonal common/differential decomposition. Moreover, these QV studies are primarily empirical and do not provide the centered projection-based convergence analysis pursued here. More recent work has made the connection between value–advantage learning and dueling archi-tectures explicit. Tang et al. [ 19 ] proposed VA-learning, which directly learns a value function and an advantage function and relates the resulting update to dueling architectures. Daley et al. [ 13 ]analyzed action-value temporal-difference methods that learn state values, formalized AV-learning and QV-learning families, derived a tabular dueling Q-learning update, and introduced regular-ized dueling Q-learning. These papers are the closest to the present algorithmic setting. However, the algorithmic structure in [ 19 ] differs from the centered recursion considered here. The formula-tion in [ 13 ] is closer, but it uses regularization to handle the dueling decomposition, whereas the present analysis establishes convergence for the unregularized and unprojected centered recursion. In addition, we provide a finite-time error bound in expectation for the sampled recursion and give a complementary SLS and joint spectral radius (JSR) interpretation of the value–advantage dynamics. The analysis of Daley et al. [ 13 ] does not establish the same SLS/JSR interpretation or a convergence guarantee for the unregularized centered recursion considered here. 
+
+# 3 Preliminaries 
+
+3.1 Notation 
+
+The set of real numbers is denoted by R; Rm is the m-dimensional Euclidean space; and Rm×n is the set of all m × n real matrices. For a matrix A, A⊤ denotes its transpose. The identity matrix is denoted by I. For a finite state set S and a finite action set A, es and ea denote the standard basis vectors associated with s ∈ S and a ∈ A , respectively. For the state-action index i = ( s, a ), write 
+
+ei = ea ⊗ es in the action-block ordering. More generally, standard basis vectors in other Euclidean spaces use the same notation when the dimension is clear from context, and ⊗ denotes the Kronecker product. For a finite set S, |S| denotes its cardinality. For finite tabular state and action sets, set 
+
+n := |S||A| . Moreover, we write ∆ m := {q ∈ Rm : qi ≥ 0, ∑mi=1 qi = 1 } for the probability simplex in Rm. For a finite matrix family H = {A1, . . . , A N }, co( H) := 
+
+{∑Ni=1 λiAi : λi ≥ 0, ∑Ni=1 λi = 1 
+
+}
+
+3denotes its convex hull. We also use standard matrix notation that appears repeatedly below. For a vector x, ‖x‖2 is the Euclidean norm. For a square matrix A, ρ(A) denotes its standard spectral radius. After the matrix-family radius is introduced below, the notation ρ(H) is used for that quantity when the argument is a switching family. For a matrix B, range( B) denotes its column space, B ≻ 0 means that B is symmetric positive definite, and λmax (B) denotes the largest eigenvalue when B is symmetric. For square matrices A and B of the same size, we write A ∼ B
+
+when they are similar, that is, when B = S−1AS for some nonsingular matrix S. Expectations are denoted by E[·]. 
+
+3.2 Switched linear systems 
+
+The stability certificates used later are stated in the language of switching systems [ 3–5]. There-fore, we first recall the basic switching system model before specializing it to the Bellman-induced switching system model. Consider the discrete-time switching affine system (SAS) 
+
+xk+1 = Aσk xk + bσk ,
+
+where each index i ∈ { 1, 2, . . . , M }, equivalently each affine pair ( Ai, b i), is called a mode, and σk
+
+is the switching signal that selects the active mode at time k. The matrix Aσk is selected from the prescribed family H := {A1, A 2, . . . , A M }, which is called a switching family; bσk is a mode-dependent affine term. When bσk = 0, the deterministic part reduces to an SLS, xk+1 = Aσk xk. An SLS is exponentially stable under arbitrary switching if there exist constants C ≥ 1 and η ∈ (0 , 1) such that ∥∥Aσk−1 · · · Aσ0 x∥∥2 ≤ Cη k ‖x‖2 for every horizon k ≥ 0, every initial state x ∈ Rm, and every switching sequence. The worst-case exponential rate of the SLS family is characterized by the joint spectral radius (JSR) [ 1, 2], defined as follows. 
+
+Definition 3.1. For a bounded set of matrices H ⊂ Rm×m, its JSR is 
+
+ρ(H) := lim  
+
+> k→∞
+
+sup  
+
+> A1,...,A k∈H
+
+‖Ak · · · A1‖1/k .
+
+The JSR is independent of the chosen submultiplicative norm [ 1, 2]. When H is finite, the supremum for each fixed product length is a maximum over products generated by matrices in 
+
+H. For a finite family H, the notation ρ(co( H)) means the JSR computed when each factor in a product is allowed to be any convex combination of matrices in H.
+
+3.3 JSR and Lyapunov certificates 
+
+This subsection introduces the Lyapunov viewpoint used to analyze convergence of the algorithms below. A common Lyapunov function for H is a positive definite function that decreases along every mode. The following finite-family piecewise-quadratic construction [ 6, 12 ] is the Lyapunov certificate used in the deterministic arguments. 
+
+Lemma 3.1. Let H = {A1, A 2, . . . , A M } ⊂ Rm×m and fix ε > 0 such that βε := ρ(H) + ε ∈ (0 , 1) .For a word σ = ( σ1, . . . , σ k) ∈ { 1, . . . , M }k , write 
+
+Aσ := Aσk · · · Aσ1 ,
+
+with the convention that the empty word gives Aσ = I. Define 
+
+V ∞ 
+
+> ε
+
+(x) := 
+
+> ∞
+
+∑
+
+> k=0
+
+β−2kε max  
+
+> σ∈{ 1,...,M }k
+
+‖Aσx‖22 , x ∈ Rm.
+
+4Then V ∞ 
+
+> ε
+
+is finite for every x, and there exists Cε > 0 such that 
+
+‖x‖22 ≤ V ∞ 
+
+> ε
+
+(x) ≤ Cε ‖x‖22 , ∀x ∈ Rm.
+
+The function pε(x) := √V ∞ 
+
+> ε
+
+(x) is a norm on Rm, and every mode satisfies 
+
+pε(Aix) ≤ βεpε(x), ∀x ∈ Rm, i = 1 , . . . , M. 
+
+Proof. The proof is the standard finite-family JSR Lyapunov construction; see [ 12 ] and the con-struction in [ 6]. We omit the details. 
+
+Throughout the sequel, whenever this construction is applied to a switching family with JSR less than one, we call the resulting V ∞ 
+
+> ε
+
+a JSR Lyapunov function for that family, and we call the associated norm pε a JSR Lyapunov norm. The following lemma is the common bridge from a JSR bound to convergence of the corresponding error recursion. 
+
+Lemma 3.2. Let H = {A1, . . . , A M } ⊂ Rn×n be finite and suppose ρ(H) < 1. Consider any recursion with x0 ∈ Rn of the form 
+
+xk+1 = Akxk, Ak ∈ co( H), k ∈ { 0, 1, . . . }.
+
+Then, for every ε > 0 such that βε := ρ(H) + ε < 1, the Lyapunov function V ∞ 
+
+> ε
+
+and norm pε
+
+from Lemma 3.1 , applied to H, satisfy 
+
+V ∞ 
+
+> ε
+
+(xk+1 ) ≤ β2 
+
+> ε
+
+V ∞ 
+
+> ε
+
+(xk), pε(xk+1 ) ≤ βεpε(xk).
+
+Consequently, if Cε is the constant from Lemma 3.1 , then 
+
+pε(xk) ≤ βkε pε(x0), ‖xk‖2 ≤ βkε pε(x0) ≤ √Cε βkε ‖x0‖2 ,
+
+and hence xk → 0.Proof. Let pε be the norm from Lemma 3.1 . If A ∈ co( H), then A = ∑Mi=1 λiAi for some λi ≥ 0with ∑ 
+
+> i
+
+λi = 1. Since pε is a norm and pε(Aix) ≤ βεpε(x) for every mode Ai, we have 
+
+pε(Ax ) = pε
+
+( M∑
+
+> i=1
+
+λiAix
+
+)
+
+≤
+
+> M
+
+∑
+
+> i=1
+
+λipε(Aix) ≤ βεpε(x).
+
+Applying this with A = Ak gives the one-step inequalities for pε and V ∞ 
+
+> ε
+
+= p2
+
+> ε
+
+. Iteration gives 
+
+pε(xk) ≤ βkε pε(x0). The Euclidean bound follows from the norm-equivalence estimate in Lemma 3.1 .
+
+The rest of the paper uses this JSR implication as the main convergence certificate. Once an er-ror recursion has been written as an SLS whose mode family has JSR below one, convergence and an exponential rate bound follow from Lemma 3.2 . The same matrices identify the drift term in sam-pled stochastic RL recursions. For the sampled version, a JSR bound below one for the associated conditional-mean switching family gives the drift part needed for stochastic convergence and finite-time error bounds, as in [ 12 ]. We note that this paper treats only the independent and identically distributed (i.i.d.) sampling case to keep the formulas transparent. The same conditional-mean and noise decomposition can be combined with Markovian-observation stochastic-approximation arguments, as in [ 12 ], to extend the setting beyond i.i.d. samples. 53.4 Discounted Markov decision processes 
+
+We consider a finite discounted Markov decision process (MDP), the standard model for control in reinforcement learning (RL) [ 8–10 ], with state-space S = {1, . . . , |S|} , action space A = {1, . . . , |A|} ,transition probability P (s′ | s, a ), real-valued one-step reward r(s, a, s ′), and discount factor γ ∈
+
+(0 , 1). The finite state and action sets and the real-valued reward function imply the uniform reward bound 
+
+Rmax := max  
+
+> s∈S , a ∈A , s ′∈S
+
+|r(s, a, s ′)| < ∞. (1) The expected reward is R(s, a ) := ∑ 
+
+> s′∈S
+
+P (s′ | s, a )r(s, a, s ′). State-action functions are viewed as vectors in Rn using the action-block ordering (1 , 1) , (2 , 1) , . . . , (|S| , 1) , (1 , 2) , (2 , 2) , . . . , (|S| , |A| ). All matrices and vectors indexed by state-action pairs use this ordering. Define 
+
+P := 
+
+
+
+P1
+
+...
+
+P|A| 
+
+ ∈ Rn×|S| , R := 
+
+
+
+R(·, 1) ...
+
+R(·, |A| )
+
+ ∈ Rn,
+
+where Pa = P (· | · , a ) ∈ R|S|×|S| . Let Θ denote the set of deterministic stationary policies π : S → A .For any stochastic policy μ : S → ∆|A| , define Γμ := 
+
+
+
+μ(1) ⊤ ⊗ e⊤
+
+> 1
+
+μ(2) ⊤ ⊗ e⊤
+
+> 2
+
+...
+
+μ(|S| )⊤ ⊗ e⊤|S| 
+
+ ∈ R|S|× n.
+
+Here ∆ |A| is the probability simplex in R|A| , so μ(s) is a probability vector over actions at state s.For a deterministic policy π ∈ Θ, the same notation Γ π is used by identifying π(s) with its one-hot encoding. 
+
+Lemma 3.3. For every stochastic policy μ : S → ∆|A| ,
+
+P Γμ ∈ co {P Γπ : π ∈ Θ}.
+
+Moreover, P Γμ is row-stochastic and satisfies P Γμ1 = 1.Proof. For each deterministic policy π ∈ Θ, define the convex weight 
+
+λπ := ∏
+
+> s∈S
+
+μ(π(s) | s).
+
+Then λπ ≥ 0 and ∑
+
+> π∈Θ
+
+λπ = ∏
+
+> s∈S
+
+∑
+
+> a∈A
+
+μ(a | s) = 1 .
+
+For fixed s ∈ S and a ∈ A ,
+
+∑ 
+
+> π∈Θ: π(s)= a
+
+λπ = μ(a | s) ∏
+
+> ¯s∈S\{ s}
+
+∑
+
+> b∈A
+
+μ(b | ¯s) = μ(a | s).
+
+Therefore the sth row of ∑ 
+
+> π∈Θ
+
+λπΓπ equals the sth row of Γ μ, and hence Γμ = ∑
+
+> π∈Θ
+
+λπΓπ.
+
+6Multiplying by P gives the stated convex-hull inclusion. Since P and Γ μ are entrywise nonnegative and map the all-ones vector to the all-ones vector of the appropriate dimension, P Γμ is row-stochastic and P Γμ1 = 1.
+
+For Q ∈ Rn, let us define 
+
+VQ(s) := max  
+
+> a∈A
+
+Q(s, a ), VQ := ( VQ(1) , . . . , V Q(|S| )) ⊤.
+
+The Bellman optimality operator is F (Q) := R + γP V Q. Its unique fixed point is the optimal tabular action-value function Q⋆, which satisfies 
+
+Q⋆ = F (Q⋆) = R + γP V Q⋆ . (2) For a tie-broken greedy policy πQ satisfying 
+
+πQ(s) ∈ arg max 
+
+> a∈A
+
+Q(s, a ), s ∈ S ,
+
+one has VQ = Γ πQ Q and 
+
+F (Q) = R + γP ΓπQ Q. 
+
+The following lemma is used repeatedly to write Bellman differences as linear maps depending on stochastic policies; see, e.g., [ 12 ]. 
+
+Lemma 3.4. For any two vectors Q, Q ∈ Rn, there exists a stochastic policy μQ, Q : S → ∆|A| such that 
+
+VQ − VQ = Γ μQ, Q (Q − Q).
+
+Moreover, the selector can be chosen as a Borel function of (Q, Q). Consequently, 
+
+F (Q) − F (Q) = γP ΓμQ, Q (Q − Q).
+
+In particular, if Q and Q are G-measurable random vectors for a sigma-field G, then μQ, Q can be chosen G-measurable. Proof. Fix a state s and write ∆a(s) := Q(s, a ) − Q(s, a ), h(s) := VQ(s) − VQ(s).
+
+The elementary inequality min  
+
+> a∈A
+
+∆a(s) ≤ h(s) ≤ max  
+
+> a∈A
+
+∆a(s)follows from the variational characterization of the maximum. Choose lexicographic minimizers and maximizers 
+
+amin (s) ∈ arg min  
+
+> a∈A
+
+∆a(s), amax (s) ∈ arg max  
+
+> a∈A
+
+∆a(s),
+
+and set ∆ min (s) := ∆ amin (s)(s) and ∆ max (s) := ∆ amax (s)(s). If ∆ min (s) = ∆ max (s), assign probability one to amin (s). Otherwise, define 
+
+μQ, Q(amin (s) | s) := ∆max (s) − h(s)
+
+∆max (s) − ∆min (s) ,μQ, Q(amax (s) | s) := h(s) − ∆min (s)
+
+∆max (s) − ∆min (s) ,
+
+7and assign zero probability to all other actions. These weights are nonnegative and sum to one, and they satisfy ∑
+
+> a∈A
+
+μQ, Q(a | s)∆ a(s) = h(s).
+
+Since this holds for every state s, we get VQ −VQ = Γ μQ, Q (Q−Q). The displayed identity for F (Q)−
+
+F (Q) follows from the definition of F . The lexicographic tie-breaking construction is piecewise continuous on finitely many regions, hence Borel measurable as a function of ( Q, Q); the final measurability statement follows by composition. 
+
+We use d to denote a state-action sampling distribution on S ×A . In the i.i.d. observation model, 
+
+d is the sampling distribution of ( sk, a k); in the Markovian observation model, d is the stationary state-action distribution of the behavior-induced chain. Throughout the paper, we assume that the sampling distribution satisfies d(s, a ) > 0 for every ( s, a ) ∈ S × A . This distribution forms the full-support state-action weight vector d ∈ Rn with d⊤1 = 1, and we define 
+
+D := diag( d), dmin := min  
+
+> (s,a )∈S×A
+
+d(s, a ), dmax := max  
+
+> (s,a )∈S×A
+
+d(s, a ). (3) 
+
+# 4 Standard deterministic Q-learning 
+
+This section first reviews the deterministic form of standard tabular Q-learning [ 7]. This baseline is the reference recursion for the dueling Q-learning analysis below. Standard deterministic Q-learning with step-size η is 
+
+Qk+1 = Qk + ηD (F (Qk) − Qk
+
+). (4) Let Q⋆ be the optimal tabular fixed point defined in Equation (2) . By Lemma 3.4 , the nonlinear Bellman difference can be written as a linear mode selected by a stochastic policy. The resulting SLS model associated with standard Q-learning is summarized next. 
+
+Lemma 4.1. For the standard tabular deterministic Q-learning recursion (4) with Qk ∈ Rn, there exists a stochastic policy μk : S → ∆|A| such that 
+
+Qk+1 − Q⋆ = AQμk (Qk − Q⋆), (5) 
+
+where 
+
+AQμ = I − ηD (I − γP Γμ) ∈ Rn×n.
+
+In particular, the corresponding deterministic-policy mode matrices are 
+
+AQπ = I − ηD (I − γP Γπ), π ∈ Θ.
+
+Proof. The proof can be found in [ 12 ]. We omit the details. 
+
+We now formally introduce the switching family corresponding to the SLS model in ( 5). 
+
+Definition 4.1. The switching family associated with standard tabular Q-learning and deterministic policies is defined as 
+
+AQ := {AQπ : π ∈ Θ} ⊂ Rn×n.
+
+For every stochastic policy μ : S → ∆|A| , the corresponding stochastic mode satisfies AQμ ∈
+
+co( AQ). Thus the standard Q-learning error recursion in ( 5) switches over co( AQ). The SLS model in (5) and the switching family in Definition 4.1 give a JSR-based convergence certificate for standard deterministic Q-learning. 8Lemma 4.2. Let Qk ∈ Rn be generated by the standard deterministic Q-learning recursion (4),and suppose that 
+
+ρ(AQ) < 1,
+
+where AQ is defined in Definition 4.1 . Then Qk → Q⋆. More precisely, for every ε > 0 such that 
+
+βε := ρ(AQ) + ε < 1,
+
+the JSR Lyapunov norm pε from Lemma 3.1 , applied to the family AQ, satisfies 
+
+pε(Qk − Q⋆) ≤ βkε pε(Q0 − Q⋆), k ≥ 0.
+
+If Cε is the corresponding norm-equivalence constant, then 
+
+‖Qk − Q⋆‖2 ≤ √Cε βkε ‖Q0 − Q⋆‖2 , k ≥ 0.
+
+Proof. The result follows by applying the JSR convergence implication in Lemma 3.2 to the stan-dard Q-learning switching family; see [ 12 ] for the same direct-switching argument. We omit the details. 
+
+# 5 Deterministic dueling Q-learning 
+
+The dueling architecture was introduced by Wang et al. [ 15 ] for deep Q-networks (DQNs) [ 14 ], and a tabular analysis of related dueling Q-learning methods was recently given by Daley et al. [ 13 ]. The algorithm studied here is therefore not proposed as a new algorithmic template; rather, the goal is to give a systematic SLS analysis of its centered tabular form. 
+
+5.1 Common/differential decomposition 
+
+We first collect the common/differential decomposition needed for the analysis of tabular dueling Q-learning. For a fixed state s, write the action block as 
+
+Qk(s, ·) = 
+
+
+
+Qk(s, a 1)...
+
+Qk(s, a |A| )
+
+ ∈ R|A| .
+
+Define the state-wise action-mean lift operator Π by (Π Q)( s, a ) = 1
+
+|A| 
+
+∑
+
+> b∈A
+
+Q(s, b ), s ∈ S , a ∈ A . (6) Equivalently, Π Q is the action-repeated lift of the state mean ¯ VQ(s) := |A| −1 ∑ 
+
+> b∈A
+
+Q(s, b ). The next lemma establishes that Π is an orthogonal projection in the stated coordinates. 
+
+Lemma 5.1. The state-wise action-mean operator Π ∈ Rn×n can be written as the following matrix form: 
+
+Π = 
+
+( 1
+
+|A| 1|A| 1⊤|A| 
+
+)
+
+⊗ I|S| . (7) 
+
+Moreover, Π is an orthogonal projection: Π2 = Π and Π⊤ = Π .
+
+9Proof. Write Q in action blocks as Q = col (Q(·, a 1), . . . , Q (·, a |A| )) with Q(·, a ) ∈ R|S| . Let 
+
+M|A| := 1
+
+|A| 1|A| 1⊤|A| .
+
+The ath action block of ( M|A| ⊗ I|S| )Q is 1
+
+|A| 
+
+∑
+
+> b∈A
+
+Q(·, b ).
+
+Therefore the coordinate indexed by ( s, a ) is 
+
+((M|A| ⊗ I|S| )Q)(s, a ) = 1
+
+|A| 
+
+∑
+
+> b∈A
+
+Q(s, b ),
+
+which is exactly the definition of Π Q in ( 6). This proves the matrix representation ( 7). Next, we have 
+
+M 2 
+
+> |A|
+
+= 1
+
+|A| 2 11 ⊤11 ⊤ = 1
+
+|A| 11 ⊤ = M|A| , M ⊤|A| = M|A| .
+
+Using ( B ⊗ C)( D ⊗ E) = BD ⊗ CE and ( B ⊗ C)⊤ = B⊤ ⊗ C⊤, we get Π2 = ( M|A| ⊗ I|S| )( M|A| ⊗ I|S| ) = M 2 
+
+> |A|
+
+⊗ I2 
+
+> |S|
+
+= M|A| ⊗ I|S| = Π ,
+
+Π⊤ = ( M|A| ⊗ I|S| )⊤ = M ⊤|A| ⊗ I⊤|S| = M|A| ⊗ I|S| = Π .
+
+Thus Π is symmetric and idempotent, hence an orthogonal projection. 
+
+Since Π is an orthogonal projection, the orthogonal projection onto the orthogonal complement of the state-wise action-common subspace is Π⊥ := I − Π.
+
+The two associated subspaces are defined as 
+
+V := range(Π) = {Q ∈ R|S||A| : Q(s, a ) = Q(s, b ) for every s and all a, b },
+
+A0 := range(Π ⊥) = 
+
+{
+
+Q ∈ R|S||A| : ∑
+
+> a∈A
+
+Q(s, a ) = 0 for every s
+
+}
+
+,
+
+where V will be called the V-space and A0 will be called the A-space. Therefore, Π Q is the state-wise action-common component, and Π ⊥Q is the action-differential component. The corresponding product space is 
+
+V × A 0 = range(Π) × range(Π ⊥) = {(V, A ) ∈ Rn × Rn : V = Π V, A = Π ⊥A},
+
+which will be called AV-space. This form makes the coupling between the two components explicit and allows the same convergence analysis to be stated on V × A 0. Consequently, every Q-vector has the unique decomposition 
+
+Q = Π Q + Π ⊥Q. (8) 10 Using this decomposition, each Q-function iterate Qk can be written as 
+
+Qk = Vk + Ak, Vk = Π Qk, Ak = Π ⊥Qk. (9) Equivalently, Vk is constant across actions within each state block and 
+
+∑
+
+> a∈A
+
+Ak(s, a ) = 0 , s ∈ S . (10) Similarly, the optimal action-value vector can be obtained as 
+
+Q⋆ = V ⋆ + A⋆, V ⋆ := Π Q⋆, A⋆ := Π ⊥Q⋆.
+
+In these coordinates, standard deterministic Q-learning with step-size η applies the same gain to both subspaces. Indeed, using ( 8), the standard Q-learning recursion 
+
+Qk+1 = Qk + ηD (F (Qk) − Qk
+
+)
+
+can be written as 
+
+Qk+1 = Qk + CQD(F (Qk) − Qk
+
+),
+
+where CQ is the preconditioning matrix defined as 
+
+CQ = ηI = ηΠ + ηΠ⊥. (11) Therefore, the standard update does not distinguish the state-wise action-common component from the action-differential component. 
+
+5.2 Deterministic dueling Q-learning in centered components 
+
+Before studying sample-based stochastic dueling Q-learning, we first analyze its deterministic coun-terpart in the centered components from ( 9). This deterministic setting focuses on the mean Bellman-residual dynamics and makes the coupling between the state-wise action-common compo-nent in V-space and the action-differential component in A-space explicit. For the dueling Q-learning method, define Qk = Vk + Ak and use the Bellman residual 
+
+F (Qk) − Qk = R + γP V Qk − Qk.
+
+In this paper, we consider the following deterministic tabular dueling Q-learning update 
+
+Vk+1 = Vk + |A| αΠD(F (Qk) − Qk
+
+), (12) 
+
+Ak+1 = Ak + βΠ⊥D(F (Qk) − Qk
+
+). (13) The update preserves the centeredness condition in ( 10 ). The factor |A| in ( 12 ) appears because Π averages over the actions in each state block; hence |A| Π converts the action average into the state-wise sum used by the value component. We can easily show that if Ak ∈ range(Π ⊥), then 
+
+Ak+1 ∈ range(Π ⊥). The vector-form statement of ( 12 )–( 13 ) is summarized in Algorithm 1 . For reference, a coordinate-by-coordinate version of Algorithm 1 is also provided in Algorithm 5 in Appendix. To analyze Algorithm 1 , we use the SLS framework introduced in Section 3.2 . The next lemma gives the SLS of dueling Q-learning obtained after subtracting the Bellman fixed point and introduces the associated switching family. 11 Algorithm 1 Deterministic dueling Q-learning: vector form  
+
+> 1:
+
+Initialize Q0 ∈ Rn, V0 = Π Q0, and A0 = Π ⊥Q0. 
+
+> 2:
+
+for k = 0 , 1, . . . do  
+
+> 3:
+
+Form Qk ← Vk + Ak. 
+
+> 4:
+
+Vk+1 ← Vk + |A| αΠD(F (Qk) − Qk
+
+). 
+
+> 5:
+
+Ak+1 ← Ak + βΠ⊥D(F (Qk) − Qk
+
+). 
+
+> 6:
+
+Qk+1 ← Vk+1 + Ak+1 . 
+
+> 7:
+
+end for 
+
+Lemma 5.2. For a stochastic policy μ : S → ∆|A| , define the block operator BV A μ : V ×A 0 → V ×A 0,represented by a matrix in R2n×2n, by 
+
+BV A μ := 
+
+[Π − |A| αΠD(I − γP Γμ)Π −|A| αΠD(I − γP Γμ)Π ⊥
+
+−βΠ⊥D(I − γP Γμ)Π Π⊥ − βΠ⊥D(I − γP Γμ)Π ⊥
+
+]
+
+. (14) 
+
+For a deterministic policy π ∈ Θ, write BV A π for this operator with μ = π, and define the deterministic-policy block switching family for dueling Q-learning by 
+
+BV A (α, β ) := {BV A π : π ∈ Θ} ⊂ R2n×2n. (15) 
+
+Let Qk = Vk + Ak be generated by (12 )–(13 ), and let V ⋆ := Π Q⋆ and A⋆ := Π ⊥Q⋆. Then, for each 
+
+k ≥ 0, there exists a stochastic policy μk : S → ∆|A| such that 
+
+[Vk+1 − V ⋆
+
+Ak+1 − A⋆
+
+]
+
+= BV A μk
+
+[Vk − V ⋆
+
+Ak − A⋆
+
+]
+
+. (16) 
+
+Proof. Since Q⋆ = F (Q⋆), subtracting the fixed-point decomposition Q⋆ = V ⋆ + A⋆ from ( 12 )–( 13 )gives 
+
+Vk+1 − V ⋆ = ( Vk − V ⋆) + |A| αΠD(F (Qk) − F (Q⋆) − (Qk − Q⋆)),Ak+1 − A⋆ = ( Ak − A⋆) + βΠ⊥D(F (Qk) − F (Q⋆) − (Qk − Q⋆)).
+
+By Lemma 3.4 , there exists a stochastic policy μk : S → ∆|A| such that 
+
+F (Qk) − F (Q⋆) = γP Γμk (Qk − Q⋆).
+
+Using 
+
+Vk − V ⋆ = Π( Qk − Q⋆), Ak − A⋆ = Π ⊥(Qk − Q⋆),
+
+and Qk − Q⋆ = ( Vk − V ⋆) + ( Ak − A⋆), the two preceding equations give ( 16 ). 
+
+The following elementary identity explains why the action-common input column of the block system does not depend on the selected policy. Once a vector is constant across actions in each state, every policy selector returns the same state-wise vector. 
+
+Lemma 5.3. For any stochastic policies μ, ν : S → ∆|A| ,
+
+ΓμΠ = Γ ν Π.
+
+12 Proof. Fix x ∈ Rn. By the definition of the action-common projection, (Π x)( s, a ) = 1
+
+|A| 
+
+∑
+
+> b∈A
+
+x(s, b ), s ∈ S , a ∈ A .
+
+Thus the quantity (Π x)( s, a ) is independent of a for each fixed state s. Hence, for any stochastic policy μ,(Γ μΠx)( s) = ∑
+
+> a∈A
+
+μ(a | s)(Π x)( s, a )= ∑
+
+> a∈A
+
+μ(a | s) 1
+
+|A| 
+
+∑
+
+> b∈A
+
+x(s, b )=
+
+(∑
+
+> a∈A
+
+μ(a | s)
+
+)
+
+1
+
+|A| 
+
+∑
+
+> b∈A
+
+x(s, b )= 1
+
+|A| 
+
+∑
+
+> b∈A
+
+x(s, b ).
+
+The same calculation with ν gives (Γ ν Πx)( s) = 1
+
+|A| 
+
+∑
+
+> b∈A
+
+x(s, b ).
+
+Therefore (Γ μΠx)( s) = (Γ ν Πx)( s) for every s ∈ S and every x ∈ Rn, which proves Γ μΠ = Γ ν Π. 
+
+The following lemma isolates the policy-dependence of the block operator. It shows that the first block column [Π − |A| αΠD(I − γP Γμ)Π 
+
+−βΠ⊥D(I − γP Γμ)Π 
+
+]
+
+is fixed, while the second block column 
+
+[ −|A| αΠD(I − γP Γμ)Π ⊥
+
+Π⊥ − βΠ⊥D(I − γP Γμ)Π ⊥
+
+]
+
+can switch with the selected policy. 
+
+Lemma 5.4. Write the block operator in (14 ) as 
+
+BV A μ =
+
+[BV A μ, 11 BV A μ, 12 
+
+BV A μ, 21 BV A μ, 22 
+
+]
+
+.
+
+For stochastic policies μ, ν : S → ∆|A| , the first-column blocks in (15 ) are policy-independent: 
+
+BV A μ, 11 = BV A ν, 11 , BV A μ, 21 = BV A ν, 21 
+
+for all stochastic policies μ, ν : S → ∆|A| . The second-column blocks 
+
+BV A μ, 12 = −|A| αΠD(I − γP Γμ)Π ⊥, BV A μ, 22 = Π ⊥ − βΠ⊥D(I − γP Γμ)Π ⊥
+
+can depend on the selected policy, and their differences are 
+
+BV A μ, 12 − BV A ν, 12 = |A| αγ ΠDP (Γ μ − Γν )Π ⊥,BV A μ, 22 − BV A ν, 22 = βγ Π⊥DP (Γ μ − Γν )Π ⊥.
+
+Thus the block SLS has a fixed action-common input column and, in general, switching action-differential input blocks. 
+
+13 Proof. The policy-dependent part of the first block column in ( 14 ) is P ΓμΠ. By Lemma 5.3 , Γ μΠ = Γν Π for all stochastic policies μ, ν : S → ∆|A| . Therefore 
+
+BV A μ, 11 = Π − |A| αΠD(I − γP Γμ)Π = Π − |A| αΠD(I − γP Γν )Π = BV A ν, 11 ,BV A μ, 21 = −βΠ⊥D(I − γP Γμ)Π = −βΠ⊥D(I − γP Γν )Π = BV A ν, 21 .
+
+For the second block column, direct subtraction gives 
+
+BV A μ, 12 − BV A ν, 12 = −|A| αΠD(I − γP Γμ)Π ⊥ + |A| αΠD(I − γP Γν )Π ⊥
+
+= |A| αγ ΠDP (Γ μ − Γν )Π ⊥,
+
+and 
+
+BV A μ, 22 − BV A ν, 22 = Π ⊥ − βΠ⊥D(I − γP Γμ)Π ⊥ − Π⊥ + βΠ⊥D(I − γP Γν )Π ⊥
+
+= βγ Π⊥DP (Γ μ − Γν )Π ⊥.
+
+These are the two stated formulas. 
+
+The identities in Lemmas 5.3 and 5.4 show that the exact dueling Q-learning recursion should be read as a coupled block SLS with a fixed linear value-input column and switching advantage-driven blocks, rather than as two independent recursions in a general MDP. The associated switching family for deterministic policies introduced in Lemma 5.2 is enough for JSR analysis. When ρ(BV A (α, β )) < 1, the Lyapunov argument in Lemma 3.2 gives the following convergence statement on V × A 0.
+
+Lemma 5.5. Let Q⋆, V ⋆, A ⋆ ∈ Rn satisfy Q⋆ = V ⋆ + A⋆, V ⋆ := Π Q⋆, and A⋆ := Π ⊥Q⋆, and let 
+
+[Vk − V ⋆
+
+Ak − A⋆
+
+]
+
+∈ V × A 0
+
+follow the block SLS (16 ). Suppose that 
+
+ρ(BV A (α, β )) < 1,
+
+where BV A (α, β ) is introduced in Lemma 5.2 . Then the block vector converges to zero, and hence 
+
+Qk − Q⋆ → 0. More precisely, for every ε > 0 such that 
+
+βε := ρ(BV A (α, β )) + ε < 1,
+
+the JSR Lyapunov norm pε from Lemma 3.1 , applied to the family BV A (α, β ) on V × A 0, satisfies 
+
+pε
+
+([ Vk − V ⋆
+
+Ak − A⋆
+
+]) 
+
+≤ βkε pε
+
+([ V0 − V ⋆
+
+A0 − A⋆
+
+]) 
+
+, k ≥ 0. (17) 
+
+If Cε is the corresponding norm-equivalence constant, then 
+
+∥∥∥∥[Vk − V ⋆
+
+Ak − A⋆
+
+]∥ ∥∥∥2
+
+≤ √Cε βkε
+
+∥∥∥∥[V0 − V ⋆
+
+A0 − A⋆
+
+]∥ ∥∥∥2
+
+, k ≥ 0. (18) 
+
+Because Π and Π⊥ are orthogonal projections, 
+
+∥∥∥∥[Vk − V ⋆
+
+Ak − A⋆
+
+]∥ ∥∥∥
+
+> 22
+
+= ‖Vk − V ⋆‖22 + ‖Ak − A⋆‖22 = ‖Qk − Q⋆‖22 .
+
+14 Algorithm 2 Dueling Q-learning: induced Q-only vector form  
+
+> 1:
+
+Initialize Q0 ∈ Rn. 
+
+> 2:
+
+for k = 0 , 1, . . . do  
+
+> 3:
+
+Qk+1 ← Qk + ( |A| αΠ + βΠ⊥)D(F (Qk) − Qk
+
+). 
+
+> 4:
+
+end for 
+
+Proof. Let 
+
+zk := 
+
+[Vk − V ⋆
+
+Ak − A⋆
+
+]
+
+.
+
+By Lemmas A.3 and 5.2 , the block recursion has the form 
+
+zk+1 = BV A μk zk, BV A μk ∈ co( BV A (α, β )) .
+
+The assumption ρ(BV A (α, β )) < 1 therefore allows us to apply Lemma 3.2 to the family BV A (α, β )on the product space V × A 0. Hence, for every ε > 0 with βε = ρ(BV A (α, β )) + ε < 1, 
+
+pε(zk ) ≤ βkε pε(z0),
+
+which is ( 17 ). The norm-equivalence bounds for the same JSR Lyapunov norm give 
+
+‖zk‖2 ≤ pε(zk ) ≤ βkε pε(z0) ≤ √Cε βkε ‖z0‖2 ,
+
+which is ( 18 ). Since βε < 1, zk → 0. Finally, because Vk − V ⋆ = Π( Qk − Q⋆) and Ak − A⋆ =Π⊥(Qk − Q⋆), and because Π and Π ⊥ are orthogonal projections onto orthogonal subspaces, 
+
+‖zk‖22 = ‖Π( Qk − Q⋆)‖22 + ‖Π⊥(Qk − Q⋆)‖22 = ‖Qk − Q⋆‖22 .
+
+Thus zk → 0 implies Qk − Q⋆ → 0. 
+
+5.3 Deterministic dueling Q-learning in Q-space 
+
+The same deterministic mean recursion can be run directly in Q-space. Adding the V - and A-increments in ( 12 )–( 13 ) gives 
+
+Qk+1 = Qk + CV A D(F (Qk) − Qk
+
+), (19) where 
+
+CV A = |A| αΠ + βΠ⊥. (20) This is the induced Q-only recursion, and no separate V or A iterate is maintained. The same update is summarized in Algorithm 2 . The elementwise form of the induced Q-only recursion is given in Algorithm 6 in Appendix. Note that if the centered components are needed after the Q-update, they are recovered by the decomposition in ( 9). When the gains satisfy |A| α = β = η,the preconditioner becomes CV A = η(Π + Π ⊥) = ηI = CQ. In this case, the Q-only recursion in Algorithm 2 reduces exactly to the standard deterministic Q-learning in ( 4). It is immediate that Algorithm 1 induces the Q-only update in Algorithm 2 after the V - and 
+
+A-increments are added. Although this implication is clear in the forward direction, the reverse identification requires a separate check. The next lemma checks that the two descriptions generate the same iterates. 15 Lemma 5.6. Suppose Q0 ∈ Rn, and Algorithm 1 is initialized with V0 = Π Q0 ∈ Rn and A0 =Π⊥Q0 ∈ Rn, and Algorithm 2 is initialized with the same Q0. Then the two algorithms generate the same Qk-sequence. Conversely, if (Qk) is generated by Algorithm 2 and we define 
+
+Vk := Π Qk, Ak := Π ⊥Qk,
+
+then (Vk, A k, Q k) satisfies Algorithm 1 . Hence Algorithms 1 and 2 are equivalent under the centered identification 
+
+Q ←→ (Π Q, Π⊥Q).
+
+Proof. Let ∆ k = F (Qk) − Qk. If Algorithm 1 is run, then 
+
+Qk+1 = Vk+1 + Ak+1 = Vk + Ak + |A| αΠD∆k + βΠ⊥D∆k = Qk + ( |A| αΠ + βΠ⊥)D∆k,
+
+which is exactly Algorithm 2 .Conversely, suppose Algorithm 2 is run and set Vk = Π Qk and Ak = Π ⊥Qk. Applying Π to the Algorithm 2 update gives 
+
+Vk+1 = Π Qk+1 = Π Qk + Π( |A| αΠ + βΠ⊥)D∆k = Vk + |A| αΠD∆k,
+
+using Π 2 = Π and ΠΠ ⊥ = 0. Similarly, applying Π ⊥ gives 
+
+Ak+1 = Π ⊥Qk+1 = Π ⊥Qk + Π ⊥(|A| αΠ + βΠ⊥)D∆k = Ak + βΠ⊥D∆k,
+
+using Π ⊥Π = 0 and Π 2 
+
+> ⊥
+
+= Π ⊥. Finally, Qk = Vk + Ak follows from I = Π + Π ⊥. Hence the reconstructed variables satisfy Algorithm 1 .
+
+The modes of the induced Q-space recursion associated with deterministic policies and the corresponding Q-space SLS are summarized next. 
+
+Lemma 5.7. For a stochastic policy μ : S → ∆|A| , define 
+
+AV A μ := I − CV A D(I − γP Γμ) = I + CV A D(γP Γμ − I) ∈ Rn×n. (21) 
+
+For a deterministic policy π ∈ Θ, set 
+
+AV A π := I − (|A| αΠ + βΠ⊥)D(I − γP Γπ). (22) 
+
+The deterministic-policy switching family associated with the centered dueling Q-learning Q-space recursion with gains (α, β ) is 
+
+AV A (α, β ) := {AV A π : π ∈ Θ} ⊂ Rn×n.
+
+For the tabular dueling Q-learning recursion (19 ), there exists a stochastic policy μk : S → ∆|A| 
+
+such that 
+
+Qk+1 − Q⋆ = AV A μk (Qk − Q⋆), (23) 
+
+where AV A μk is defined in (21 ). Moreover, AV A μk ∈ co( AV A (α, β )) .Proof. Since Q⋆ = F (Q⋆), subtracting ( 2) from ( 19 ) gives 
+
+Qk+1 − Q⋆ = ( Qk − Q⋆) + CV A D(F (Qk) − Qk − F (Q⋆) + Q⋆)
+
+= ( Qk − Q⋆) + CV A D(F (Qk) − F (Q⋆) − (Qk − Q⋆)).
+
+16 By Lemma 3.4 , there exists a stochastic policy μk : S → ∆|A| such that 
+
+F (Qk) − F (Q⋆) = γP Γμk (Qk − Q⋆).
+
+Substitution gives 
+
+Qk+1 − Q⋆ = ( Qk − Q⋆) + CV A D(γP Γμk (Qk − Q⋆) − (Qk − Q⋆))
+
+= (I − CV A D(I − γP Γμk ))(Qk − Q⋆).
+
+This proves ( 23 ). The convex-hull inclusion follows directly from Lemma 3.3 , because the map 
+
+M 7 −→ I − CV A D(I − γM )is affine in M = P Γμ. Hence AV A μk ∈ co( AV A (α, β )). 
+
+The next lemma connects the Q-space modes with the block modes introduced in Lemma 5.2 .
+
+Lemma 5.8. Let T : Rn → V × A 0 and T −1 : V × A 0 → Rn be defined by 
+
+T x := 
+
+[ Πx
+
+Π⊥x
+
+]
+
+, T −1
+
+[uv
+
+]
+
+:= u + v, (u, v ) ∈ V × A 0.
+
+Then T is a linear isomorphism from Rn onto V × A 0. If ̂ BV A π denotes the restriction of BV A π to 
+
+V × A 0, then, for every π ∈ Θ,̂
+
+BV A π =
+
+[ ΠAV A π Π ΠAV A π Π⊥
+
+Π⊥AV A π Π Π⊥AV A π Π⊥
+
+] ∣ ∣∣∣V×A 0
+
+= T A V A π T −1.
+
+Consequently, 
+
+ρ(BV A (α, β )) = ρ(AV A (α, β )) ,
+
+where the JSR of BV A (α, β ) may be computed either as the ambient 2n-dimensional matrix-family JSR or as the induced JSR on V × A 0.Proof. We first verify the block formula. Substituting ( 22 ) into the four projected blocks gives ΠAV A π Π = Π {I − (|A| αΠ + βΠ⊥)D(I − γP Γπ)}Π= Π 2 − (|A| αΠ2 + βΠΠ ⊥
+
+)D(I − γP Γπ)Π = Π − |A| αΠD(I − γP Γπ)Π ,
+
+ΠAV A π Π⊥ = Π {I − (|A| αΠ + βΠ⊥)D(I − γP Γπ)}Π⊥
+
+= ΠΠ ⊥ − (|A| αΠ2 + βΠΠ ⊥
+
+)D(I − γP Γπ)Π ⊥
+
+= −|A| αΠD(I − γP Γπ)Π ⊥,
+
+Π⊥AV A π Π = Π ⊥{I − (|A| αΠ + βΠ⊥)D(I − γP Γπ)}Π= Π ⊥Π − (|A| αΠ⊥Π + βΠ2
+
+> ⊥
+
+)D(I − γP Γπ)Π = −βΠ⊥D(I − γP Γπ)Π ,
+
+and Π⊥AV A π Π⊥ = Π ⊥{I − (|A| αΠ + βΠ⊥)D(I − γP Γπ)}Π⊥
+
+= Π 2 
+
+> ⊥
+
+− (|A| αΠ⊥Π + βΠ2
+
+> ⊥
+
+)D(I − γP Γπ)Π ⊥
+
+= Π ⊥ − βΠ⊥D(I − γP Γπ)Π ⊥.
+
+17 These four identities are exactly the four blocks in ( 14 ) with μ = π.The map T is bijective from Rn onto V × A 0, with inverse T −1(u, v ) = u + v. Indeed, if u ∈ V 
+
+and v ∈ A 0, then 
+
+T T −1
+
+[uv
+
+]
+
+=
+
+[ Π( u + v)Π⊥(u + v)
+
+]
+
+=
+
+[uv
+
+]
+
+,
+
+and T −1T x = (Π + Π ⊥)x = x for every x ∈ Rn. For x ∈ Rn, using x = (Π + Π ⊥)x and the block expression just proved, 
+
+BV A π T x =
+
+[ ΠAV A π Π ΠAV A π Π⊥
+
+Π⊥AV A π Π Π⊥AV A π Π⊥
+
+] [ Πx
+
+Π⊥x
+
+]
+
+=
+
+[ ΠAV A π (Π + Π ⊥)x
+
+Π⊥AV A π (Π + Π ⊥)x
+
+]
+
+=
+
+[ ΠAV A π x
+
+Π⊥AV A π x
+
+]
+
+= T A V A π x. 
+
+Therefore ̂ BV A π T = T A V A π and, as operators between the isomorphic spaces Rn and V × A 0,̂ BV A π =
+
+T A V A π T −1. For every product, ̂
+
+BV A πk · · · ̂ BV A π1 = T A V A πk · · · AV A π1 T −1.
+
+Taking norms, using finite-dimensional norm equivalence for the fixed isomorphism T , and then taking kth roots and the limit in the JSR definition gives 
+
+ρ({̂BV A π : π ∈ Θ}) = ρ(AV A (α, β )) .
+
+Finally, each ambient matrix BV A π maps Rn × Rn into V × A 0 and leaves V × A 0 invariant. Hence the ambient JSR of BV A (α, β ) equals the restricted JSR on V × A 0: one inequality is obtained by restricting the ambient norm to the invariant subspace, and the reverse follows because after the first factor every product evolves inside V × A 0 and the first-factor norm is uniformly bounded over the finite family. This proves the stated equality. 
+
+This similarity result is useful because it confirms that the block AV-space analysis and the Q-space analysis certify the same stability property. Thus no conservatism is introduced merely by choosing one coordinate description over the other; the choice only changes the representation of the modes. Next, the Q-space switching family introduced in Lemma 5.7 gives a direct convergence criterion for the Q-only recursion in Algorithm 2 .
+
+Proposition 5.1. Let Qk ∈ Rn be generated by Algorithm 2 , and suppose that for given step-sizes 
+
+α and β, the following inequality holds: 
+
+ρ(AV A (α, β )) < 1,
+
+where AV A (α, β ) is introduced in Lemma 5.7 . Then Qk → Q⋆. More precisely, for every ε > 0 such that 
+
+βε := ρ(AV A (α, β )) + ε < 1,
+
+the JSR Lyapunov norm pε from Lemma 3.1 , applied to the family AV A (α, β ), satisfies 
+
+pε(Qk − Q⋆) ≤ βkε pε(Q0 − Q⋆), k ≥ 0. (24) 
+
+If Cε is the corresponding norm-equivalence constant, then 
+
+‖Qk − Q⋆‖2 ≤ √Cε βkε ‖Q0 − Q⋆‖2 , k ≥ 0. (25) 18 Proof. By Lemma 5.7 , the error recursion generated by Algorithm 2 has the exact switched form 
+
+Qk+1 − Q⋆ = AV A μk (Qk − Q⋆), AV A μk ∈ co( AV A (α, β )) .
+
+Since ρ(AV A (α, β )) < 1, the implication in Lemma 3.2 applies with H = AV A (α, β ). Therefore, for every ε > 0 satisfying βε = ρ(AV A (α, β )) + ε < 1, 
+
+pε(Qk − Q⋆) ≤ βkε pε(Q0 − Q⋆).
+
+This is exactly ( 24 ). The norm comparison 
+
+‖Qk − Q⋆‖2 ≤ pε(Qk − Q⋆), pε(Q0 − Q⋆) ≤ √Cε ‖Q0 − Q⋆‖2
+
+gives ( 25 ). Since βε < 1, ( Qk − Q⋆) → 0, and hence Qk → Q⋆.
+
+The equality of JSRs allows a stability certificate to be proved either in Q-space or in VA-space from ( 9). The following conservative condition gives an explicit gain interval under which all modes in AV A (α, β ) are contractions in a common norm. 
+
+Lemma 5.9. Suppose that, with dmin and dmax defined in (3),
+
+0 < β ≤ 1
+
+dmax 
+
+,
+
+and β
+
+|A| 
+
+(
+
+1 − dmin (1 − γ)
+
+dmax (1 + γ)
+
+)
+
+< α < β
+
+|A| 
+
+(
+
+1 + dmin (1 − γ)
+
+dmax (1 + γ)
+
+)
+
+. (26) 
+
+Then the deterministic dueling Q-learning family AV A (α, β ) in (22 ) is a common ℓ∞-contraction. More precisely, 
+
+sup 
+
+> π∈Θ
+
+∥∥AV A π
+
+∥∥∞ ≤ 1 − βd min (1 − γ) + ∣∣|A| α − β∣∣dmax (1 + γ) < 1. (27) 
+
+Consequently, 
+
+ρ(BV A (α, β )) = ρ(AV A (α, β )) < 1. (28) 
+
+Proof. First rewrite the dueling Q-learning preconditioner using Π ⊥ = I − Π: 
+
+CV A = |A| αΠ + β(I − Π) = βI + ( |A| α − β)Π .
+
+Thus, for every deterministic policy π,
+
+AV A π = I − CV A D(I − γP Γπ) = I − βD (I − γP Γπ) − (|A| α − β)Π D(I − γP Γπ).
+
+We bound the two terms on the right separately in the ℓ∞ matrix norm. For the first term, write 
+
+I − βD (I − γP Γπ) = I − βD + βγDP Γπ.
+
+Because P Γπ is row-stochastic, it is entrywise nonnegative and each row sums to one. Since 0 <βd (s, a ) ≤ βd max ≤ 1, the diagonal part I − βD is entrywise nonnegative. Hence the whole matrix is entrywise nonnegative. The row indexed by ( s, a ) has sum 1 − βd (s, a ) + βγd (s, a ) = 1 − βd (s, a )(1 − γ) ≤ 1 − βd min (1 − γ),
+
+19 where we use the fact that P Γπ is row-stochastic, and it is entrywise nonnegative and each row sums to one. For an entrywise nonnegative matrix, the ℓ∞ norm is the maximum row sum. Therefore 
+
+‖I − βD (I − γP Γπ)‖∞ ≤ 1 − βd min (1 − γ).
+
+For the second term, we will use submultiplicativity. The projection Π averages within each state-action block, so every absolute row sum of Π equals one, and hence ‖Π‖∞ = 1. Also 
+
+‖D‖∞ = dmax , ‖I − γP Γπ‖∞ ≤ ‖ I‖∞ + γ ‖P Γπ‖∞ = 1 + γ. 
+
+Consequently, 
+
+‖(|A| α − β)Π D(I − γP Γπ)‖∞ = ∣∣|A| α − β∣∣ ‖ΠD(I − γP Γπ)‖∞
+
+≤ ∣∣|A| α − β∣∣ ‖Π‖∞ ‖D‖∞ ‖I − γP Γπ‖∞
+
+≤ ∣∣|A| α − β∣∣ · 1 · dmax 
+
+(‖I‖∞ + γ ‖P Γπ‖∞
+
+)
+
+= ∣∣|A| α − β∣∣dmax (1 + γ).
+
+Combining the two estimates by the triangle inequality gives, uniformly in π,
+
+∥∥AV A π
+
+∥∥∞ = ‖I − βD (I − γP Γπ) − (|A| α − β)Π D(I − γP Γπ)‖∞
+
+≤ ‖ I − βD (I − γP Γπ)‖∞ + ‖(|A| α − β)Π D(I − γP Γπ)‖∞
+
+≤ 1 − βd min (1 − γ) + ∣∣|A| α − β∣∣dmax (1 + γ).
+
+The interval in ( 26 ) is exactly 
+
+− βd min (1 − γ)
+
+dmax (1 + γ) < |A| α − β < βd min (1 − γ)
+
+dmax (1 + γ) ,
+
+or equivalently ∣∣|A| α − β∣∣ < βd min (1 − γ)
+
+dmax (1 + γ) .
+
+Multiplying the last strict inequality by dmax (1 + γ) gives 
+
+∣∣|A| α − β∣∣dmax (1 + γ) < βd min (1 − γ).
+
+Substituting this into the preceding norm estimate yields, for every π ∈ Θ, 
+
+∥∥AV A π
+
+∥∥∞ ≤ 1 − βd min (1 − γ) + ∣∣|A| α − β∣∣dmax (1 + γ)
+
+< 1 − βd min (1 − γ) + βd min (1 − γ) = 1 .
+
+Therefore sup 
+
+> π∈Θ
+
+∥∥AV A π
+
+∥∥∞ < 1.
+
+Let 
+
+q := sup 
+
+> π∈Θ
+
+∥∥AV A π
+
+∥∥∞ .
+
+Then q < 1. For any product of length k ≥ 1 with AV A πi ∈ A V A (α, β ), 
+
+∥∥∥AV A πk AV A πk−1 · · · AV A π1
+
+∥∥∥∞ ≤
+
+> k
+
+∏
+
+> i=1
+
+∥∥AV A πi
+
+∥∥∞ ≤ qk.
+
+20 Taking the supremum over all deterministic-policy products and then the kth root gives sup 
+
+> π1,...,π k∈Θ
+
+∥∥AV A πk · · · AV A π1
+
+∥∥1/k  
+
+> ∞
+
+≤ q. 
+
+Hence, by the definition of the JSR, 
+
+ρ(AV A (α, β )) = lim  
+
+> k→∞
+
+sup 
+
+> π1,...,π k∈Θ
+
+∥∥AV A πk · · · AV A π1
+
+∥∥1/k 
+
+> ∞
+
+≤ q = sup 
+
+> π∈Θ
+
+∥∥AV A π
+
+∥∥∞ < 1.
+
+Finally, the similarity result in Lemma 5.8 gives 
+
+ρ(BV A (α, β )) = ρ(AV A (α, β )) < 1.
+
+This proves ( 27 ) and ( 28 ). 
+
+The following simple example makes the A-space and V -space rate separation explicit. It re-moves policy-switching complications while preserving the different gains applied to the two sub-spaces. 
+
+Example 5.1. Let us consider an MDP with one state, S = {1}, and two actions, A = {1, 2},with a self-loop transition and uniform sampling D = 1 
+
+> 2
+
+I2. For a deterministic policy πi that selects action i ∈ { 1, 2}, the selector matrices are 
+
+P Γπ1 =
+
+[1 01 0
+
+]
+
+, P Γπ2 =
+
+[0 10 1
+
+]
+
+.
+
+The common and differential projections are 
+
+Π = 1
+
+2
+
+[1 11 1
+
+]
+
+, Π⊥ = 1
+
+2
+
+[ 1 −1
+
+−1 1
+
+]
+
+.
+
+Thus every vector Q = ( Q1, Q 2)⊤ has the explicit decomposition 
+
+Q = Π Q + Π ⊥Q = Q1 + Q2
+
+2
+
+[11
+
+]
+
++ Q1 − Q2
+
+2
+
+[ 1
+
+−1
+
+]
+
+.
+
+For standard Q-learning, the two deterministic-policy modes in (5) are 
+
+AQπ1 =
+
+1 − η
+
+2 (1 − γ) 0
+
+ηγ 
+
+2 1 − η
+
+2
+
+ , AQπ2 =
+
+1 − η
+
+2
+
+ηγ 
+
+20 1 − η
+
+2 (1 − γ)
+
+ .
+
+Use the common/differential coordinate transform 
+
+S := 
+
+[1 11 −1
+
+]
+
+, S−1 = 1
+
+2
+
+[1 11 −1
+
+]
+
+.
+
+A direct calculation gives 
+
+S−1AQπ1 S =
+
+
+
+1 − η
+
+2 (1 − γ) ηγ 
+
+20 1 − η
+
+2
+
+ , S−1AQπ2 S =
+
+
+
+1 − η
+
+2 (1 − γ) − ηγ 
+
+20 1 − η
+
+2
+
+ .
+
+21 Thus the action-differential coordinate contracts by the factor |1 − η/ 2|. The action-common coor-dinate contracts by the factor |1 − η(1 − γ)/2|, up to the upper-right coupling from the differential coordinate. The two transformed modes are simultaneously upper triangular. For any finite family of simultaneously block upper triangular matrices, the JSR is the maximum of the JSRs of the diagonal-block families; here the diagonal blocks are scalar families. Hence 
+
+ρ(AQ) = max 
+
+{∣ ∣∣1 − η
+
+2 (1 − γ)
+
+∣∣∣ ,
+
+∣∣∣1 − η
+
+2
+
+∣∣∣}
+
+.
+
+For dueling Q-learning, the preconditioner and modes are 
+
+CV A = 2 αΠ + βΠ⊥ =
+
+
+
+α + β
+
+2 α − β
+
+2
+
+α − β
+
+2 α + β
+
+2
+
+ ,AV A π1 = I − 1
+
+2 (2 αΠ + βΠ⊥)
+
+(
+
+I − γ
+
+[1 01 0
+
+]) 
+
+,AV A π2 = I − 1
+
+2 (2 αΠ + βΠ⊥)
+
+(
+
+I − γ
+
+[0 10 1
+
+]) 
+
+.
+
+Using the same transform S,
+
+S−1AV A π1 S =
+
+
+
+1 − α(1 − γ) αγ 
+
+0 1 − β
+
+2
+
+ , S−1AV A π2 S =
+
+
+
+1 − α(1 − γ) −αγ 
+
+0 1 − β
+
+2
+
+ .
+
+By the same simultaneous block upper triangular argument, the resulting JSR is 
+
+ρ(AV A (α, β )) = max 
+
+{
+
+|1 − α(1 − γ)| ,
+
+∣∣∣∣1 − β
+
+2
+
+∣∣∣∣}
+
+.
+
+The exact acceleration condition in this one-state model is 
+
+ρ(AV A (α, β )) < ρ (AQ).
+
+Equivalently, 
+
+1 − ρ(AQ)
+
+1 − γ < α < 1 + ρ(AQ)
+
+1 − γ , 2(1 − ρ(AQ)) < β < 2(1 + ρ(AQ)).
+
+For the common practical regime 0 < η ≤ 1 and γ close to one, standard Q-learning is typically bottlenecked by the action-common factor 
+
+1 − η
+
+2 (1 − γ).
+
+Choosing 
+
+β = η, α = η
+
+keeps the action-differential factor at 1 − η/ 2 but changes the action-common factor to 
+
+1 − η(1 − γ).
+
+Thus, in this example, dueling Q-learning accelerates the slow action-common component by a factor of about 2 in time-constant terms, while leaving the action-differential factor unchanged. To illustrate the same rate effect on iterates, we simulate the deterministic one-state mean recursions with reward vector R = (0 , 1) ⊤, initialization Q0 = (0 , 0) ⊤, γ = 0 .9, and η = α = β = 0 .2. The optimal vector is Q⋆ = (9 , 10) ⊤ . The resulting trajectory comparison is shown in Figure 1 .
+
+22 0 0 00  0 00  0 00  0 00  k
+
+## 0   
+
+## 0   
+
+## 0 0
+
+## 0 
+
+> ‖ k     ‖⋆
+
+##   
+
+##   
+
+Figure 1: Deterministic simulation comparing standard Q-learning and dueling Q-learning. 
+
+# 6 Stochastic dueling Q-learning 
+
+This section introduces and analyzes the stochastic RL version of the deterministic dueling Q-learning recursion studied above. To keep the formulas transparent, we focus on the i.i.d. sampling model. The same conditional-mean and martingale-difference decomposition can be combined with Markovian-observation stochastic-approximation arguments, such as those in [ 11 , 12 ], to extend the analysis beyond i.i.d. samples. At each time k, a state-action pair ( sk, a k) is sampled independently with 
+
+P(sk = s, a k = a) = d(s, a ) := p(s)b(a | s), (s, a ) ∈ S × A ,
+
+where p is a state-sampling distribution and b is a behavior policy. Then s′ 
+
+> k
+
+∼ P (· | sk, a k) and 
+
+rk+1 := r(sk, a k , s ′
+
+> k
+
+) are sampled. Let {F k}k≥0 be the natural filtration 
+
+F0 := σ(Q0), Fk := σ(Q0, {(st, a t, s ′
+
+> t
+
+, r t+1 ) : 0 ≤ t ≤ k − 1}), k ≥ 1.
+
+Then Qk is Fk-measurable. For the sampled transition, define 
+
+δk := rk+1 + γ max  
+
+> c∈A
+
+Qk(s′
+
+> k
+
+, c ) − Qk(sk, a k), ζk := ( eak ⊗ esk )δk .
+
+6.1 AV-update 
+
+For the dueling Q-learning in AV-space, the sampled update is 
+
+Vk+1 (s, b ) = Vk(s, b ) + α1{s = sk}δk ,Ak+1 (s, b ) = Ak(s, b ) + β1{s = sk}
+
+(
+
+1{b = ak} − 1
+
+|A| 
+
+)
+
+δk, s ∈ S , b ∈ A .
+
+The corresponding sampled implementation in AV-space is given in Algorithm 3 .23 Algorithm 3 Dueling Q-learning in centered components  
+
+> 1:
+
+Initialize Q0 ∈ Rn, V0 = Π Q0, and A0 = Π ⊥Q0. 
+
+> 2:
+
+for k = 0 , 1, . . . do  
+
+> 3:
+
+Form Qk ← Vk + Ak. 
+
+> 4:
+
+Draw ( sk, a k) ∼ d, draw s′ 
+
+> k
+
+∼ P (· | sk, a k), and set rk+1 ← r(sk, a k, s ′
+
+> k
+
+).  
+
+> 5:
+
+δk ← rk+1 + γ max b∈A Qk(s′
+
+> k
+
+, b ) − Qk(sk, a k).  
+
+> 6:
+
+Set Vk+1 ← Vk and Ak+1 ← Ak. 
+
+> 7:
+
+for every b ∈ A do  
+
+> 8:
+
+Vk+1 (sk, b ) ← Vk(sk, b ) + αδ k . 
+
+> 9:
+
+end for  
+
+> 10:
+
+for every b ∈ A do  
+
+> 11:
+
+Ak+1 (sk, b ) ← Ak(sk, b ) + β(1{b = ak} − 1/|A| )δk. 
+
+> 12:
+
+end for  
+
+> 13:
+
+Qk+1 ← Vk+1 + Ak+1 . 
+
+> 14:
+
+end for 
+
+Remark 6.1. When β = α, the sampled increments in Algorithm 3 agree with the tabular dueling update derived in [ 13 , Section 4.1]. In the notation of this paper, for the sampled pair (sk, a k) and temporal-difference (TD) error δk, that update adds 
+
+A(sk, a ) ← A(sk, a ) + α
+
+(
+
+1{a = ak} − 1
+
+|A| 
+
+)
+
+δk, a ∈ A ,
+
+and 
+
+V (sk) ← V (sk) + αδ k .
+
+The remaining difference is the stored advantage variable. Daley et al. maintain an advantage variable ˜A that need not be centered and reconstruct 
+
+Q(s, a ) = V (s) + ˜A(s, a ) − 1
+
+|A| 
+
+∑
+
+> c∈A
+
+˜A(s, c ),
+
+so the state-wise mean of ˜A does not affect Q. In contrast, the update in Algorithm 3 maintains the centered representative A = Π ⊥Q, satisfies ∑ 
+
+> a∈A
+
+A(s, a ) = 0 , and reconstructs Q = V + A.Therefore, with centered initialization and β = α, both algorithms coincide, while the internal A
+
+variables follow different storage conventions. 
+
+Equivalently, the update in the AV-space is 
+
+[Vk+1 
+
+Ak+1 
+
+]
+
+=
+
+[Vk
+
+Ak
+
+]
+
++
+
+[|A| αΠ
+
+βΠ⊥
+
+]
+
+ζk.
+
+Since 
+
+E[ζk | F k] = D(F (Qk) − Qk
+
+),
+
+the martingale-difference noise is 
+
+wk := ζk − D(F (Qk) − Qk
+
+), (29) and satisfies 
+
+E[wk | F k] = 0 . (30) 24 Algorithm 4 Dueling Q-learning in Q-space  
+
+> 1:
+
+Initialize Q0 ∈ Rn. 
+
+> 2:
+
+for k = 0 , 1, . . . do  
+
+> 3:
+
+Draw ( sk, a k) ∼ d, draw s′ 
+
+> k
+
+∼ P (· | sk, a k), and set rk+1 ← r(sk, a k, s ′
+
+> k
+
+).  
+
+> 4:
+
+δk ← rk+1 + γ max c∈A Qk(s′
+
+> k
+
+, c ) − Qk(sk, a k).  
+
+> 5:
+
+Set Qk+1 (s, a ) ← Qk(s, a ) for every ( s, a ) ∈ S × A . 
+
+> 6:
+
+for every b ∈ A do  
+
+> 7:
+
+Qk+1 (sk, b ) ← Qk(sk, b ) + [α + β(1{b = ak} − 1/|A| )] δk. 
+
+> 8:
+
+end for  
+
+> 9:
+
+end for 
+
+Therefore, the VA-space stochastic form is 
+
+[Vk+1 
+
+Ak+1 
+
+]
+
+=
+
+[Vk
+
+Ak
+
+]
+
++
+
+[|A| αΠ
+
+βΠ⊥
+
+]
+
+{D(F (Qk) − Qk) + wk}.
+
+The conditional mean of Algorithm 3 is the deterministic dueling Q-learning recursion ( 12 )–( 13 ); the statement and proof are deferred to Lemma C.1 in Appendix. 
+
+6.2 Q-update 
+
+Adding the two component increments in the VA-update gives the sampled Q-space update 
+
+Qk+1 (s, b ) = Qk(s, b ) + 1{s = sk}
+
+[
+
+α + β
+
+(
+
+1{b = ak} − 1
+
+|A| 
+
+)] 
+
+δk, s ∈ S , b ∈ A .
+
+Equivalently, the stochastic dueling Q-learning update can be written in Q-space as 
+
+Qk+1 = Qk + CV A ζk.
+
+Using the same martingale-difference noise wk from ( 29 ), the Q-space stochastic form is 
+
+Qk+1 = Qk + CV A {D(F (Qk) − Qk) + wk}. (31) Subtracting Q⋆ = F (Q⋆) and using the measurable selection in Lemma 3.4 , there exists an Fk-measurable stochastic policy μk : S → ∆|A| such that 
+
+Qk+1 − Q⋆ = AV A μk (Qk − Q⋆) + CV A wk, AV A μk ∈ co( AV A (α, β )) .
+
+Consequently, 
+
+E[Qk+1 − Q⋆ | F k] = AV A μk (Qk − Q⋆).
+
+The Q-update can be applied directly to Qk without maintaining the V and A components as in Algorithm 4 .
+
+6.2.1 Finite-time error bound analysis 
+
+We next give a finite-time convergence estimate for the sampled recursion in Algorithm 3 . The analysis of Algorithm 4 is analogous and is therefore omitted. Since Algorithm 3 uses constant gains, the conclusion is convergence to a first-moment neighborhood of Q⋆; the size of this neighborhood 25 goes to zero when the common scalar gain goes to zero. Fix reference gains ¯ α > 0 and ¯β > 0. For 0 < α ≤ ¯α, we set 
+
+β = ¯β
+
+¯α α, CV A = α
+
+(
+
+|A| Π + ¯β
+
+¯α Π⊥
+
+)
+
+. (32) For the finite-time estimates below, assume that the reference gains satisfy 
+
+ρ(AV A (¯ α, ¯β)) < 1, (33) where ( 22 ) is formed with α = ¯ α and β = ¯β. This keeps the two gains in a fixed ratio and lets the scalar α play the role of the small gain in the stochastic approximation. 
+
+Lemma 6.1. Let Qk ∈ Rn be generated by Algorithm 3 with the gains in (32 ). Define 
+
+ξk := α−1CV A wk,
+
+where wk is defined in (29 ). Then, for each k ≥ 0, there exists an Fk-measurable stochastic policy 
+
+μk : S → ∆|A| such that 
+
+Qk+1 − Q⋆ = AV A μk (Qk − Q⋆) + αξ k, E[ξk | F k] = 0 . (34) 
+
+Proof. By ( 31 ) and ( 32 ), 
+
+Qk+1 = Qk + CV A D(F (Qk) − Qk) + αξ k.
+
+Subtract Q⋆ = F (Q⋆) and apply the measurable selection in Lemma 3.4 . This gives an Fk-measurable stochastic policy μk : S → ∆|A| such that 
+
+F (Qk) − F (Q⋆) = γP Γμk (Qk − Q⋆).
+
+Therefore 
+
+Qk+1 − Q⋆ = ( Qk − Q⋆) + CV A D{F (Qk) − F (Q⋆) − (Qk − Q⋆)} + αξ k
+
+= (I − CV A D(I − γP Γμk ))(Qk − Q⋆) + αξ k.
+
+The matrix in the last equation is exactly AV A μk from ( 21 ). The martingale identity follows from (30 ). 
+
+We now derive the finite-time error bound. The estimate separates the deterministic contraction from the martingale term and makes explicit the O(√α) first-moment neighborhood induced by constant gains. 
+
+Theorem 6.1. Suppose that the JSR condition in (33 ) holds, and let c and K be the constants from Lemma D.2 in Appendix. Let Q⋆ ∈ Rn be the optimal fixed point in (2). Let L, σ0, σ1, C0,
+
+C1, and α0 be defined as in Lemmas D.3 , D.4 and D.6 in Appendix. Then, for every initial vector 
+
+Q0 ∈ Rn, every 0 < α ≤ α0 with β = ( ¯β/ ¯α)α, and every k ≥ 0, the stochastic dueling Q-learning recursion in Algorithm 3 satisfies 
+
+E[‖Qk − Q⋆‖2] ≤ K
+
+(
+
+1 − cα 
+
+2
+
+)k
+
+‖Q0 − Q⋆‖2
+
++ αγLK 2k
+
+(
+
+1 − cα 
+
+2
+
+)k−1
+
+‖Q0 − Q⋆‖2
+
++
+
+(
+
+1 + 2γKL 
+
+c
+
+)
+
+K
+
+√ 2α
+
+c
+
+(
+
+σ20 + σ21
+
+(2C0 ‖Q0 − Q⋆‖22 + 2 C1ασ 20
+
+))1/2
+
+,
+
+(35) 
+
+with the convention that k(1 − cα/ 2) k−1 = 0 when k = 0 . In particular, for fixed Q0, the last term in (35 ) is O(√α) as α ↓ 0.
+
+26 Proof. By Lemma 6.1 ,
+
+Qk+1 − Q⋆ = AV A μk (Qk − Q⋆) + αξ k, E[ξk | F k] = 0 . (36) Every stochastic-policy mode AV A μk belongs to co( AV A (α, β )). Set 
+
+βα := 1 − c
+
+2 α. (37) Since 1 − cα < β α < 1, the product bound in Lemma D.2 in Appendix implies that every product of length ℓ from the convexified family satisfies 
+
+‖Mℓ−1 · · · M0‖2 ≤ K(1 − cα )ℓ ≤ Kβ ℓα, ℓ ≥ 0. (38) Fix a stochastic policy ¯ μ : S → ∆|A| . Introduce the fixed-policy reference filter 
+
+yk+1 = AV A  
+
+> ¯μ
+
+yk + αξ k, y0 = Q0 − Q⋆. (39) Write yk = ¯ yk + ˜ yk, where ¯yk+1 = AV A  
+
+> ¯μ
+
+¯yk, ¯y0 = Q0 − Q⋆,
+
+˜yk+1 = AV A  
+
+> ¯μ
+
+˜yk + αξ k, ˜y0 = 0 . (40) The product bound in ( 38 ) gives ¯yk = ( AV A  
+
+> ¯μ
+
+)k (Q0 − Q⋆),
+
+‖¯yk‖2 ≤
+
+∥∥∥(AV A  
+
+> ¯μ
+
+)k
+
+∥∥∥2 ‖Q0 − Q⋆‖2 ≤ Kβ kα ‖Q0 − Q⋆‖2 . (41) Let 
+
+ek := Qk − Q⋆ − yk. (42) Then e0 = 0. Subtracting ( 39 ) from ( 36 ) and using ( 42 ) gives 
+
+ek+1 = ( Qk+1 − Q⋆) − yk+1 
+
+= AV A μk (Qk − Q⋆) + αξ k − (AV A  
+
+> ¯μ
+
+yk + αξ k
+
+)
+
+= AV A μk (Qk − Q⋆) − AV A  
+
+> ¯μ
+
+yk
+
+= AV A μk ek + ( AV A μk − AV A  
+
+> ¯μ
+
+)yk.
+
+(43) Split ek = uk + vk according to yk = ¯ yk + ˜ yk by setting 
+
+uk+1 = AV A μk uk + ( AV A μk − AV A  
+
+> ¯μ
+
+)¯ yk, u0 = 0 ,vk+1 = AV A μk vk + ( AV A μk − AV A  
+
+> ¯μ
+
+)˜ yk, v0 = 0 . (44) For k = 0, the sums below are empty. For k ≥ 1, unrolling the first recursion in ( 44 ) gives 
+
+uk =
+
+> k−1
+
+∑
+
+> t=0
+
+AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)¯ yt, (45) 27 where the product is the identity when t = k − 1. The unrolled formula ( 45 ), the product bound (38 ), the mode-difference bound in Lemma D.3 in Appendix, and the bound on ¯ yt in ( 41 ) imply, for each summand, ∥∥∥AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)¯ yt
+
+∥∥∥2
+
+≤
+
+∥∥∥AV A μk−1 · · · AV A μt+1 
+
+∥∥∥2
+
+∥∥AV A μt − AV A 
+
+> ¯μ
+
+∥∥2 ‖¯yt‖2
+
+≤ Kβ k−1−tα αγL ‖¯yt‖2
+
+≤ Kβ k−1−tα αγL Kβ tα ‖Q0 − Q⋆‖2 .
+
+(46) Summing ( 46 ) over t = 0 , . . . , k − 1 yields 
+
+‖uk‖2 ≤
+
+> k−1
+
+∑
+
+> t=0
+
+Kβ k−1−tα αγLKβ tα ‖Q0 − Q⋆‖2
+
+= αγLK 2
+
+> k−1
+
+∑
+
+> t=0
+
+βk−1 
+
+> α
+
+‖Q0 − Q⋆‖2
+
+= αγLK 2kβ k−1 
+
+> α
+
+‖Q0 − Q⋆‖2 .
+
+(47) We now bound the martingale part ˜ yk. From ( 40 ), its explicit form is ˜yk = α
+
+> k−1
+
+∑
+
+> t=0
+
+(AV A  
+
+> ¯μ
+
+)k−1−tξt. (48) Expanding the squared norm in ( 48 ) gives 
+
+E[‖˜yk‖22] = α2
+
+> k−1
+
+∑
+
+> s=0
+> k−1
+
+∑
+
+> t=0
+
+E[ξ⊤ 
+
+> s
+
+{(AV A  
+
+> ¯μ
+
+)k−1−s}⊤(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+]. (49) If s < t , then the factor multiplying ξt in ( 49 ) is Ft-measurable, and therefore 
+
+E[ξ⊤ 
+
+> s
+
+{(AV A  
+
+> ¯μ
+
+)k−1−s}⊤(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+]
+
+= E
+
+[
+
+ξ⊤ 
+
+> s
+
+{(AV A  
+
+> ¯μ
+
+)k−1−s}⊤(AV A  
+
+> ¯μ
+
+)k−1−tE[ξt | F t]
+
+]
+
+= 0 . (50) The case t < s is identical after conditioning on Fs. Thus ( 49 ) reduces to its diagonal part: 
+
+E[‖˜yk‖22] = α2
+
+> k−1
+
+∑
+
+> t=0
+
+E
+
+[
+
+ξ⊤ 
+
+> t
+
+{(AV A  
+
+> ¯μ
+
+)k−1−t}⊤(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+]
+
+= α2
+
+> k−1
+
+∑
+
+> t=0
+
+E
+
+[∥∥∥(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+∥∥∥22
+
+]
+
+.
+
+(51) Let 
+
+Mα := 2 C0 ‖Q0 − Q⋆‖22 + 2 C1ασ 20 . (52) By Lemmas D.4 and D.6 in Appendix, for every 0 ≤ t ≤ k,
+
+E[‖ξt‖22] = E[E[‖ξt‖22 | F t]] ≤ σ20 + σ21 sup 
+
+> 0≤j≤t
+
+E[‖Qj − Q⋆‖22] ≤ σ20 + σ21 Mα. (53) 28 Consequently, ( 51 ), ( 38 ), and ( 53 ) imply 
+
+E[‖˜yk‖22] ≤ α2
+
+> k−1
+
+∑
+
+> t=0
+
+∥∥∥(AV A  
+
+> ¯μ
+
+)k−1−t
+
+∥∥∥22 E[‖ξt‖22]
+
+≤ α2K2
+
+> k−1
+
+∑
+
+> t=0
+
+β2( k−1−t) 
+
+> α
+
+(σ20 + σ21Mα)= α2K2(σ20 + σ21Mα)
+
+> k−1
+
+∑
+
+> j=0
+
+β2jα
+
+≤ α2K2
+
+1 − β2
+
+> α
+
+(σ20 + σ21 Mα).
+
+(54) Jensen’s inequality applied to ( 54 ) gives 
+
+E[‖˜yk‖2] ≤
+
+(
+
+E[‖˜yk‖22]
+
+)1/2
+
+≤ αK 
+
+√1 − β2
+
+> α
+
+(σ20 + σ21 Mα)1/2.
+
+(55) The remaining switching correction is obtained by unrolling the second recursion in ( 44 ): 
+
+vk =
+
+> k−1
+
+∑
+
+> t=0
+
+AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)˜ yt. (56) Using ( 56 ), ( 38 ), the mode-difference bound in Lemma D.3 in Appendix, and ( 55 ), we obtain 
+
+E[‖vk‖2] ≤
+
+> k−1
+
+∑
+
+> t=0
+
+E
+
+[∥ ∥∥AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)˜ yt
+
+∥∥∥2
+
+]
+
+≤ αγLK 
+
+> k−1
+
+∑
+
+> t=0
+
+βk−1−tα E[‖˜yt‖2]
+
+≤ αγLK 
+
+> k−1
+
+∑
+
+> t=0
+
+βk−1−tα
+
+αK 
+
+√1 − β2
+
+> α
+
+(σ20 + σ21 Mα)1/2
+
+≤ αγLK 
+
+1 − βα
+
+αK 
+
+√1 − β2
+
+> α
+
+(σ20 + σ21 Mα)1/2.
+
+(57) From ( 42 ), ( 40 ), and ek = uk + vk, we have 
+
+Qk − Q⋆ = ¯ yk + ˜ yk + uk + vk. (58) 29 The decomposition ( 58 ) and the bounds in ( 41 ), ( 47 ), ( 55 ), and ( 57 ) give 
+
+E[‖Qk − Q⋆‖2] ≤ ‖ ¯yk‖2 + E[‖˜yk‖2] + ‖uk‖2 + E[‖vk‖2]
+
+≤ Kβ kα ‖Q0 − Q⋆‖2 + αγLK 2kβ k−1 
+
+> α
+
+‖Q0 − Q⋆‖2
+
++ αK 
+
+√1 − β2
+
+> α
+
+(σ20 + σ21Mα)1/2
+
++ αγLK 
+
+1 − βα
+
+αK 
+
+√1 − β2
+
+> α
+
+(σ20 + σ21 Mα)1/2
+
+= Kβ kα ‖Q0 − Q⋆‖2 + αγLK 2kβ k−1 
+
+> α
+
+‖Q0 − Q⋆‖2
+
++
+
+(
+
+1 + αγLK 
+
+1 − βα
+
+) αK 
+
+√1 − β2
+
+> α
+
+(σ20 + σ21 Mα)1/2.
+
+(59) By ( 37 ), 1 − βα = cα 
+
+2 , 1 − β2 
+
+> α
+
+= (1 − βα)(1 + βα) ≥ cα 
+
+2 . (60) Therefore ( 60 ) implies 1 + αγLK 
+
+1 − βα
+
+= 1 + 2γKL 
+
+c , αK 
+
+√1 − β2
+
+> α
+
+≤ K
+
+√ 2α
+
+c . (61) Substituting ( 61 ) into ( 59 ) gives 
+
+E[‖Qk − Q⋆‖2] ≤ Kβ kα ‖Q0 − Q⋆‖2 + αγLK 2kβ k−1 
+
+> α
+
+‖Q0 − Q⋆‖2
+
++
+
+(
+
+1 + 2γKL 
+
+c
+
+)
+
+K
+
+√2α
+
+c (σ20 + σ21 Mα)1/2. (62) Using ( 37 ) and ( 52 ) in ( 62 ) gives ( 35 ). For fixed Q0,
+
+Mα ≤ 2C0 ‖Q0 − Q⋆‖22 + 2 C1 ¯ασ 20 , 0 < α ≤ ¯α. (63) Hence ( 63 ) shows that ( σ20 + σ21 Mα)1/2 is bounded independently of α, and the last term in ( 35 ) is 
+
+O(√α) as α ↓ 0. 
+
+By Theorem 6.1 , the sampled stochastic dueling Q-learning iterates in Algorithm 3 track Q⋆
+
+up to a first-moment neighborhood whose radius is of order √α.
+
+6.2.2 Example 
+
+We next give a simple instance of dueling Q-learning in Algorithm 3 . Let S = {1, 2}, A = {1, 2}, and 
+
+γ = 0 .9, and use the uniform i.i.d. sampling distribution d(s, a ) = 1 /4 for every ( s, a ) ∈ S × A . The transition probabilities are P (1 | 1, 1) = 0 .95, P (2 | 1, 1) = 0 .05, P (1 | 1, 2) = 0 .05, P (2 | 1, 2) = 0.95, P (1 | 2, 1) = 0 .05, P (2 | 2, 1) = 0 .95, P (1 | 2, 2) = 0 .95, and P (2 | 2, 2) = 0 .05. The one-step reward is defined for each sampled next state as r(1 , 1, 1) = r(1 , 1, 2) = 0 .0, r(1 , 2, 1) = r(1 , 2, 2) = 0.2, r(2 , 1, 1) = r(2 , 1, 2) = 1 .0, and r(2 , 2, 1) = r(2 , 2, 2) = 0 .9. Solving the Bellman optimality equation gives Q⋆(1 , 1) = 7 .992, Q⋆(1 , 2) = 8 .840, Q⋆(2 , 1) = 9 .640, and Q⋆(2 , 2) = 8 .892, with 
+
+π⋆(1) = 2 and π⋆(2) = 1. Both methods are initialized at zero and run for 3000 iterations. Standard Q-learning uses the constant step-size η = 0 .2. The stochastic recursion in Algorithm 3 uses the constant step-sizes α = 0 .2 and β = 0 .2. Since |A| = 2, the effective common-component gain in 30 0 00 000  00 000  00 000  k
+
+## 0   
+
+## 0 0
+
+## 0 
+
+> ‖ k     ‖⋆
+
+##   
+
+##   
+
+Figure 2: Stochastic comparison between standard Q-learning and Algorithm 3 . Standard Q-learning uses step-size η = 0 .2, and dueling Q-learning uses step-sizes α = 0 .2 and β = 0 .2. The mean curves are computed over 100 seeds, and the shaded bands mark one sample standard deviation from the corresponding mean. (20 ) is |A| α = 0 .4, while the differential gain is β = 0 .2. Thus this setting deliberately gives the dueling recursion a larger state-wise action-common gain than standard Q-learning, while keeping the action-differential gain equal to the Q-learning step-size. For a fair sampling comparison, the same sampled state-action and next-state sequence is used for both methods within each seed. The plotted quantity is ‖Qk − Q⋆‖∞. The results in Figure 2 show that the dueling recursion reduces the error more quickly during the initial transient, while its constant-gain stochastic fluctuations are larger later in the run. 
+
+# References 
+
+[1] Gian-Carlo Rota and W. Gilbert Strang. A note on the joint spectral radius. Indagationes Mathematicae , 22:379–381, 1960; also in Proceedings of the Koninklijke Nederlandse Akademie van Wetenschappen, Series A , 63:379–381, 1960. doi:10.1016/S1385-7258(60)50046-1 .[2] Rapha¨ el M. Jungers. The Joint Spectral Radius: Theory and Applications . Lecture Notes in Control and Information Sciences, volume 385. Springer, Berlin and Heidelberg, 2009. 
+
+doi:10.1007/978-3-540-95980-9 .[3] Daniel Liberzon. Switching in Systems and Control . Systems & Control: Foundations & Applications. Birkh¨ auser Boston, Boston, MA, 2003. doi:10.1007/978-1-4612-0017-8 .[4] Hai Lin and Panos J. Antsaklis. Stability and stabilizability of switched linear systems: A survey of recent results. IEEE Transactions on Automatic Control , 54(2):308–322, 2009. 
+
+doi:10.1109/TAC.2008.2012009 .[5] Robert Shorten, Fabian Wirth, Oliver Mason, Kai Wulff, and Christopher King. Sta-31 bility criteria for switched and hybrid systems. SIAM Review , 49(4):545–592, 2007. 
+
+doi:10.1137/05063516X .[6] Jianghai Hu, Jinglai Shen, and Wei Zhang. Generating functions of switched linear systems: Analysis, computation, and stability applications. IEEE Transactions on Automatic Control ,56(5):1059–1074, 2011. doi:10.1109/TAC.2010.2067590 .[7] Christopher J. C. H. Watkins and Peter Dayan. Q-learning. Machine Learning , 8:279–292, 1992. doi:10.1007/BF00992698 .[8] Martin L. Puterman. Markov Decision Processes: Discrete Stochastic Dynamic Programming .Wiley Series in Probability and Statistics. Wiley, New York, 1994. doi:10.1002/9780470316887 .[9] Dimitri P. Bertsekas and John N. Tsitsiklis. Neuro-Dynamic Programming . Athena Scientific, Belmont, MA, 1996. [10] Richard S. Sutton and Andrew G. Barto. Reinforcement Learning: An Introduction . Second edition. MIT Press, Cambridge, MA, 2018. [11] Zaiwei Chen, Siva T. Maguluri, Sanjay Shakkottai, and Karthikeyan Shanmugam. A Lyapunov theory for finite-sample guarantees of Markovian stochastic approximation. Operations Re-search , 72(4):1352–1367, 2024. Published online October 6, 2023. doi:10.1287/opre.2022.0249 .[12] Donghwan Lee. Lyapunov-Certified Direct Switching Theory for Q-Learning. arXiv preprint arXiv:2604.19569v4, 2026. doi:10.48550/arXiv.2604.19569 .[13] Brett Daley, Prabhat Nagarajan, Martha White, and Marlos C. Machado. An analysis of action-value temporal-difference methods that learn state values. Re-inforcement Learning Journal , 6:2619–2636, 2025. Presented at the Reinforce-ment Learning Conference, Edmonton, Alberta, Canada, August 5–9, 2025. 
+
+https://rlj.cs.umass.edu/2025/papers/Paper309.html .[14] Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Andrei A. Rusu, Joel Veness, Marc G. Bellemare, Alex Graves, Martin Riedmiller, Andreas K. Fidjeland, Georg Ostrovski, Stig Pe-tersen, Charles Beattie, Amir Sadik, Ioannis Antonoglou, Helen King, Dharshan Kumaran, Daan Wierstra, Shane Legg, and Demis Hassabis. Human-level control through deep rein-forcement learning. Nature , 518(7540):529–533, 2015. doi:10.1038/nature14236 .[15] Ziyu Wang, Tom Schaul, Matteo Hessel, Hado van Hasselt, Marc Lanctot, and Nando de Freitas. Dueling network architectures for deep reinforcement learn-ing. In Proceedings of the 33rd International Conference on Machine Learning , Pro-ceedings of Machine Learning Research, volume 48, pages 1995–2003. PMLR, 2016. 
+
+https://proceedings.mlr.press/v48/wangf16.html .[16] Leemon C. Baird III. Reinforcement learning in continuous time: Advantage updating. In 
+
+Proceedings of 1994 IEEE International Conference on Neural Networks (ICNN’94) , volume 4, pages 2448–2453. IEEE, 1994. doi:10.1109/ICNN.1994.374604 .[17] Marco A. Wiering and Hado van Hasselt. Two novel on-policy reinforcement learning algo-rithms based on TD( λ)-methods. In Proceedings of the IEEE International Symposium on Approximate Dynamic Programming and Reinforcement Learning (ADPRL) , pages 280–287, 2007. doi:10.1109/ADPRL.2007.368200 .32 [18] Marco A. Wiering and Hado van Hasselt. The QV family compared to other reinforcement learning algorithms. In 2009 IEEE Symposium on Adaptive Dynamic Programming and Rein-forcement Learning , pages 101–108. IEEE, 2009. doi:10.1109/ADPRL.2009.4927532 .[19] Yunhao Tang, R´ emi Munos, Mark Rowland, and Michal Valko. VA-learning as a more efficient alternative to Q-learning. In Proceedings of the 40th International Conference on Machine Learning , Proceedings of Machine Learning Research, volume 202, pages 33739–33757. PMLR, 2023. https://proceedings.mlr.press/v202/tang23h.html .33 Appendix A Auxiliary switching-system and block-operator facts 
+
+Lemma A.1. For a finite matrix family H = {A1, . . . , A M } ⊂ Rm×m, one has 
+
+ρ(co( H)) = ρ(H),
+
+where the left-hand side is computed over all convex combinations of matrices in H.Proof. This is the convex-hull invariance property of the JSR; see, for example, [ 2, Chapter 1]. We omit the proof. 
+
+Lemma A.2. Let S ∈ Rm×m be nonsingular. For every bounded matrix family H ⊂ Rm×m,
+
+ρ({S−1AS : A ∈ H} ) = ρ(H).
+
+Proof. This standard property follows from norm equivalence in the definition of the JSR; see, for example, [ 2, Chapter 1]. We omit the proof. 
+
+Lemma A.3. For every stochastic policy μ : S → ∆|A| , the block operator introduced in Lemma 5.2 
+
+satisfies 
+
+BV A μ ∈ co( BV A (α, β )) .
+
+Proof. Any stochastic policy selector can be written as a convex combination of deterministic policy selectors. Thus there are weights λπ ≥ 0, ∑ 
+
+> π∈Θ
+
+λπ = 1, such that 
+
+P Γμ = ∑
+
+> π∈Θ
+
+λπP Γπ.
+
+The formula ( 14 ) defining BV A μ is affine in P Γμ. Substituting the preceding convex decomposition into each block gives 
+
+BV A μ = ∑
+
+> π∈Θ
+
+λπBV A π ,
+
+which proves the claim. 
+
+# B Elementwise updates and Q-space identities 
+
+Proposition B.1 (Induced Q-space recursion) . Suppose that Qk, V k, A k ∈ Rn, Qk = Vk + Ak, and that Vk and Ak follow (12 )–(13 ). Then the induced Q-space recursion is (19 ) with the preconditioner 
+
+(20 ).Proof. Starting from the definition of the induced Q-iterate, Qk+1 = Vk+1 + Ak+1 , we substitute the two updates ( 12 )–( 13 ) to obtain 
+
+Qk+1 = Vk + Ak + |A| αΠD(F (Qk) − Qk
+
+) + βΠ⊥D(F (Qk) − Qk
+
+)
+
+= Qk + ( |A| αΠ + βΠ⊥)D(F (Qk) − Qk
+
+),
+
+where the second equality uses Qk = Vk + Ak. This is exactly ( 19 ) with the preconditioner ( 20 ). 34 Algorithm 5 Deterministic dueling Q-learning: elementwise form  
+
+> 1:
+
+Initialize Q0 ∈ Rn and, for every s ∈ S and a ∈ A , set 
+
+V0(s, a ) ← 1
+
+|A| 
+
+∑
+
+> c∈A
+
+Q0(s, c ), A0(s, a ) ← Q0(s, a ) − V0(s, a ). 
+
+> 2:
+
+for k = 0 , 1, . . . do  
+
+> 3:
+
+Form Qk ← Vk + Ak. 
+
+> 4:
+
+For every ( s, a ) ∈ S × A , compute the Bellman residual F (Qk)( s, a ) − Qk(s, a ).  
+
+> 5:
+
+For every s ∈ S and a ∈ A , set 
+
+Vk+1 (s, a ) ← Vk(s, a ) + α ∑
+
+> b∈A
+
+d(s, b )(F (Qk)( s, b ) − Qk(s, b )). 
+
+> 6:
+
+For every s ∈ S and a ∈ A , set 
+
+Ak+1 (s, a ) ← Ak(s, a ) + β
+
+[
+
+d(s, a )(F (Qk)( s, a ) − Qk(s, a ))
+
+− 1
+
+|A| 
+
+∑
+
+> b∈A
+
+d(s, b )(F (Qk)( s, b ) − Qk(s, b ))]
+
+. 
+
+> 7:
+
+Qk+1 ← Vk+1 + Ak+1 . 
+
+> 8:
+
+end for 
+
+The same identity can be verified coordinate by coordinate. For any z ∈ Rn, the projection definitions give (Π z)( s, a ) = 1
+
+|A| 
+
+∑
+
+> b∈A
+
+z(s, b ), (Π ⊥z)( s, a ) = z(s, a ) − 1
+
+|A| 
+
+∑
+
+> b∈A
+
+z(s, b ).
+
+Therefore (CV A z)( s, a ) = |A| α(Π z)( s, a ) + β(Π ⊥z)( s, a )= α ∑
+
+> b∈A
+
+z(s, b ) + β
+
+(
+
+z(s, a ) − 1
+
+|A| 
+
+∑
+
+> b∈A
+
+z(s, b )
+
+)
+
+.
+
+Taking z = D(F (Qk) − Qk) gives the sum of the value increment and the centered advantage increment in ( 12 )–( 13 ). Hence the coordinate and vector forms are the same recursion. 
+
+# C Conditional-mean identities 
+
+Lemma C.1. Under the i.i.d. sampling model, the conditional mean recursion of Algorithm 3 is exactly the deterministic dueling Q-learning recursion (12 )–(13 ). Equivalently, for every s ∈ S and 
+
+a ∈ A ,
+
+E[Vk+1 (s, a ) − Vk(s, a ) | F k] = α ∑
+
+> b∈A
+
+d(s, b )(F (Qk)( s, b ) − Qk(s, b )) (64) 35 Algorithm 6 Dueling Q-learning: elementwise form of the induced Q-only recursion  
+
+> 1:
+
+Initialize Q0 ∈ Rn. 
+
+> 2:
+
+for k = 0 , 1, . . . do  
+
+> 3:
+
+For every ( s, a ) ∈ S × A , compute the Bellman residual F (Qk)( s, a ) − Qk(s, a ).  
+
+> 4:
+
+For every s ∈ S and a ∈ A , set 
+
+Qk+1 (s, a ) ← Qk(s, a ) + α ∑
+
+> b∈A
+
+d(s, b )(F (Qk)( s, b ) − Qk(s, b ))
+
++ β
+
+[
+
+d(s, a )(F (Qk)( s, a ) − Qk(s, a ))
+
+− 1
+
+|A| 
+
+∑
+
+> b∈A
+
+d(s, b )(F (Qk)( s, b ) − Qk(s, b ))]
+
+. 
+
+> 5:
+
+end for 
+
+E[Ak+1 (s, a ) − Ak(s, a ) | F k] = β
+
+[
+
+d(s, a )(F (Qk)( s, a ) − Qk(s, a ))
+
+− 1
+
+|A| 
+
+∑
+
+> b∈A
+
+d(s, b )(F (Qk)( s, b ) − Qk(s, b ))]
+
+.
+
+(65) 
+
+Proof. Condition on Fk and define ∆k(s, a ) := F (Qk)( s, a ) − Qk(s, a ).
+
+Conditioned on Fk, if the sampled pair is ( sk, a k) = ( s, a ), then only the next state and reward remain random. Hence 
+
+E[δk | F k, s k = s, a k = a] = E
+
+[
+
+rk+1 + γ max  
+
+> c∈A
+
+Qk(s′
+
+> k
+
+, c ) − Qk(s, a ) | F k, s k = s, a k = a
+
+]
+
+= R(s, a ) + γ ∑
+
+> s′∈S
+
+P (s′ | s, a ) max  
+
+> c∈A
+
+Qk(s′, c ) − Qk(s, a )= F (Qk)( s, a ) − Qk(s, a ) = ∆ k(s, a ).
+
+Therefore 
+
+E[1{sk = s, a k = a}δk | F k] = d(s, a )∆ k(s, a ).
+
+Summing this identity over the sampled action gives 
+
+E[1{sk = s}δk | F k] = ∑
+
+> b∈A
+
+d(s, b )∆ k(s, b ).
+
+The value update in Algorithm 3 adds αδ k to every action copy of the sampled state. Thus, for fixed ( s, a ), 
+
+E[Vk+1 (s, a ) − Vk(s, a ) | F k] = αE[1{sk = s}δk | F k] = α ∑
+
+> b∈A
+
+d(s, b )∆ k (s, b ),
+
+36 which is ( 64 ). The advantage update adds β(1{a = ak} − 1/|A| )δk when sk = s. Hence 
+
+E[Ak+1 (s, a ) − Ak(s, a ) | F k] = βE
+
+[
+
+1{sk = s}
+
+(
+
+1{ak = a} − 1
+
+|A| 
+
+)
+
+δk | F k
+
+]
+
+= β
+
+[
+
+d(s, a )∆ k (s, a ) − 1
+
+|A| 
+
+∑
+
+> b∈A
+
+d(s, b )∆ k(s, b )
+
+]
+
+,
+
+which is ( 65 ). These are exactly the coordinate forms of ( 12 )–( 13 ). 
+
+# D Stochastic bounds 
+
+The stochastic bounds in this appendix use the fixed-ratio gains introduced in ( 32 ). Thus the relative scaling of the value and advantage gains is held fixed while the scalar gain α varies: 
+
+β = ¯β
+
+¯α α, CV A = |A| αΠ + βΠ⊥ = α
+
+(
+
+|A| Π + ¯β
+
+¯α Π⊥
+
+)
+
+.
+
+Consequently, 
+
+CV A 
+
+α = |A| Π + ¯β
+
+¯α Π⊥
+
+is independent of α. The reference gains (¯ α, ¯β) define the endpoint family AV A (¯ α, ¯β), and the modes for smaller α are obtained by interpolating between the identity and the corresponding reference modes. 
+
+Lemma D.1. Suppose that the JSR condition (33 ) holds. Then, there exist a norm p on Rn and a constant c > 0, independent of the step-size α, with c¯α < 1, such that for every 0 < α ≤ ¯α,
+
+p(M x ) ≤ (1 − cα )p(x), ∀x ∈ Rn, ∀M ∈ co( AV A (α, β )) , (66) 
+
+whenever AV A (α, β ) is formed with the fixed-ratio gains in (32 ).Proof. Write ¯AV A π for the mode in ( 22 ) formed with α = ¯ α and β = ¯β; explicitly, ¯AV A π := I − (|A| ¯αΠ + ¯βΠ⊥
+
+)D(I − γP Γπ). (67) Choose θ such that 
+
+ρ(AV A (¯ α, ¯β)) < θ < 1.
+
+By Lemma 3.1 , there is a norm p such that 
+
+p( ¯AV A π x) ≤ θp (x), x ∈ Rn, π ∈ Θ.
+
+By convexity of the norm, the same bound holds for every ¯M ∈ co( { ¯AV A π : π ∈ Θ}): 
+
+p( ¯M x ) ≤ θp (x), x ∈ Rn.
+
+For the gains in ( 32 ), the corresponding mode is 
+
+AV A π = I − (|A| αΠ + βΠ⊥
+
+)D(I − γP Γπ)= I − α
+
+(
+
+|A| Π + ¯β
+
+¯α Π⊥
+
+)
+
+D(I − γP Γπ)= I − α
+
+¯α
+
+(|A| ¯αΠ + ¯βΠ⊥
+
+)D(I − γP Γπ)= I − α
+
+¯α (I − ¯AV A π )=
+
+(
+
+1 − α
+
+¯α
+
+)
+
+I + α
+
+¯α ¯AV A π .
+
+37 Thus, if M ∈ co( AV A (α, β )) is formed with the same fixed-ratio gains, then there exists ¯M ∈
+
+co( { ¯AV A π : π ∈ Θ}) such that 
+
+M =
+
+(
+
+1 − α
+
+¯α
+
+)
+
+I + α
+
+¯α ¯M . 
+
+Therefore, for every x ∈ Rn,
+
+p(M x ) ≤
+
+(
+
+1 − α
+
+¯α
+
+)
+
+p(x) + α
+
+¯α p( ¯M x ) ≤
+
+(
+
+1 − 1 − θ
+
+¯α α
+
+)
+
+p(x).
+
+Set c = (1 − θ)/¯α. Since θ ∈ (0 , 1), one has c¯α < 1, and the preceding inequality proves ( 66 ). 
+
+Lemma D.2. Suppose that (33 ) holds. Then there exist constants c > 0 and K < ∞, independent of α, with c¯α < 1, such that for every 0 < α ≤ ¯α, every ℓ ≥ 0, and every M0, . . . , M ℓ−1 ∈
+
+co( AV A (α, β )) corresponding to the gains in (32 ),
+
+‖Mℓ−1 · · · M0‖2 ≤ K(1 − cα )ℓ. (68) 
+
+Proof. Let p and c be the norm and constant from Lemma D.1 . Fix 0 < α ≤ ¯α, ℓ ≥ 0, and matrices 
+
+M0, . . . , M ℓ−1 ∈ co( AV A (α, β )) corresponding to the gains in ( 32 ). For ℓ = 0, the product is the identity. For ℓ ≥ 1, repeated application of ( 66 ) gives 
+
+p(Mℓ−1 · · · M0x) ≤ (1 − cα )ℓp(x), x ∈ Rn.
+
+All norms on the finite-dimensional space are equivalent, so there are constants a, b < ∞, indepen-dent of α, such that 
+
+‖x‖2 ≤ ap (x), p(x) ≤ b ‖x‖2 , x ∈ Rn.
+
+Consequently, 
+
+‖Mℓ−1 · · · M0x‖2 ≤ ap (Mℓ−1 · · · M0x) ≤ a(1 − cα )ℓp(x) ≤ ab (1 − cα )ℓ ‖x‖2 .
+
+Taking the supremum over ‖x‖2 = 1 and setting K := ab proves ( 68 ). 
+
+Lemma D.3. Let 
+
+L := sup 
+
+> μ,ν
+
+∥∥∥∥
+
+CV A 
+
+α DP (Γ μ − Γν )
+
+∥∥∥∥2
+
+, (69) 
+
+where the supremum is over all stochastic policies μ, ν : S → ∆|A| . Then L < ∞ and, for any stochastic policies μ, ν : S → ∆|A| ,
+
+∥∥AV A μ − AV A ν
+
+∥∥2 ≤ αγL. (70) 
+
+Proof. By ( 21 ) and ( 32 ), the two modes differ only through the Bellman policy selector: 
+
+AV A μ − AV A ν = αγ CV A 
+
+α DP (Γ μ − Γν ).
+
+This gives ( 70 ). The supremum in ( 69 ) is finite because the stochastic-policy set is a finite product of probability simplices and is compact, while the norm above is continuous in ( μ, ν ). 
+
+38 Lemma D.4. There exist finite constants σ0, σ 1 ≥ 0, depending only on the MDP, CV A /α , and 
+
+Q⋆ ∈ Rn, such that the noise term ξk ∈ Rn in Lemma 6.1 satisfies 
+
+E[‖ξk‖22 | F k] ≤ σ20 + σ21 ‖Qk − Q⋆‖22 , k ≥ 0. (71) 
+
+Proof. Using the reward bound in ( 1), for every realization of the sample at time k,
+
+|δk| ≤ Rmax + γ max  
+
+> c∈A
+
+|Qk(s′
+
+> k
+
+, c )| + |Qk(sk, a k)| ≤ Rmax + (1 + γ) ‖Qk‖2 .
+
+Since ζk = ( eak ⊗ esk )δk, the same bound holds for ‖ζk‖2. Also, D(F (Qk) − Qk) = E[ζk | F k], so Jensen’s inequality gives 
+
+‖D(F (Qk) − Qk)‖2 ≤ Rmax + (1 + γ) ‖Qk‖2 .
+
+Using ( 29 ), 
+
+‖wk‖2 = ‖ζk − D(F (Qk) − Qk)‖2
+
+≤ ‖ ζk‖2 + ‖D(F (Qk) − Qk)‖2
+
+≤ 2{Rmax + (1 + γ) ‖Qk‖2}.
+
+Moreover, ‖Qk‖2 ≤ ‖ Q⋆‖2 + ‖Qk − Q⋆‖2. Since ξk = α−1CV A wk,
+
+‖ξk‖2 ≤
+
+∥∥∥∥
+
+CV A 
+
+α
+
+∥∥∥∥2
+
+‖wk‖2
+
+≤ 2
+
+∥∥∥∥
+
+CV A 
+
+α
+
+∥∥∥∥2
+
+{Rmax + (1 + γ) ‖Qk‖2}≤ 2
+
+∥∥∥∥
+
+CV A 
+
+α
+
+∥∥∥∥2
+
+{Rmax + (1 + γ) ‖Q⋆‖2} + 2 
+
+∥∥∥∥
+
+CV A 
+
+α
+
+∥∥∥∥2
+
+(1 + γ) ‖Qk − Q⋆‖2 .
+
+Squaring the preceding inequality and using ( u + v)2 ≤ 2u2 + 2 v2 proves ( 71 ); for example, one may take 
+
+σ20 = 8 
+
+∥∥∥∥
+
+CV A 
+
+α
+
+∥∥∥∥
+
+> 22
+
+{Rmax + (1 + γ) ‖Q⋆‖2}2, σ21 = 8 
+
+∥∥∥∥
+
+CV A 
+
+α
+
+∥∥∥∥
+
+> 22
+
+(1 + γ)2.
+
+Taking the conditional expectation preserves this deterministic upper bound because Qk − Q⋆ is 
+
+Fk-measurable. 
+
+Lemma D.5. For every q ∈ [0 , 1) and every integer k ≥ 1,
+
+kq k−1 ≤ 1
+
+1 − q . (72) 
+
+Proof. Since 0 ≤ q < 1, one has qj ≥ qk−1 for j = 0 , 1, . . . , k − 1. Hence 
+
+kq k−1 ≤
+
+> k−1
+
+∑
+
+> j=0
+
+qj ≤
+
+> ∞
+
+∑
+
+> j=0
+
+qj = 1
+
+1 − q .
+
+39 Lemma D.6. Suppose that the fixed-ratio gains in (32 ) are used and that the JSR condition (33 )
+
+holds. By Lemma D.2 , choose constants c > 0 and K < ∞, independent of α, such that c¯α < 1
+
+and, for every 0 < α ≤ ¯α, every ℓ ≥ 0, and every M0, . . . , M ℓ−1 ∈ co( AV A (α, β )) corresponding to these gains, 
+
+‖Mℓ−1 · · · M0‖2 ≤ K(1 − cα )ℓ.
+
+Let L, σ0, and σ1 be the constants from Lemmas D.3 and D.4 . Define 
+
+C0 := 1 + 4 K2 + 4 
+
+( γLK 2
+
+c
+
+)2
+
+and 
+
+C1 := 4 
+
+( K2
+
+c + γ2L2K4
+
+c3
+
+)
+
+.
+
+Set 
+
+α0 := min 
+
+{
+
+¯α, 1
+
+2C1σ21
+
+}
+
+,
+
+where the second term is interpreted as +∞ when σ1 = 0 . Then, for every initial vector Q0 ∈ Rn,every 0 < α ≤ α0, and every k ≥ 0, the recursion in (34 ) satisfies 
+
+sup 
+
+> 0≤t≤k
+
+E[‖Qt − Q⋆‖22] ≤ 2C0 ‖Q0 − Q⋆‖22 + 2 C1ασ 20 . (73) 
+
+Proof. Fix a stochastic policy ¯ μ : S → ∆|A| . Let 
+
+yk+1 = AV A  
+
+> ¯μ
+
+yk + αξ k, y0 = Q0 − Q⋆,
+
+and decompose yk = ¯ yk + ˜ yk, where ¯yk+1 = AV A  
+
+> ¯μ
+
+¯yk, ¯y0 = Q0 − Q⋆,
+
+˜yk+1 = AV A  
+
+> ¯μ
+
+˜yk + αξ k, ˜y0 = 0 .
+
+Let 
+
+ek := Qk − Q⋆ − yk.
+
+Subtracting the fixed-policy filter from ( 34 ) gives e0 = 0 and 
+
+ek+1 = ( Qk+1 − Q⋆) − yk+1 
+
+= AV A μk (Qk − Q⋆) + αξ k − (AV A  
+
+> ¯μ
+
+yk + αξ k
+
+)
+
+= AV A μk ek + ( AV A μk − AV A  
+
+> ¯μ
+
+)yk
+
+= AV A μk ek + ( AV A μk − AV A  
+
+> ¯μ
+
+)¯ yk + ( AV A μk − AV A  
+
+> ¯μ
+
+)˜ yk.
+
+Accordingly, write ek = uk + vk, where the two parts are generated by the two forcing terms: 
+
+uk+1 = AV A μk uk + ( AV A μk − AV A  
+
+> ¯μ
+
+)¯ yk, u0 = 0 ,vk+1 = AV A μk vk + ( AV A μk − AV A  
+
+> ¯μ
+
+)˜ yk, v0 = 0 .
+
+Since ek = Qk − Q⋆ − yk and yk = ¯ yk + ˜ yk, adding yk to both sides yields 
+
+Qk − Q⋆ = yk + ek
+
+= ¯ yk + ˜ yk + uk + vk.
+
+40 Since AV A  
+
+> ¯μ
+
+∈ co( AV A (α, β )), the product bound in ( 68 ) gives ¯yk = ( AV A  
+
+> ¯μ
+
+)k(Q0 − Q⋆),
+
+‖¯yk‖2 ≤ K(1 − cα )k ‖Q0 − Q⋆‖2 ≤ K ‖Q0 − Q⋆‖2 .
+
+The stochastic part of the fixed-policy filter has the explicit form ˜yk = α
+
+> k−1
+
+∑
+
+> t=0
+
+(AV A  
+
+> ¯μ
+
+)k−1−tξt.
+
+Expanding the square gives 
+
+E[‖˜yk‖22] = α2
+
+> k−1
+
+∑
+
+> s=0
+> k−1
+
+∑
+
+> t=0
+
+E[ξ⊤ 
+
+> s
+
+{(AV A  
+
+> ¯μ
+
+)k−1−s}⊤(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+].
+
+If s < t , then the factor multiplying ξt is Ft-measurable. Therefore 
+
+E[ξ⊤ 
+
+> s
+
+{(AV A  
+
+> ¯μ
+
+)k−1−s}⊤(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+]
+
+= E
+
+[
+
+ξ⊤ 
+
+> s
+
+{(AV A  
+
+> ¯μ
+
+)k−1−s}⊤(AV A  
+
+> ¯μ
+
+)k−1−tE[ξt | F t]
+
+]
+
+= 0 .
+
+The case t < s is identical after conditioning on Fs. Thus the double sum reduces to its diagonal part: 
+
+E[‖˜yk‖22] = α2
+
+> k−1
+
+∑
+
+> t=0
+
+E
+
+[
+
+ξ⊤ 
+
+> t
+
+{(AV A  
+
+> ¯μ
+
+)k−1−t}⊤(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+]
+
+= α2
+
+> k−1
+
+∑
+
+> t=0
+
+E
+
+[∥∥∥(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+∥∥∥22
+
+]
+
+.
+
+With 
+
+Mk := sup 
+
+> 0≤t≤k
+
+E[‖Qt − Q⋆‖22],
+
+Equations ( 68 ) and ( 71 ) imply, for k ≥ 1, 
+
+E[‖˜yk‖22] = α2
+
+> k−1
+
+∑
+
+> t=0
+
+E
+
+[∥∥∥(AV A  
+
+> ¯μ
+
+)k−1−tξt
+
+∥∥∥22
+
+]
+
+≤ α2K2
+
+> k−1
+
+∑
+
+> t=0
+
+(1 − cα )2( k−1−t)E[‖ξt‖22]
+
+≤ α2K2
+
+> k−1
+
+∑
+
+> t=0
+
+(1 − cα )2( k−1−t){σ20 + σ21 Mk−1}≤ αK 2
+
+c {σ20 + σ21Mk−1}.
+
+The last step follows by the change of variables j = k − 1 − t and the geometric bound 
+
+> k−1
+
+∑
+
+> t=0
+
+(1 − cα )2( k−1−t) =
+
+> k−1
+
+∑
+
+> j=0
+
+(1 − cα )2j ≤ 1
+
+1 − (1 − cα )2 ≤ 1
+
+cα , 0 < cα < 1.
+
+41 For k ≥ 1, unrolling the recursion for uk gives 
+
+uk =
+
+> k−1
+
+∑
+
+> t=0
+
+AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)¯ yt,
+
+where the product is the identity when t = k − 1. Hence, using ( 68 ) and ( 70 ), each summand satisfies ∥∥∥AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)¯ yt
+
+∥∥∥2
+
+≤
+
+∥∥∥AV A μk−1 · · · AV A μt+1 
+
+∥∥∥2
+
+∥∥AV A μt − AV A 
+
+> ¯μ
+
+∥∥2 ‖¯yt‖2
+
+≤ K(1 − cα )k−1−t αγL ‖¯yt‖2
+
+≤ K(1 − cα )k−1−t αγL K (1 − cα )t ‖Q0 − Q⋆‖2 .
+
+Summing over t = 0 , . . . , k − 1 gives 
+
+‖uk‖2 ≤
+
+> k−1
+
+∑
+
+> t=0
+
+K(1 − cα )k−1−tαγLK (1 − cα )t ‖Q0 − Q⋆‖2
+
+= αγLK 2
+
+> k−1
+
+∑
+
+> t=0
+
+(1 − cα )k−1 ‖Q0 − Q⋆‖2
+
+= αγLK 2k(1 − cα )k−1 ‖Q0 − Q⋆‖2
+
+≤ αγLK 2 1
+
+cα ‖Q0 − Q⋆‖2
+
+= γLK 2
+
+c ‖Q0 − Q⋆‖2 .
+
+The last inequality follows from Lemma D.5 with q = 1 − cα , because 0 < cα < 1. Similarly, 
+
+vk =
+
+> k−1
+
+∑
+
+> t=0
+
+AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)˜ yt,
+
+and each summand satisfies 
+
+∥∥∥AV A μk−1 · · · AV A μt+1 (AV A μt − AV A  
+
+> ¯μ
+
+)˜ yt
+
+∥∥∥2
+
+≤ K(1 − cα )k−1−tαγL ‖˜yt‖2 .
+
+Therefore, 
+
+‖vk‖2 ≤
+
+> k−1
+
+∑
+
+> t=0
+
+K(1 − cα )k−1−tαγL ‖˜yt‖2
+
+= αγLK 
+
+> k−1
+
+∑
+
+> t=0
+
+(1 − cα )k−1−t ‖˜yt‖2 .
+
+Using the weighted Cauchy inequality, 
+
+(k−1∑
+
+> t=0
+
+qt ‖˜yt‖2
+
+)2
+
+≤
+
+(k−1∑
+
+> t=0
+
+qt
+
+) ( k−1∑
+
+> t=0
+
+qt ‖˜yt‖22
+
+)
+
+, qt := (1 − cα )k−1−t,
+
+42 and the preceding bound on E[‖˜yt‖22], we obtain 
+
+E[‖vk‖22] ≤ α2γ2L2K2
+
+(k−1∑
+
+> t=0
+
+qt
+
+) ( k−1∑
+
+> t=0
+
+qtE[‖˜yt‖22]
+
+)
+
+≤ α2γ2L2K2
+
+( 1
+
+cα 
+
+)2 αK 2
+
+c {σ20 + σ21 Mk−1}
+
+= αγ 2L2K4
+
+c3 {σ20 + σ21Mk−1}.
+
+Using ‖z1 + z2 + z3 + z4‖22 ≤ 4 ∑4 
+
+> j=1
+
+‖zj ‖22 with z1 = ¯ yk, z2 = ˜ yk, z3 = uk, and z4 = vk, we have, for every 1 ≤ r ≤ k,
+
+E[‖Qr − Q⋆‖22] ≤ 4 ‖¯yr‖22 + 4 E[‖˜yr‖22] + 4 ‖ur‖22 + 4 E[‖vr‖22]
+
+≤ 4K2 ‖Q0 − Q⋆‖22 + 4 
+
+( γLK 2
+
+c
+
+)2
+
+‖Q0 − Q⋆‖22
+
++ 4 α
+
+( K2
+
+c + γ2L2K4
+
+c3
+
+)
+
+{σ20 + σ21 Mk−1}.
+
+The case r = 0 contributes ‖Q0 − Q⋆‖22. Taking the supremum over 0 ≤ r ≤ k and using the definitions of C0 and C1 gives 
+
+Mk ≤
+
+{
+
+1 + 4 K2 + 4 
+
+( γLK 2
+
+c
+
+)2}
+
+‖Q0 − Q⋆‖22
+
++ 4 α
+
+( K2
+
+c + γ2L2K4
+
+c3
+
+)
+
+{σ20 + σ21Mk−1}
+
+= C0 ‖Q0 − Q⋆‖22 + C1α{σ20 + σ21 Mk−1}.
+
+For 0 < α ≤ α0, one has C1ασ 21 ≤ 1/2 and Mk−1 ≤ Mk. Hence 
+
+Mk ≤ C0 ‖Q0 − Q⋆‖22 + C1ασ 20 + 1
+
+2 Mk,
+
+which implies ( 73 ). For k = 0, the same bound holds because M0 = ‖Q0 − Q⋆‖22 and C0 ≥ 1. 
+
+43

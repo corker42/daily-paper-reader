@@ -1,0 +1,2644 @@
+Title: Non-Convex Sparse Reinforcement Learning via Non-Monotone Inclusions
+
+URL Source: https://arxiv.org/pdf/2607.04990v2
+
+Published Time: Wed, 08 Jul 2026 00:30:22 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+> 1
+
+# Non-Convex Sparse Reinforcement Learning via Non-Monotone Inclusions 
+
+Kyohei Suzuki, Member, IEEE , and Konstantinos Slavakis, Senior Member, IEEE 
+
+Abstract —This work delivers two key contributions: one to efficient feature selection in reinforcement learning (RL), the other to the theory of non-monotone inclusions. On the RL side, the estimation bias inherent in conventional regulariza-tion schemes is addressed by augmenting classical least-squares temporal-difference (LSTD) policy evaluation with the sparsity-inducing, non-convex projected minimax concave (PMC) penalty. Because the PMC penalty is weakly convex, the resulting fixed-point problem is no longer monotone; instead, it falls under a broader class of non-monotone inclusions involving the sum of a monotone Lipschitz operator and a hypomonotone operator. On the theory side, novel convergence conditions are developed for the forward-reflected-backward splitting (FRBS) method applied to this broader class of non-monotone inclusion problems. Under mild conditions, Lyapunov stability and the existence of a limit point of the sequence of FRBS iterates are established; alterna-tively, under the weak Minty variational inequality assumption, exact convergence is guaranteed. Numerical tests on benchmark datasets show that the proposed FRBS iterates, applied to the non-convexly regularized LSTD problem, substantially outper-form state-of-the-art feature-selection methods, especially when many noisy features are present. 
+
+Index Terms —Reinforcement learning, feature selection, sparse modeling, non-convex, non-monotone. 
+
+I. I NTRODUCTION 
+
+# REINFORCEMENT learning (RL) plays a central role in contemporary machine learning, signal processing, and control theory [1]–[3]. Its central goal is for an agent to learn, through interaction with an environment typically modeled as a Markov decision process (MDP), an optimal policy that minimizes a long-term loss captured by the Q-function. Yet in many real-world settings, such as robotics, educational agents, and healthcare, repeated online interaction with the environment is costly, and the collected data are often corrupted by erroneous measurements or outliers that can severely degrade the learned policy [4]. Robustness to such data imperfections is therefore essential, which motivates batch (offline) RL, where the agent learns from a fixed, pre-collected dataset of transitions rather than through additional online interaction. In most high-dimensional, real-world problems, explicitly representing the Q-function for all possible states and ac-tions is impractical due to the “curse of dimensionality.” 
+
+K. Suzuki and K. Slavakis are with the Department of Information and Communications Engineering, Institute of Science Tokyo, Yokohama, 226-8501, Japan. E-mails: suzuki.k.439f@m.isct.ac.jp, slavakis@ict.eng.isct.ac.jp. This work was supported by the Grants-in-Aid for Scientific Research (KAKENHI) under Grant Number 25K24422. This study was carried out using the TSUBAME4.0 supercomputer at Institute of Science Tokyo. An earlier version of this paper was presented at a conference [DOI: 10.1109/ICASSP55912.2026.11463148]. 
+
+A common remedy is to approximate the Q-function using a functional (non-)parametric representation. This, however, introduces a fundamental trade-off between approximation accuracy and computational complexity: reducing the approx-imation error generally requires a large number of features in the model, which in turn increases computational demands. This manuscript focuses on “linear function” approximation— “linear” in some feature space—which, despite the success of deep RL, remains actively studied for its interpretability and its amenability to rigorous convergence analysis. 
+
+A. Feature selection in RL 
+
+Feature selection, achieved via a sparse representation over a large basis of functions, is an effective way to alleviate the trade-off between approximation accuracy and computational complexity, mitigate overfitting, improve sample efficiency, and promote robustness against irrelevant features and outliers. Most existing work on feature selection in RL has focused on ℓ1-norm regularization to induce sparsity, including batch algorithms such as least-angle regression (LARS)-TD [5], 
+
+ℓ1-projected Bellman residual (PBR) [6], and basis-pursuit denoising (BPDN) [7] (see [8] and references therein), as well as online algorithms [9]–[12]. In particular, LARS-TD applies the LARS algorithm to solve a fixed-point equation for the Bellman mapping associated with the ℓ1-regularized least-squares temporal-difference (LSTD) formulation, even though this task is known not to admit a convex optimization formulation [5]. In contrast, methods [6], [7], [11] consider the projected Bellman residual minimization problem regularized by the ℓ1 norm, which is a convex optimization task. However, this approach generally requires projecting onto the span of the feature vectors, yielding higher time and memory complexities than LARS-TD [6]. While many feature selection methods are originally for-mulated for value-function approximation, they can also be adapted to Q-function settings for learning an optimal policy, as in omnibus approximate-policy-iteration (API) schemes; see, for example, the least-squares policy iteration (LSPI) [13]. Usually in API, the approximation error relative to the optimal Q-function is bounded by 2γ/ (1 −γ)2 times the uniform upper bound on the per-iteration policy-evaluation error, where γ is the discount factor [2], [13]. 
+
+B. Sparse regression 
+
+Sparse regression is a fundamental technique in high-dimensional data analysis. The least absolute shrinkage and arXiv:2607.04990v2 [cs.LG] 7 Jul 2026 2
+
+selection operator (LASSO) [14]–[16], which employs the ℓ1-norm penalty, is widely used for sparse regression. Despite its tractability, it suffers from estimation bias, underestimating large-amplitude components [17], [18]. To mitigate this lim-itation, non-convex penalties have been proposed, including the minimax concave (MC) penalty [19], smoothly clipped absolute deviation (SCAD) [17], and the ℓq -quasi-norm for 
+
+q ∈ (0 , 1) [20], with particular focus on those that preserve the overall convexity of the cost function when combined with a least-squares model [21]–[24]. In particular, the projective minimax concave (PMC) penalty [24] ensures overall con-vexity even in underdetermined settings by annihilating the debiasing effects on the orthogonal complement of the input subspace, while allowing efficient implementation without introducing auxiliary variables (see Section II-C). Since the approximation accuracy of API degrades when the per-iteration policy-evaluation error is large, sparsity-inducing non-convex penalties are anticipated to substantially improve the accuracy of feature selection for RL. Despite this intuition, non-convex sparsity-inducing penalties remain unexplored in RL, even for batch algorithms. This raises a natural question: 
+
+can such penalties be effectively employed for feature selection in RL while ensuring convergence guarantees? C. Contributions 
+
+This paper provides an affirmative answer to the previous research question. The contributions of this work are summa-rized below. 1) An efficient batch method for feature selection in RL is introduced by formulating a fixed-point problem that incorporates the non-convex PMC penalty into the classi-cal LSTD formulation [13], [25]. By exploiting the weak convexity of PMC, the problem is reformulated as finding a zero of the sum of a monotone Lipschitz operator and a hypomonotone operator (Theorem 4 and (22)). Furthermore, a closed-form expression of the resolvent of the hypomonotone part is derived (Theorem 12), making the resulting problem tractable via the forward-reflected-backward splitting (FRBS) method [26]. An error bound for the policies generated by an API based method is also provided (Theorem 10), following the analysis of [13]. 2) Since the existing convergence analysis in [26] is appli-cable only to a monotone inclusion problem, extended convergence conditions are provided for a general non-monotone inclusion problem, which encompasses the proposed non-convexly regularized LSTD setting as a special case. Specifically, the following two analyses are performed. a) Without additional structural assumptions, quasi-Fej´ er monotonicity of the iterates with respect to the solution set is established (Theorem 14). This yields Lyapunov stability and the existence of a limit of the iterates under mild conditions (Theorems 15 and 17). b) Under the weak Minty variational inequality (MVI) assumption [27], exact convergence of the sequence to a solution is established. 3) While, in the original definition of the PMC penalty in [24], the subspace on which the debiasing effect is confined is fixed to the orthogonal complement of the input subspace, this paper generalizes it to an arbi-trary subspace controlled by a tunable hyperparameter 
+
+q (Theorem 4). Choosing q appropriately prevents the performance degradation of the PMC penalty, especially when the smallest positive eigenvalue of the input Gram matrix is very small (see Theorem 5 for details). 4) Numerical tests on three benchmark RL tasks demon-strate that the proposed approach substantially outper-forms state-of-the-art batch feature-selection methods, even in scenarios with numerous noisy features. The in-fluence of the hyperparameter q is also analyzed, showing that a moderate range of q enhances the debiasing effect of the PMC penalty. 
+
+D. Prior art on non-monotone inclusion problems 
+
+The theoretical study of non-monotone inclusion problems has attracted growing attention in recent years, motivated by non-convex/non-concave min-max problems. A common approach is to relax the monotonicity condition to the weak MVI condition [27]–[31], including extensions of the Douglas-Rachford method [32], [33]. While the Douglas-Rachford method requires computing the resolvent of each constituent operator, this work adopts the FRBS method [26], which requires only the resolvent of the hypomonotone part. While convergence of FRBS is guaranteed only for monotone inclu-sions [26], several extensions to treat a non-monotone operator have been proposed recently [34], [35]. However, these works consider operator structures and settings different from those of this paper (see Theorem 21). 
+
+E. Structure of the manuscript 
+
+The manuscript is organized as follows. Section II intro-duces the notation and definitions used in this paper, along with a brief review of the background on RL, preliminaries on convex analysis, and the PMC penalty. Section III presents the proposed formulation based on the PMC penalty. Section IV establishes the extended convergence conditions of FRBS for a general class of non-monotone inclusion problems. Sec-tion V presents the simulation results, and Section VI provides concluding remarks. This work extends substantially its short preliminary version [36] by (i) establishing the convergence analysis under the weak MVI assumption, (ii) providing proofs for the theoretical results, and (iii) demonstrating the effective-ness of the proposed method via extensive numerical tests. II. P RELIMINARIES 
+
+Throughout the paper, let R, R+, R++ , and N denote the sets of real numbers, nonnegative real numbers, strictly positive real numbers, and nonnegative integers, respectively. Let also N∗ := N\{ 0}. For n1, n 2 ∈ N∗, with n1 ≤ n2, define 
+
+n1, n 2 := {n1, n 1 + 1 , . . . , n 2}. Vector/matrix transposition is denoted by (·)⊤. For any n ∈ N∗ and p ∈ [1 , +∞),the ℓp norm of a vector x := [x1, x 2, . . . , x n]⊤ ∈ Rn3
+
+is defined by ∥x∥p:= (Pni=1 |xi|p)1/p . For any n ∈ N∗
+
+and x1, x 2, . . . , x n ∈ R, let diag( x1, x 2, . . . , x n) denote the diagonal matrix whose ith diagonal entry is xi for every 
+
+i = 1 , 2, . . . , n . Let 0m×n and 0n denote the m × n zero matrix and n-dimensional zero vector, respectively. 
+
+A. Background on RL 
+
+In RL problems, the interaction between an environment and an agent is modeled as an MDP defined as the tuple 
+
+(S, A, P, γ, g ), where S is a finite state space for simplicity, 
+
+A is a finite action space, P: S × S × A → [0 , 1] is a state-transition probability such that P(s′ | s, a ) is the probability of transitioning to state s′ when taking action a in state s,
+
+γ ∈ (0 , 1) is a discount factor, and g ∈ B is the one-step loss. Here, B denotes the Banach space of bounded real-valued functions over Z := S × A, equipped with the L∞
+
+norm defined by ∥·∥ ∞: B → R: Q 7 → sup (s,a )∈Z|Q(s, a )|. A deterministic stationary policy π: S → A specifies the action 
+
+π(s) that the agent takes in state s.Let (St, A t) denote the state-action random variables at time 
+
+t. Then, the Q-function (Q-factor) Qπ (s, a ) of a policy π at state-action pair (s, a ) is defined as the expected cost starting from state s and action a and subsequently using policy π,
+
+i.e. ,
+
+B ∋ Qπ : ( s, a ) 7 →
+
+g(s, a ) + lim   
+
+> N→+∞
+
+E
+
+(N −1X
+
+> t=1
+
+γtg(St, π (St)) | S0 = s, A 0 = a
+
+)
+
+,
+
+(1) where the conditional probability of observing the trajectory 
+
+(st, π (st)) +∞ 
+
+> t=1
+
+given S0 = s and A0 = a is given by P(s1 |
+
+s, a ) Q+∞ 
+
+> t=2
+
+P(st | st−1, π (st−1)) . The optimal Q-function is defined as 
+
+B ∋ Q∗: ( s, a ) 7 → inf  
+
+> π∈Π
+
+Qπ (s, a ), (2) where Π is the set of all policies. Given a mapping T : B → B ,
+
+Q ∈ B is called a fixed point of T if Q = T Q . It is well known that Qπ and Q∗ are the unique fixed points of the Bellman mapping Tπ and Bellman optimality mapping T∗, respectively, i.e., 
+
+Qπ = Tπ Qπ , (3a) 
+
+Q∗ = T∗Q∗, (3b) where Tπ : B → B and T∗: B → B are defined as follows, respectively: ∀Q ∈ B ,
+
+B ∋ Tπ Q: ( s, a ) 7 →
+
+g(s, a ) + γE{Q(St+1 , π (St+1 )) | St = s, A t = a}, (4a) 
+
+B ∋ T∗Q: ( s, a ) 7 →
+
+g(s, a ) + γE{min  
+
+> a′∈A
+
+Q(St+1 , a ′) | St = s, A t = a}. (4b) The equations (3a) and (3b) are called the Bellman equation and the Bellman optimality equation, respectively. Note that both Tπ and T∗ are γ-contraction mappings, i.e. ,
+
+∥Tπ Q1 − Tπ Q2∥∞≤ γ∥Q1 − Q2∥∞, ∀Q1, Q 2 ∈ B , (5) 
+
+∥T∗Q1 − T∗Q2∥∞≤ γ∥Q1 − Q2∥∞, ∀Q1, Q 2 ∈ B , (6) and hence each has a unique fixed point [37]. When the number of states is exceedingly large or the state space is continuous, evaluating Qπ at every state-action pair becomes computationally prohibitive. A common remedy is to approximate Qπ by a “linear function,” Qπ (s, a ) ≈
+
+ˆQπ
+
+> w
+
+(s, a ) := w⊤ϕ(s, a ), which is linear in w ∈ Rn—the vec-tor collecting all learnable parameters of the approximation— for some n ∈ N∗, where ϕ(s, a ) ∈ Rn denotes the feature vector at (s, a ) ∈ Z. Although Tπ ˆQπ 
+
+> w
+
+may not lie in the span of the feature vectors, the temporal-difference (TD) family of algorithms solves for a w such that (s.t.) its corresponding 
+
+ˆQπ 
+
+> w
+
+approximately satisfies the fixed-point problem (3a), i.e. ,
+
+ˆQπ 
+
+> u
+
+≈ Tπ ˆQπ
+
+> w
+
+:
+
+find w ∈ Rn s.t. w ∈ TLS (w), (7a) where 
+
+TLS : Rn → 2Rn
+
+w 7 → arg min 
+
+> u∈Rn
+
+12
+
+X
+
+> (s,a )∈Z
+
+h ˆQπ
+
+> u
+
+(s, a ) − Tπ ˆQπ
+
+> w
+
+(s, a )
+
+i2
+
+. (7b) Since P is in general unavailable, LSTD [13], [25] approxi-mates (7b) via m samples (si, a i, g (si, a i), s ′
+
+> i
+
+)mi=1 :
+
+find w ∈ Rn s.t. w ∈ TLSTD (w), (8a) where 
+
+TLSTD : Rn → 2Rn
+
+w 7 → arg min 
+
+> u∈Rn
+
+12 ∥Φu − (g + γΦ′w)∥22. (8b) Here, the m × n matrices Φ := [ ϕ(s1, a 1), . . . , ϕ(sm, a m)] ⊤,
+
+Φ′ := [ϕ(s′
+
+> 1
+
+, π (s′
+
+> 1
+
+)) , . . . , ϕ(s′
+
+> m
+
+, π (s′
+
+> m
+
+))] ⊤, and the m × 1
+
+vector g := [ g(s1, a 1), . . . , g (sm, a m)] ⊤. A solution to (8a) can be obtained analytically by w∗ = Ω−1b, where 
+
+Ω := Φ⊤(Φ − γΦ′), b := Φ⊤g. (9) If Ω is not invertible, one can instead employ the Moore-Penrose pseudoinverse of Ω or ridge regression [13], [38]. 
+
+B. Background on convex analysis 
+
+A function f : Rn → (−∞ , +∞] := R ∪ { +∞} is proper if 
+
+dom f := {x ∈ Rn | f (x) < +∞}̸ = ∅. A function f : Rn →
+
+(−∞ , +∞] := R ∪ { +∞} is lower-semicontinuous on Rn if the level set lev ≤a f := {x ∈ Rn | f (x) ≤ a} is closed for any a ∈ R. A function f : Rn → (−∞ , +∞] is convex if 
+
+f (ax + (1 − a)ξ) ≤ af (x) + (1 − a)f (ξ) for any x, ξ ∈ Rn
+
+and any a ∈ (0 , 1) . For any ρ > 0, a function f : Rn →
+
+(−∞ , +∞] is ρ-weakly convex if f + ρ∥·∥ 22/2 is convex. Let 
+
+Γ0(Rn) denote the set of proper lower-semicontinuous convex functions from Rn to (−∞ , +∞].Given a proper function f : Rn → (−∞ , +∞], the single-valued proximity operator of f of index τ > 0 is defined as [39] 
+
+s-Prox τ f : Rn → Rn: x 7 → arg min 
+
+> ξ∈Rn
+
+
+
+f (ξ) + 12τ ∥x − ξ∥22
+
+
+
+,
+
+(10) 4
+
+whenever f + ∥x − ·∥ 22/(2 τ ) has a unique minimizer for every fixed x ∈ Rn.1 Given a function f ∈ Γ0(Rn), the Moreau envelope of f of index τ > 0 is defined as [40]–[42] 
+
+> τ
+
+f : Rn → R: x 7 → min 
+
+> ξ∈Rn
+
+
+
+f (ξ) + 12τ ∥x − ξ∥22
+
+
+
+. (11) Note that it holds for any f ∈ Γ0(Rn) that (i) its Moreau envelope τf is convex [42, Proposition 12.15] and (ii) τ f (x) ↓
+
+inf ξ∈Rn f (ξ) as τ ↑ +∞ for any x ∈ Rn [42, Proposition 12.33]. Furthermore, the following fact is used. 
+
+Fact 1 ( [42, Proposition 12.30]) . Let f ∈ Γ0(Rn) and 
+
+τ > 0. Then, ∇(τ f ) = τ −1(Id − s-Prox τ f ) is τ −1-Lipschitz continuous. 
+
+For any nonempty closed convex set C ⊂ Rn, let ιC ∈
+
+Γ0(Rn) be the indicator function of C, defined as ιC : x 7 → 0
+
+if x ∈ C, and +∞ otherwise. The metric projection operator onto C, denoted by PC , is defined as the proximity operator of ιC , i.e., PC := s -Prox ιC .A set-valued mapping T : Rn → 2Rn
+
+is called monotone if ⟨x − y, u − v⟩2 ≥ 0, ∀(x, u), (y, v) ∈ gra T , where 
+
+gra T := {(x, u) ∈ Rn×Rn | u ∈ T (x)} denotes the graph of 
+
+T . A monotone operator T : Rn → 2Rn
+
+is maximally monotone if no other monotone operator has its graph containing gra T .If T − ρ Id is (maximally) monotone for some ρ ∈ R, T
+
+is (maximally) ρ-monotone [43], also known as ρ-strongly monotone when ρ > 0 and as |ρ|-hypomonotone when ρ < 0.
+
+C. The projective minimax concave penalty 
+
+The MC penalty [19] with index τ > 0 is defined as 
+
+ΨMC  
+
+> τ
+
+: Rn → [0 , +∞): x 7 →
+
+> n
+
+X
+
+> i=1
+
+ψMC  
+
+> τ
+
+(xi) , (12) where 
+
+ψMC  
+
+> τ
+
+: R → [0 , +∞): x 7 →
+
+(
+
+|x|− x2/(2 τ ), if |x|≤ τ, τ / 2, if |x|> τ. (13) The MC penalty can be expressed as a difference-of-convex (DC) function formulation known as the Moreau-enhanced model of the ℓ1 norm [23], i.e. , the difference between the 
+
+ℓ1 norm and its Moreau envelope [21]: 
+
+ΨMC  
+
+> τ
+
+= ∥·∥ 1− τ ∥·∥ 1. (14) A key property of the MC penalty is its weak convexity [21]. Owing to this property, the overall convexity of the least-squares loss regularized by the MC penalty can be preserved by choosing the regularization parameter appropriately. How-ever, in the underdetermined case, the least-squares loss is no longer strongly convex since its Hessian is rank-deficient, and hence, the overall convexity cannot be guaranteed in general. The PMC penalty [24] defined below overcomes this dif-ficulty by introducing a metric projection onto a given linear subspace M ⊂ Rn:
+
+ΨPMC  
+
+> τ, M
+
+:= ∥·∥ 1− τ ∥·∥ 1(PM·). (15)     
+
+> 1If fis non-convex, the proximity operator is often defined as a set-valued operator. This paper focuses on the case when the proximity operator is a single-valued operator, and the notation s-Prox is used to emphasize that.
+
+While the PMC penalty was originally proposed for the least-squares loss in underdetermined linear systems with M
+
+defined as the orthogonal complement of the null space of the input matrix, this paper considers M as a general subspace in 
+
+Rn (see also Theorem 5 in Section III). In fact, the PMC penalty coincides with the MC penalty on M and with the ℓ1 norm on M⊥ [24, Proposition 1]. The motivation for introducing PM is twofold: (i) to restrict the weak convexity to M, where the loss function is strongly convex, and (ii) to keep the penalty convex on M⊥, where the loss function is flat ( i.e. , it possesses zero curvature). As a result, the debiasing effect can be introduced on M while the overall convexity of the cost function is preserved. To see this, consider the least-squares loss regularized by the PMC penalty: 
+
+12 ∥M · − y∥22+μ [∥·∥ 1− τ ∥·∥ 1(PM·)] 
+
+| {z }
+
+> =Ψ PMC
+> τ, M
+
+= 12 ∥M · − y∥22−μ · τ ∥·∥ 1(PM·)
+
+| {z }
+
+> smooth part
+
++μ∥·∥ 1, (16) where M ∈ Rm×n and y ∈ Rm for some m, n ∈ N∗. The convexity of (16) is ensured by designing M appropriately even for the underdetermined case ( m < n ), as established by the following fact. 
+
+Fact 2 ( [24, Proposition 2]) . Assume that M := null ⊥ M (= range M ⊤). Then, the smooth part of (16) , (1 /2) ∥M ·−y∥22−μ τ ∥·∥ 1(PM·), is convex if and only if μτ −1 ≤
+
+λ++ min (M ⊤M ), where λ++ min (·) denotes the smallest strictly positive eigenvalue. 
+
+While the PMC penalty is additively nonseparable because of the presence of PM, which confines the weak convexity to M = null ⊥ M , the second term of (15) can be rewritten as: x 7 → τ ∥·∥ 1(PMx) = min u∈Rn [∥u∥1+(1 /(2 τ )) ∥PMx −
+
+u∥22], where the internal objective function is additively sepa-rable as a function of u. This structure enables an efficient implementation of the algorithm to minimize (16) without extra variables [24]. III. M AIN RESULTS 
+
+In this section, the PMC penalty is incorporated as aregularizer into the LSTD formulation, and the resulting problem is reformulated as finding the zeros of the sum of a monotone Lipschitz operator and a hypomonotone operator. An FRBS-based optimization algorithm is proposed to solve this problem. 
+
+A. Problem formulation 
+
+To identify a sparse weight vector w, this paper proposes to combine the LSTD formulation in (8a) with the PMC penalty in (15), yielding: 
+
+find w ∈ Rn s.t. w ∈ TPMC (w), (17a) 5
+
+where 
+
+TPMC : Rn → 2Rn
+
+w 7 → arg min 
+
+> u∈Rn
+
+12 ∥Φu − (g + γΦ′w)∥22+μΨPMC  
+
+> τ, M
+
+(u).
+
+(17b) Here, μ, τ ∈ R++ and M is a linear subspace of Rn. When 
+
+τ → +∞, the PMC penalty is reduced to the ℓ1-norm, the objective function (1 /2) ∥Φu − (g + γΦ′w)∥22+μΨPMC  
+
+> τ, M
+
+(u)
+
+in (17b) w.r.t. u becomes convex, and the overall problem takes the form of LARS-TD [5]. However, even in this setting, where the objective function in (17b) is convex, it is known that the problem (17a) w.r.t. w cannot be cast as a convex minimization one [5]. Nevertheless, the objective function in (17a) w.r.t. u can be made convex, for any fixed w, by a suitable choice of μ and 
+
+τ . By Theorem 2, this convexity is preserved even when Φ⊤Φ
+
+is singular, unlike the case with the MC penalty. Exploiting this induced convexity of the objective function in (17b), (17a) can be reformulated as the following non-monotone inclusion problem, as shown in Theorem 4 below. 
+
+Problem 3. Let μ, τ ∈ R++ and let M be a linear subspace of Rn. Find w ∈ Rn such that 
+
+0n ∈ T (w) + μ∂ ∥·∥ 1(w) , (18) 
+
+where T : Rn → Rn: w 7 → T (w) is defined as 
+
+T (w) := Ωw − b − μτ −1PM(Id − s-Prox τ ∥·∥ 1 )( PMw) ,
+
+(19) 
+
+with Ω and b as in (9) .
+
+Proposition 4. Let Φ⊤Φ = V ΛV ⊤ be the eigenvalue decomposition of Φ⊤Φ, where V ∈ Rn×n is an orthogonal matrix, and Λ = diag( λ1, λ 2, . . . , λ n), with λ1 ≥ λ2 ≥ . . . ≥
+
+λn ≥ 0. For some q ∈ 1, rank( Φ⊤Φ), let V = [ V1,q , Vq+1 ,n ],where V1,q ∈ Rn×q and Vq+1 ,n ∈ Rn×(n−q). Assume that 
+
+M := span( V1,q ) and 
+
+μτ −1 ≤ λq . (20) 
+
+Then, w ∈ Rn is a solution, if exists, of (17a) if and only if it is a solution of Theorem 3. Proof: The proof is given in Appendix A. 
+
+Remark 5. As discussed in Section II-C, the debiasing effect of the PMC penalty is confined to the subspace M. Since 
+
+span( V1,q ) is nondecreasing in q, the largest subspace to which the debiasing effect can be confined while preserv-ing the convexity is M := span( V1,q ) = null ⊥ Φ, which is attained when q = rank( Φ⊤Φ), i.e., when q satisfies 
+
+λq = λ++ min (Φ⊤Φ). However, this setting of q does not always maximize the debiasing effect of the PMC penalty, as demonstrated in Section V-D below. Indeed, if λ++ min (Φ⊤Φ) is very small, τ must be sufficiently large to meet (20) , which can degrade performance since the PMC penalty approaches the ℓ1 norm for large τ . This motivates treating q as a tunable hyperparameter in Section V unlike the original definition of the PMC penalty in [24], where M is fixed to null ⊥ Φ.
+
+Algorithm 1 The FRBS method for solving (17a) 
+
+Input (Ω, b) from (9), μ ∈ R++ , q ∈ 1, rank( Φ⊤Φ), and 
+
+M := span( V1,q ) (see Proposition 4)  
+
+> 1:
+
+Set τ , α, and (ηk)k∈N by Proposition 9  
+
+> 2:
+
+Initialize w−1, w0 ∈ Rn such that w−1 = w0 
+
+> 3:
+
+Set u−1 := α(Ωw−1 − b − μτ −1(PMw−1 −
+
+PM Soft τ (PMw−1))) + w−1 
+
+> 4:
+
+for k = 0 , 1, 2, . . . do  
+
+> 5:
+
+uk := α(Ωwk − b − μτ −1(PMwk −
+
+PM Soft τ (PMwk))) + wk 
+
+> 6:
+
+wk+1 := Soft αη k μ/ (1 −ηk )((1 − ηk)−1(wk − ηkuk −
+
+ηk−1(uk − uk−1)))  
+
+> 7:
+
+end for Remark 6. One may consider the following alternative for-mulation instead of (17a) :
+
+min 
+
+> w∈Rn
+
+12 ∥Φw − (g + γΦ′w)∥22+μΨPMC  
+
+> τ, M
+
+(w), (21) 
+
+the first term of which corresponds to a sample approximation of the mean squared TD error [1, Section 11.5]. Unlike 
+
+(17a) , the cost function of (21) is convex for appropriately chosen hyperparameters. However, it is known that the mean squared TD error without double sampling is not an unbiased estimate of the squared ℓ2 norm of the Bellman residual [1], [44]. Given that the primary objective of this study is to mitigate estimation bias, this study focuses on the fixed-point formulation based on LSTD. B. Recasting and solving Theorem 3 
+
+Since the symmetric part (Ω + Ω⊤)/2 of Ω is not always positive semidefinite, Ω is non-monotone in general [43]. In this case, the form of T in (19) renders T + μ∂ ∥·∥ 1
+
+non-monotone. As a result, the popular forward-backward splitting [45], [46] and Douglas-Rachford [46]–[48] methods cannot be applied since the convergence guarantee of these methods rely on the maximal monotonicity of operators. To surmount this obstacle, Theorem 3 is recast and solved using the FRBS method [26]. While the convergence guarantees of FRBS are established in [26] only for the case where 
+
+T + μ∂ ∥·∥ 1 is monotone, these conditions are extended here to accommodate the non-monotone case (see Section IV). To this end, (18) is recast as 
+
+0n ∈ (αT + Id)( w) + ( αμ∂ ∥·∥ 1− Id)( w) , (22) where α ∈ (0 , (∥Ω∥2+μτ −1)−1]. Then, the following lemma holds. 
+
+Lemma 7. The operator αT + Id is β-Lipschitz continuous and maximally monotone for β := α(∥Ω∥2+μτ −1) + 1 .Proof: The proof is given in Appendix B. Based on this lemma, it can be shown that αμ∂ ∥·∥ 1− Id is maximally (−1) -monotone since (αμ∂ ∥·∥ 1− Id) − (−1) Id = 
+
+αμ∂ ∥·∥ 1 is maximally monotone. 6
+
+Algorithm 2 Approximate policy iteration 
+
+Input π0 ∈ Π, γ ∈ (0 , 1) , (si, a i, g (si, a i), s ′
+
+> i
+
+)mi=1  
+
+> 1:
+
+Define b by (9)  
+
+> 2:
+
+for k = 0 , 1, 2, . . . do  
+
+> 3:
+
+Define Ω by (9)  
+
+> 4:
+
+Policy Evaluation:  
+
+> 5:
+
+Obtain ˆw by Algorithm 1  
+
+> 6:
+
+Set ˆQπk := Φ ˆw 
+
+> 7:
+
+Policy Improvement:  
+
+> 8:
+
+πk+1 (s) := arg min a∈A ˆQπk (s, a ), ∀s ∈ S 
+
+> 9:
+
+end for 
+
+Applying the FRBS method to (22) yields Algorithm 1. Here, for any τ > 0, the soft-shrinkage operator is defined as 
+
+Soft τ := s -Prox τ ∥·∥ 1 : Rn → Rn
+
+[x1, . . . , x n]⊤ 7 → [soft τ (x1), . . . , soft τ (xn)] ⊤, (23) where soft τ (x) := sign( x) max {| x|− τ, 0} and sign( x) := 1 ,if x ≥ 0, while sign( x) := −1, if x < 0, ∀x ∈ R. The following proposition provides convergence guarantees for Algorithm 1. 
+
+Assumption 8. Assume the following: 
+
+(a) μ, τ , and q satisfy (20) .
+
+(b) α ∈ (0 , (∥Ω∥2+μτ −1)−1].
+
+(c) (ηk)k∈N∪{− 1} ⊆ (0 , (1 − 2ε)/(2( β + 1))] for some ε ∈
+
+(0 , 1/2) s.t. ηk ≤ ηk−1 for all k ∈ N and P 
+
+> k∈N
+
+ηk <
+
++∞.
+
+Proposition 9 (Convergence of Algorithm 1) . Let β := 
+
+α(∥Ω∥2 +μτ −1) + 1 . Suppose that the set K of solutions of 
+
+(17a) is nonempty. Then, for the sequence (wk)k∈N produced by Algorithm 1 with arbitrarily chosen w−1 = w0 ∈ Rn, the following holds under Theorem 8. 
+
+(i) For all ϵ > 0, there exists δ > 0 such that, if w ∈ K
+
+with ∥w0 − w∥2< δ , then ∥wk − w∥2< ϵ , ∀k ∈ N.
+
+(ii) (wk)k∈N is a convergent sequence. Proof: The proof is given in Appendix D of the supple-mental material, which is based on the general results to be presented in Section IV. An approximate policy-iteration (PI) method, based on Algorithm 1, is presented in Algorithm 2. The following proposition shows that the sequence (πk)k∈N generated by Algorithm 2 either converges or oscillates within a region of the policy space, where the suboptimality of the resulting policies is bounded by the approximation error of Algorithm 1. 
+
+Proposition 10. Let (πk)k∈N and ( ˆQπk )k∈N be sequences generated by Algorithm 2. Suppose that there exists δ ∈ R++ 
+
+s.t. 
+
+∥ ˆQπk − Qπk ∥∞≤ δ. (24) 
+
+Here, Qπk is defined in (1) . Then, it holds that 
+
+lim sup 
+
+> k→+∞
+
+∥ ˆQπk − Q∗∥∞≤ 2γδ 
+
+(1 − γ)2 , (25) 
+
+where Q∗ is defined in (2) .Proof: By the policy-improvement step of Algorithm 2, 
+
+πk+1 (s) = arg min a∈A ˆQπk (s, a ) for all s ∈ S, and hence 
+
+Tπk+1 
+
+ˆQπk = T∗ ˆQπk , where T∗ is defined in (4b). Hence, the assertion follows from [13, Theorem 3.1] in the same way as the specialization of the same theorem to the least-squares policy-iteration algorithm in [13, Theorem 7.1]. IV. S OLVING A GENERAL NON -MONOTONE -INCLUSION PROBLEM 
+
+Let (H, ⟨· , ·⟩ H) be a real Hilbert space with the induced norm ∥·∥ H:= ⟨· , ·⟩ 1/2 
+
+> H
+
+. Consider the following problem. 
+
+Problem 11. Find x⋆ ∈ H such that 
+
+0 ∈ (A + B)( x⋆), (26) 
+
+where the operators A and B satisfy the following conditions: 
+
+(i) A: H → 2H is maximally ( −ρ)-monotone for some ρ ∈
+
+R+.
+
+(ii) B: H → H is monotone and LB -Lipschitz continuous with LB > 0.
+
+(iii) The solution set (A + B)−1(0) ̸ = ∅.
+
+Theorem 11 encompasses (22), as can be readily verified for the case where A = αμ∂ ∥·∥ 1− Id with ρ = 1 , and B =
+
+αT + Id with LB = β—see Section III-B. To solve Theorem 11 apply the FRBS method: for the arbi-trarily chosen initial points x−1, x 0 ∈ H , generate (xk)k∈N ⊂H as: ∀k ∈ N,
+
+xk+1 := Jηk A[ xk − ηkB(xk) − ηk−1(B(xk) − B(xk−1))] ,
+
+(27) where (ηk)k∈N∪{− 1} ⊂ R+ is a sequence of step sizes, and 
+
+Jηk A denotes the resolvent of ηkA. Here, for any A: H → 2H,the resolvent of A is defined as JA := (Id + A)−1, where Id is the identity operator in H. The following proposition provides a closed-form expression of the resolvent of ηk(αμ∂ ∥·∥ 1− Id) ,which is required to apply the FRBS method in (27) to solve (22). 
+
+Proposition 12. Under Theorem 8, assume further that ηk < 1
+
+for all k ∈ N ∪ {− 1}. Then, it holds that 
+
+Jηk (αμ∂ ∥·∥ 1− Id) = Soft αμη k /(1 −ηk ) ◦ (1 − ηk)−1 Id . (28) 
+
+Proof: The proof is given in Appendix E of the supple-mental material. 
+
+A. Convergence analysis: Lyapunov stability and existence of a limit 
+
+Although the convergence of the FRBS method is estab-lished only for ρ = 0 [26], the following theorem guarantees convergence even when ρ is strictly positive. 
+
+Assumption 13. The sequence (ηk)k∈N∪{− 1} satisfies: 
+
+(a) (ηk)k∈N∪{− 1} ⊂ (0 , (1 − 2ε)/(2( LB + ρ))] for some ε ∈
+
+(0 , 1/2) .
+
+(b) ηk ≤ ηk−1 for all k ∈ N.
+
+(c) P 
+
+> k∈N
+
+ηk < +∞.7
+
+A practical choice for the step sizes satisfying Assump-tion 13 is ηk = c/ (k + 2) ζ , where ζ > 1 and c ∈ (0 , (1 −
+
+2ε)/(2( LB + ρ))] .
+
+Theorem 14. Consider Theorem 11 and suppose that Theo-rem 13 holds. Then, for the sequence (xk)k∈N ⊂ H generated by (27) with arbitrarily fixed initial points x−1, x 0 ∈ H , the following hold: 
+
+(i) (xk)k∈N is bounded. 
+
+(ii) It holds that 
+
+X
+
+> k∈N
+
+∥xk+1 − xk∥2
+
+> H
+
+< +∞. (29) (iii) There exists (hk)k∈N ⊂ R+ such that P 
+
+> k∈N
+
+hk < +∞,and 
+
+∥xk+1 − x∥2
+
+> H
+
+≤ ∥ xk − x∥2
+
+> H
+
++hk (30) 
+
+for any x ∈ (A + B)−1(0) . In other words, (xk)k∈N is quasi-Fej´ er monotone [42] with respect to (A+B)−1(0) .Proof: The proof is given in Appendix C. Theorem 15 below states that setting x0 and x−1 close enough to any x ∈ (A + B)−1(0) guarantees that the subsequent iterates remain in a bounded set around x. This implies that the algorithm (27) is Lyapunov stable [49]. 
+
+Proposition 15. Consider Theorem 11 and suppose that Theorem 13 holds. Assume further that x−1 = x0. Then, for all ϵ > 0, there exists δ > 0 such that, if x⋆ ∈ (A + B)−1(0) 
+
+with ∥x0 − x⋆∥H< δ , then ∥xk − x⋆∥H< ϵ , ∀k ∈ N.Proof: The proof is given in Appendix F of the supple-mental material. Furthermore, under an additional assumption, the follow-ing proposition holds. For a finite-dimensional Hilbert space 
+
+H, this assumption is equivalent to locally boundedness of 
+
+A [50], which is crucial for ensuring the boundedness of 
+
+(∥xk − xk+1 ∥H)k∈N.
+
+Assumption 16. A(S) is bounded for every bounded set S ⊂H.
+
+Proposition 17. Consider Theorem 11 and suppose that Theorems 13 and 16 hold. Then, it holds that 
+
+X
+
+> k∈N
+
+∥xk+1 − xk∥H< +∞, (31) 
+
+and hence (xk)k∈N is a convergent sequence. Proof: The proof is given in Appendix G of the supple-mental material. Theorems 15 and 17 jointly provide reliability of the al-gorithm without additional strong assumptions for the non-monotone inclusion problem. Specifically, they ensure that 
+
+(xk)k∈N converges to a point in the vicinity of a solution when x0 = x−1 are initialized appropriately. In the following section, the exact convergence to a solution is established in a different approach than this section by introducing different assumptions. 
+
+B. Convergence analysis under the weak MVI assumption 
+
+Although the convergence analysis in Section IV-A relies on relatively weak assumptions, the exact convergence of the generated sequence is not guaranteed. This section presents a convergence analysis based on the weak Minty variational inequality (MVI) [27], [51] to guarantee the exact convergence to a solution. Note that the MVI is a weaker assumption than global monotonicity or comonotonicity, and has been utilized in recent studies on non-monotone inclusion problem [33], [51]. 
+
+Assumption 18. The following three conditions hold: 
+
+(a) ηk ≤ ηk−1, for all k ∈ N.
+
+(b) The weak Minty variational inequality (MVI) holds for 
+
+A+B, i.e., there exists a nonempty set Z ∗ ⊆ zer( A+B)
+
+such that for all x∗ ∈ Z ∗ and some ϖ ∈ R++ ,
+
+⟨v, x − x∗⟩H ≥ − ϖ
+
+2 ∥v∥2
+
+> H
+
+, ∀(x, v ) ∈ gra( A + B) .
+
+(32) (c) There exists θ ∈ (0 , 1/4) such that (ηk)k∈N∪{− 1} satisfies the following inequality for all k ∈ N:
+
+− 14 + 3(1 + η2
+
+> k
+
+L2 
+
+> B
+
+)ϖ
+
+2ηk
+
++ η2
+
+> k
+
+L2
+
+> B
+
+
+
+1 + 3ϖ
+
+2ηk+1 
+
+
+
+≤ − θ. 
+
+(33) 
+
+Theorem 19. Consider Theorem 11 and suppose that Theo-rem 18 holds. Then, for the sequence (xk)k∈N ⊂ H generated by (27) with arbitrarily fixed initial points x−1, x 0 ∈ H , the following hold: 
+
+(i) (xk)k∈N is bounded. 
+
+(ii) Every weak sequential cluster point of (xk)k∈N belongs to zer( A + B).
+
+(iii) Assume also that Z ∗ = zer( A + B). Then, (xk)k∈N
+
+converges weakly to a solution of (26) .Proof: The proof is given in Appendix H of the supple-mental material. Theorem 19 implies that the existence of a solution sat-isfying the weak MVI serves as a key sufficient condition for the convergence guarantee of the FRBS method in the presence of non-monotone operators. Identifying sufficient conditions for the weak MVI to hold in the specific case of (22) is left for future work. Nonetheless, this theoretical foundation can be applied to a broad class of optimization problems in which non-monotone operators arise. Note that the step size conditions in Theorem 13 and Theorem 18 are not simultaneously satisfiable, since Assumption 13(c) requires lim k→∞ ηk = 0 , while Assumption 18(c) implies that (ηk)k∈N∪{− 1} is bounded below by a positive constant (see Theorem H.2 in Appendix H). An example of (ηk)k∈N∪{− 1} which satisfies Assump-tion 18(c) is shown in the following proposition. 
+
+Proposition 20. Let Υ: R++ → R: η 7 → L2 
+
+> B
+
+η2 + 3 ϖL 2 
+
+> B
+
+η +3ϖ/ (2 η). Let η∗ ∈ R++ denote the unique minimizer of Υ.Suppose that Υ( η∗) < 1/4, and set θ ∈ (0 , 1/4 − Υ( η∗)) ̸ =
+
+∅. Then, the equation Υ( η) = 1 /4 − θ has solutions η− ∈
+
+(0 , η ∗] and η+ ∈ [η∗, +∞). Set ηk = η, ∀k ∈ N ∪ {− 1} for arbitrarily fixed η ∈ [η−, η +]. Then, (33) is satisfied. 8
+
+Proof: The proof is given in Appendix I of the supple-mental material. The unique minimizer η∗ of Υ and the largest possible constant step size η+ can be characterized as the roots of the following cubic equations 
+
+Υ′(η∗) = 0 ⇔ 4L2 
+
+> B
+
+η3 
+
+> ∗
+
++ 6 ϖL 2 
+
+> B
+
+η2 
+
+> ∗
+
+− 3ϖ = 0 , (34) and 
+
+Υ( η+) = 1 /4 − θ
+
+⇔ 2L2 
+
+> B
+
+η3+ + 6 ϖL 2 
+
+> B
+
+η2+ − (1 /2 − 2θ)η+ + 3 ϖ = 0 , (35) respectively. Hence, the closed-form expressions of η∗ and η+
+
+are obtained by eigenvalue decompositions of the companion matrices associated with (34) and (35), respectively [52]. 
+
+Remark 21. Variants of the FRBS method for treating a non-monotone operator have also been proposed recently. A stochastic variance-reduced FRBS [34] attains state-of-the-art oracle complexity under a weak Minty condition, and [35] establishes convergence for a deterministic FRBS-type algorithm with anchoring and double inertia. However, [34] assumes that the set-valued operator A is monotone and Lipschitz and the single-valued operator B is non-monotone, targeting the stochastic setting. Furthermore, [35] assumes that A + B is monotone while A or B can be hypomonotone. In contrast, this paper considers the unmodified FRBS method 
+
+(27) , which does not require monotonicity of A+B; it assumes instead that A is hypomonotone and B is monotone and Lipschitz, targeting the deterministic setting. 
+
+V. N UMERICAL TESTS 
+
+First, three classical benchmark RL tasks, the 50 -state chain walk [13], the mountain car [1], and the acrobot [1] are used to validate the effectiveness of the proposed method. Throughout the experiments, the step sizes (ηk)k∈N∪{− 1} are selected to satisfy Theorem 8. The proposed method is compared against LSTD [13], LARS-TD [5], and the state-of-the-art basis pursuit denoising (BPDN) approach [7]. For LSTD, when Ω is singular, the Moore-Penrose pseudoinverse of Ω
+
+is used instead. Similarly, the computation of (Φ⊤Φ)−1 used in BPDN is replaced with the Moore-Penrose pseudoinverse if necessary. To find the optimal policy, each method is modified to learn the Q-function so that API is applied. Finally, the influence of hyperparameter q on the performance of the proposed method is evaluated. In all tasks, the n × 1 feature vector is defined as fol-lows: for all s ∈ S and the jth action a(j) ∈ A := 
+
+{a(1) , a (2) , . . . , a (|A|)},
+
+ϕ(s, a (j)) := [ 0⊤
+
+> (j−1) d
+
+, φ⊤(s), ε⊤, 0⊤
+
+> (|A|− j)d
+
+]⊤ ∈ Rn, (36) where φ(s) := [1 , φ RBF 1 (s), . . . , φ RBF  
+
+> nRBF
+
+(s)] , the Gaussian kernel φRBF  
+
+> i
+
+(s) := exp( −(s − ci)2/ς ), i ∈ 1, n RBF , with centers {ci}nRBF  
+
+> i=1
+
+and ς > 0, and ε ∈ Rnε is the realization of a vector-valued random variable, representing irrelevant features, that is independently drawn for each sample from the normal distribution N (0nε , 0.1Inε ). Here, nRBF , n ε ∈ N∗
+
+s.t. |A|d = n with d := 1 + nRBF + nε.0 500 1000 1500 2000 
+
+> Number of irrelevant features
+> −15
+> −10
+> −5
+> 0
+> NMSE [dB]  LSTD LARS-TD BPDN proposed
+
+Fig. 1: 50 -state chain walk: NMSE vs. number of irrelevant features for 2000 samples. 1000 2000 3000 4000 
+
+> Number of samples
+> −20
+> −10
+> NMSE [dB]  LSTD LARS-TD BPDN proposed
+
+Fig. 2: 50 -state chain walk: NMSE vs. number of samples for 
+
+1000 irrelevant features. 
+
+A. 50 -state chain walk 
+
+In the 50 -state chain walk [13], the MDP consists of 
+
+50 states, two actions, “left” and “right”, and the success probability of either action is 0.9. When an action fails, the state changes to the opposite direction. A reward is 1 (one-step loss is −1) only at states 10 and 41 and zero everywhere else. The discount factor γ is set to 0.9. The optimal policy is to go right in states 1–9 and 26 –41 , and to go left in states 
+
+11 –25 and 42 –50 . The cost-to-go function for any policy π is defined as J π : S → R: s 7 → Qπ (s, π (s)) . The optimal cost-to-go function is defined as J ∗: S → R: s 7 → min π J π (s) = min a∈A Q∗(s, a ) [2]. For this MDP, the optimal cost-to-go function J ∗ can be easily obtained analytically by solving (3b) because P is available. For the feature vector, the centers 
+
+{ci}nRBF  
+
+> i=1
+
+are evenly spaced over S with ς = 20 .The evaluation metric is the normalized mean square error (NMSE) between the true cost-to-go function and its estimate, defined as 
+
+> 50
+
+X
+
+> s=1
+
+[J ∗(s) − min 
+
+> a∈A
+
+ˆQ(s, a )] 2/
+
+> 50
+
+X
+
+> s=1
+
+(J ∗(s)) 2, (37) where ˆQ is an estimate of Q∗. All hyperparameters are carefully tuned for each method to achieve best performance. Figures 1 and 2 depict NMSE as a function of the number of irrelevant features and the number of samples, respectively. The reported results are averaged over 30 trials. For BPDN, the step size required to guarantee convergence is upper bounded by 1/λ max (C⊤C), where C := γΦ(Φ⊤Φ)−1Φ⊤Φ′ − Φ [7]. Since many of the features are redundant to each other even without irrelevant features, λmax (C⊤C) becomes significantly large. Because of this small step size, the algorithm converges too slowly within a practical number of iterations. As a result, 9
+
+TABLE I: The case of the mountain car.                                
+
+> Method Success Rate (%) Average steps Number of selected features LSTD 6.7 684.0 ±261.0 5314.5 ±18.5 LARS-TD 60.0 171.2 ±118.7 41.9 ±5.1 BPDN 6.7 580.5 ±245.5 925.0 ±5.0 Proposed 90.0 151.0 ±30.2 186.6 ±28.1
+
+BPDN terminates at a dense solution which is similar to the LSTD estimate. While LARS-TD yields more accurate cost-to-go-function estimates than LSTD and BPDN in the presence of many irrelevant features, its performance remains limited due to the estimation bias induced by the ℓ1-norm penalty. In contrast, the proposed method significantly outperforms all competitors by effectively mitigating this bias. Furthermore, it maintains excellent accuracy even when the number of samples is small. 
+
+B. Mountain car 
+
+The “mountain car” [1] is a classical task in which the agent accelerates a car to reach the top of the hill from the bottom of a sinusoidal mountain. The state s := [ x, v ]⊤ ∈
+
+S := [ −1.2, 0.5] × [−0.07 , 0.07] is continuous, where x and v
+
+represent the car’s position and its velocity, respectively. The state transition follows 
+
+vt+1 := clip( vt + 0 .001 at − 0.0025 cos(3 xt), −0.07 , 0.07) ,
+
+(38) 
+
+xt+1 := clip( xt + vt+1 , −1.2, 0.5) (39) with vt+1 reset to zero when the car reaches the left bound-ary ( xt+1 = −1.2, vt+1 < 0), and three discrete actions 
+
+at ∈ A := {− 1, 0, 1} are available. Here, clip: R3 →
+
+R: ( z, z min , z max ) 7 → min {max {z, z min }, z max }. The one-step loss is g(s, a ) = 0 at the goal ( x ≥ 0.5) and g(s, a ) = 1 
+
+otherwise; the discount factor is γ = 0 .99 . Following [5], the centers form two-dimensional grids of k × k with k ∈{2, 4, 8, 16 , 32 }, giving nRBF = P 
+
+> k∈{ 2,4,8,16 ,32 }
+
+k2 = 1364 
+
+and, with nε = 500 and |A|= 3 , n = 3 × (1 + 1364 + 500) = 5595 .For data collection, a random policy is executed from a state drawn uniformly from S with 50 episodes. Each episode is truncated after 10 steps or upon reaching the goal, yielding at most m = 500 samples. Approximate policy iteration runs for at most 20 iterations with stopping criterion 
+
+∥ ˆwk+1 − ˆwk∥2< 10 −3. The learned policy is evaluated over 
+
+10 episodes of at most 1000 steps from a random initial state following the uniform distribution over [−0.6, −0.4] × { 0}.A trial is considered successful if the goal is reached within 
+
+1000 steps. Table I summarizes the results, averaged over 30 trials. Since the number of features is significantly larger than the number of samples, the resulting matrices Ω and Φ⊤Φ are severely rank-deficient, leading to a low success rate of LSTD and BPDN. Although LARS-TD promotes sparsity through the ℓ1-norm, it selects too few features, leading to a low success rate. These results suggest that the estimation bias TABLE II: The case of the acrobot.                            
+
+> Method Success Rate (%) Average steps Number of selected features LSTD 0.0 ––LARS-TD 63.3 333.9 ±75.5 290.8 ±111.7 BPDN 6.7 456.1 ±39.8 2014.5 ±0.5 Proposed 86.7 283.8 ±95.8 267.0 ±65.7
+
+inherent in convex regularization is not negligible in this challenging task. In contrast, the proposed method achieves the highest success rate and the fewest average steps to the goal in successful trials among all the methods. This indicates that the proposed method effectively mitigates the bias of 
+
+ℓ1-based sparse regularization, yielding a more accurate Q-function estimate. 
+
+C. Acrobot 
+
+The acrobot [1] is an underactuated two-link robot where only the second joint can exert torque. The objective is to swing the tip of the second joint above the first joint in as few steps as possible. The state s = [ θ1, θ 2, ˙θ1, ˙θ2]⊤ ∈ S := [−π, π ]2 × [−4π, 4π] × [−9π, 9π] is continuous, where θ1 and 
+
+θ2 are joint angles of the first and second links, respectively. The action space is defined as A := {− 1, 0, 1}, and the state transition follows [1]. The one-step loss is g(s, a ) = 0 when the tip of the second link rises above the level of the first joint, and 1 otherwise, and the discount factor is γ = 0 .99 .The centers form four-dimensional grids of k4 points with 
+
+k ∈ { 2, 3, 4}, giving nRBF = P 
+
+> k∈{ 2,3,4}
+
+k4 = 353 and, with 
+
+nε = 500 and |A|= 3 , n = 3 × (1 + 353 + 500) = 2562 .A random policy is executed over 50 episodes to col-lect data, each starting from a state drawn uniformly over 
+
+[−π, π ]2 × [−2π, 2π] × [−4.5π, 4.5π] and truncated after 200 
+
+steps or upon termination, yielding at most m = 10 , 000 
+
+samples. Approximate policy iteration runs for at most 10 
+
+iterations with stopping criterion ∥ ˆwk+1 − ˆwk∥2< 10 −5.The learned policy is evaluated over 10 episodes of at most 
+
+1000 steps from a random initial state following the uniform distribution over [−0.1, 0.1] 4. A trial is considered successful if the goal is reached within 500 steps. Table II summarizes the results, averaged over 30 trials. Since LSTD achieves a success rate of 0% , the remaining metrics are not reported. BPDN converges to a comparatively dense solution within this iteration budget and its success rate is low. While LARS-TD achieves a moderate success rate by promoting sparsity via the ℓ1-norm, its estimation bias still limits the performance. In contrast, the proposed method attains both the highest success rate, the fewest average steps to the goal, and the lowest number of selected features among all the methods. 
+
+D. Influence of hyperparameter q
+
+Figure 3 shows the influence of the hyperparameter q on the NMSE, in the same 50 -state chain walk environment with irrelevant features as in Section V-A, with 500 irrelevant features and 2000 samples. The results are averaged over 100 10 10 0 10 1 10 2 10 3
+
+> q
+> −18
+> −17
+> −16
+> −15
+> NMSE [dB]
+
+Fig. 3: 50 -state chain walk: NMSE vs. q for 500 irrelevant features, 2000 samples, and μ = 0 .5.trials. The NMSE attains an almost minimum (about −18 dB) for a moderate range [30 , 200] of q, and degrades outside of this range. Since q controls the dimension of the subspace 
+
+M onto which the debiasing effect of the PMC penalty is confined, the influence of estimation bias is large when q is too small. When q is too large, on the other hand, τ must be too large to satisfy (20), implying that the PMC penalty approaches the ℓ1-norm penalty (see Theorem 5). VI. C ONCLUSIONS 
+
+This paper introduced an effective batch algorithm for feature selection in RL, equipped with formal convergence guarantees. The non-convex PMC penalty was incorporated into the policy-evaluation objective to promote sparsity in the feature-selection vector. The resulting optimization prob-lem was reformulated as a non-monotone inclusion, and the FRBS method was applied with newly established convergence guarantees for a general class of non-monotone inclusion problems subsuming the present setting. Specifically, Lya-punov stability and the existence of a limit of the iterates under mild conditions, as well as exact convergence under the weak Minty variational inequality assumption, were es-tablished. Numerical experiments showed that the proposed method substantially outperforms state-of-the-art approaches, achieving significantly reduced bias. Future research directions include (i) extending the method to online learning, (ii) integrating it with the variational frame-work of [53] for Q-function approximation in reproducing kernel Hilbert spaces (RKHS), (iii) analyzing the error bound (24) of the Q-functions for the proposed method (a similar analysis has been conducted for LASSO-TD [54], whose algorithmic implementation is equivalent to LARS-TD [13]), and (iv) identifying sufficient conditions under which the reformulated problem (22) satisfies the weak MVI. APPENDIX APROOF OF THEOREM 4
+
+Proof of Theorem 4: 
+
+Problem (17a) can be reformulated as find w ∈ Rn s.t. (A.1a) 
+
+u∗ ∈ arg min 
+
+> u∈Rn
+
+12 ∥Φu − (g + γΦ′w)∥22+μΨPMC  
+
+> τ, M
+
+(u), (A.1b) 
+
+w = u∗. (A.1c) By (15), the objective function in (A.1b) can be rewritten as 
+
+(1 /2) ∥Φu − (g + γΦ′w)∥22+μ∥u∥1−μ · τ ∥·∥ 1(PMu).
+
+(A.2) Define Λ1,q ∈ Rq×q and Λq+1 ,n ∈ R(n−q)×(n−q) such that 
+
+Λ =
+
+ Λ1,q 0q×(n−q)
+
+0(n−q)×q Λq+1 ,n 
+
+
+
+. (A.3) Then, since Φ⊤Φ = V1,q Λ1,q V ⊤ 
+
+> 1,q
+
++ Vq+1 ,n Λq+1 ,n V ⊤
+
+> q+1 ,n
+
+,it follows that 
+
+∥Φu∥22 = ⟨u, V1,q Λ1,q V ⊤ 
+
+> 1,q
+
+u⟩2 + ⟨u, Vq+1 ,n Λq+1 ,n V ⊤
+
+> q+1 ,n
+
+u⟩2
+
+= ∥Λ1/21,q V ⊤ 
+
+> 1,q
+
+u∥22+∥Λ1/2
+
+> q+1 ,n
+
+V ⊤
+
+> q+1 ,n
+
+u∥22. (A.4) Let v := g + γΦ′w and f (u) := 12 ∥Φu − v∥22−μ · 
+
+> τ
+
+∥·∥ 1(PMu). Then, by (A.4), f can be decomposed as 
+
+f = f1 + f2, where 
+
+f1(u) := 12 ∥Λ1/21,q V ⊤ 
+
+> 1,q
+
+u∥22−μ · τ ∥·∥ 1(PMu), (A.5) 
+
+f2(u) := 12 ∥Λ1/2
+
+> q+1 ,n
+
+V ⊤
+
+> q+1 ,n
+
+u∥22−⟨ Φu, v⟩ + 12 ∥v∥22. (A.6) Let M := Λ1/21,q V ⊤ 
+
+> 1,q
+
+. Then, since λ1, . . . , λ q > 0 due to q ≤
+
+rank( Φ⊤Φ), it holds that null ⊥(M ) = span( V1,q ) = M.Hence, applying Theorem 2 to M and y := 0 yields that f1
+
+is convex if and only if μτ −1 ≤ λ++ min (M ⊤M ) = λq . Hence, the assumption in (20) implies that f1 is convex. Since f2 is clearly convex, their sum f is also convex. Therefore, due to Fermat’s rule [42, Theorem 16.3], (A.1b) is equivalent to 
+
+0 ∈ ∂
+
+ 12 ∥Φ · − (g + γΦ′w)∥22−μ τ ∥·∥ 1◦PM
+
+| {z }
+
+> convex
+
++μ∥·∥ 1
+
+
+
+(u∗)= ∇
+
+ 12 ∥Φ · − (g + γΦ′w)∥22−μ τ ∥·∥ 1◦PM
+
+
+
+(u∗)+ μ∂ (∥·∥ 1)( u∗), (A.7) where the equality is due to [42, Corollary 16.48 and Propo-sition 17.31] together with the convexity of (1 /2) ∥Φ · − (g +
+
+γΦ′w)∥22−μ τ ∥·∥ 1◦PM and dom( μ∥·∥ 1) = Rn. On the other hand, Theorem 1 together with the chain rule and PM = P ∗M,it holds that [24] 
+
+∇(τ ∥·∥ 1◦PM)( u∗) = τ −1PM(Id − s-Prox τ ∥·∥ 1 )( PMu∗).
+
+(A.8) Hence, substituting (A.8) into (A.7) together with the linearity of gradient and differentiability of the constituent functions yields that 
+
+0 ∈ Φ⊤(Φu∗ − (g + γΦ′w)) 
+
+− μτ −1PM(Id − s-Prox τ ∥·∥ 1 )( PMu∗) + μ∂ ∥·∥ 1(u∗),
+
+(A.9) Combining (A.1c) and (A.9) completes the proof. 11 
+
+APPENDIX BON LIPSCHITZ CONTINUITY AND MAXIMAL MONOTONICITY OF αT + Id 
+
+It is shown below that αT + Id is β-Lipschitz continuous and maximally monotone for β := α(∥Ω∥2+μτ −1) + 1 .
+
+Lipschitz continuity of αT + Id 
+
+For any x, ξ ∈ Rn, it holds from the triangle inequality that 
+
+∥T (x) − T (ξ)∥2
+
+≤ ∥ Ωx − Ωξ∥2+μτ −1∥PM(Id − s-Prox τ ∥·∥ 1 )( PMx)
+
+− PM(Id − s-Prox τ ∥·∥ 1 )( PMξ)∥2. (B.1) Since PM and Id − s-Prox τ ∥·∥ 1 are nonexpansive [42, Propo-sitions 4.16 and 12.28], it follows that 
+
+∥PM(Id − s-Prox τ ∥·∥ 1 )( PMx)
+
+− PM(Id − s-Prox τ ∥·∥ 1 )( PMξ)∥2≤ ∥ x − ξ∥2, (B.2) which together with (B.1) show that T is (∥Ω∥2+μτ −1)-Lipschitz continuous. Consequently, αT + Id is β-Lipschitz continuous. 
+
+Maximal monotonicity of αT + Id 
+
+Since α ∈ (0 , (∥Ω∥2+μτ −1)−1], αT is nonexpansive. Hence, 
+
+αT + Id is monotone by [42, Example 20.7]. Maximality follows from Lipschitz continuity of αT + Id [42, Corollary 20.28]. APPENDIX CPROOF OF THEOREM 14 The following fact is used in the proof. 
+
+Fact C.1 ( [42, Lemma 5.31]) . Let (αk)k∈N, (βk)k∈N,
+
+(γk)k∈N, and (ϵk)k∈N be sequences in R+ such that P 
+
+> k∈N
+
+γk < +∞, P 
+
+> k∈N
+
+ϵk < +∞, and 
+
+αk+1 ≤ (1 + γk)αk − βk + ϵk, ∀k ∈ N. (C.1) 
+
+Then, (αk)k∈N converges and P 
+
+> k∈N
+
+βk < +∞.
+
+Lemma C.2. Let F : H → 2H be maximally ( −ρF )-monotone for some ρF ∈ [0 , 1) . Set d1, u 0, u 1, v 1, v 2 ∈ H arbitrarily. Define d2 := JF (d1 − u1 − (v1 − u0)) . Then, for all x ∈ H 
+
+and u ∈ − F (x), it holds that 
+
+(1 − 2ρF )∥d2 − x∥2
+
+> H
+
++2 ⟨v2 − u1, x − d2⟩H + ∥d1 − d2∥2
+
+> H
+
+≤ ∥ d1 − x∥2
+
+> H
+
++2 ⟨x − d2, v 1 − u0⟩H − 2⟨v2 − u, d 2 − x⟩H.
+
+(C.2) 
+
+Proof: Since ρF ∈ [0 , 1) , JF is single-valued and 
+
+dom JF = H by [43, Proposition 2.14], and hence d2 is well-defined. It holds by assumption that 
+
+−u + ρF x ∈ (F + ρF Id)( x). (C.3) On the other hand, it holds by definition of the resolvent that 
+
+d1 − u1 − (v1 − u0) ∈ d2 + F (d2)
+
+⇔ d1 − u1 − v1 + u0 + ( ρF − 1) d2 ∈ (F + ρF Id)( d2)
+
+(C.4) Hence, monotonicity of F + ρF Id together with (C.3) and (C.4) yields that 
+
+0 ≤ ⟨ x − d2, −u + ρF x − d1 + u1 + v1 − u0 + (1 − ρF )d2⟩H,
+
+(C.5) which is equivalent to 
+
+− ρF ∥x − d2∥2
+
+> H
+
+≤ ⟨ x − d2, d 2 − d1⟩H + ⟨x − d2, u 1 − u⟩H
+
++ ⟨x − d2, v 1 − u0⟩H. (C.6) The first term of the right-hand side of (C.6) can be expressed as 
+
+⟨x − d2, d 2 − d1⟩H = 12
+
+ ∥d1 − x∥2
+
+> H
+
+−∥ d2 − x∥2
+
+> H
+
+−∥ d2 − d1∥2
+
+> H
+
+ .
+
+(C.7) On the other hand, the second term of (C.6) can be expressed respectively as 
+
+⟨x − d2, u 1 − u⟩H = ⟨x − d2, v 2 − u⟩H + ⟨x − d2, u 1 − v2⟩H.
+
+(C.8) Hence, combining these equations yields (C.2). 
+
+Lemma C.3. For all k ∈ N, define 
+
+pk := 1 − LB (ηk + ηk−1) − 2ηkρ, (C.9) 
+
+qk := 1 /2 + LB (ηk−1 − ηk)/2 + ηkρ, (C.10) 
+
+ζk := p−1 
+
+> k
+
+− 1. (C.11) 
+
+Then, the following holds for all k ∈ N:
+
+(i) pk ∈ [2 ε, 1) .
+
+(ii) qk ≥ 1/2, and hence p−1 
+
+> k
+
+qk ≥ 1/2.
+
+(iii) P+∞ 
+
+> k=1
+
+ζk < +∞.Proof: 
+
+(i) By Assumption 13(b), it holds for all k ∈ N that 
+
+pk ≥ 1 − 2LB ηk−1 − 2ηk−1ρ
+
+= 1 − 2( LB + ρ)ηk−1
+
+≥ 1 − 2( LB + ρ) 1 − 2ε
+
+2( LB + ρ)= 2 ε, (C.12) where the second inequality is due to Assumption 13(a). On the other hand, pk < 1 since ηk > 0 by Assumption 13(a). (ii) The first result follows from Assumptions 13(a) and 13(b), and the second result follows from (i). (iii) By Assumption 13(b), it holds that 
+
+ζk = 11 − LB (ηk + ηk−1) − 2ηkρ − 1
+
+≤ 11 − 2LB ηk−1 − 2ηk−1ρ − 1= 2( LB + ρ)ηk−1
+
+1−2( LB + ρ)ηk−1
+
+≤ 2( LB + ρ)ηk−1
+
+1 − (1 − 2ε)= LB + ρε ηk−1, (C.13) 12 
+
+where the second inequality holds due to Assumption 13(a). The assertion follows from (C.13) and Assumption 13(c). 
+
+Proof of Theorem 14: The proof is in two parts. (i), (ii) Fix x ∈ (A + B)−1(0) arbitrarily so that u := 
+
+ηkB(x) ∈ − ηkA(x). Then, by applying Lemma C.2 with 
+
+F := ηkA, d1 := xk, d2 := xk+1 , u0 := ηk−1B (xk−1),
+
+u1 := ηkB (xk), v1 := ηk−1B (xk), v2 := ηkB (xk+1 ), and 
+
+ρF := ηkρ, it holds that 
+
+(1 −2ηkρ)∥xk+1 −x∥2
+
+> H
+
++2 ηk⟨B(xk+1 )−B(xk), x −xk+1 ⟩H
+
++ ∥xk+1 − xk∥2
+
+> H
+
+≤ ∥ xk − x∥2
+
+> H
+
++2 ηk−1⟨B(xk) − B(xk−1), x − xk+1 ⟩H
+
+− 2ηk⟨B(xk+1 ) − B(x), x k+1 − x⟩H
+
+≤ ∥ xk − x∥2
+
+> H
+
++2 ηk−1⟨B(xk) − B(xk−1), x − xk+1 ⟩H,
+
+(C.14) where the last inequality is due to monotonicity of B. Here, it holds that ρF ∈ [0 , 1) due to ηkρ ≤ (1 − 2ε)ρ/ (2( LB +
+
+ρ)) < 1/2 < 1 by Assumption 13(a). The Lipschitz continuity of B yields 
+
+⟨B(xk) − B(xk−1), x − xk+1 ⟩H
+
+≤ LB ∥xk − xk−1∥H∥x − xk+1 ∥H
+
+≤ (LB /2)( ∥xk − xk−1∥2
+
+> H
+
++∥x − xk+1 ∥2
+
+> H
+
+). (C.15) In the same way, it holds that 
+
+⟨B(xk+1 ) − B(xk), x − xk+1 ⟩H
+
+≥ − (LB /2)( ∥xk+1 − xk∥2
+
+> H
+
++∥x − xk+1 ∥2
+
+> H
+
+). (C.16) Hence, combining (C.14) with (C.15) and (C.16) yields 
+
+(1 −2ηkρ)∥xk+1 −x∥2
+
+> H
+
+−ηkLB (∥xk+1 − xk∥2
+
+> H
+
++ ∥x − xk+1 ∥2
+
+> H
+
+) + ∥xk+1 − xk∥2
+
+> H
+
+≤ ∥ xk − x∥2+ηk−1LB (∥xk − xk−1∥2
+
+> H
+
++∥x − xk+1 ∥2
+
+> H
+
+),
+
+(C.17) which is equivalent to 
+
+pk∥xk+1 − x∥2
+
+> H
+
++(1 − LB ηk)∥xk+1 − xk∥2
+
+> H
+
+≤ ∥ xk − x∥2
+
+> H
+
++LB ηk−1∥xk − xk−1∥2
+
+> H
+
+, (C.18) where pk is defined in (C.9). Assumption 13(a) yields that 
+
+LB ηk−1 ≤ (1 − 2ε)LB
+
+2( LB + ρ) < 12 . (C.19) Due to (C.19), it follows from (C.18) that 
+
+pk
+
+
+
+∥xk+1 − x∥2
+
+> H
+
++ 12 ∥xk+1 − xk∥2
+
+> H
+
+
+
++ qk∥xk+1 − xk∥2
+
+> H
+
+≤ ∥ xk − x∥2
+
+> H
+
++ 12 ∥xk − xk−1∥2
+
+> H
+
+, (C.20) where qk is defined in (C.10). Since pk > 0 by Theo-rem C.3(i), it follows that 
+
+∥xk+1 − x∥2
+
+> H
+
++ 12 ∥xk+1 − xk∥2
+
+> H
+
++p−1 
+
+> k
+
+qk∥xk+1 − xk∥2
+
+> H
+
+≤ (1 + ζk)
+
+
+
+∥xk − x∥2
+
+> H
+
++ 12 ∥xk − xk−1∥2
+
+> H
+
+
+
+, (C.21) where ζk is defined in (C.11). Therefore, in light of Theo-rem C.3(iii), applying Theorem C.1 to (C.21) implies that 
+
+(∥xk+1 − x∥2
+
+> H
+
++(1 /2) ∥xk+1 − xk∥2
+
+> H
+
+)k∈N converges, and 
+
+X
+
+> k∈N
+
+p−1 
+
+> k
+
+qk∥xk+1 − xk∥2
+
+> H
+
+< +∞. (C.22) Hence, (∥xk+1 − x∥2
+
+> H
+
+)k∈N is bounded, and thus (xk)k∈N is bounded. Furthermore, it holds from Theorem C.3(ii) and (C.22) that 
+
+12
+
+X
+
+> k∈N
+
+∥xk+1 − xk∥2 
+
+> H
+
+≤ X
+
+> k∈N
+
+p−1 
+
+> k
+
+qk∥xk+1 − xk∥2
+
+> H
+
+< +∞, (C.23) which yields (29). (iii) By discarding a nonnegative term (1 −LB ηk)∥xk+1 −
+
+xk∥2 
+
+> H
+
+from (C.18), it holds that 
+
+∥xk+1 − x∥2 
+
+> H
+
+≤ p−1 
+
+> k
+
+(∥xk − x∥2
+
+> H
+
++LB ηk−1∥xk − xk−1∥2
+
+> H
+
+)= ∥xk − x∥2
+
+> H
+
++hk, (C.24) where hk := ζk∥xk − x∥2
+
+> H
+
++p−1 
+
+> k
+
+LB ηk−1∥xk − xk−1∥2
+
+> H
+
+. It remains to verify the summability of (hk)k∈N. Boundedness of (xk)k∈N and Theorem C.3(iii) imply that 
+
+X
+
+> k∈N
+
+ζk∥xk − x∥2 
+
+> H
+
+< +∞. (C.25) Furthermore, it holds by Theorem C.3(i) and Assumption 13(a) that 
+
+p−1 
+
+> k
+
+LB ηk−1 < 12ε LB ηk−1
+
+≤ 12ε LB
+
+1 − 2ε
+
+2( LB + ρ)= LB (1 − 2ε)4ε(LB + ρ) , (C.26) from which together with (29) it follows that 
+
+X
+
+> k∈N
+
+p−1 
+
+> k
+
+LB ηk−1∥xk − xk−1∥2
+
+> H
+
+< LB (1 − 2ε)4ε(LB + ρ)
+
+X
+
+> k∈N
+
+∥xk − xk−1∥2
+
+> H
+
+< +∞. (C.27) Finally, combining (C.25) and (C.27) yields the summability of (hk)k∈N.REFERENCES [1] R. S. Sutton, A. G. Barto, et al. , Reinforcement Learning: An Introduc-tion , 1st ed. Cambridge, MA: MIT press, 1998. [2] D. Bertsekas, Reinforcement Learning and Optimal Control . Belmant, MA, USA: Athena Sci., 2019. [3] K. Arulkumaran, M. P. Deisenroth, M. Brundage, and A. A. Bharath, “Deep reinforcement learning: A brief survey,” IEEE Signal Pro-cess. Mag. , vol. 34, no. 6, pp. 26–38, 2017. [4] S. Levine, A. Kumar, G. Tucker, and J. Fu, “Offline reinforcement learning: Tutorial, review, and perspectives on open problems,” arXiv preprint arXiv:2005.01643 , 2020. [5] J. Z. Kolter and A. Y. Ng, “Regularization and feature selection in least-squares temporal difference learning,” in Proc. Int. Conf. Mach. Learn. ,2009, pp. 521–528. 13 
+
+[6] M. Geist and B. Scherrer, “ ℓ1-penalized projected Bellman residual,” in 
+
+Proc. Eur. Worksh. Reinforce. Learn. , 2011, pp. 1–12. [7] Z. Qin, W. Li, and F. Janoos, “Sparse reinforcement learning via convex optimization,” in Proc. Int. Conf. Mach. Learn. , vol. 32, no. 2, Beijing, China, 2014, pp. 424–432. [8] D.-R. Liu, H.-L. Li, and D. Wang, “Feature selection and feature learning for high-dimensional batch reinforcement learning: A survey,” 
+
+Int. J. Autom. Comput. , vol. 12, no. 3, pp. 229–242, 2015. [9] S. Mahadevan and B. Liu, “Sparse Q-learning with mirror descent,” in 
+
+Proc. Uncertainty Artif. Intell. Conf. , 2012. [10] T. Song, D. Li, Q. Jin, and K. Hirasawa, “Sparse proximal reinforcement learning via nested optimization,” IEEE Transactions on Systems, Man, and Cybernetics: Systems , vol. 50, no. 11, pp. 4020–4032, 2018. [11] T. Song, D. Li, and X. Xu, “Online sparse temporal difference learning based on nested optimization and regularized dual averaging,” IEEE Transactions on Systems, Man, and Cybernetics: Systems , vol. 52, no. 4, pp. 2042–2052, 2021. [12] C. Painter-Wakefield, R. Parr, and N. Durham, “L1 regularized linear temporal difference learning,” Technical report: Department of Com-puter Science, Duke University, Durham, NC, TR-2012–01 , 2012. [13] M. G. Lagoudakis and R. Parr, “Least-squares policy iteration,” 
+
+J. Mach. Learn. Res. , vol. 4, no. Dec, pp. 1107–1149, 2003. [14] R. Tibshirani, “Regression shrinkage and selection via the lasso,” 
+
+J. Roy. Stat. Soc. B , vol. 58, no. 1, pp. 267–288, 1996. [15] T. Hastie, R. Tibshirani, and M. Wainwright, Statistical Learning with Sparsity: the Lasso and Generalizations . CRC Press, 2015. [16] M. J. Wainwright, High-dimensional statistics: A non-asymptotic view-point . Cambridge university press, 2019, vol. 48. [17] J. Fan and R. Li, “Variable selection via nonconcave penalized likelihood and its oracle properties,” J. Amer. Stat. Assoc. , vol. 96, no. 456, pp. 1348–1360, 2001. [18] S. Osher, F. Ruan, J. Xiong, Y. Yao, and W. Yin, “Sparse recovery via differential inclusions,” Appl. Comput. Harmon. Anal. , vol. 41, no. 2, pp. 436–469, 2016. [19] C. H. Zhang, “Nearly unbiased variable selection under minimax con-cave penalty,” Ann. Statist. , vol. 38, no. 2, pp. 894–942, Apr. 2010. [20] R. Chartrand, “Exact reconstruction of sparse signals via nonconvex minimization,” IEEE Signal Process. Lett. , vol. 14, no. 10, pp. 707– 710, Oct. 2007. [21] I. Selesnick, “Sparse regularization via convex analysis,” IEEE Trans. Signal Process. , vol. 65, no. 17, pp. 4481–4494, 2017. [22] I. Bayram, “On the convergence of the iterative shrinkage/thresholding algorithm with a weakly convex penalty,” IEEE Trans. Signal Process. ,vol. 64, pp. 1597–1608, 2016. [23] J. Abe, M. Yamagishi, and I. Yamada, “Linearly involved generalized Moreau enhanced models and their proximal splitting algorithm under overall convexity condition,” Inverse Problems , vol. 36, no. 3, pp. 1–36, Feb. 2020. [24] M. Yukawa, H. Kaneko, K. Suzuki, and I. Yamada, “Linearly-involved Moreau-enhanced-over-subspace model: Debiased sparse modeling and stable outlier-robust regression,” IEEE Trans. Signal Process. , vol. 71, pp. 1232–1247, 2023. [25] S. J. Bradtke and A. G. Barto, “Linear least-squares algorithms for temporal difference learning,” Machine learning , vol. 22, no. 1, pp. 33– 57, 1996. [26] Y. Malitsky and M. K. Tam, “A forward-backward splitting method for monotone inclusions without cocoercivity,” SIAM J. Optim. , vol. 30, no. 2, pp. 1451–1472, 2020. [27] J. Diakonikolas, C. Daskalakis, and M. I. Jordan, “Efficient methods for structured nonconvex-nonconcave min-max optimization,” in Inter-national Conference on Artificial Intelligence and Statistics . PMLR, 2021, pp. 2746–2754. [28] A. Alacaoglu, D. Kim, and S. J. Wright, “Extending the reach of first-order algorithms for nonconvex min-max problems with cohypomono-tonicity,” arXiv preprint arXiv:2402.05071 , 2024. [29] A. Alacaoglu, A. B¨ ohm, and Y. Malitsky, “Beyond the golden ratio for variational inequality algorithms,” J. Mach. Learn. Res. , vol. 24, no. 172, pp. 1–33, 2023. [30] A. B¨ ohm, “Solving nonconvex-nonconcave min-max problems exhibit-ing weak minty solutions,” arXiv preprint arXiv:2201.12247 , 2022. [31] C. D. Dang and G. Lan, “On the convergence properties of non-euclidean extragradient methods for variational inequalities with gen-eralized monotone operators,” Computational Optimization and appli-cations , vol. 60, no. 2, pp. 277–310, 2015. [32] J. H. Alcantara and A. Takeda, “Douglas-rachford algorithm for nonmonotone multioperator inclusion problems,” arXiv preprint arXiv:2501.02752 , 2025. [33] B. Evens, P. Pas, P. Latafat, and P. Patrinos, “Convergence of the preconditioned proximal point method and douglas–rachford splitting in the absence of monotonicity,” Math. Prog. , pp. 1–55, 2025. [34] Q. Tran-Dinh, “Variance-reduced forward-reflected-backward splitting methods for nonmonotone generalized equations,” in 
+
+Proc. Int. Conf. Mach. Learn. , 2025, pp. 1–68. [35] N. Van Tran, “A forward-reflected-anchored-backward splitting algo-rithm with double inertial effects for solving non-monotone inclusion problems,” arXiv preprint arXiv:2503.08432 , 2025. [36] K. Suzuki and K. Slavakis, “Nonconvex regularization for feature selection in reinforcement learning,” in Proc. Int. Conf. Acoust., Speech, Signal Process. IEEE, 2026, pp. 5886–5890. [37] D. P. Bertsekas et al. , Dynamic programming and optimal control, volume II , 4th ed. Belmont, MA: Athena Scientific, 2012, vol. 2. [38] H. Yu and D. P. Bertsekas, “Convergence results for some temporal difference methods based on least squares,” IEEE Trans. Autom. Control ,vol. 54, no. 7, pp. 1515–1531, 2009. [39] M. Yukawa and I. Yamada, “Monotone Lipschitz-gradient denoiser: Explainability of operator regularization approaches free from Lipschitz constant control,” IEEE Trans. Signal Process. , pp. 1–16, 2025. [40] J. J. Moreau, “D´ ecomposition orthogonale d’un espace Hilbertien selon deux cˆ ones mutuellement polaires,” Comptes rendus hebdomadaires des s´ eances de l’Acad´ emie des sciences , vol. 255, pp. 238–240, 1962. [41] ——, “Fonctions convexes duales et points proximaux dans un espace Hilbertien,” C. R. Acad. Sci. Paris Ser. A Math. , vol. 255, pp. 2897–2899, 1962. [42] H. H. Bauschke and P. L. Combettes, Convex Analysis and Monotone Operator Theory in Hilbert Spaces , 2nd ed. New York: Springer, 2017. [43] H. H. Bauschke, W. M. Moursi, and X. Wang, “Generalized monotone operators and their averaged resolvents,” Math. Prog. , vol. 189, pp. 55– 74, 2021. [44] A. Antos, C. Szepesv´ ari, and R. Munos, “Learning near-optimal policies with Bellman-residual minimization based fitted policy iteration and a single sample path,” Machine Learning , vol. 71, no. 1, pp. 89–129, 2008. [45] B. Mercier, Lectures on Topics in Finite Element Solution of Elliptic Problems . Bombay: Tata Inst. Fundam. Res., 1979. [46] P. L. Combettes, “Solving monotone inclusions via compositions of nonexpansive averaged operators,” Optimization , vol. 53, no. 5-6, pp. 475–504, 2004. [47] P.-L. Lions and B. Mercier, “Splitting algorithms for the sum of two nonlinear operators,” SIAM J. Numer. Anal. , vol. 16, no. 6, pp. 964– 979, 1979. [48] J. Eckstein and D. P. Bertsekas, “On the Douglas-Rachford splitting method and the proximal point algorithm for maximal monotone oper-ators,” Math. Prog. , vol. 55, no. 1-3, pp. 293–318, 1992. [49] J. P. LaSalle, The Stability and Control of Discrete Processes . Springer Science & Business Media, 2012, vol. 62. [50] R. Rockafellar and R. J.-B. Wets, Variational Analysis . Heidelberg, Berlin, New York: Springer Verlag, 1998. [51] T. Pethick, P. Latafat, P. Patrinos, O. Fercoq, and V. Cevher, “Escaping limit cycles: Global convergence for constrained nonconvex-nonconcave minimax problems,” in International Conference on Learning Represen-tations (ICLR) , 2022. [52] X.-M. Niu and T. Sakurai, “A method for finding the zeros of polynomi-als using a companion matrix,” Japan journal of industrial and applied mathematics , vol. 20, no. 2, p. 239, 2003. [53] Y. Akiyama, M. Vu, and K. Slavakis, “Nonparametric Bellman mappings for reinforcement learning: Application to robust adaptive filtering,” 
+
+IEEE Trans. Signal Process. , vol. 72, pp. 5644–5658, 2024. [54] M. Ghavamzadeh, A. Lazaric, R. Munos, and M. Hoffman, “Finite-sample analysis of Lasso-TD,” in International Conference on Machine Learning , 2011. [55] F. H. Clarke, Optimization and Nonsmooth Analysis . New York: John Wiley & Sons Inc., 1983. [56] B. S. Mordukhovich, Variational Analysis and Applications . Germany: Springer, 2018. [57] D. P. Bertsekas, A. Nedi´ c, and A. E. Ozdaglar, Convex Analysis and Optimization . Cambridge, MA: Athena Sci., 2003. 1
+
+## Supplemental Material to “Non-Convex Sparse Reinforcement Learning via Non-Monotone Inclusions” 
+
+In this supplemental material, we refer to the equation numbers from the main text of the paper when necessary. APPENDIX DPROOF OF THEOREM 9Theorem 4 in light of 8(a) implies that K = (T +
+
+μ∂ ∥·∥ 1)−1(0) . According to the discussions in Section IV, Problem (22) is a special case of Theorem 11. Theorem 12 can be applied since it holds due to Theorem 8 that 
+
+ηk < 1 − 2ϵ
+
+2( β + 1) < 1, ∀k ∈ N ∪ {− 1}. (D.1) It remains to verify that (αμ∂ ∥·∥ 1− Id)( S) is bounded for every bounded set S. Let t ∈ (αμ∂ ∥·∥ 1− Id)( S). Then, there exists u ∈ S and z ∈ ∂∥·∥ 1(s) such that 
+
+t = αμ z − s. (D.2) Since S is bounded, there exists R ∈ R++ such that ∥u∥2< R .Hence, it follows that 
+
+∥t∥2 = ∥αμ z − u∥2
+
+≤ αμ ∥z∥2+∥u∥2
+
+< αμ √n + R, (D.3) where the last inequality is due to zi ∈ [−1, 1] for all i ∈ 1, n .Hence, (αμ∂ ∥·∥ 1− Id)( S) is bounded. Therefore, applying Theorem 15 and Theorem 17 proves the assertion. APPENDIX EPROOF OF THEOREM 12 To treat the resolvent of the non-monotone operator, an abstract subdifferential is first introduced. 
+
+Definition E.1 ( [43, Definition 6.1]) . An abstract subdifferen-tial of f : Rn → (−∞ , +∞] at x ∈ Rn, denoted as ∂#f (x),is a subset of Rn which satisfies the following properties: 
+
+(i) ∂#f (x) = ∂f (x) if f is a proper lower semicontinuous convex function; 
+
+(ii) ∂#f (x) = ∇f (x) if f is continuously differentiable; 
+
+(iii) 0 ∈ ∂#f (x) if f attains a local minimum at x ∈ dom f ;
+
+(iv) for every y ∈ Rn and ρ ∈ R,
+
+∂#
+
+ f + ( ρ/ 2) ∥· − y∥22
+
+ = ∂#f + ρ(Id −y). (E.1) The Clarke-Rockafellar subdifferential, Mordukhovich sub-differential, and Fr´ echet subdifferential are all instances of the abstract subdifferential (i)-(iv)—see [50], [55], [56] for example. 
+
+Proof of Theorem 12: Using an abstract subdifferential, it is verified that 
+
+ηk(αμ∂ ∥·∥ 1− Id) = ∂(ηkαμ ∥·∥ 1) − ηk Id = ∂#(ηkαμ ∥·∥ 1) − ηk Id = ∂#
+
+ ηkαμ ∥·∥ 1−(ηk/2) ∥·∥ 22
+
+ , (E.2) where the first equality is due to [42, Proposition 16.6]. Here, 
+
+ηkαμ ∥·∥ 1−(ηk/2) ∥·∥ 22 is ηk-weakly convex with ηk < 1 by assumption. Hence, it holds from [43, Proposition 6.4] that 
+
+Jηk (αμ∂ ∥·∥ 1− Id) = J∂#(ηk αμ ∥·∥ 1−(ηk /2) ∥·∥ 22)= s -Prox ηk αμ ∥·∥ 1−(ηk /2) ∥·∥ 22 . (E.3) Moreover, it follows from [39, Proposition 2] that 
+
+s-Prox ηk αμ ∥·∥ 1−(ηk /2) ∥·∥ 22
+
+= s -Prox ηk αμ ∥·∥ 1/(1 −ηk ) ◦(1 − ηk)−1 Id . (E.4) Hence, combining (E.3) and (E.4) completes the proof. APPENDIX FPROOF OF THEOREM 15 
+
+Proof: By (C.21), it holds that 
+
+zk+1 ≤ (1 + ζk)zk, (F.1) where zk := ∥xk − x∥2
+
+> H
+
++(1 /2) ∥xk − xk−1∥2
+
+> H
+
+. Hence, it holds that 
+
+zk ≤ z0
+
+> k−1
+
+Y
+
+> l=0
+
+(1 + ζl) ≤ z0+∞Y
+
+> l=0
+
+(1 + ζl) < +∞. (F.2) Here, Q+∞ 
+
+> l=0
+
+(1 + ζl) < +∞ since P+∞ 
+
+> l=0
+
+ζl < +∞ [42, Exercise 17.10(iii)]. Since x0 = x−1 by assumption, (F.2) yields 
+
+∥xk − x⋆∥H≤ ∥ x0 − x⋆∥H
+
+vuut+∞Y
+
+> l=0
+
+(1 + ζl). (F.3) Hence, the assertion follows with δ := ϵ/ 
+
+qQ+∞ 
+
+> l=0
+
+(1 + ζl).APPENDIX GPROOF OF THEOREM 17 
+
+Proof: Define ak := η−1 
+
+> k
+
+(xk − xk+1 − ηkB(xk) −
+
+ηk−1(B(xk) − B(xk−1))) ∈ A(xk+1 ), where the inclusion holds from (27). Then, it holds that 
+
+∥xk − xk+1 ∥H
+
+= ∥ηkak + ηkB(xk) + ηk−1(B(xk) − B(xk−1)) ∥H
+
+≤ ηk∥ak + B(xk)∥H+ηk−1∥B(xk) − B(xk−1)∥H
+
+≤ ηk(∥ak∥H+∥B(xk) − B(0) ∥H+∥B(0) ∥H)+ ηk−1∥B(xk) − B(xk−1)∥H
+
+≤ ηk(∥ak∥H+LB ∥xk∥H+∥B(0) ∥H) + ηk−1LB ∥xk − xk−1∥H.
+
+(G.1) Since (xk)k∈N is bounded by Theorem 14, (ak)k∈N ⊂S 
+
+> k∈N
+
+A(xk+1 ) is bounded by assumption. Hence, due to 
+
+ηk ≤ ηk−1, there exists M2 > 0 such that 
+
+∥xk − xk+1 ∥H≤ M2ηk−1, (G.2) 2
+
+from which together with P 
+
+> k∈N
+
+ηk < +∞ the inequality (31) is established. Hence, it holds that 
+
+lim 
+
+> n→+∞∞
+
+X
+
+> k=n
+
+∥xk − xk+1 ∥H
+
+= lim 
+
+> n→+∞
+> ∞
+
+X
+
+> k=0
+
+∥xk − xk+1 ∥H−
+
+> n−1
+
+X
+
+> k=0
+
+∥xk − xk+1 ∥H
+
+!
+
+= 0 . (G.3) Thus, it follows due to the triangle inequality for m, n ∈ N∗
+
+with m > n that 
+
+lim 
+
+> m,n →+∞
+
+∥xm − xn∥H = lim 
+
+> m,n →+∞
+> m−1
+
+X
+
+> k=n
+
+(xk − xk+1 )
+
+> H
+
+≤ lim 
+
+> m,n →+∞
+> m−1
+
+X
+
+> k=n
+
+∥xk − xk+1 ∥H
+
+≤ lim 
+
+> n→+∞
+> +∞
+
+X
+
+> k=n
+
+∥xk − xk+1 ∥H
+
+= 0 (G.4) and hence (xk)k∈N is a Cauchy sequence. The assertion is proved due to completeness of H.APPENDIX HPROOF OF THEOREM 19 The following lemmas are used in the proof. 
+
+Lemma H.1. Let A: H → 2H be maximally ρ-monotone for some ρ ∈ R. Then, gra A is closed. Proof: By [42, Proposition 20.38], maximal monotonicity of A + ρ Id implies that gra( A + ρ Id) is closed. Define a continuous linear operator S : H2 → H 2 : ( u, v ) → (u, v +
+
+ρu ). Then, S−1 : H2 → H 2 : ( u, v ) → (u, v − ρu ), and hence it holds that gra A = S−1 gra( A + ρ Id) . Since the preimage of a closed set under a continuous map is closed, gra A is closed. 
+
+Lemma H.2. Suppose that Assumption 18(c) holds. Then, 
+
+sup 
+
+> k∈N
+
+η−1 
+
+> k
+
+< +∞ and sup 
+
+> k∈N
+
+η−1 
+
+> k
+
+ηk−1 < +∞. (H.1) 
+
+Proof: Since (ηk)k∈N∪{− 1} ⊂ R++ and LB , ϖ, θ ∈
+
+R++ , (33) implies that, for all k ∈ N,
+
+3ϖ
+
+2ηk
+
+≤ 14 − θ, (H.2) and 
+
+η2
+
+> k
+
+L2 
+
+> B
+
+≤ 14 − θ. (H.3) Rearranging (H.2) yields 
+
+η−1 
+
+> k
+
+≤ 23ϖ
+
+ 14 − θ
+
+
+
+, ∀k ∈ N. (H.4) from which the first inequality of (H.1) follows. Similarly, rearranging (H.3) yields 
+
+ηk ≤ 1
+
+LB
+
+ 14 − θ
+
+1/2
+
+. (H.5) By combining (H.4) and (H.5), it holds for all k ∈ N that 
+
+η−1 
+
+> k
+
+ηk−1 ≤ 23ϖL B
+
+ 14 − θ
+
+3/2
+
+, (H.6) which establishes the second inequality of (H.1). 
+
+Proof of Theorem 19: Fix k ∈ N and x∗ ∈ Z ∗ arbitrarily. (i) Let ∆xk := xk − xk−1 and ∆Bk := B(xk) − B(xk−1).Then, it holds by (27) that 
+
+xk −ηkB(xk)−ηk−1(B(xk) − B(xk−1)) ∈ (Id + ηkA)( xk+1 )
+
+⇔ − ∆xk+1 − ηk−1∆Bk − ηkB(xk) ∈ ηkA(xk+1 ).
+
+(H.7) Adding ηkB(xk+1 ) to both sides of (H.7) yields 
+
+−∆xk+1 + ηk∆Bk+1 − ηk−1∆Bk ∈ ηk(A + B)( xk+1 ).
+
+(H.8) Let wk := η−1 
+
+> k
+
+(−∆xk+1 +ηk∆Bk+1 −ηk−1∆Bk). Then, since wk ∈ (A+B)( xk+1 ), it follows from the weak MVI assumption that 
+
+⟨wk, x k+1 − x∗⟩H ≥ − ϖ
+
+2 ∥wk∥2
+
+> H
+
+.
+
+⇔ U (1)  
+
+> k
+
++ U (2)  
+
+> k
+
+≥ − ηkϖ
+
+2 ∥wk∥2
+
+> H
+
+, (H.9) where U (1)  
+
+> k
+
+:= ⟨− ∆xk+1 , x k+1 − x∗⟩H and U (2)  
+
+> k
+
+:= 
+
+⟨ηk∆Bk+1 −ηk−1∆Bk, x k+1 −x∗⟩H. Since −⟨ ξ1, ξ 2⟩H =(1 /2) ∥ξ1 − ξ2∥2
+
+> H
+
+−(1 /2) ∥ξ1∥2
+
+> H
+
+−(1 /2) ∥ξ2∥2 
+
+> H
+
+for all 
+
+ξ1, ξ 2 ∈ H , U (1)  
+
+> k
+
+can be rewritten as 
+
+U (1)  
+
+> k
+
+= 12 ∥∆xk+1 − (xk+1 − x∗)∥2
+
+> H
+
+− 12 ∥∆xk+1 ∥2
+
+> H
+
+− 12 ∥xk+1 − x∗∥2
+
+> H
+
+= 12 ∥xk − x∗∥2
+
+> H
+
+− 12 ∥∆xk+1 ∥2
+
+> H
+
+− 12 ∥xk+1 − x∗∥2
+
+> H
+
+.
+
+(H.10) On the other hand, U (2)  
+
+> k
+
+can be rewritten as 
+
+U (2)  
+
+> k
+
+= ηk⟨∆Bk+1 , x k+1 − x∗⟩H − ηk−1⟨∆Bk, x k − x∗⟩H
+
+− ηk−1⟨∆Bk, ∆xk+1 ⟩H. (H.11) Let Lk := (1 /2) ∥xk − x∗∥2
+
+> H
+
+−ηk−1⟨∆Bk, x k − x∗⟩H.Then, it holds from (H.9), (H.10), and (H.11) that 
+
+Lk+1 − Lk
+
+= 12 ∥xk+1 − x∗∥2
+
+> H
+
+−ηk⟨∆Bk+1 , x k+1 − x∗⟩H
+
+− 12 ∥xk − x∗∥2
+
+> H
+
++ηk−1⟨∆Bk, x k − x∗⟩H
+
+= −U (1)  
+
+> k
+
+− U (2)  
+
+> k
+
+− 12 ∥∆xk+1 ∥2
+
+> H
+
+−ηk−1⟨∆Bk, ∆xk+1 ⟩H
+
+≤ ηkϖ
+
+2 ∥wk∥2
+
+> H
+
+− 12 ∥∆xk+1 ∥2
+
+> H
+
+−ηk−1⟨∆Bk, ∆xk+1 ⟩H.
+
+(H.12) Since −⟨ ξ1, ξ 2⟩H ≤ ∥ξ1∥H∥ξ2∥H=√2∥ξ1∥H·(1 /√2) ∥ξ2∥H≤ ∥ξ1∥2
+
+> H
+
++(1 /4) ∥ξ2∥2 
+
+> H
+
+for 3
+
+all ξ1, ξ 2 ∈ H due to the AM-GM inequality, it holds that 
+
+−ηk−1⟨∆Bk, ∆xk+1 ⟩H ≤ η2
+
+> k−1
+
+∥∆Bk∥2
+
+> H
+
++ 14 ∥∆xk+1 ∥2
+
+> H
+
+≤ η2
+
+> k−1
+
+L2 
+
+> B
+
+∥∆xk∥2
+
+> H
+
++ 14 ∥∆xk+1 ∥2
+
+> H
+
+,
+
+(H.13) where the last inequality is due to the Lipschitz continuity of B. On the other hand, since ∥(ξ1 + ξ2 + ξ3)/3∥2
+
+> H
+
+≤
+
+(1 /3)( ∥ξ1∥2
+
+> H
+
++∥ξ2∥2
+
+> H
+
++∥ξ3∥2
+
+> H
+
+) ⇔ ∥ξ1 + ξ2 + ξ3∥2
+
+> H
+
+≤
+
+3( ∥ξ1∥2
+
+> H
+
++∥ξ2∥2
+
+> H
+
++∥ξ3∥2
+
+> H
+
+) for all ξ1, ξ 2, ξ 3 ∈ H due to Jensen’s inequality [57], it holds that 
+
+η2
+
+> k
+
+∥wk∥2 
+
+> H
+
+= ∥− ∆xk+1 + ηk∆Bk+1 − ηk−1∆Bk∥2
+
+> H
+
+≤ 3( ∥∆xk+1 ∥2
+
+> H
+
++∥ηk∆Bk+1 ∥2
+
+> H
+
++∥ηk−1∆Bk∥2
+
+> H
+
+)
+
+≤ 3(1 + η2
+
+> k
+
+L2 
+
+> B
+
+)∥∆xk+1 ∥2
+
+> H
+
++3 η2
+
+> k−1
+
+L2 
+
+> B
+
+∥∆xk∥2
+
+> H
+
+,
+
+(H.14) where the last inequality is due to the Lipschitz continuity of B. Hence, it follows from (H.14) that 
+
+ηkϖ∥wk∥2 
+
+> H
+
+≤ 3(1 + η2
+
+> k
+
+L2 
+
+> B
+
+)ϖηk
+
+∥∆xk+1 ∥2
+
+> H
+
++ 3η2
+
+> k−1
+
+L2 
+
+> B
+
+ϖηk
+
+∥∆xk∥2
+
+> H
+
+. (H.15) Combining (H.12), (H.13), and (H.15) yields 
+
+Lk+1 − Lk ≤
+
+
+
+− 14 + 3(1 + η2
+
+> k
+
+L2 
+
+> B
+
+)ϖ
+
+2ηk
+
+| {z } 
+
+> =: V(1)
+> k
+
+∥∆xk+1 ∥2
+
+> H
+
++ η2
+
+> k−1
+
+L2
+
+> B
+
+
+
+1 + 3ϖ
+
+2ηk
+
+| {z } 
+
+> =: V(2)
+> k
+
+∥∆xk∥2
+
+> H
+
+. (H.16) Let ˜Lk := Lk +V (2)  
+
+> k
+
+∥∆xk∥2
+
+> H
+
+. Then, it holds from (H.16) that 
+
+˜Lk+1 − ˜Lk = Lk+1 − Lk + V (2) 
+
+> k+1
+
+∥∆xk+1 ∥2
+
+> H
+
+−V (2)  
+
+> k
+
+∥∆xk∥2
+
+> H
+
+≤ (V (1)  
+
+> k
+
++ V (2) 
+
+> k+1
+
+)∥∆xk+1 ∥2
+
+> H
+
+≤ − θ∥∆xk+1 ∥2
+
+> H
+
+, (H.17) where the last inequality is due to Assumption 18(c). Hence, it follows from (H.17) that 
+
+∥∆xk+1 ∥2
+
+> H
+
+≤ θ−1(˜Lk − ˜Lk+1 ). (H.18) On the other hand, it holds in the same way as (H.13) that 
+
+ηk−1⟨∆Bk, x k − x∗⟩H ≤ η2
+
+> k−1
+
+L2 
+
+> B
+
+∥∆xk∥2
+
+> H
+
++ 14 ∥xk − x∗∥2
+
+> H
+
+.
+
+(H.19) Hence, it follows that 
+
+˜Lk := Lk + V (2)  
+
+> k
+
+∥∆xk∥2
+
+> H
+
+= 12 ∥xk − x∗∥2
+
+> H
+
+−ηk−1⟨∆Bk, x k − x∗⟩H + V (2)  
+
+> k
+
+∥∆xk∥2
+
+> H
+
+≥ 14 ∥xk − x∗∥2
+
+> H
+
++( V (2)  
+
+> k
+
+− η2
+
+> k−1
+
+L2 
+
+> B
+
+)∥∆xk∥2
+
+> H
+
+= 14 ∥xk − x∗∥2
+
+> H
+
++ 3ϖη 2
+
+> k−1
+
+L2
+
+> B
+
+2ηk
+
+∥∆xk∥2
+
+> H
+
+. (H.20) On the other hand, since θ > 0 by Assumption 18(c), (H.17) implies that (˜Lk)k∈N is monotonically nonincreas-ing. Combining this monotonicity with (H.20) yields that 
+
+∥xk − x∗∥2
+
+> H
+
+≤ 4˜Lk ≤ 4˜L0, ∀k ∈ N. (H.21) Hence, it holds that ∥xk∥H< ∥x∗∥H+2 p˜L0, implying that (xk)k∈N is bounded. (ii) It holds from (H.20) that ˜Lk ≥ 0. Consequently, since 
+
+˜Lk+1 is monotonically nonincreasing, lim k→+∞ ˜Lk ex-ists, and it holds that 
+
+0 ≤ lim 
+
+> k→+∞
+
+˜Lk < +∞. (H.22) Hence, summing both sides of (H.18) for k ∈ N∗ yields 
+
+> +∞
+
+X
+
+> k=1
+
+∥∆xk+1 ∥2 ≤ θ−1+∞X
+
+> k=1
+
+(˜Lk − ˜Lk+1 )= θ−1(˜L1 − lim 
+
+> n→+∞
+
+˜Ln+1 )
+
+≤ θ−1 ˜L1 < +∞, (H.23) from which it follows that 
+
+lim 
+
+> k→+∞
+
+∥∆xk+1 ∥H= 0 . (H.24) Due to Lipschitz continuity of B, (H.24), and Theo-rem H.2, it follows that 
+
+lim 
+
+> k→+∞
+
+∥wk∥H
+
+= lim 
+
+> k→+∞
+
+∥η−1 
+
+> k
+
+(−∆xk+1 + ηk∆Bk+1 − ηk−1∆Bk)∥H
+
+≤ lim  
+
+> k→+∞
+
+η−1 
+
+> k
+
+(1 + ηkLB )∥∆xk+1 ∥H+η−1 
+
+> k
+
+ηk−1LB ∥∆xk∥H
+
+= 0 . (H.25) Since (xk)k∈N is bounded, it possesses a weakly conver-gent subsequence [42, Lemma 2.45]. Let ¯x be a sequential weak cluster point of (xk)k∈N, say xlk ⇀ ¯x, and let 
+
+ak := wk − B(xk+1 ) ∈ A(xk+1 ). Then, it holds due to (H.25) and the continuity of B and the norm that 
+
+0 = lim 
+
+> k→+∞
+
+∥ak + B(xk+1 )∥H
+
+= lim 
+
+> k→+∞
+
+∥alk + B(xlk +1 )∥H
+
+= lim  
+
+> k→+∞
+
+alk + B(¯ x)
+
+> H
+
+, (H.26) and hence 
+
+lim  
+
+> k→+∞
+
+alk = −B(¯ x). (H.27) By closedness of gra A due to Theorem H.1, 
+
+lim k→+∞(xlk +1 , a lk ) = (¯ x, −B(¯ x)) implies that 
+
+(¯ x, −B(¯ x)) ∈ gra A, i.e. , 0 ∈ (A + B)(¯ x).(iii) By Cauchy-Schwarz inequality, it holds from Assumption 18(a) that 
+
+|ηk−1⟨∆Bk, x k − x∗⟩H| ≤ ηk−1∥∆Bk∥H∥xk − x∗∥H
+
+≤ 2η0LB ∥∆xk∥H
+
+q
+
+˜L0,
+
+(H.28) 4
+
+where the last inequality is due to the Lipschitz inequality of B and (H.21). Hence, in light of (H.24), (H.28) yields that 
+
+lim  
+
+> k→+∞
+
+ηk−1⟨∆Bk, x k − x∗⟩H = 0 . (H.29) On the other hand, since (ηk)k∈N∪{− 1} ⊂ R++ and 
+
+LB , ϖ, θ ∈ R++ , (33) implies that 
+
+V (2)  
+
+> k+1
+
+:= η2
+
+> k
+
+L2
+
+> B
+
+
+
+1 + 3ϖ
+
+2ηk+1 
+
+
+
+≤ 14 − θ, ∀k ∈ N.
+
+(H.30) Hence, it holds that 
+
+V (2)  
+
+> k
+
+∥∆xk∥2
+
+> H
+
+≤
+
+ 14 − θ
+
+
+
+∥∆xk∥2
+
+> H
+
+, (H.31) from which together with (H.24) it follows that 
+
+lim  
+
+> k→+∞
+
+V (2)  
+
+> k
+
+∥∆xk∥2
+
+> H
+
+= 0 . (H.32) Since it holds that 
+
+12 ∥xk − x∗∥2
+
+> H
+
+= Lk + ηk−1⟨∆Bk, x k − x∗⟩H
+
+= ˜Lk − V (2)  
+
+> k
+
+∥∆xk∥2
+
+> H
+
++ηk−1⟨∆Bk, x k − x∗⟩H,
+
+(H.33) combining (H.29) and (H.32) in light of (H.22) implies that (∥xk − x∗∥H)k∈N converges. Consequently, due to [42, Lemma 2.47], (xk)k∈N converges weakly to a point in zer( A + B).APPENDIX IPROOF OF PROPOSITION 20 
+
+Proof: When ηk = η for all k ∈ N ∪ {− 1} for some 
+
+η ∈ R++ , (33) is equivalent that 
+
+Υ( η) ≤ 14 − θ ⇔ θ ≤ 14 − Υ( η). (I.1) Hence, it is sufficient to show that (I.1) holds for all η ∈
+
+[η−, η +].First, the uniqueness and existence of η∗ is verified below. Since Υ′′ (η) = 2 L2 
+
+> B
+
++ 3 ϖη −3 > 0 for any η ∈ R++ , Υ
+
+is strictly convex over R++ [57, Proposition 1.2.6]. Hence, by [57, Proposition 2.1.2], there exists at most one global minimizer of Υ over R++ . Since lim η↓0 Υ( η) = + ∞, for all M1 > 0, there exists r1 ∈ R++ such that 
+
+Υ( η) > M 1, ∀η ∈ (0 , r 1). (I.2) Similarly, since lim η→+∞ Υ( η) = + ∞, for all M2 > 0, there exists r2 ∈ R++ such that 
+
+Υ( η) > M 2, ∀η ∈ (r2, +∞). (I.3) Let r0 ∈ R++ , rmin := min {r1, r 2}, and rmax := max {r1, r 2} for r1, r 2 that satisfy (I.2) for M1 := Υ( r0) and (I.3) for M2 := Υ( r0), respectively. Then, it holds that Υ( η) >
+
+Υ( r0) for all η ∈ R++ \ [rmin , r max ]. Since [rmin , r max ]
+
+is compact and Υ is continuous on this set, there exists 
+
+˜η∗ ∈ R++ that minimizes Υ over [rmin , r max ] [57, Proposition 2.1.1]. Hence, by setting η∗ := ˜ η∗ if Υ(˜ η∗) ≤ Υ( r0) and 
+
+η∗ := r0 otherwise, η∗ uniquely minimizes Υ over R++ .Since Υ′ is monotonically increasing due to strict convexity and Υ′(η∗) = 0 , Υ is monotonically decreasing in (0 , η ∗].Hence, lim η↓0 Υ( η) = + ∞ and Υ( η∗) < 1/4 − θ imply that 
+
+Υ( η−) = 1 /4−θ for some η− ∈ (0 , η ∗], and (I.1) holds for all 
+
+η ∈ [η−, η ∗]. Similarly, since Υ is monotonically increasing in [η∗, +∞), lim η→+∞ Υ( η) = + ∞ and Υ( η∗) < 1/4 − θ
+
+imply that Υ( η+) = 1 /4 − θ for some η+ ∈ [η∗, +∞), and (I.1) holds for all η ∈ [η∗, η +].
