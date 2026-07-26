@@ -1,0 +1,265 @@
+Title: Counterfactual Explainability Framework With CycleGAN And Counterfactual-Classifier Alignnment Score for Retinal Disease Classification
+
+URL Source: https://arxiv.org/pdf/2607.21068v1
+
+Published Time: Fri, 24 Jul 2026 00:50:17 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+> IEEE JOURNAL AND TRANSACTIONS TEMPLATE, VOL. XX, NO. XX, 2026 1
+
+# Counterfactual Explainability Framework With CycleGAN And Counterfactual-Classifier Alignment Score For Retinal Disease Detection 
+
+Kritanu Chattopadhyay, Sayanjit Singha Roy, Member, IEEE , and Soumya Chatterjee, Member, IEEE 
+
+Abstract — Automated detection of vision impairing retina-based ocular conditions from fundus images is im-portant for early screening, timely referral and reducing dependency on specialist-only assessment, for which neu-ral network-based deep learning (DL) models have been widely utilized. However, explainability of the DL frame-works remains a major bottleneck for clinical adoption, particularly when model decisions are not linked to reti-nal regions that are clinically meaningful. To address this issue, this study presents CounterFundus, a novel CycleGAN-driven counterfactual explainability framework, integrating EfficientNet-B5-based retinal disease detection with visually interpretable disease-to-normal fundus image translation. For each pathological image, the counterfactual yielded by the CycleGAN generator represents an esti-mated healthy counterpart and the resultant difference map is utilized to localize disease-associated retinal changes. Unlike conventional post-hoc saliency methods, Counter-Fundus provides counterfactual explanations through visu-ally plausible disease-to-normal retinal translation. There-after, to quantify the spatial agreement between coun-terfactual difference maps and classifier saliency, the Counterfactual-Classifier Alignment Score (CCAS) is in-troduced, embedding Spearman correlation, binary IoU and pointing accuracy into a single assessment protocol. To this end, EigenCAM-aligned evaluation demonstrates that the generated counterfactual explanations remain spa-tially consistent with classifier-relevant retinal evidence across all CCAS dimensions. Along with that, ablation studies further confirm that CCAS-filtered counterfactual augmentation improves the downstream classification per-formance in fundus images, establishing CounterFundus as a clinically-grounded, explainable artificially intelligence (XAI) framework for retinal disease detection. 
+
+Index Terms — Counterfactual explainability, deep learn-ing, explainable AI, fundus image, retinal disease. 
+
+I. I NTRODUCTION 
+
+# FUNDUS imaging serves as a primary diagnostic tool for a range of vision-threatening retinal conditions including diabetic retinopathy, glaucoma and cataract. For the purpose of automated retinal disease detection, neural network (NN)-based deep learning (DL) frameworks have demonstrated 
+
+Kritanu Chattopadhyay is with the Department of Mechanical En-gineering, National Institute of Technology Durgapur, West Bengal, 713209, India. (e-mail: kritanuchattopadhyaywork@gmail.com). Sayanjit Singha Roy ( Corresponding author ) is with the Department of Electrical Engineering, IIT Kanpur, Uttar Pradesh, 208016, India. (e-mail: sayanjit2011@gmail.com). Soumya Chatterjee is with the Department of Electrical Engineering, National Institute of Technology Durgapur, West Bengal, 713209, India. (e-mail: chapeshwar@gmail.com). 
+
+strong quantitative performance, yet clinical translation re-mains severely limited by the explainability of the DL models due to their black box-like decision making mechanism [1], [2]. Also, clinicians require spatially grounded evidence be-hind pathological predictions, whereas most post-hoc explana-tion methods fall short, providing limited clinical interpretabil-ity. [3]. In this context, gradient-based attribution methods such as GradCAM [4] and its variants [5] can highlight dis-criminative regions within the classifiers’ feature space but are fundamentally tied to the model’s internal gradients and offer no insight how the same fundus image would appear without pathological changes. Perturbation-based methods, such as LIME [6], rely on superpixel masking, where the segmented regions are often biologically arbitrary and may not correspond to clinically meaningful structures such as the optic disc, macula or vessel arcades. Therefore, the research gap between saliency maps and clinical semantics remains unaddressed, particularly in multi-class retinal disease detection. To this end, counterfactual explanations offer a fundamen-tally novel paradigm to model interpretation by identifying the changes in an input that would alter the model decision [7]. In fundus imaging, this can be formulated as generating a visually plausible healthy counterpart of a diseased retinal image along with utilizing the pixel-level difference to localize disease-related regions. However, existing counterfactual studies do not quantify how well these difference maps align with the classifier-yielded disease-relevant regions. 
+
+II. B ACKGROUND AND SCOPE OF WORK 
+
+Counterfactual explanations were formalised by Wachter et al . [7] as minimal-change inputs capable of altering a model’s decision, establishing the interpretable paradigm on which CounterFundus is built. Since then, the literature has mainly evolved along three directions; Assessing saliency reliability, generating realistic counterfactual images using generative models and validating whether the explanations are clinically meaningful. The first direction focuses on assessing saliency reliability. Through IoU-based analysis, Arun et al . [8] showed that saliency methods have limited localization efficiency in medical imaging, directly motivating the spatial alignment protocol proposed in this work. Focusing on generating realistic counterfactual images through generative models, GAN-based counterfactual gen-eration was later explored by Mertes et al . [9], while Narayanaswamy et al . [10] extended this direction using arXiv:2607.21068v1 [cs.LG] 23 Jul 2026 2 IEEE Journal and Transactions Template, Vol. XX, No. XX, 2026 
+
+TABLE I : Augmentation Strategy                       
+
+> Transform Classifier Training CycleGAN Training
+> Resize 224 ×224 224 ×224
+> Horizontal Flip p= 0 .5p= 0 .5
+> Vertical Flip p= 0 .3p= 0 .5
+> Rotation 15 ◦10 ◦
+> Color Jitter brightness = 0.2, con-trast = 0.2 brightness = 0.1, con-trast = 0.1 Normalization ImageNet mean/std [−1,1]
+
+CycleGAN-based abnormal-to-normal image translation. More recently, diffusion models have emerged as an alternative to GAN-based counterfactual generation, with Atad et al . [11] implementing a diffusion autoencoder for RetinaMNIST and Zigutyte et al . [12] using DDIM conditioning for histopathol-ogy explainability. In parallel, CycleGAN [13] has also shown substantial efficacy in fundus domain adaptation [14] as well as in multi-modal retinal image synthesis [15]. Moreover, Xue et al . [16] further introduced quality-driven synthetic augmentation, which is conceptually related to the CCAS-based filtering strategy implemented in the present work. From the clinical validation perspective, prior studies have increasingly emphasized that explanation maps should not only be visually plausible but also correspond to disease-relevant lesion-level evidence. Calibration-based quality con-trol for chest X-ray counterfactuals was introduced in [17], highlighting the need for joint evaluation of visual inter-pretability and explanation reliability. In retinal disease detec-tion, Boreiko et al . [18] generated visual counterfactual ex-planations for diabetic retinopathy and evaluated them against expert lesion masks using IoU, making it one of the closest prior studies to the present work. Djoumessi et al . [19] further demonstrated that interpretable diabetic retinopathy models with lesion-level evidence maps can improve screening speed and diagnostic accuracy, supporting the need for XAI frameworks that are visually feasible and spatially meaningful from a clinical perspective. EfficientNet-based backbones [20] are also been widely used owing to their strong accuracy-to-complexity balance. Bajwa et al . [21] addressed glaucoma localization, while 95.12% accuracy has been reported in [22] on the same 4-class Kaggle fundus dataset used in this study. Despite these advances, a research gap still remains in evaluating counterfactual explanations in terms of both visual interpretability as well as spatial agreement with classifier-relevant retinal regions. To address this gap, the present study proposes CounterFundus, a CycleGAN-driven counter-factual XAI framework that integrates disease-to-normal reti-nal translation with classifier-aligned explanation assessment. Key highlights of the current work are mentioned below. 1) A CycleGAN-driven disease-to-normal retinal image trans-lation framework is incorporated to generate visually plau-sible healthy counterparts of pathological fundus images. 2) A novel CCAS is introduced by embedding Spearman correlation, binary IoU and pointing accuracy into a single evaluation protocol for assessing the spatial agreement between counterfactual difference maps and classifier-relevant retinal regions. 3) A CCAS-filtered counterfactual augmentation strategy is 
+
+Fig. 1 : Fundus images of (a) normal, (b) diabetic retinopathy, (c) glaucoma and (d) cataract categories, respectively. implemented to retain spatially reliable synthetic samples for EfficientNet-B5-based retinal disease classification. 4) EigenCAM-guided classifier saliency is incorporated within the CCAS protocol to evaluate the alignment be-tween generated counterfactual explanations and decision-relevant retinal evidence. 5) The proposed CounterFundus framework is designed as an XAI approach to generate spatially significant and clinically interpretable explanations for multi-class retinal disease detection. 
+
+III. D ATASET AND PRE -PROCESSING 
+
+A. Fundus Image Dataset 
+
+In this work, an online benchmark fundus image dataset [23] is utilized, comprising 4217 RGB fundus images from four categories viz. normal, diabetic retinopathy, glaucoma and cataract. The corresponding class-wise image counts are 1074, 1098, 1007 and 1038, respectively, indicating a mildly imbalanced distribution. The fundus images were captured under standard clinical imaging protocols at varying resolu-tions. Representative samples from the different fundus image categories are shown in Fig. 1. To preserve the natural data distribution during evaluation, the mild class imbalance is handled through stratified sampling rather than oversampling. 
+
+B. Image Augmentation and Cross-validation Splits 
+
+The acquired fundus image dataset is first divided using a stratified holdout strategy, where 20% of the images are reserved as a locked test set before model training. The remaining 80% of the dataset is used for 5-fold stratified cross-validation (CV). During training, image augmentation is applied only to the training folds to synthetically increase the number of input images using the augmentation strategies listed in Table I. The validation and test sets are only resized and normalized, with no augmentation applied. 
+
+IV. M ETHODOLOGY 
+
+A. Classification Backbone 
+
+The proposed CounterFundus framework implements an EfficientNet-B5-based classification backbone [20], where the original classification head is replaced by a two-layer multi-layer perceptron (MLP). As can be seen from the Counter-Fundus workflow in Fig. 2, the backbone extracts a 2048-3 IEEE Journal and Transactions Template, Vol. XX, No. XX, 2026 
+
+Fig. 2 : Proposed CounterFundus pipeline. dimensional feature, which is passed through a dropout-linear-ReLU-dropout-linear classification head with forward pass: 
+
+ˆy = W2 · Dropout (ReLU (W1 · Dropout (fθ (x)))) (1) where, x ∈ R3×224 ×224 denotes the input fundus image and 
+
+fθ (x) ∈ R2048 represents the global average-pooled feature vector extracted by the EfficientNet-B5 backbone, parameter-ized by θ. W1 ∈ R512 ×2048 projects the 2048-dimensional feature vector into a 512-dimensional latent representation, while W2 ∈ R4×512 maps the transformed features to the final disease-class output ˆy. Dropout is applied before the first and final linear layers with probabilities 0.4 and 0.3, respectively. ReLU introduces non-linearity between the two linear layers, while dropout reduces overfitting during training. Overall, the model contains approximately 29.3 million parameters. 
+
+B. CycleGAN-based Counterfactual Generator 
+
+The CycleGAN module [13] learns bi-directional transla-tion between diseased and normal fundus image domains. It consists of two generators, GD→N and GN →D , and two discriminators, DN and DD , for normal and diseased do-mains, respectively. Each generator follows a ResNet-based architecture with reflection padding, two downsampling layers, 12 residual blocks with instance normalization and dropout and two final upsampling layers followed by T anh activation. The discriminators use a 5-layer PatchGAN architecture with LeakyReLU activations. An image replay buffer of size 50 is also used improve training stability. The generator objective combines adversarial, cycle-consistency and identity losses, expressed as:          
+
+> LG=Ladv +λcyc
+> 
+> LDcyc +LNcyc
+> 
+> +λcyc λidt
+> 
+> LNidt +LDidt
+> 
+> (2)
+
+where, λcyc (= 7) and λidt (= 0 .3) control the contributions of cycle-consistency and identity preservation, respectively. The adversarial loss is measured using an MSE-based LSGAN objective, while the cycle-consistency term is computed using L1 loss. The network operates on 224 × 224 × 3-dimensional fundus images using a base filter size of 64 and ADAM optimizer with β1(= 0 .5) and β2(= 0 .999) . Model training is performed for 150 epochs with a learning rate of 2 × 10 −4
+
+and a linear learning-rate decay is applied after epoch 75. 
+
+C. Difference Map Computation 
+
+For a diseased fundus image xD , the corresponding nor-mal counterfactual is generated as ˆxN = GD→N (xD ). The disease-associated changes are then localized by computing the channel-averaged absolute difference between the original diseased image and its generated counterfactual, expressed as: 
+
+Draw (i, j ) = 13
+
+> 3
+
+X
+
+> c=1
+
+|xcD (i, j ) − ˆxcN (i, j )| (3) where, i and j denote the spatial pixel locations and 
+
+c represents the RGB channel index. To reduce peripheral boundary artifacts, the raw difference map Draw is weighted using a center-focused radial mask: 
+
+w(i, j ) = 1 − 0.5 · d(i, j )
+
+dmax 
+
+(4) where, d(i, j ) is the Euclidean distance of pixel (i, j ) from the image center and dmax denotes the maximum radial distance within the image. The final counterfactual difference incorporates radial weighting followed by min-max normal-ization: 
+
+D(i, j ) = Draw (i, j ) · w(i, j ) − min max − min + ϵ (5) where, ϵ(= 10 −8) is used for numerical stability. This weight-normalization step particularly suppresses peripheral noise while preserving clinically relevant retinal regions in the fundus images, including the optic disc and macula. 
+
+D. Counterfactual-Classifier Alignment Score (CCAS) 
+
+To quantify interpretability, the proposed CCAS measures spatial agreement between the counterfactual difference map, 
+
+D and the EigenCAM saliency map, S. Before computation, both maps are resized to 56 ×56 and evaluated within a central circular region corresponding to the retinal field of view. The CCAS protocol combines three metrics. First, Spearman rank correlation ( ρ) evaluates the monotonic agreement between the intensity distributions of D and S, defined as: 
+
+ρ = 1 − 6 P d2
+
+> i
+
+n(n2 − 1) (6) where, di denotes the rank difference between correspond-ing pixels and n is the number of evaluated pixels. Second, 4 IEEE Journal and Transactions Template, Vol. XX, No. XX, 2026 
+
+TABLE II : Fold-wise CounterFundus Performance                               
+
+> Split Acc. (%) AUC (%) F1 (%)
+> Fold 1 94.52 99.04 94.44 Fold 2 96.44 99.19 96.39 Fold 3 95.41 99.05 95.34 Fold 4 94.96 99.39 94.92 Fold 5 94.66 99.19 94.59 CV 95 .2±0.69 99 .17 ±0.13 95 .14 ±0.7
+> Test 95.38 99.69 95.31
+
+binary IoU measures the spatial overlap between thresholded salient regions, expressed as: IoU =
+
+P 1[D > τ ] · 1[S > τ ]
+
+P 1[( D > τ ) ∪ (S > τ )] + ϵ (7) where, τ is the saliency threshold and ϵ prevents numerical instability. Finally, pointing accuracy ( P A ) evaluates whether the peak response locations of the two maps are spatially close: PA = 1 [|| pD − pS || 2 < 0.2 × H] (8) where, pD and pS denote the peak locations in the counter-factual difference and EigenCAM maps, respectively and H is the map height. The final CCAS is summarized across disease classes using 95% confidence intervals. 
+
+E. Training Protocol 
+
+Training is performed using the AdamW optimizer with a learning rate of 1×10 −4, weight decay of 1×10 −4 and a batch size of 16. A cosine annealing schedule is applied over 35 epochs with Tmax (= 35) . To reduce overconfident predictions, cross-entropy loss with label smoothing ϵ(= 0 .1) is used. In addition, mixup augmentation is employed with α(= 0.4) 
+
+to improve generalization, where the mixing coefficient λ
+
+is sampled from a β-distribution and adjusted to retain one dominant class. The corresponding mixup loss is defined as: 
+
+Lmix = λL(f (xi), y i) + (1 − λ)L(f (xi), y j ) (9) where, xi denotes the input image, yi and yj are the paired class labels and f (·) represents the classifier output. Gradient clipping with max norm (= 1) is further applied to improve training stability. Finally, 5-fold stratified CV is performed on the training set and the best model is selected based on validation accuracy. 
+
+V. R ESULTS AND DISCUSSION 
+
+A. Disease Detection Performance of the Proposed CounterFundus Framework 
+
+As mentioned earlier, the EfficientNet-B5 classifier is trained using the 80% CV pool and evaluated on the 20% locked test set. The per-fold and test-set performances are reported in Table II in percentage values (mean ± std.), indicated in terms of accuracy (Acc.), precision (Prec.), recall (Rec.), F1-score (F1) and AUC. The corresponding confusion matrices, convergence curves and ROC curves are shown in Fig. 3. The EfficientNet-B5 classifier is observed to converge stably across the five folds, achieving a CV accuracy of 95 .2±  
+
+> (a) (b)
+> (c) (d)
+
+Fig. 3 : Detection performance visualization of the proposed CounterFundus framework: (a) confusion matrix for the best validation fold, (b) confusion matrix for the locked test set, (c) training/validation accuracy and loss curves for the best fold, and (d) one-vs-rest class-wise ROC curves with macro-average ROC-AUC for the locked test set. 
+
+TABLE III : Class-wise CounterFundus Performance                                   
+
+> Class Acc. Prec. Rec. F1 AUC (%) (%) (%) (%) (%)
+> Normal 95.85 92.45 91.16 91.80 99.4 Diab. Ret. 100 100 100 100 100 Glaucoma 96.45 92.54 92.54 92.54 99.4 Cataract 98.46 96.21 97.6 96.9 100
+> Macro avg. 97.69 95.3 95.32 95.31 99.7
+
+0.69 % and an F1-score of 95 .14 ± 0.7%. The limited inter-fold variation, together with the smooth training and validation trends seen in Fig. 3(c), suggests that the adopted mixup and label-smoothing protocols effectively reduce overfitting. On the locked test set, the classifier achieved 95.38% accuracy, 95.31% macro F1-score and 99.69% AUC, confirming robust disease-discrimination capability of CounterFundus. To further analyze the locked test-set behaviour, class-wise performance metrics are reported in Table III. Diabetic retinopathy is seen to achieve perfect precision, recall and F1-score of 100%, while cataract achieved a high F1-score of 96.9%. Normal and glaucoma obtained relatively lower F1-scores of 91.8% and 92.54%, respectively, mainly due to mutual class overlap. Corresponding to this particular finding, Fig. 3(b) also shows 13 false positive outcomes between the normal and glaucoma categories. This behaviour is consistent with the known difficulty of distinguishing early-stage glau-coma cupping from normal optic-disc variation [21]. 
+
+B. Qualitative Analysis of The Counterfactual Generation Scheme 
+
+In this work, counterfactual generation quality is evaluated using structural similarity index measure (SSIM) and peak 5 IEEE Journal and Transactions Template, Vol. XX, No. XX, 2026 
+
+TABLE IV : Counterfactual Generation Quality                         
+
+> Class SSIM PSNR (dB) FID
+> Cataract 0.75 ±0.04 21 .64 ±2.42
+> 48.56 Diab. Ret. 0.78 ±0.06 19 .04 ±3.48
+> Glaucoma 0.82 ±0.043 24 .22 ±2.69
+> Overall 0.783 21.63 48.56
+
+TABLE V : Classifier Confidence Shift After Translation                 
+
+> Class Orig. D (%) CF D (%) Orig. N (%) CF N (%)
+> Cataract 89.24 22.17 3.76 69.64 Diab. Ret. 90.65 8.77 3.16 78.66 Glaucoma 87.06 23.83 4.03 65.48
+
+signal-to-noise ratio (PSNR), computed per sample between each generated counterfactual and its corresponding origi-nal diseased image. In addition, Fr´ echet inception distance (FID) is calculated globally between the counterfactual set and 200 real normal fundus images using 2048-dimensional EfficientNet-B5 features. The results are reported in Table IV. As shown in Table IV, glaucoma achieves the highest SSIM of 0.82 and PSNR of 24.22 dB, consistent with localized optic-disc changes requiring limited global structural modification [21]. In contrast, diabetic retinopathy shows the lowest PSNR of 19.04 dB, reflecting broader vascular-region alterations associated with hemorrhages and exudates, although it main-tains a moderate SSIM of 0.78. The FID of 48.56 indicates reasonable distributional alignment between generated coun-terfactuals and real normal images, considering the multi-disease domain gap [24]. The obtained results confirm that 
+
+GD→N produces structurally plausible counterfactual outputs rather than arbitrary image hallucinations. 
+
+C. Classifier Confidence Shift After Counterfactual Translation 
+
+To validate the semantic meaningfulness of disease-to-normal translation in this work, classifier softmax confidence is measured for each original diseased image and its corre-sponding counterfactual. Table V reports the average per-class confidence before and after translation, while representative disease-to-normal outputs are shown in Fig. 4. It can be noticed from Table V that the average disease confidence decreases by 0.67 points after translation, while the mean normal-class confidence increases by the same margin. This near-symmetric confidence shift indicates that GD→N
+
+modifies disease-discriminative regions and shifts the classi-fier response toward the normal class, rather than producing only superficial appearance changes [13]. Diabetic retinopathy shows the largest shift, with disease confidence decreasing from 90.65% to 8.77%, which is consistent with localized lesion patterns such as hemorrhages and exudates whose removal strongly affects the classifier decision [18]. The visual examples illustrated in Fig. 4 further show that the counterfactual generator largely preserves the retinal back-ground while suppressing disease-specific regions related to the classifier decision. This qualitative observation corresponds to Table V, where reduced disease confidence is accompanied by a corresponding increase in normal-class confidence. 
+
+Fig. 4 : Disease-to-normal counterfactual translation results for (1) diabetic retinopathy, (2) glaucoma and (3) cataract disease classes. The Columns denote (a) original fundus image, (b) generated counterfactual, (c) corresponding difference map and (d) boundary overlays, respectively. 
+
+TABLE VI : CCAS Metric Validation Tests                      
+
+> Test Variables Stat. p
+> T1 IoU vs. Conf. Shift ρ=0 .05 0.546 T2 Correct vs. Incorrect IoU μ=0 .561 –T3 IoU across methods (K-W) H=136 .95 <0.0001 T4 IoU vs. SSIM r=0 .009 0.916 T5 IoU prediction AUC ––T6 EigenCAM vs. GradCAM 0.563/0.22 <0.0001
+
+D. Validation Study based on The CCAS Metric 
+
+In this section, six validation tests are performed to examine whether the CCAS behaves as a statistically reliable and clinically meaningful spatial alignment metric. The outcomes are summarized in Table VI. T1 evaluates the association between CCAS-IoU and classifier confidence shift, whereas T4 examines its relation with SSIM-based image fidelity. Both tests unravel weak and non-significant correlations, which is expected since CCAS-IoU measures geometric overlap between counterfactual evidence and saliency regions rather than scalar confidence variation or global image similarity. In particular, the near-zero correlation in T4, with r(= 0 .009) and 
+
+p(= 0 .916) , confirms CCAS-IoU being largely independent of image fidelity and capable of serving as a separate spatial alignment measure. Stronger statistical evidences are observed in T3 and T6 also. In T3, the Kruskal-Wallis test reports a significant difference in IoU across saliency methods ( H = 136 .95 ,
+
+p < 0.0001 ), indicating that CCAS is sensitive to method-level localization differences. In T6, CCAS-alligned Eigen-CAM achieves a higher alignment score than GradCAM, yielding IoU values of 0.563 and 0.22, respectively, and the difference is statistically significant ( p < 0.0001 ) also. These results support CCAS being an independent spatial alignment measure for assessing the agreement between counterfactual modifications and classifier-yielded regions. 
+
+E. CCAS-based Evaluation Across Disease Categories 
+
+This section evaluates the spatial agreement between coun-terfactual difference maps and classifier-derived saliency 6 IEEE Journal and Transactions Template, Vol. XX, No. XX, 2026 
+
+Fig. 5 : t-SNE projection of EfficientNet-B5 features. 
+
+TABLE VII : Per-class CCAS Results Using EigenCAM                
+
+> Class Spearman Correlation ( ρ)IoU@0.3 PA
+> Cataract 0.938 0.521 0.46 Diab. Ret. 0.959 0.689 0.64 Glaucoma 0.952 0.48 0.54
+> Overall 0.95 0.563 0.547
+
+across retinal disease categories. To avoid unstable counterfac-tual responses, samples having difference map standard devi-ations greater than 0.35 are excluded. Both the counterfactual difference map and EigenCAM saliency map are also resized to 56 × 56 , with a circular ROI having radius of 0.35 H.The CCAS metrics are computed using 50 samples per class and the results are reported in Table VII, from which Spearman correlation is seen to exceed 0.93 for all classes, indicating strong rank-order agreement between counterfactual difference maps and EigenCAM saliency. Diabetic retinopathy achieves the highest IoU@0.3 of 0.689 and P A of 0.64, consistent with spatially concentrated retinal hemorrhages being localized by both the generator and classifier [18]. In contrast, glaucoma exhibits the lowest IoU@0.3 of 0.480, likely because diffuse optic-disc cupping is less sharply captured under binary thresh-olding set at τ (= 0 .3) [21]. To examine whether the classifier and generator converge toward pathology-relevant representations, Fig. 5 shows the t-SNE projection of EfficientNet-B5 features using 200 samples per class. The well-separated clusters indicate geometrically distinct disease representations, consistent with the high CCAS across disease classes reported in Table VII. Together, the near-symmetric confidence shift in Table V and separated feature clusters in Fig. 5 suggest that the classifier and generator independently capture overlapping pathology-relevant features [13], supporting CCAS as a reliable assessment metric. Further supporting this observation, Fig. 6 shows that counterfactual difference maps overlap well with classifier-discriminative regions. Moreover, EigenCAM also exhibits strong spatial agreement between the original fundus images and the counterfactuals, indicating reliable localization of pathological evidence under the proposed CCAS protocol. 
+
+F. Explainability Analysis of the Proposed CounterFundus Framework 
+
+In this section, CCAS is evaluated as an XAI assessment measure using EigenCAM across 50 samples per class and 
+
+Fig. 6 : CCAS visualization for (1) diabetic retinopathy, (2) glaucoma and (3) cataract disease classes. Columns show (a) original fundus image, (b) CycleGAN-generated normal coun-terfactual, (c) weighted difference map and (d) EigenCAM saliency map, respectively. 
+
+TABLE VIII : CCAS-based Comparison of XAI Interpretability                
+
+> Method Spearman Correlation ( ρ)IoU@0.3 PA
+> GradCAM 0.751 0.22 0.26 GradCAM++ 0.629 0.187 0.253 LIME 0.4 0.2 0.08
+> EigenCAM 0.95 0.563 0.547
+
+compared against different widely used saliency methods. Among these, GradCAM and GradCAM++ are computed using class-specific targets, whereas LIME is implemented with 200 perturbation samples while retaining the top five su-perpixel features. The method-level aggregated CCAS results are reported in Table VIII. Among the evaluated XAI methods, EigenCAM achieves the strongest performance across all CCAS metrics. LIME records the lowest pointing accuracy of 0.08, indicating that superpixel-level perturbations are less suitable for localiz-ing continuous pathological regions in fundus images. Grad-CAM++ performs below GradCAM despite its higher-order gradient formulation, suggesting that first-order activation decomposition better represents the EfficientNet-B5 feature space in the present retinal disease detection task. The clear IoU@0.3 margin between EigenCAM and the gradient-based methods, i.e., 0.563 vs. 0.22, further indicates that covariance-based activation decomposition provides stronger spatial con-sistency with the counterfactual evidence [8]. The qualitative comparison of XAI-based saliency overlays is also shown in Fig. 7, where each row contains the original fundus image followed by GradCAM, GradCAM++, LIME and EigenCAM overlays. Compared with the other methods, EigenCAM visibly produces more coherent activation over disease-relevant retinal regions with less fragmented or dis-placed responses. This visual observation is again consistent with results furnished Table VIII, where EigenCAM shows the strongest CCAS alignment across the evaluated metrics. 
+
+G. Ablation Study 
+
+In this work, an ablation study is also performed to examine the capability of counterfactual augmentation and CCAS-7 IEEE Journal and Transactions Template, Vol. XX, No. XX, 2026 
+
+Fig. 7 : Qualitative comparison of saliency maps across repre-sentative classes. Rows correspond to (1) normal, (2) diabetic retinopathy, (3) glaucoma and (4) cataract disease classes, while columns show (a) original fundus image, (b) Grad-CAM, (c) Grad-CAM++, (d) LIME and (e) EigenCAM overlays, respectively. based sample filtering on locked test-set performance. For this purpose, three configurations are considered, where A1 denotes the baseline classifier trained using the original 5-fold CV protocol without counterfactual augmentation. The A2 configuration extends the training pool by adding all 150 CycleGAN-generated normal counterfactual images, with 50 samples generated from each disease class. In A3, an additional quality-control step is applied, where only 108 synthetic images satisfying the CCAS-IoU > 40% criterion with EigenCAM saliency are retained. As reported in Table IX, both A2 and A3 are observed to improve over the baseline A1, confirming the contribution of counterfactual augmentation towards classifier generalization. The highest accuracy, F1-score and AUC with values of 97.99%, 97.96%, and 99.65%, respectively has been achieved with A2. However, A3 provides comparable performance using only 72% of the synthetic samples, reaching 97.51% accuracy, 97.46% F1-score and 99.62% AUC. The minimal accuracy difference between A2 and A3, i.e., 0.48 percentage points, indicates that CCAS-based filtering removes lower-alignment counterfactuals while preserving most of the aug-mentation benefit. This supports the IoU > 40% threshold as a meaningful quality standard for selecting reliable counter-factual samples. 
+
+H. External Validation 
+
+External validation of the CounterFundus explainability was performed on the Retinal Fundus Multi-disease Image Dataset (RFMiD) [25], a clinically annotated benchmark with expert-verified disease labels. CCAS was computed without any parameter updates or domain adaptation, yielding Spearman 
+
+ρ = 0.48 and IoU = 0.49. CounterFundus counterfactual explanations generalize to heterogeneous fundus distributions beyond the training domain, validating the framework’s ex-plainability transferability. 
+
+VI. C ONCLUSION 
+
+This work proposes CounterFundus, an explainable frame-work for multi-class retinal disease detection, combining 
+
+TABLE IX : Ablation Study on Locked Test Set                 
+
+> Config Acc. (%) F1 (%) AUC (%)
+> A1: Classifier Only 95.38 95.31 99.69 A2: +CF Aug (150) 97.99 97.96 99.65 A3: +CCAS Filter (108) 97.51 97.46 99.62
+
+an EfficientNet-B5 classifier, CycleGAN-based disease-to-normal counterfactual translation and a novel CCAS metric for spatial validation of classifier-relevant counterfactual evi-dence. The proposed framework demonstrates strong disease-discrimination ability while maintaining stable generalization across CV splits. The generated counterfactuals largely pre-serve the retinal background while reducing disease-related visual cues, including optic-disc cupping in glaucoma and opacity-related degradation in cataract. The post-translation confidence shift further supports that the generator focuses on pathology-relevant regions specifically. In addition, the proposed CCAS metric provides an effective mechanism for assessing whether the generated counterfactuals are spatially aligned with classifier-yielded saliency regions. The main findings of this work are summarized as follows: 1) The EfficientNet-B5 module achieved 95.38% accuracy, 95.31% macro F1-score and 99.69% AUC on the locked test set, while the overall 5-fold CV accuracy of 95 .2 ±
+
+0.69 % and F1-score of 95 .14 ± 0.7% confirmed stable generalization across data splits. 2) Class-wise evaluation showed strong retinal disease de-tection performance across normal, diabetic retinopathy, glaucoma and cataract categories, with diabetic retinopathy achieving 100% precision, recall, F1-score and AUC and cataract achieving 96.9% F1-score and 100% AUC. 3) The proposed CCAS metric efficiently captured the spatial agreement between counterfactual difference maps and classifier-yielded saliency regions, with EigenCAM-based reference maps achieving 0.95 Spearman correlation and 0.563 IoU@0.3 metrics, respectively. 4) The CCAS-filtered counterfactual augmentation improved classification accuracy by 2.13% over the baseline while using 28% fewer synthetic samples, indicating that the counterfactuals provided more reliable augmentation than unfiltered synthetic samples. 5) Among the evaluated XAI methods, EigenCAM showed the strongest CCAS alignment and outperformed Grad-CAM, GradCAM++ and LIME-based explanations in terms of spatial consistency with counterfactual evidence. Overall, CounterFundus improves both prediction perfor-mance as well as explanation reliability, providing a clinically meaningful XAI tool for retinal disease detection. Future work will include validating CCAS against different lesion-level annotations, with focusing beyond fundus imaging to different applications such as OCT, dermoscopy and chest X-ray. 
+
+REFERENCES   
+
+> [1] J.-X. Liao, H.-C. Dong, Z.-Q. Sun, J. Sun, S. Zhang, and F.-L. Fan, “Attention-embedded quadratic network (qttention) for effective and interpretable bearing fault diagnosis,” IEEE Transactions on Instrumen-tation and Measurement , vol. 72, pp. 1–13, 2023.
+
+8 IEEE Journal and Transactions Template, Vol. XX, No. XX, 2026 [2] G. Patrizi, A. Bartolini, L. Ciani, V. Gallo, P. Sommella, and M. Carrat` u, “A virtual soil moisture sensor for smart farming using deep learning,” 
+
+IEEE Transactions on Instrumentation and Measurement , vol. 71, pp. 1–11, 2022. [3] K. Jiang, Z. Yang, T. Jin, C. Chen, Z. Liu, and B. Zhang, “Cnn-based rolling bearing fault diagnosis method with quantifiable interpretability,” 
+
+IEEE Transactions on Instrumentation and Measurement , 2025. [4] A. Sharma, H. Devarajan, and T. B. Shanker, “Improved saliency maps for interpretability of acoustic signal classification in condition monitor-ing of power transformers,” IEEE Transactions on Instrumentation and Measurement , 2025. [5] L. Guo, X. Gu, Y. Yu, A. Duan, and H. Gao, “An analysis method for interpretability of convolutional neural network in bearing fault diagnosis,” IEEE Transactions on Instrumentation and Measurement ,vol. 73, pp. 1–12, 2023. [6] L. Cao, J. Wang, J. Su, Y. Luo, Y. Cao, R. D. Braatz, and B. Gopaluni, “Comprehensive analysis on machine learning approaches for inter-pretable and stable soft sensors,” IEEE Transactions on Instrumentation and Measurement , 2025. [7] S. Wachter, B. Mittelstadt, and C. Russell, “Counterfactual explanations without opening the black box: Automated decisions and the gdpr,” 2018. [Online]. Available: https://arxiv.org/abs/1711.00399 [8] N. Arun, N. Gaw, P. Singh, K. Chang, M. Aggarwal, B. Chen, K. Hoebel, S. Gupta, J. Patel, M. Gidwani, J. Adebayo, M. D. Li, and J. Kalpathy-Cramer, “Assessing the (un)trustworthiness of saliency maps for localizing abnormalities in medical imaging,” 2021. [Online]. Available: https://arxiv.org/abs/2008.02766 [9] S. Mertes, T. Huber, K. Weitz, A. Heimerl, and E. Andr´ e, “GANTerfactual—counterfactual explanations for medical non-experts using generative adversarial learning,” Frontiers in Artificial Intelligence ,vol. 5, p. 825565, 2022. [Online]. Available: https://doi.org/10.3389/ frai.2022.825565 [10] V. Narayanaswamy, J. J. Thiagarajan, D. Rajan, and A. Spanias, “Counterfactual explanation and instance-generation using cycle-consistent generative adversarial networks,” 2023. [Online]. Available: https://arxiv.org/abs/2301.08939 [11] M. Atad, D. Schinz, H. Moeller, R. Graf, B. Wiestler, D. Rueckert, N. Navab, J. S. Kirschke, and M. Keicher, “Counterfactual explanations for medical image classification and regression using diffusion autoencoder,” Machine Learning for Biomedical Imaging , vol. 2, no. iMIMIC 2023, pp. 2103–2125, Sep. 2024. [Online]. Available: http://dx.doi.org/10.59275/j.melba.2024-4862 [12] L. ˇ Zigutyt˙ e, T. Lenz, T. Han, K. J. Hewitt, N. G. Reitsam, S. Foersch, Z. I. Carrero, M. Unger, A. T. Pearson, D. Truhn, and J. N. Kather, “Counterfactual diffusion models for interpretable morphology-based explanations of artificial intelligence models in pathology,” bioRxiv ,2025, preprint. [Online]. Available: https://doi.org/10.1101/2024.10.29. 620913 [13] J.-Y. Zhu, T. Park, P. Isola, and A. A. Efros, “Unpaired image-to-image translation using cycle-consistent adversarial networks,” 2020. [Online]. Available: https://arxiv.org/abs/1703.10593 [14] D. Yang, Y. Yang, T. Huang, B. Wu, L. Wang, and Y. Xu, “Residual-CycleGAN based camera adaptation for robust diabetic retinopathy screening,” 2020. [Online]. Available: https://arxiv.org/abs/2007.15874 [15] A. Sindel, A. Maier, and V. Christlein, A Vesselsegmentation-based CycleGAN for Unpaired Multi-modal Retinal Image Synthesis .Springer Fachmedien Wiesbaden, 2023, pp. 32–37. [Online]. Available: http://dx.doi.org/10.1007/978-3-658-41657-7 11 [16] Y. Xue, J. Ye, R. Long, S. Antani, Z. Xue, and X. Huang, “Selective synthetic augmentation with quality assurance,” 2019. [Online]. Available: https://arxiv.org/abs/1912.03837 [17] J. J. Thiagarajan, K. Thopalli, D. Rajan, and P. Turaga, “Training calibration-based counterfactual explainers for deep learning models in medical image analysis,” Scientific Reports , vol. 12, no. 1, p. 597, 2022. [Online]. Available: https://doi.org/10.1038/s41598-021-04529-5 [18] V. Boreiko et al. , “Visual explanations for the detection of diabetic retinopathy from retinal fundus images,” in Medical Image Computing and Computer Assisted Intervention – MICCAI 2022 , ser. Lecture Notes in Computer Science, L. Wang, Q. Dou, P. T. Fletcher, S. Speidel, and S. Li, Eds., vol. 13432. Cham: Springer, 2022, pp. 538–548. [Online]. Available: https://doi.org/10.1007/978-3-031-16434-7 52 [19] K. Djoumessi, Z. Huang, L. K¨ uhlewein, A. Rickmann, N. Simon, L. M. Koch, and P. Berens, “An inherently interpretable AI model improves screening speed and accuracy for early diabetic retinopathy,” medRxiv ,2024. [Online]. Available: https://www.medrxiv.org/content/early/2024/ 06/27/2024.06.27.24309574 [20] L. Zhao, G. Tan, B. Pu, Q. Wu, H. Ren, and K. Li, “Transfsm: Fetal anatomy segmentation and biometric measurement in ultrasound images using a hybrid transformer,” IEEE Journal of Biomedical and Health Informatics , vol. 28, no. 1, pp. 285–296, 2023. [21] M. N. Bajwa, M. I. Malik, S. A. Siddiqui, A. Dengel, F. Shafait, W. Neumeier, and S. Ahmed, “Two-stage framework for optic disc localization and glaucoma classification in retinal fundus images using deep learning,” BMC Medical Informatics and Decision Making , vol. 19, no. 1, Jul. 2019. [Online]. Available: http: //dx.doi.org/10.1186/s12911-019-0842-8 [22] R. Alsohemi and S. Dardouri, “Fundus image-based eye disease detection using EfficientNetB3 architecture,” Journal of Imaging ,vol. 11, no. 8, p. 279, 2025. [Online]. Available: https://www.mdpi. com/2313-433X/11/8/279 [23] G. V. Doddi, “Eye diseases classification dataset,” https://www.kaggle. com/datasets/gunavenkatdoddi/eye-diseases-classification, 2022, kaggle dataset. [24] Z. Wu, Z. Wu, X. Chen, Y. Lu, and J. Yu, “Self-supervised underwater image generation for underwater domain pre-training,” IEEE Transac-tions on Instrumentation and Measurement , vol. 73, pp. 1–14, 2024. [25] S. Pachade, P. Porwal, D. Thulkar, M. Kokare, G. Deshmukh, V. Sahasrabuddhe, L. Giancardo, G. Quellec, and F. M´ eriaudeau, “Retinal fundus multi-disease image dataset (rfmid),” 2020. [Online]. Available: https://dx.doi.org/10.21227/s3g7-st65

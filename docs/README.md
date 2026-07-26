@@ -6,83 +6,83 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-12
-- 运行时间：2026-07-12 21:38:04 UTC
+- 最新运行日期：2026-07-26
+- 运行时间：2026-07-26 21:37:27 UTC
 - 运行状态：成功
 - 本次总论文数：21
 - 精读区：8
 - 速读区：13
 
 ### 今日简报（AI）
-今日共阅读21篇论文，精读2篇高分研究。最值得关注CDCP提出的条件扩散模型用于多任务离线安全强化学习，以及IRIS通过主题树和场景驱动VQA的智能眼科系统。建议优先精读这两篇9分论文，速读中STAPO和CompactionRL对LLM和长时域智能体有启发。
-- 详情：[/202607/12/README](/202607/12/README)
+今日聚焦多模态大语言模型在眼科OCT图像理解与糖尿病视网膜病变病灶级诊断的两篇高分精读论文。最值得关注的是“Can MLLMs Understand OCT?”揭示了大模型在医学影像分析中的潜力与局限，以及“PRISM-DR”提出的病灶级推理框架。建议普通读者优先精读这两篇，以把握AI在眼科精准诊断中的前沿突破。
+- 详情：[/202607/26/README](/202607/26/README)
 
 ### 精读区论文标签
-1. [CDCP: Conditional Diffusion Model with Contextual Prompts for Multi-task Offline Safe Reinforcement Learning](/202607/12/2607.03903v1-cdcp-conditional-diffusion-model-with-contextual-prompts-for-multi-task-offline-safe-reinforcement-learning)  
-   标签：评分：9.0/10、query:fsrh
-   evidence：多任务离线安全强化学习
-2. [IRIS: An Intelligent Vision-Language System for Ocular Surface Diseases via Topic Tree and Scene-Driven VQA Generation](/202607/12/2607.04344v1-iris-an-intelligent-vision-language-system-for-ocular-surface-diseases-via-topic-tree-and-scene-driven-vqa-generation)  
+1. [Can Multimodal Large Language Models Understand OCT?](/202607/26/2607.16609v1-can-multimodal-large-language-models-understand-oct)  
    标签：评分：9.0/10、query:retina-agent
-   evidence：面向眼表疾病的智能视觉语言系统，契合眼底病与智能体主题
-3. [Non-Convex Sparse Reinforcement Learning via Non-Monotone Inclusions](/202607/12/2607.04990v2-non-convex-sparse-reinforcement-learning-via-non-monotone-inclusions)  
-   标签：评分：9.0/10、query:fsrh
-   evidence：强化学习与稀疏特征选择方法
-4. [Multi-Resolution Feature Stem for Diabetic Retinopathy lesion segmentation](/202607/12/2607.08679v1-multi-resolution-feature-stem-for-diabetic-retinopathy-lesion-segmentation)  
+   evidence：视网膜疾病诊断与多模态大语言模型基准
+2. [PRISM-DR: Per-lesion Retinal Inference with Specialist Models for Diabetic Retinopathy](/202607/26/2607.19864v1-prism-dr-per-lesion-retinal-inference-with-specialist-models-for-diabetic-retinopathy)  
    标签：评分：9.0/10、query:fundus-mc
-   evidence：使用深度学习进行糖尿病视网膜病变病灶分割
-5. [LLM-as-a-Tutor: Policy-Aware Prompt Adaptation for Non-Verifiable RL](/202607/12/2607.04412v1-llm-as-a-tutor-policy-aware-prompt-adaptation-for-non-verifiable-rl)  
+   evidence：视网膜疾病分类（糖尿病视网膜病变病灶）
+3. [Counterfactual Explainability Framework With CycleGAN And Counterfactual-Classifier Alignnment Score for Retinal Disease Classification](/202607/26/2607.21068v1-counterfactual-explainability-framework-with-cyclegan-and-counterfactual-classifier-alignnment-score-for-retinal-disease-classification)  
+   标签：评分：9.0/10、query:fundus-mc
+   evidence：基于眼底图像的视网膜疾病分类与可解释深度学习
+4. [Enhancing Personalized Bladder Cancer Treatment Through Reinforcement Learning: A Recurrent Patient State Transition Decision Support Framework](/202607/26/2607.16916v1-enhancing-personalized-bladder-cancer-treatment-through-reinforcement-learning-a-recurrent-patient-state-transition-decision-support-framework)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：强化学习在个性化癌症治疗中的应用
+5. [Non-Asymptotic Best Policy Identification Guarantees in Online Reinforcement Learning](/202607/26/2607.17201v1-non-asymptotic-best-policy-identification-guarantees-in-online-reinforcement-learning)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：在线强化学习最优策略识别
+6. [Robust Summarization of Doctor-Patient Conversations: TalTech Systems for the Beyond Transcription Challenge](/202607/26/2607.17230v1-robust-summarization-of-doctor-patient-conversations-taltech-systems-for-the-beyond-transcription-challenge)  
    标签：评分：8.0/10、query:med-rl-agent
-   evidence：强化学习算法中的提示适应策略
-6. [Spectral Analysis of Dueling Q-Learning](/202607/12/2607.08340v1-spectral-analysis-of-dueling-q-learning)  
-   标签：评分：8.0/10、query:fsrh
-   evidence：对决Q学习的谱分析，强化学习核心算法
-7. [Statistical Efficiency and Inference of Quantile Distributional Reinforcement Learning](/202607/12/2607.08444v1-statistical-efficiency-and-inference-of-quantile-distributional-reinforcement-learning)  
-   标签：评分：8.0/10、query:fsrh
-   evidence：分布强化学习统计理论
-8. [Autonomous computational prioritisation of colorectal cancer vulnerabilities via multi-scale AI swarms](/202607/12/biorxiv-10-64898-2026-07-05-736565-v2-autonomous-computational-prioritisation-of-colorectal-cancer-vulnerabilities-via-multi-scale-ai-swarms)  
+   evidence：基于强化学习的医学对话摘要生成，重点关注奖励函数设计
+7. [Understanding From Human Perspective: A Multi-agent System for Interactive Egocentric Medical Image Segmentation](/202607/26/2607.17341v1-understanding-from-human-perspective-a-multi-agent-system-for-interactive-egocentric-medical-image-segmentation)  
    标签：评分：8.0/10、query:fundus-mc
-   evidence：面向医学诊断（癌症脆弱性）的多智能体AI群体
+   evidence：用于交互式医学图像分割的多智能体系统
+8. [DobicVLM: Aligning Chest X-Ray Report Generation with Clinically-Grounded Programmatic Rewards via Group Relative Policy Optimization](/202607/26/2607.18988v1-dobicvlm-aligning-chest-x-ray-report-generation-with-clinically-grounded-programmatic-rewards-via-group-relative-policy-optimization)  
+   标签：评分：8.0/10、query:med-rl-agent
+   evidence：用于医学报告生成的临床基础程序化奖励设计
 
 ### 速读区论文标签
-1. [STAPO: Selective Trajectory-Aware Policy Optimization for LLM Agent Training](/202607/12/2607.04963v1-stapo-selective-trajectory-aware-policy-optimization-for-llm-agent-training)  
+1. [Reinforcement Learning: From Algorithms To Foundation Models](/202607/26/2607.17560v1-reinforcement-learning-from-algorithms-to-foundation-models)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：覆盖从算法到基础模型的强化学习综述，包含多智能体RL和游戏
+2. [Generalize and Guide: Decomposing Rewards for Few-Shot Inverse Reinforcement Learning](/202607/26/2607.17760v1-generalize-and-guide-decomposing-rewards-for-few-shot-inverse-reinforcement-learning)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：少样本逆强化学习
+3. [MedDDC-Eval: Diagnosis-Decoupled Evaluation of Multi-Turn Medical Consultation Agents](/202607/26/2607.18999v1-medddc-eval-diagnosis-decoupled-evaluation-of-multi-turn-medical-consultation-agents)  
    标签：评分：8.0/10、query:med-rl-agent
-   evidence：基于轨迹感知的LLM智能体训练策略优化
-2. [CompactionRL: Reinforcement Learning with Context Compaction for Long-Horizon Agents](/202607/12/2607.05378v1-compactionrl-reinforcement-learning-with-context-compaction-for-long-horizon-agents)  
+   evidence：多轮医疗咨询代理的评估框架
+4. [Bayesian uncertainty estimation improves clinical decision making in medical AI agents](/202607/26/2607.20582v1-bayesian-uncertainty-estimation-improves-clinical-decision-making-in-medical-ai-agents)  
    标签：评分：8.0/10、query:med-rl-agent
-   evidence：上下文压缩的RL用于长程智能体
-3. [Information Gain-based Rollout Policy Optimization: An Adaptive Tree-Structured Rollout Approach for Multi-Turn LLM Agents](/202607/12/2607.06223v1-information-gain-based-rollout-policy-optimization-an-adaptive-tree-structured-rollout-approach-for-multi-turn-llm-agents)  
-   标签：评分：8.0/10、query:med-rl-agent
-   evidence：基于信息增益的展开策略优化用于LLM智能体
-4. [The Large Cancer Assistant (LCA): A Model-Agnostic Orchestration Framework for Scalable Clinical Decision Support in Oncology](/202607/12/2607.06531v1-the-large-cancer-assistant-lca-a-model-agnostic-orchestration-framework-for-scalable-clinical-decision-support-in-oncology)  
-   标签：评分：8.0/10、query:med-rl-agent
-   evidence：用于临床决策支持的模型无关编排框架
-5. [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](/202607/12/2607.07508v1-single-rollout-asynchronous-optimization-for-agentic-reinforcement-learning)  
-   标签：评分：8.0/10、query:med-rl-agent
-   evidence：面向智能体训练的异步强化学习优化
-6. [Agent Reinforcement Learning via Pivotal-Aware Self-Feedback Retry](/202607/12/2607.03702v1-agent-reinforcement-learning-via-pivotal-aware-self-feedback-retry)  
+   evidence：医疗AI代理的不确定性估计
+5. [Adaptive Multi-Horizon Reinforcement Learning](/202607/26/2607.20656v1-adaptive-multi-horizon-reinforcement-learning)  
+   标签：评分：8.0/10、query:fsrh
+   evidence：自适应多视界强化学习
+6. [Can Experts Adapt Without Training? On Test-Time Modality Generalization in MVLMs](/202607/26/2607.16726v1-can-experts-adapt-without-training-on-test-time-modality-generalization-in-mvlms)  
    标签：评分：7.0/10、query:med-rl-agent
-   evidence：面向强化学习智能体的自反馈重试框架
-7. [Progress- and Reliability-Oriented Group Policy Optimization for Agentic Reinforcement Learning](/202607/12/2607.04242v1-progress--and-reliability-oriented-group-policy-optimization-for-agentic-reinforcement-learning)  
+   evidence：医学视觉语言模型的测试时模态泛化
+7. [Reward-Driven LLM Agent Workflows: Synthesizing POMDP Routing and Self-Correction for Autonomous Decision-Making](/202607/26/2607.17038v1-reward-driven-llm-agent-workflows-synthesizing-pomdp-routing-and-self-correction-for-autonomous-decision-making)  
    标签：评分：7.0/10、query:med-rl-agent
-   evidence：面向智能体强化学习的分组策略优化新方法
-8. [RL Forgets! Towards Continual Policy Optimization](/202607/12/2607.04364v1-rl-forgets-towards-continual-policy-optimization)  
-   标签：评分：7.0/10、query:fsrh
-   evidence：强化学习用于持续策略优化
-9. [RSPO: Reward-Swap Policy Optimization for Multi-Turn LLM Agents](/202607/12/2607.04713v1-rspo-reward-swap-policy-optimization-for-multi-turn-llm-agents)  
+   evidence：大语言模型代理工作流中的奖励模型设计与POMDP路由
+8. [Retrieval-Augmented Interpretable Learning: Towards Task-Specific Zero-Shot Models in Healthcare](/202607/26/2607.17508v1-retrieval-augmented-interpretable-learning-towards-task-specific-zero-shot-models-in-healthcare)  
+   标签：评分：7.0/10、query:fundus-mc
+   evidence：基于检索增强元学习的少样本可解释临床预测
+9. [LLM-as-a-Coach: Experiential Learning for Non-Verifiable Tasks](/202607/26/2607.18110v1-llm-as-a-coach-experiential-learning-for-non-verifiable-tasks)  
    标签：评分：7.0/10、query:med-rl-agent
-   evidence：面向大语言模型智能体的奖励交换策略优化
-10. [Do Medical Vision Language Models Actually See? A Counterfactual Grounding Framework and Hard-Negative Contrastive Training for Visually-Reliant Medical VLMs](/202607/12/2607.03647v1-do-medical-vision-language-models-actually-see-a-counterfactual-grounding-framework-and-hard-negative-contrastive-training-for-visually-reliant-medical-vlms)  
+   evidence：使用LLM作为教练的深度强化学习
+10. [From Memory to Skills: Evidence-Grounded Co-Evolution Governance for Long-Horizon LLM Agents](/202607/26/2607.16621v1-from-memory-to-skills-evidence-grounded-co-evolution-governance-for-long-horizon-llm-agents)  
+   标签：评分：6.0/10、query:fsrh
+   evidence：带强化学习反馈的LLM代理记忆-技能协同演化
+11. [Group Entropy-Controlled Policy Optimization](/202607/26/2607.16850v1-group-entropy-controlled-policy-optimization)  
    标签：评分：6.0/10、query:med-rl-agent
-   evidence：医学视觉语言模型的因果评估框架
-11. [Harness-Aware Self-Evolving: Co-Evolving Model Weights, Harness, and Task Solutions](/202607/12/2607.03935v1-harness-aware-self-evolving-co-evolving-model-weights-harness-and-task-solutions)  
+   evidence：面向强化学习的分组熵控策略优化
+12. [Principled Direction-Free Intrinsic Motivation through Model-Free Epistemic Free-Energy Estimators](/202607/26/2607.16858v1-principled-direction-free-intrinsic-motivation-through-model-free-epistemic-free-energy-estimators)  
    标签：评分：6.0/10、query:fsrh
-   evidence：用于自我演化系统的代理型强化学习框架
-12. [Mask-based Predictive Representations for Reinforcement Learning](/202607/12/2607.04153v1-mask-based-predictive-representations-for-reinforcement-learning)  
-   标签：评分：6.0/10、query:fsrh
-   evidence：自监督掩码预测用于强化学习表示学习
-13. [Regime-Conditional Stabilisation of LLM-Augmented Cooperative Multi-Agent Reinforcement Learning](/202607/12/2607.04470v1-regime-conditional-stabilisation-of-llm-augmented-cooperative-multi-agent-reinforcement-learning)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：基于LLM奖励塑造的多智能体强化学习
+   evidence：强化学习内在动机
+13. [Counterfactual Shapley Credit Assignment](/202607/26/2607.16999v1-counterfactual-shapley-credit-assignment)  
+   标签：评分：6.0/10、query:med-rl-agent
+   evidence：强化学习信用分配方法
 
 
 <div class="dpr-home-promo-card">
