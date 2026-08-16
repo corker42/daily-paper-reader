@@ -1,0 +1,345 @@
+Title: Per-Shipment Multi-Agent Reinforcement Learning for Intermodal Freight Routing Under Hurricane Disruption
+
+URL Source: https://arxiv.org/pdf/2608.07824v1
+
+Published Time: Tue, 11 Aug 2026 00:19:50 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# PER -S HIPMENT MULTI -A GENT REINFORCEMENT LEARNING FOR 
+
+# INTERMODAL FREIGHT ROUTING UNDER HURRICANE 
+
+# DISRUPTION 
+
+Aliza Sharmin 
+
+Department of Industrial and Systems Engineering University of Tennessee Knoxville, TN 37996 
+
+asharmin@vols.utk.edu 
+
+Xudong Wang 
+
+Department of Industrial and Systems Engineering University of Tennessee Knoxville, TN 37996 
+
+xwang97@vols.utk.edu 
+
+Mustafa Can Camur 
+
+Department of Industrial and Systems Engineering University of Tennessee Knoxville, TN 37996 
+
+mcamur@utk.edu 
+
+Xueping Li 
+
+Department of Industrial and Systems Engineering University of Tennessee Knoxville, TN 37996 
+
+xueping.li@utk.edu 
+
+August 11, 2026 
+
+# ABSTRACT 
+
+Intermodal freight networks face growing disruption risk from climate extremes that degrade multiple corridors simultaneously. To address this, we formulate freight routing as a Dec-POMDP with per-shipment action granularity and train Independent PPO (IPPO) under Centralized Training with Decentralized Execution, comparing against two heuristic baselines with privileged state access on a 15-hub network under hurricane disruption. Across 30 matched episodes, no single policy dominates: IPPO achieves the highest throughput ( +12 .7% ) and delivery rate while a capacity-aware heuristic leads on Resilience Index (RI) and delay. Under demand surge (2.9:1 capacity ratio), IPPO’s RI advantage grows to +6 .4% , suggesting learned routing is most valuable when capacity is scarce. A Multi-Agent PPO (MAPPO) variant collapses under train-eval queue mismatch ( RI = 0 .811 ); retraining recovers RI to 1.018 but IPPO still leads on throughput, pointing to residual limitations in centralized critics under per-shipment dispatch. 
+
+# 1 Introduction 
+
+Intermodal freight networks move goods across road, rail, and maritime corridors through consolidation hubs such as ports, rail terminals, and distribution centers. These networks are increasingly exposed to climate-driven disruptions: a single hurricane can reduce port productivity, close highway segments, and constrain rail capacity at the same time, sending ripple effects well beyond the initial point of failure [1, 2]. As extreme weather events grow more frequent and less predictable, freight systems face disruptions whose timing, severity, and spatial extent are difficult to anticipate [3, 4]. The standard operational response is centralized re-routing or rule-based heuristics [5]. Both rely on having a global view of the network at decision time, an assumption that often breaks down during active disasters when communication infrastructure is degraded and damage assessments arrive late. Multi-agent reinforcement learning (MARL) under the Centralized Training with Decentralized Execution (CTDE) paradigm [6, 7] sidesteps this problem: global information is used during training, but the deployed policy acts on local hub observations alone, matching what dispatchers actually have access to during a crisis. Whether this architectural fit translates into better routing decisions is an empirical question. arXiv:2608.07824v1 [cs.MA] 7 Aug 2026 A PREPRINT - A UGUST 11, 2026 A challenge specific to freight is decision granularity. Standard multi-agent formulations assign one action per agent per timestep, but a freight hub may need to dispatch dozens of shipments each step, each headed to a different destination with a different quantity and urgency. Bundling them into a single link selection muddles credit assignment. We instead adopt a per-shipment formulation: each routing decision pairs one shipment with one outgoing link, producing a clean (observation, action, reward) triple. This granularity also raises a question about critic design. Within a single timestep, each dispatch changes the remaining link capacity, so a critic that reads network state only once per step works with an increasingly outdated picture. How much this staleness matters in practice is one of the questions we set out to answer. A separate challenge is evaluation. The Resilience Index (RI) [8] is widely used to assess infrastructure performance under disruption, but it is computed only after the disruption–recovery cycle is complete and normalizes by each policy’s own pre-disruption baseline [9]. Two policies with very different absolute throughput can end up with nearly the same RI if each maintains its own baseline equally well. This is not a flaw in RI: it measures what it is designed to measure; but it means that RI alone can obscure operationally important differences. We therefore pair RI with absolute metrics (total throughput, delivery rate, average delay) to give a fuller picture. These considerations lead to our central question: Under what conditions can decentralized learning agents, making per-shipment routing decisions from local observations, match or outperform hand-crafted heuristics with access to exact network state, and where do simpler approaches suffice? We investigate this on a 15-hub intermodal network under spatially correlated hurricane disruption, comparing two MARL variants: Independent Proximal Policy Optimization (IPPO) with decentralized critics and Multi-Agent Proximal Policy Optimization (MAPPO) with a centralized critic against two heuristic baselines that read the full network graph. Our contributions are: (1) A per-shipment Decentralized Partially Observable Markov Decision Process (Dec-POMDP) formulation [10] with destination-conditioned action masking and within-step capacity observations that reflect dispatch-by-dispatch network state changes, (2) A hurricane disruption model with spatially correlated capacity degradation and stochastic recovery, parameterized from NOAA HURDAT2 historical track statistics [11], (3) A diagnostic comparison of IPPO and MAPPO under per-shipment dispatch, disentangling the effect of train-eval queue depth mismatch from the within-step observation staleness inherent in centralized critics, (4) A simulation-based analysis showing that policy effectiveness is capacity-dependent: heuristics perform competitively when spare capacity is abundant, while decentralized learning gains advantage under tighter capacity by mitigating saturation through stochastic load distribution – a mechanism confirmed by deterministic ablation. The remainder of the paper is organized as follows. Section 2 reviews related work. Section 3 formulates the problem. Section 4 describes the MARL framework. Section 5 covers experimental setup. Section 6 presents results, discusses findings and limitations. Section 7 concludes the paper. 
+
+# 2 Literature Review 
+
+This work draws on three research streams: disruption management in freight networks, multi-agent reinforcement learning (RL) for transportation, and resilience metrics for learning-based evaluation. 
+
+2.1 Disruption Management in Freight Networks 
+
+Freight networks are vulnerable to disruptions that propagate through interconnected infrastructure, with impacts that extend well beyond the initial failure point [12, 13]. Research on disruption management has developed along two lines. The ex ante stream designs networks to be robust through stochastic programming [3, 5], robust optimization [14], and simulation-optimization hybrids [15]. The ex post stream studies how disruptions propagate and how networks recover [16]. Both provide tools for network design and post-event analysis, but neither supports the kind of real-time, decentralized decision-making needed during an active disruption [17]. A further gap, to our knowledge, is decision granularity: existing models work at the level of aggregate flows or hub-level rules, not individual shipments. 
+
+2.2 Multi-Agent Reinforcement Learning for Transportation Coordination 
+
+The Dec-POMDP framework [10] formalizes cooperative decision-making under partial observability. The CTDE paradigm makes this tractable by letting value functions see global state during training while policies act on local observations at test time. Prominent CTDE algorithms include MADDPG [6], COMA [7], and QMIX [18]. Proximal Policy Optimization (PPO) [19] has been extended to multi-agent settings as IPPO (independent critics, local observations only) and MAPPO (shared parameters, centralized critic on global state). Yu et al. found that IPPO can match or exceed MAPPO when the global state is redundant or hard for the critic to exploit [20]. Per-shipment dispatch 2A PREPRINT - A UGUST 11, 2026 introduces a further complication, the global state is captured once per timestep but must serve as the basis for value estimates across many sequential within-step decisions. MARL has been applied to traffic signal control [21] and vehicle dispatch [22], both settings with one decision per agent per step. Hub-level freight routing is structurally different, agents sit at fixed locations, action spaces are constrained by infrastructure, and multiple shipments must be routed per step. Recent work on intermodal freight resilience has adopted per-shipment re-planning through optimization [23], while MARL applications to supply chain disruption have focused on inventory transshipment rather than freight routing [24]. Neither, to our knowledge, studies how critic architecture interacts with sub-step decision frequency in a multi-agent routing context. 
+
+2.3 Resilience Metrics and Reward Formulation for MARL 
+
+The area-based resilience framework introduced by [8] and extended by [25] quantifies infrastructure resilience as the integral of performance loss between disruption onset and recovery. While widely adopted for post-event evaluation [16, 12], such metrics are inherently retrospective, as they require observing the full disruption-recovery trajectory and produce only a terminal scalar, providing no intermediate feedback during an episode. In reinforcement learning, this creates a sparse reward problem that slows learning and increases variance [26]. In multi-agent settings, delayed team-level rewards further complicate attribution of individual agent contributions [7]. This motivates shaped per-step rewards that proxy for resilience during training, though alignment between the training signal and terminal evaluation metrics is not guaranteed. Following sections develop the model, training framework, and evaluation protocol targeting these gaps. 
+
+# 3 PROBLEM FORMULATION 
+
+We formulate disruption-aware freight routing as a decentralized sequential decision problem over an intermodal network. The goal is to learn per-shipment routing policies that maintain throughput under spatially correlated disruptions. 
+
+3.1 Intermodal Network Model 
+
+The freight network is modeled as a directed graph G = ( V, E ), where V is a set of hubs and E is a set of directed links. Each link ℓ ∈ E has a transport mode mℓ ∈ { road, rail, maritime }, nominal capacity cℓ, unit cost ccost  
+
+> ℓ
+
+, and travel time τℓ. Nodes represent major intermodal transfer points (e.g., ports, rail terminals, logistics hubs) and links represent aggregated transportation corridors. The set V is partitioned as V = V O ∪ V T ∪ V D , where V O , V T , and V D denote origin, transfer, and destination hubs. Origin hubs generate freight demand, transfer hubs provide intermediate routing and mode-changes, and destination hubs are delivery endpoints. Agents are placed at V O ∪ V T , the active decision points. The topology is fixed across episodes; only hurricane parameters vary. 
+
+3.2 Network Dynamics Demand Generation: Freight arrives at origin hubs each timestep via a Poisson process with rate ¯λ, with quantity 
+
+q ∼ Uniform( qmin , q max ) and a uniformly random destination. 
+
+Per-Shipment Dispatch: Rather than making one hub-level decision per step, each agent routes every shipment in its queue individually. Each timestep has three phases: (1) generate demand and reset link capacities; (2) for each pending shipment, observe the current state, pick a link, and dispatch if capacity allows; decrementing capacity after each dispatch so that later shipments see updated availability; (3) advance shipments in transit, process deliveries, and apply recovery. A shipment of size q is dispatched on link ℓ only if crem  
+
+> ℓ
+
+(t) ≥ q; otherwise it waits and incurs a delay penalty. Under disruption, effective capacity is ceff  
+
+> ℓ
+
+(t) = cℓ(1 − dℓ(t)) κ and effective travel time is τ eff  
+
+> ℓ
+
+(t) = τℓ(1 + dℓ(t)) ,where dℓ(t) ∈ [0 , 1] is the disruption severity and κ ∈ (0 , 1] is a global capacity scaling factor. 
+
+Destination-conditioned action masking. To keep shipments moving toward their destination, the environment restricts the learned policy’s choices to outgoing links that reduce distance to the target. The raw action index is remapped to a valid link via modulo indexing, with a fallback to the full action space when no progress-making link exists. Heuristic baselines do not use this mechanism; their scoring functions naturally favor geographic progress but are not strictly constrained to it, allowing them to select non-progress links when progress-making links lack capacity. 3A PREPRINT - A UGUST 11, 2026 
+
+3.3 Spatially Correlated Disruption Model 
+
+A hurricane event is parameterized by center xh ∈ R2 and radius r, with ranges informed by NOAA HURDAT2 statistics [11]. At disruption onset step th, each link ℓ receives disruption severity dℓ ∈ [0 , 1] that decreases linearly with distance from the storm center ( dℓ = 0 outside the footprint). The onset is randomized between steps 30 and 150 of the H = 300 episode, so agents must react to observed disruption signals rather than memorizing timing. Recovery is stochastic, each affected link draws an independent recovery rate ρℓ ∼ clip(Exp( μρ), ρ min , ρ max ), where μρ is the mean of the exponential distribution, applied as dℓ(t+1) = max(0 , d ℓ(t) − ρℓ).
+
+3.4 Dec-POMDP Formulation 
+
+The problem is formulated as a Dec-POMDP ⟨I , S, {Ai}, {Oi}, T, R, γ ⟩, where I = V O ∪ V T is the set of agents, 
+
+S is the global state space, Ai and Oi are the action and observation spaces for agent i, T is the stochastic transition function, R is the per-agent reward function, and γ ∈ [0 , 1) is the discount factor. 
+
+State space. The global state s(t) ∈ S comprises: 
+
+s(t) = ⟨ q(t), C(t), D(t), F (t) ⟩, (1) where q(t) is the vector of hub inventory levels, C(t) the vector of effective link capacities, D(t) ∈ [0 , 1] |E| the vector of link disruption severities, and F (t) the set of in-transit shipment states. The full state is accessible only to the centralized critic during training. 
+
+Observation space. Each per-shipment observation ( do = 83 ) concatenates hub state ( dh = 63 ), shipment features (ds = 3 ), and within-step remaining capacities ( K = 17 ), as summarized in Table 1. Remaining capacity features update after each dispatch within a step, providing real-time saturation information, a property central to the IPPO vs. MAPPO comparison. Table 1: Observation vector layout ( do = 83 ). All values normalized to approximately [0 , 1] . “Broadcast” indicates a network-level signal; all others are local to the observing hub.                        
+
+> Dims Content Scope
+> Hub state ( dh= 63 )
+> 3Inventory, queue length, timestep Local 6Outgoing capacity & severity by mode Local 4Incoming in-transit flows Local 8Neighbor inventory & queue ( ≤4) Local 6Disruption context incl. RI estimate 2 Broadcast 34 Per-link severity & capacity ( 2K)Local 2Hub identity Local
+> Shipment features ( ds= 3 )
+> 3Destination, quantity, waiting time Local
+> Remaining capacity ( K= 17 )
+> 17 Remaining cap / full cap per link Local
+
+Action space & Transition dynamics. Actions select from K = 17 outgoing link slots, remapped through the destination-conditioned mask. Transition dynamics decrement link capacity, advance in-transit flows, and apply recovery independently of agent actions. 
+
+3.5 Reward Function 
+
+Each dispatch receives a reward combining geographic progress, a load-balancing penalty, disruption-dependent scaling, and a penalty for waiting: 
+
+R(i, ℓ, t ) = 
+
+( progress( i, ℓ, j ) − αload uℓ
+
+βdis , if dispatched ,
+
+−cwait , if waiting . (2) Here, i denotes the current hub, ℓ the selected outgoing link, j the shipment’s destination hub, and t the timestep. The progress term: 
+
+progress( i, ℓ, j ) = clip 
+
+ dist( i, j ) − dist( vℓ, j )
+
+dmax 
+
+, −1, 1
+
+
+
+, (3) 4A PREPRINT - A UGUST 11, 2026 where vℓ is the destination hub of link ℓ, dist( ·, ·) is Euclidean distance, and dmax = L√2 is the maximum possible distance on the L × L grid. This term measures normalized geographic progress toward the destination. The destination-conditioned action mask ensures that dispatched shipments always make non-negative progress, so the lower bound of 
+
+−1 is not reached in practice. The utilization term: 
+
+uℓ = ceff  
+
+> ℓ
+
+− crem 
+
+> ℓ
+
+ceff 
+
+> ℓ
+
+(4) captures link saturation at dispatch, where ceff  
+
+> ℓ
+
+is the effective capacity of link ℓ under disruption and crem  
+
+> ℓ
+
+is the remaining available capacity at the time of dispatch. The multiplier βdis = 1 under normal conditions and βdis > 1
+
+during active disruption, encouraging continued routing, while αload controls the strength of the load-balancing penalty and cwait penalizes delay when capacity is unavailable. Parameter values are given in Section 5.1. 
+
+3.6 Performance Metrics 
+
+We evaluate policies using complementary metrics capturing both relative disruption response and absolute operational performance. Resilience metrics include the Resilience Index (RI), which measures post-disruption throughput maintenance normalized by each policy’s own pre-disruption baseline rate (RI = 1 indicates sustained baseline; RI > 1
+
+indicates recovery exceeding baseline through redundant capacity); recovery time (RT), the steps from disruption onset until baseline throughput is restored; throughput vulnerability index (TVI), the maximum single-step throughput drop normalized by baseline rate; and absorption capacity (AC), the minimum per-step throughput during disruption divided by baseline rate. Operational metrics include delivery rate, the fraction of generated shipments delivered; average delay, mean additional time beyond minimum travel time; and total throughput, cumulative freight delivered over the episode. 
+
+# 4 MARL FRAMEWORK 
+
+We compare two critic architectures for per-shipment routing under the CTDE paradigm. The question is whether a centralized critic that sees global state, but only once per step, can keep up with the rapid within-step changes caused by sequential dispatches. 
+
+4.1 Policy Architecture 
+
+All |I| hub agents share a single policy network πθ : Rdo → ∆K that maps the do-dimensional per-shipment observation to a categorical distribution over K outgoing link slots. The architecture is a three-layer MLP: do →
+
+dhidden → dhidden → K. Parameter sharing is appropriate because all hub agents observe structurally homogeneous representations: each hub’s observation encodes the same semantic categories (inventory, outgoing capacities, disruption signals) regardless of network position. The hub identity feature (the final dimension of the hub observation) allows the shared policy to condition on hub-specific context. Sharing pools experience across all agents simultaneously, achieving a |I| -fold effective increase in gradient-contributing transitions per episode without additional environment interactions [20]. The same shared policy network is used for both IPPO and MAPPO; the two variants differ only in the critic architecture described below. 
+
+4.2 Value Estimation 
+
+Both critics are used exclusively during training to compute advantage estimates; at execution time the policy is identical in both variants. 
+
+IPPO: The critic V IPPO  
+
+> ϕ
+
+: Rdo → R mirrors the policy architecture ( do → dhidden → dhidden → 1, tanh ) and conditions on the same 83-dimensional per-shipment observation, including within-step remaining capacity features. Because these features update after each dispatch, every routing decision receives a value estimate reflecting the current link saturation state, not the state at the start of the step. This per-dispatch freshness is structurally important when dozens of shipments are processed sequentially within a single timestep. 
+
+MAPPO: The centralized critic V MAPPO  
+
+> ϕ
+
+: R|I|· dh → R|I| takes concatenated hub observations of all agents (|I| × dh = 630 dimensions), excluding shipment features and remaining capacity, as it estimates the value of the network state rather than individual dispatches. The architecture applies an input projection followed by ReLU layers: 
+
+630 → 256 → dhidden → dhidden → |I| , producing per-agent value estimates. The global observation is constructed once per timestep before the dispatch loop and reused for all dispatches within that step; the value loss updates only the output head of the acting agent. Because the global observation is fixed within each step, the centralized critic does not capture within-step capacity changes. 5A PREPRINT - A UGUST 11, 2026 During training, a per-hub cap of ncap shipments per step limits queue size, a computational necessity, as uncapped episodes generate ∼150 ,000 transitions. The cap is removed at evaluation to reflect operational conditions, and queue sizes grow to 50-150 shipments per hub per step. 
+
+4.3 Policy Optimization 
+
+The policy is trained using PPO [19] with Generalized Advantage Estimation (GAE) [27]. The clipped surrogate objective is: 
+
+LCLIP (θ) = ˆE
+
+h
+
+min 
+
+
+
+r(θ) ˆA(t), clip  r(θ), 1−ϵ, 1+ ϵ ˆA(t)
+
+i 
+
+, (5) where r(θ) = πθ (a | o)/π θold (a | o) is the importance sampling ratio and ˆA(t) is the GAE advantage computed with discount γ and trace decay λGAE . An entropy bonus weighted by cent encourages exploration. GAE is computed per agent over each agent’s temporally ordered shipment decisions within an episode; returns are normalized per episode and advantages per mini-batch. The entropy coefficient is linearly annealed from cstart ent to cend ent , promoting broad exploration early and stable routing with residual stochasticity for load balancing later. Each training episode resets the environment with a per-episode seed controlling demand and hurricane parameters. At each of H timesteps, demand is generated and agents dispatch shipments via the per-shipment loop (Section 3.2), subject to the training cap ncap .The hurricane triggers at randomized onset th. After the episode, GAE computes per-agent returns and advantages, and multiple PPO epochs of mini-batch updates are performed with separate gradient clipping for policy and value networks. 
+
+# 5 EXPERIMENTAL SETUP 
+
+5.1 Scenario Configuration 
+
+All experiments use a synthetic 15-hub intermodal freight network on a 100 × 100 km grid: |V O | = 5 origin hubs (west), |V T | = 5 transfer hubs (interior), |V D | = 5 destination hubs (east), yielding |I| = 10 agents. Distance-based link assignment produces |E| = 195 directed links: 58 road ( croad = 75 ), 133 rail ( crail = 150 ), and 4 maritime (csea = 200 ). A global capacity scaling factor κ = 0 .7 is applied, with maximum outgoing degree K = 17 . Demand arrives at rate ¯λ = 50 shipments per step with quantity q ∼ Uniform(10 , 50) , over a horizon of H = 300 timesteps. At κ = 0 .7, effective link capacities are 52.5 (road), 105 (rail), and 140 (maritime) units, yielding an aggregate capacity-to-demand ratio of approximately 11.7:1. This scale enables controlled diagnosis of critic behavior and routing dynamics under disruption, effects that would be difficult to isolate in larger networks. While the 11.7:1 capacity ratio means that policy differences manifest primarily in throughput and delivery rate rather than resilience index. 
+
+Hurricane parameters. Training uses Category 4 hurricanes with per-episode randomization. Onset th is randomized (approximately 30-150). Recovery parameters: μρ = 0 .1, ρℓ ∈ [0 .02 , 0.30] , yielding recovery times from ∼3 to 45 steps. 
+
+Training hyperparameters. Policy: 83 → 128 → 128 → 17 (tanh ). IPPO critic: 83 → 128 → 128 → 1 (tanh ). MAPPO critic: 630 → 256 → 128 → 128 → 10 (ReLU). Learning rates: 3 × 10 −4. Discount γ = 0 .99 ; GAE 
+
+λGAE = 0 .95 ; PPO clip ϵ = 0 .2; mini-batch size 512; 4 PPO epochs; 5, 000 training episodes. Gradient clipping: 0.5 (policy), 1.0 (value). Entropy annealed from cstart ent = 0 .05 to cend ent = 0 .01 . Training queue cap: ncap = 10 (∼25, 000 samples per episode). 
+
+Reward parameters. αload = 0 .3; βdis = 1 .5; cwait = 0 .5.
+
+5.2 Evaluation Comparators 
+
+Both baselines read link capacities and disruption severities directly from the network graph, giving access to exact real-time link states. Learned policies observe these quantities only through the normalized 83-dimensional observation vector. This informational advantage for baselines makes the comparison conservative. Destination-conditioned action masking is applied only to learned policies; heuristic baselines select links directly via their scoring functions with masking disabled, preserving their intended routing behavior. 
+
+Re-Route Nearest (RRN). A greedy heuristic that scores each outgoing link by geographic progress toward the destination, weighted by available capacity and inversely by disruption severity, selecting the highest-scoring link. Reactive and deterministic, given identical hub state and shipment destination, it always selects the same link. 6A PREPRINT - A UGUST 11, 2026 
+
+Multi-Criteria Heuristic (MCH). A richer scoring function incorporating mode switching, congestion awareness, downstream viability, and capacity-based link skipping. The scoring logic was iteratively developed with LLM assistance (Claude, Anthropic); the final implementation is a deterministic, stateless, hand-coded function. The heuristic was designed without access to evaluation seeds or results, and its logic is scenario-independent. 
+
+5.3 Evaluation Protocol 
+
+Each policy is evaluated over 30 episodes (seeds 42-71), ensuring matched disruption scenarios. Learned actions are sampled from the stochastic policy, consistent with the training distribution. Evaluation processes the full pending queue (no per-hub cap) using the final checkpoint (episode 5,000). A demand surge analysis evaluates all policies at demand rates of 100 and 200 shipments per step (30 matched seeds) to examine performance under tighter capacity. 
+
+# 6 RESULTS AND DISCUSSION 
+
+6.1 Training Dynamics 
+
+Figure 1 shows IPPO training progression over 5,000 episodes at κ = 0 .7. IPPO’s episode reward converges by roughly episode 3,000. Training RI rises sharply in the first 500 episodes and stabilizes slightly below 1.0 (final 100-episode mean: 0.983 ± 0.033 ), indicating that the training policy does not fully maintain its own pre-disruption baseline under the per-hub queue cap. Entropy falls from 2.83 to 1.05 as the policy shifts from broad exploration to committed routing patterns with enough residual randomness for load balancing. 
+
+Figure 1: IPPO training progression over 5,000 episodes under Category 4 hurricane disruption ( κ = 0 .7, 10 agents). (A) Episode reward converges by episode 3,000. (B) Training RI fluctuates near 1.0. (C) Policy loss. (D) Value loss converges rapidly; entropy declines as the policy commits to learned routing patterns. 7A PREPRINT - A UGUST 11, 2026 
+
+6.2 Three-Way Policy Comparison 
+
+Table 2 and Figure 2 summarize the 30-seed evaluation. The results split cleanly along a throughput-efficiency axis: IPPO moves the most freight, while the MCH routes each shipment most efficiently. IPPO’s throughput of 262 ,090 units is 12 .7% above RRN and 4.7% above MCH. It also achieves the highest delivery rate ( 0.585 ) and the best disruption-absorption numbers (lowest TVI, highest absorption capacity). This advantage is primarily driven by stochastic load distribution, because the policy samples actions, shipments headed for the same destination are distributed across multiple links, preventing saturation of a single corridor. To isolate this effect, we evaluated the same trained policy with deterministic action selection (argmax over logits). Throughput drops to 208 ,602 
+
+(−20% ) and RI falls to 0.833 (below both baselines) confirming that the stochastic load distribution, not the learned value estimates alone, drives the throughput gain. The MCH leads on RI ( 1.053 ) and average delay ( 3.3 steps). Its capacity-skipping logic reads remaining link capacity directly from the network graph and simply waits when preferred links are full, producing very low per-shipment delay at the expense of total volume. RRN, despite having the same privileged state access, concentrates same-destination shipments on one high-scoring link, driving its average delay to 45 .5 steps. Mann-Whitney U tests confirm that RI differences between all policy pairs are not statistically significant (all p > 0.42 ; Mann-Whitney U, two-sided), while throughput and delivery rate differences are highly significant ( p < 0.001 ). IPPO beats RRN on RI in only 13 of 30 runs (43%). The fact that RI cannot distinguish policies differing by 12 .7% in throughput underscores the need for the multi-metric evaluation. Table 2: Policy comparison under Category 4 hurricane ( n = 30 , κ = 0 .7). Best per metric in bold.                                                                              
+
+> Metric IPPO RRN MCH
+> Resilience Index 1.044 ±0.039 1.043 ±0.023 1.053 ±0.037
+> Recovery Time 9.8±11 .99.8±10 .811 .7±14 .1
+> TVI 0.314 ±0.099 0.322 ±0.095 0.347 ±0.091
+> Absorption Cap. 0.686 ±0.099 0.678 ±0.095 0.653 ±0.091
+> Delivery Rate 0.585 ±0.007 0.526 ±0.005 0.556 ±0.003
+> Avg Delay (steps) 8.9±0.945 .5±1.13.3±0.04
+> Total Throughput 262 ,090 ±3,173 232 ,636 ±1,962 250 ,266 ±3,214
+> IPPO RRN MCH
+> 050000 100000 150000 200000 250000
+> 262 ,090 232 ,636 250 ,266
+> Total Throughput (units)
+> (A) Total Throughput
+> IPPO RRN MCH
+> 0200 400 600 800
+> 882 784 845
+> Post-Disruption Rate (units/step)
+> (B) Post-Disruption Throughput Rate
+> IPPO RRN MCH
+> 00.10.20.30.40.50.60.585 0.526 0.556
+> Delivery Rate
+> (C) Delivery Rate
+
+Figure 2: Throughput and delivery rate across 30 matched episodes ( κ = 0 .7, Cat 4). IPPO: (ours), RRN: Re-Route Nearest, MCH: Multi-Criteria Heuristic. Error bars: ±1 std. 
+
+6.3 MAPPO Evaluation 
+
+To investigate how critic architecture interacts with per-shipment dispatch, we trained MAPPO under two conditions: with the standard training queue cap ( ncap = 10 , matching IPPO) and without it (uncapped, ∼150 ,000 transitions per episode). Table 3 summarizes the results. With capped training, MAPPO achieves higher training reward than IPPO (3,085 vs. 2,907 ) but collapses at uncapped evaluation: RI = 0 .811 , with only 30% recovery rate. Capping evaluation queues to match training recovers RI = 1 .030 , identifying the train–eval queue mismatch as the primary cause. 8A PREPRINT - A UGUST 11, 2026 Table 3: MAPPO diagnostic: disentangling distributional mismatch from architectural limitation ( κ = 0 .7, 30 seeds). Recovery time computed over recovering runs only.                    
+
+> MAPPO MAPPO Metric (capped) (uncapped) IPPO
+> RI 0.811 1.018 1.044
+> Recovery Rate 30% 76 .7% 100 %
+> Throughput 211 ,235 201 ,895 262 ,090
+> Delivery Rate 0.474 0.454 0.585
+> Recovery Time 12 .745 .59.8
+
+To test whether the failure is purely distributional, we retrained MAPPO without the queue cap. Uncapped-trained MAPPO recovers to RI = 1 .018 with 76.7% recovery rate, above the resilience threshold but still below IPPO on throughput ( 201 ,895 vs. 262 ,090 , −23% ), delivery rate ( 0.454 vs. 0.585 ), and recovery time ( 45 .5 vs. 9.8 steps). This indicates that the original collapse was primarily distributional, but a residual performance gap persists – the centralized critic’s once-per-step observation still produces less effective routing than IPPO’s per-dispatch value estimates, even when training conditions match evaluation. 
+
+6.4 Demand Surge 
+
+We tested all policies under demand surges of 2× and 4× normal volume (100 and 200 shipments/step) at κ = 0 .7,using 30 matched seeds, demonstrated in Figure 3. At standard demand (50/step, ratio 11.7:1), the three policies’ RI values cluster between 1.043 and 1.053 . At 2× demand (ratio 5.9:1), the MCH leads on both RI ( 1.149 ) and throughput (368 ,971 ). At 4× demand (ratio 2.9:1), a crossover appears: IPPO takes the lead on RI ( 1.105 vs. 1.085 for MCH and 1.038 for RRN), while MCH edges ahead on throughput ( 382 ,186 vs. 373 ,287 ). Notably, MCH’s RI declines from its 2× peak ( 1.149 to 1.085 ), suggesting its capacity-skipping strategy loses effectiveness under extreme load, whereas IPPO’s RI rises monotonically with demand pressure. A separate κ sweep (training at κ = 0 .4, evaluating across 0.3-0.7 at 5 seeds) tells a consistent story, with the strongest result validated at 30 seeds: at κ = 0 .3 (ratio 5.0:1) IPPO reaches RI = 1 .281 ± 0.035 versus RRN’s 1.058 ± 0.022 and MCH’s 1.019 ± 0.037 .     
+
+> 50 100 200 11.05 1.11.15 1.2
+> +6.4% RI
+> Demand rate (shipments/step) Resilience Index (RI)
+> (A) Resilience Index
+> IPPO RRN MCH
+> 50 100 200
+> 200 250 300 350 400 +32% vs RRN
+> Demand rate (shipments/step) Total throughput ( ×10 3 units)
+> (B) Total Throughput
+> IPPO RRN MCH
+
+Figure 3: Demand surge sensitivity ( κ = 0 .7, 30 seeds, Category 4). (A) IPPO’s RI advantage emerges at 4×demand (+6 .4% over RRN). (B) Throughput: IPPO and MCH scale; RRN saturates. Error bars: ±1 std. 
+
+6.5 When Does Learned Routing Help? 
+
+The practical takeaway is capacity-dependent. When the network has plenty of spare capacity (11.7:1 ratio at standard demand), all three policies perform similarly on RI and the heuristics’ direct state access gives them an edge on delay. When capacity tightens, as in the 4x demand surge (ratio 2.9:1), IPPO’s stochastic load distribution starts to matter. It prevents the saturation cascades that deterministic policies are prone to, and its RI advantage grows. This pattern (observed on a single synthetic network) suggests a hypothesis worth testing at scale: MARL-based routing may be most valuable for networks operating near capacity limits, which is the condition that arises during major disruptions. 9A PREPRINT - A UGUST 11, 2026 
+
+6.6 Limitations 
+
+Our 15-hub synthetic network is sufficient as a proof of concept but does not reflect the scale or operational complexity of real freight systems; topology generalization is the most important next step. The per-shipment formulation generates 
+
+∼25 ,000 samples per episode, which may limit scalability. The κ sweep results rest on 5 seeds (except κ = 0 .3,validated at 30) and should be treated as exploratory. The informational asymmetry (baselines access exact link states while IPPO sees normalized vectors) makes our comparison conservative but complicates clean attribution. Comparison against optimization-based approaches (e.g., rolling-horizon formulations) would further contextualize the results. 
+
+# 7 CONCLUSION 
+
+We introduced a per-shipment Dec-POMDP formulation for freight routing under hurricane disruption, where within-step capacity observations enable learned load balancing. On a 15-hub network, no single policy dominates: IPPO achieves the highest throughput ( +12 .7% ) and delivery rate; a capacity-aware heuristic achieves the highest RI and lowest delay. Under demand surge (2.9:1 ratio), IPPO’s RI advantage grows to +6 .4% , suggesting (pending validation on larger networks) that learned routing may be most valuable when capacity is scarce. Standard MAPPO collapses under train-eval queue mismatch ( RI = 0 .811 ); retraining without the mismatch recovers RI to 1.018 but IPPO still leads, pointing to both distributional sensitivity and residual architectural limitation in centralized critics under per-shipment dispatch. A deterministic ablation confirms that stochastic action sampling, not the learned value estimates alone, drives IPPO’s throughput advantage. Future work should test on larger, realistic topologies and explore critic architectures designed for sub-step decision granularity. 
+
+Acknowledgment The authors used ChatGPT for language editing. 
+
+Author Contributions 
+
+The authors confirm their contribution to the paper as follows: Study Conception and Design: all authors (Aliza Sharmin, Xudong Wang , Mustafa Can Camur, Xueping Li); Data Collection: all authors; Analysis and Interpretation of Results: Aliza Sharmin, Mustafa Can Camur; Draft Manuscript Preparation: Aliza Sharmin, Mustafa Can Camur. All authors review the results and approve the final version of the manuscript. 
+
+Conflict of Interest The authors declare that they have no potential conflicts of interest with respect to the research, authorship, and/or publication of this article. 
+
+# References 
+
+[1] Yossi Sheffi and James B. Rice. A Supply Chain View of the Resilient Enterprise. MIT Sloan Management Review ,47(1):41–48, 2005. [2] Martin Christopher and Helen Peck. Building the Resilient Supply Chain. International Journal of Logistics Management , 15(2):1–13, 2004. [3] Christopher S. Tang. Perspectives in Supply Chain Risk Management. International Journal of Production Economics , 103(2):451–488, 2006. [4] Dmitry Ivanov and Alexandre Dolgui. A Digital Supply Chain Twin for Managing the Disruption Risks and Resilience in the Era of Industry 4.0. Production Planning & Control , 32(9):775–788, 2020. [5] Lawrence V Snyder and Mark S Daskin. Reliability Models for Facility Location: The Expected Failure Cost Case. Transportation Science , 39(3):400–416, 2005. [6] Ryan Lowe, Yi Wu, Aviv Tamar, Jean Harb, Pieter Abbeel, and Igor Mordatch. Multi-agent actor-critic for mixed cooperative-competitive environments. In Isabelle Guyon, Ulrike von Luxburg, Samy Bengio, Hanna Wallach, Rob Fergus, S. V. N. Vishwanathan, and Roman Garnett, editors, Advances in Neural Information Processing Systems 30 , pages 6382–6393, Red Hook, NY, 2017. Curran Associates. [7] Jakob N. Foerster, Gregory Farquhar, Triantafyllos Afouras, Nantas Nardelli, and Shimon Whiteson. Counter-factual multi-agent policy gradients. In Sheila A. McIlraith and Kilian Q. Weinberger, editors, Proceedings of the AAAI Conference on Artificial Intelligence , pages 2974–2982, Palo Alto, CA, 2018. Association for the Advancement of Artificial Intelligence Press. [8] Michel Bruneau, Stephanie Chang, Ronald Eguchi, George Lee, Thomas O’Rourke, Andrei Reinhorn, Masanobu Shinozuka, Kathleen Tierney, William Wallace, and Detlof von Winterfeldt. A Framework to Quantitatively Assess and Enhance the Seismic Resilience of Communities. Earthquake Spectra , 19(4):733–752, 2003. 10 A PREPRINT - A UGUST 11, 2026 [9] Seyedmohsen Hosseini, Kash Barker, and Jose E Ramirez-Marquez. A Review of Definitions and Measures of System Resilience. Reliability Engineering & System Safety , 145:47–61, 2016. [10] Frans A Oliehoek and Christopher Amato. A Concise Introduction to Decentralized POMDPs . Springer, Cham, Switzerland, 1st edition, 2016. [11] Christopher W Landsea and James L Franklin. Atlantic Hurricane Database Uncertainty and Presentation of a New Database Format. Monthly Weather Review , 141(10):3576–3592, 2013. [12] Lars-Göran Mattsson and Erik Jenelius. Vulnerability and Resilience of Transport Systems – A Discussion of Recent Research. Transportation Research Part A: Policy and Practice , 81:16–34, 2015. [13] Erik Jenelius, Tom Petersen, and Lars-Göran Mattsson. Importance and Exposure in Road Network Vulnerability Analysis. Transportation Research Part A: Policy and Practice , 40(7):537–560, 2006. [14] Seyedmohsen Hosseini, Dmitry Ivanov, and Alexandre Dolgui. Review of Quantitative Methods for Supply Chain Resilience Analysis. Transportation Research Part E: Logistics and Transportation Review , 125:285–307, 2019. [15] Martin Hrušovský, Emrah Demir, Werner Jammernegg, and Tom Van Woensel. Hybrid Simulation and Optimiza-tion Approach for Green Intermodal Transportation Problem with Travel Time Uncertainty. Flexible Services and Manufacturing Journal , 30(3):486–516, 2018. [16] Dmitry Ivanov. Simulation-Based Ripple Effect Modelling in the Supply Chain. International Journal of Production Research , 55(7):2083–2101, 2017. [17] Dmitry Ivanov, Alexandre Dolgui, Boris Sokolov, and Marina Ivanova. Literature Review on Disruption Recovery in the Supply Chain. International Journal of Production Research , 55(20):6158–6174, 2017. [18] Tabish Rashid, Mikayel Samvelyan, Christian Schroeder De Witt, Gregory Farquhar, Jakob Foerster, and Shimon Whiteson. Monotonic Value Function Factorisation for Deep Multi-Agent Reinforcement Learning. Journal of Machine Learning Research , 21(178):1–51, 2020. [19] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal Policy Optimization Algorithms. arXiv preprint arXiv: 1707.06347 , 2017. [20] Chao Yu, Akash Velu, Eugene Vinitsky, Jiaxuan Gao, Yu Wang, Alexandre Bayen, and Yi Wu. The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games. In S. Koyejo, S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, and A. Oh, editors, Advances in Neural Information Processing Systems 35 , pages 24611–24624, Red Hook, NY, 2022. Curran Associates. [21] Tian Tan, Feng Bao, Yue Deng, Alex Jin, Qionghai Dai, and Jie Wang. Cooperative Deep Reinforcement Learning for Large-Scale Traffic Grid Signal Control. IEEE Transactions on Cybernetics , 50(6):2687–2700, 2019. [22] Kaixiang Lin, Renyu Zhao, Zhe Xu, and Jiayu Zhou. Efficient Large-Scale Fleet Management via Multi-Agent Deep Reinforcement Learning. In Yanjie Guo and Faisal Farooq, editors, Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining , pages 1774–1783, New York, New York, 2018. Association for Computing Machinery. [23] Siyavash Filom, Satrya Dewantara, Mahnam Saeednia, and Saiedeh Razavi. Adaptive Intermodal Transportation for Freight Resilience: An Integrated and Flexible Strategy for Managing Disruptions. Logistics , 9(3):107, 2025. [24] Byeongmok Kim, Jong Gwang Kim, and Seokcheon Lee. A Multi-Agent Reinforcement Learning Model for Inventory Transshipments under Supply Chain Disruption. IISE Transactions , 56(7):715–728, 2024. [25] Gian Paolo Cimellaro, Andrei M Reinhorn, and Michel Bruneau. Framework for Analytical Quantification of Disaster Resilience. Engineering Structures , 32(11):3639–3649, 2010. [26] Richard S Sutton and Andrew G Barto. Reinforcement Learning: An Introduction . Massachusetts Institute of Technology Press, Cambridge, MA, 1st edition, 1998. [27] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, and Pieter Abbeel. High-Dimensional Continuous Control Using Generalized Advantage Estimation. arXiv preprint arXiv: 1506.02438 , 2015. 11

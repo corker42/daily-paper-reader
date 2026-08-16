@@ -1,0 +1,4231 @@
+Title: A Distribution Mapping Approach to Counterfactually Fair Reinforcement Learning
+
+URL Source: https://arxiv.org/pdf/2608.08743v1
+
+Published Time: Tue, 11 Aug 2026 01:46:02 GMT
+
+Number of Pages: 36
+
+Markdown Content:
+# A Distribution Mapping Approach to Counterfactually Fair Reinforcement Learning 
+
+Jianhan Zhang 
+
+University of Michigan 
+
+jianhanz@umich.edu 
+
+Jitao Wang 
+
+University of Michigan 
+
+jitwang@umich.edu 
+
+John D. Piette 
+
+University of Michigan 
+
+jpiette@umich.edu 
+
+Donglin Zeng 
+
+University of Michigan 
+
+dzeng@umich.edu 
+
+Chengchun Shi 
+
+LSE 
+
+c.shi7@lse.ac.uk 
+
+Zhenke Wu 
+
+University of Michigan 
+
+zhenkewu@umich.edu 
+
+## Abstract 
+
+Reinforcement learning (RL) seeks to optimize sequential decisions to maximize population-level benefits over time. However, when deployed in high-stakes set-tings such as healthcare, RL decisions might systematically restrict some subpopu-lation’s access to valuable services in a manner contrary to the values and goals of stakeholders. Counterfactual fairness (CF) offers a promising framework to address this problem based on causal reasoning. This paper develops a data preprocessing algorithm that, when used in tandem with policy learning, enables CF in RL. Our algorithm relies on a novel quantile distribution mapping method for sequentially estimating the counterfactual states and rewards in the data preprocessing step, subsuming common additivity assumptions used for counterfactual prediction as a special case. We theoretically prove that the per-step level of counterfactual unfair-ness and infinite-horizon suboptimality gap can be bounded under mild regularity conditions. We also empirically test our algorithm in numerical experiments as well as in application to a real-world interventional digital health dataset. 
+
+## 1 Introduction 
+
+Reinforcement learning (RL) has gained popularity in various fields, including healthcare, banking, autonomous driving, and large language model fine-tuning, as a tool to facilitate data-driven sequential decision-making. Using data on an agent’s interactions with its environment, RL learns a sequential decision rule, often called a “policy”, that maximizes population-level benefits in an environment of interest across a possibly infinite time horizon. However, concerns have been raised that the sequential decisions made by a fairness-unaware RL agent might inadvertently disadvantage individuals in certain subgroups that may be defined by sensitive attributes, e.g., race/ethnicity, gender, education level, etc. In particular, unfairness will arise if the sensitive attribute is associated with the state and reward variables in a way that leads the RL agent to systematically withhold valuable resources from an individual. Deploying such fairness-unaware RL agents in sensitive settings risks jeopardizing social justice and eroding public trust. This work is motivated by the fairness implications of the PowerED study [27]. The PowerED study aimed to evaluate the effectiveness of an RL-based intervention designed to reduce patients’ self-reported opioid analgesic misuse behaviors while conserving counselors’ time. Each week during patients’ 12-week intervention period, state variables such as self-reported pain scores were used by an RL agent to select one of three treatment options: (1) a brief automated “interactive voice response” (IVR) call, (2) a longer IVR call, or (3) a live counselor call. In this setting, a fairness-unaware RL agent might systematically decline to assign live counselor calls to patients of certain races, 
+
+> Preprint. arXiv:2608.08743v1 [stat.ML] 9 Aug 2026
+
+essentially denying those patients’ access to high-quality, human-based care. For example, if the sensitive attribute (e.g., gender) is directly used as one of the state variables, then the agent will use gender as a decision factor, possibly resulting in the system assigning live calls with a higher probability to patients of one gender than the others. Even if the sensitive attribute is excluded from the set of state variables, such unfairness can still arise because the state and reward variables often encode implicit information about the sensitive attribute. For example, Hispanic patients might tend to under-report their pain level due to cultural factors [12], which could mislead the agent to underestimate Hispanic patients’ pain levels and thereby deny assigning more expensive live calls to them. To mitigate the potential unfairness in RL-based decision-making, this paper aims to develop method-ologies that enforce counterfactual fairness (CF) in RL. CF requires that the distribution of the decisions made by the algorithm remain unchanged had an individual’s sensitive attribute (e.g. race, gender, etc.) been switched to a different value while keeping unchanged the values of all historical exogenous variables in the model [19, 31]. CF enforces fairness at the individual level based on causal reasoning. This differs from many other popular fairness criteria, such as demographic parity and equal opportunity, which are group-level and based solely on statistical associations rather than causation. A more detailed comparison of CF with other popular fairness criteria can be found in Section B of the Appendix. 
+
+Related work. There exists a growing volume of literature on achieving CF in the single-stage 
+
+setting. Kusner et al. [19] and Zuo et al. [33] proposed enforcing CF by building machine learning (ML) models that rely only on non-descendants of the sensitive attribute in causal graphs. Wang et al. [32] introduced a method that adjusts possibly unfair ML predictors via post-processing to enforce CF. Chen et al. [2] developed a data-preprocessing algorithm that enforces CF by removing information about the sensitive attribute from the training data. Di Stefano et al. [10] considered enforcing CF by incorporating CF penalty into the loss function during training. Huang et al. [14] and Chen et al. [4] proposed methods that enforce CF in the bandit setting. Bian et al. [1] discussed balancing counterfactual action fairness and counterfactual outcome fairness in one-step policy learning. For sequential decision-making, focusing solely on static settings without taking into account the dynamic nature of the environment might lead to suboptimal outcomes [9, 22]. Causal directed acyclic graphs (DAGs) emerged as a framework for studying fairness in dynamical systems [8]. By modeling contextual Markov decision processes as causal DAGs, Wang et al. [31] extended the definition of CF to the RL setting and proposed a data-preprocessing algorithm to enforce CF in offline RL by removing sensitive information from training trajectories. However, this algorithm requires the noise to be additive to the state and reward variables, which may be restrictive in practice. 
+
+Contributions. Our work makes three major contributions. First, we propose a data-preprocessing algorithm that ensures CF in RL. In particular, this algorithm extends the algorithm introduced in [31] to a strictly larger class of underlying contextual Markov decision processes where the additive noise assumption is allowed to be violated. Second, we provide theoretical guarantees for our proposed algorithm by deriving bounds for the suboptimality gap and counterfactual unfairness resulting from the policy learned using the proposed algorithm. Third, we empirically test our proposed algorithm using numerical experiments and real data analysis. 
+
+## 2 Preliminaries 
+
+2.1 Structural Causal Models and Counterfactuals 
+
+We define a structural causal model (SCM) as the triplet M = {U , V, F} which models the causal relationships among the variables of interest. In the triplet, U is the set of unobserved exogenous vari-ables. The causes of unobserved exogenous variables are not explained by the model. Subsequently, an unobserved exogenous variable cannot be a descendant of any other variable. V = {V1, . . . , V n}
+
+is the set of observed variables. Each observed variable must be the descendant of at least one unobserved exogenous variable. F = {f1, . . . , f n} is a set of functions where each fi explains how the value of Vi is determined. In particular, Vi = fi(Vi, Ui) where Vi ⊂ V is the set of observed variables that are parents of Vi and Ui ⊂ U is the set of unobserved exogenous variables that are parents of Vi. If the values of all unobserved exogenous variables are set, then the values of all 2observed variables are fully determined using functions in F. Every SCM can be represented by a graphical causal model; we assume the graphical causal model for the SCM in this paper is a directed acyclic graph (DAG). The notion of counterfactuals can be defined using SCMs. Let Y ∈ V satisfy Y = fY (Z, U Y ) where 
+
+Z ⊂ V and UY ⊂ U . Suppose the observed value of Z is z and the unobserved realized value of UY
+
+is uY , so that the observed Y is Y Z←z = fY (z, u Y ). The counterfactual of Y under an alternative value Z = z′ with z′̸ = z is denoted and defined by Y Z←z′
+
+= fY (z′, u Y ). By computing the value of fY under z′ while keeping the value of UY unchanged, Y Z←z′
+
+answers the question “what would be the value of Y , if Z had taken the value z′ rather than z, given the observed data under Z = z?" 
+
+2.2 Data Generating Process and Notation Definition 1 (CMDP; [11]) . Contextual Markov Decision Process (CMDP) is a tuple (C, S, A, M(c)) 
+
+where C is called the context space, S and A are the state and action spaces correspondingly, and 
+
+M is function mapping any context c ∈ C to an MDP M(c) = ( S, A, p c(y|x, a ), r c(x), η c
+
+> 0
+
+) where 
+
+pc, rc, and ηc 
+
+> 0
+
+are context-specific transition kernel, reward function, and initial state distribution, respectively. 
+
+Here we consider data generated from a stationary CMDP where the sensitive attribute serves as the context variable. The dataset contains independent and identically distributed trajectories of N
+
+individuals generated using some behavioral policy πbt , with the j-th individual having a horizon of 
+
+Tj + 1 (with index starting from 0 and ending with Tj ) and a time-invariant sensitive attribute Zj
+
+from the space of sensitive attributes Z = {z(1) , . . . , z (K)} that can only be caused by exogenous variables. In this paper, we assume without the loss of generality that Tj = T for all j = 1 , . . . , N 
+
+for some constant T . For each j = 1 , . . . , N and t = 0 , . . . T , let Sj,t = ( S(1)  
+
+> j,t
+
+, . . . , S (M ) 
+
+> j,t
+
+) ∈ S be the M -dimensional state of the j-th individual at time t, Aj,t ∈ A be the action taken by the j-th individual at time t, and Rj,t ∈ R be the reward received by the j-th individual after taking action 
+
+Aj,t . Let U Aj,t , U Rj,t , and {U S(i) 
+
+> j,t
+
+}Mi=1 be scalar exogenous variables that are parents of the action, reward, and each dimension of the state, respectively, at time t. We write U St = ( U S(1)  
+
+> t
+
+, . . . , U S(M ) 
+
+> t
+
+)
+
+for convenience. Furthermore, let ¯Wj,t = ( Wj, 0, W j, 1, . . . , W j,t ) for any time-dependent variable 
+
+Wj,k . Also, denote the full history up to time t by Hj,t = {Zj , ¯Sj,t , ¯Aj,t −1, ¯Rj,t −1} if t ≥ 1 and 
+
+Hj,t = {Zj , ¯Sj, 0} if t = 0 . Since the trajectories are i.i.d., unless it is necessary to identify the associated individual, we omit the index j in the variables defined above for simplicity. In this paper, we represent the data-generating stationary CMDP using an SCM. More precisely, for the initial time step, there exist functions {f S(i) 
+
+> 0
+
+}Mi=1 and f R 
+
+> 0
+
+such that 
+
+S(i)0 = f S(i) 
+
+> 0
+
+(Z, U S(i) 
+
+> 0
+
+), A 0 = πb
+
+> 0
+
+(Z, S 0, U A 
+
+> 0
+
+), R 0 = f R 
+
+> 0
+
+(Z, S 0, A 0, U R 
+
+> 0
+
+).
+
+For t ≥ 1, there exist functions {f S(i)
+
+}Mi=1 and f R such that 
+
+S(i) 
+
+> t
+
+= f S(i)
+
+(Z, S t−1, A t−1, U S(i) 
+
+> t
+
+), A t = πbt (Z, S t, U At ), R t = f R(Z, S t, A t, U Rt ).
+
+Figure 1 offers a DAG representation of the data-generating CMDP. 
+
+2.3 Counterfactual Fairness in RL 
+
+CF was first proposed by Kusner et al. [19] for single-stage ML tasks, and Wang et al. [31] extended the definition of CF to the RL setting. The current paper adopts the definition of CF introduced in [31], which we briefly review below. We consider a general RL setting with data generated from a stationary CMDP and decisions made by a policy (possibly non-stationary). Let πt denote the policy at time t. By the three-step procedure for counterfactual inference introduced in [25], the probability distributions of U St and U Rt−1 can each be seen as a function of Ht. Following [31], for t ≥ 0, we write U St = U St (Ht) and U Rt = U Rt (Ht+1 )
+
+by an abuse of notation and assume the mappings U St (·) and U Rt (·) are deterministic. Furthermore, let ¯Ut(·) be a vector-valued function such that ¯Ut(·) = ( U S 
+
+> 1
+
+(·), U R 
+
+> 1
+
+(·), . . . , U Rt−1(·), U St (·)) .By the SCM representation of the data-generating CMDP, the counterfactual states, actions, and rewards can each be seen as a function of the historical exogenous variables ¯Ut. Moreover, ¯Ut is 3Figure 1: Causal DAG of CMDP [31] assumed to be a deterministic function of Ht. Inspired by this observation, we let AZ←z′ 
+
+> t
+
+( ¯Ut(ht)) ,
+
+SZ←z′ 
+
+> t
+
+( ¯Ut(ht)) , and RZ←z′ 
+
+> t
+
+( ¯Ut+1 (ht+1 )) denote the counterfactual action, state, and reward, re-spectively, at time t under πt for an individual with observed history ht, had the individual’s sensitive attribute been set to z′ and the individual followed the observed past action sequence ¯at−1 (or ¯at
+
+in the case of the reward). A policy is counterfactually fair if, at each time step, the probability distribution of its action assignment to an individual would stay the same had the individual’s sensitive attribute been switched to any other value while holding constant all historical actions and exogenous variables. This definition is formally stated below. 
+
+Definition 2 (Counterfactual Fairness in CMDP; [31]) . Given an observed trajectory Ht = ht =
+
+{z, ¯st, ¯at−1, ¯rt−1}, a decision rule πt is counterfactually fair at time t if it satisfies the following condition: 
+
+Pπt
+
+
+
+AZ←z′ 
+
+> t
+
+( ¯Ut(ht)) = a
+
+
+
+= Pπt  AZ←zt ( ¯Ut(ht)) = a , ∀z′ ∈ Z , ∀a ∈ A .
+
+A policy {πt}t≥0 is said to be counterfactually fair if the above holds for any t.
+
+To characterize counterfactually fair policies, let ˜St = ( SZ←z(1)  
+
+> t
+
+( ¯Ut(ht)) , . . . , S Z←z(K) 
+
+> t
+
+( ¯Ut(ht))) 
+
+and ˜Rt = PKk=1 P(Z = z(k))RZ←z(k) 
+
+> t
+
+( ¯Ut+1 (ht+1 )) . Note that ˜St and ˜Rt do not depend on the value of the individual’s observed sensitive attribute. Wang et al. [31] showed that { ˜St, ˜Rt, A t}t≥0
+
+follows a stationary Markov decision process (MDP) in which any policy is counterfactually fair. Moreover, the optimal policy in this MDP is stationary, so it can be conveniently learned by existing RL algorithms provided that { ˜St, ˜Rt, A t}t≥0 are known. We refer interested readers to Theorems 1 and 2 in [31] for more details. 
+
+## 3 Counterfactually Fair Sequential Marginal Distribution Mapping 
+
+In this section, we present a novel data preprocessing method “counterfactually fair sequential marginal distribution mapping” (CFSMDM) which estimates the requisite counterfactuals to construct CF policies. CFSMDM achieves CF in policy learning via a two-stage procedure. First, we preprocess the training trajectories to obtain augmented training trajectories where the states are estimates ˆ˜St of 
+
+˜St and the rewards are estimates ˆ˜Rt of ˜Rt. This step removes information of the sensitive attribute from the training trajectories. Then, we perform policy learning on the augmented training trajectories using existing offline RL algorithms, such as fitted Q iteration (FQI) [28]. The resulting policy should be close to being counterfactually fair because the preprocessed training trajectories contain no information about the sensitive attribute except possibly some residual information introduced by estimation errors. We follow the setup and notation introduced in Section 2. Assumptions 1 and 2 ensure the identifiability of the counterfactual states and rewards via Theorems 1 and 2. 
+
+Assumption 1 (Strict monotonicity of the state in the noise variable) . For t = 0 and i = 1 , . . . , M ,
+
+S(i)0 = f S(i) 
+
+> 0
+
+(Z, U S(i) 
+
+> 0
+
+) for some function f S(i) 
+
+> 0
+
+that is deterministic and strictly increasing in 
+
+U S(i) 
+
+> 0
+
+on the support of U S(i) 
+
+> 0
+
+for all levels of Z. For t ≥ 1 and i = 1, . . . , M , S(i) 
+
+> t
+
+=
+
+4f S(i)
+
+(Z, A t−1, S t−1, U S(i) 
+
+> t
+
+) for some function f S(i)
+
+that is deterministic and strictly increasing in U S(i) 
+
+> t
+
+on the support of U S(i) 
+
+> t
+
+for all levels of (Z, A t−1, S t−1).
+
+Assumption 2 (Strict monotonicity of the reward in the noise variable) . For t ≥ 0, Rt =
+
+f R(Z, S t, A t, U Rt ) for some function f R that is deterministic and strictly increasing in U Rt on the support of U Rt for all levels of (Z, A t, S t).
+
+Section E in the Appendix shows that Assumptions 1 and 2 are strictly weaker than the additivity assumption made by the alternative method proposed by [31]. Similar monotonicity assumptions are also common in quantile treatment effect literature [7, 21]. For t ≥ 0, let SZ←z′,(i) 
+
+> t
+
+( ¯Ut(ht)) denote the i-th component of SZ←z′ 
+
+> t
+
+( ¯Ut(ht)) . Theorems 1 and 2 establish that conditional quantile matching can recover the counterfactual states and rewards. 
+
+Theorem 1 (Quantile matching for counterfactual states) . Suppose Assumption 1 hold, and consider an individual with observed history ht = ( z, ¯st, ¯at−1, ¯rt−1). Then, for t = 0 , the quantile level of 
+
+SZ←z′,(i)0 ( ¯U0(h0)) with respect to the law of f S(i) 
+
+> 0
+
+(z′, U S(i) 
+
+> 0
+
+) does not vary by z′ ∈ Z .Similarly, for later time steps t ≥ 1, the quantile level of SZ←z′,(i) 
+
+> t
+
+( ¯Ut(ht)) with respect to the law of f S(i)
+
+(z′, a t−1, S Z←z′ 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , U S(i) 
+
+> t
+
+) does not vary by z′ ∈ Z .
+
+Theorem 2 (Quantile matching for counterfactual rewards) . Suppose Assumption 2 hold, and consider an individual with observed history ht = ( z, ¯st, ¯at−1, ¯rt−1). Then, for each time step t ≥ 0, the quantile level of RZ←z′ 
+
+> t
+
+( ¯Ut+1 (ht+1 )) with respect to the law of f R(z′, a t, S Z←z′ 
+
+> t
+
+( ¯Ut(ht)) , U Rt ) does not vary by z′ ∈ Z .
+
+The implication is that the observed quantile level under the observed z would remain identical had 
+
+Z taken a different value z′. This means we can use the observed data (comprised of individuals with Z = z or Z = z′) to obtain estimated quantile levels and conditional quantile models for states/rewards. Then, for an individual with observed Z = z, one may shift to the estimated quantile model under a different z′, and use the estimated quantile level to retrieve the intended counterfactuals. See Section C of the Appendix for an example to illustrate the intuition. In brief, Theorems 1 and 2 imply that for each t ≥ 0, the state (or reward) under the observed sensitive attribute value z and the counterfactual state (or reward) under another sensitive attribute value z′ are on the same quantile of their respective conditional distributions. Therefore, to find the counterfactual state (or reward), we can (1) find the quantile level τ of the observed state (reward) on its conditional distribution and (2) find the counterfactual state (or reward) as the τ -th quantile on its conditional distribution. This observation inspires the sequential marginal distribution mapping (SMDM) method for estimating the counterfactual states and rewards, which are used to construct estimates ˆ˜St and ˆ˜Rt of the augmented states ˜St and rewards ˜Rt, respectively. The full CFSMDM method combines data preprocessing (using SMDM) with policy learning. Due to limited space, pseudocodes of SMDM and CFSMDM are described in Algorithms 1 and 2, respectively, in Section D of the Appendix. 
+
+Estimation of conditional quantiles. Several methods can be employed to construct the conditional quantile models ˆQ0, ˆQ, and ˆW in Algorithm 1. One option is the standard quantile regression [17, 18]. 
+
+ˆQ0 can be fitted using trajectory data from the initial time step, and ˆQ and ˆW can be fit using trajectory data from all time steps with t ≥ 1 because the transition kernel is assumed to be stationary. However, quantile regression can be prone to model misspecification and might produce out-of-range estimates. Related machine learning-based methods, including quantile regression forests [23] and quantile regression using neural networks [24, 30], may also be used to learn the conditional quantiles. These methods are often more flexible than standard quantile regression. Other distributional regression techniques, such as distribution regression [6], may also be employed. 
+
+## 4 Theoretical Analysis 
+
+In this section, we provide theoretical guarantees for the suboptimality gap and counterfactual unfairness control of policies learned using the proposed CFSMDM. In particular, the suboptimality 5gap for a history-dependent policy π is defined as 
+
+SG (π) = E(st,a t)∼π∗Pt
+
+" ∞X
+
+> t=0
+
+γtr(st, a t)
+
+#
+
+− E(st,a t)∼πP t
+
+" ∞X
+
+> t=0
+
+γtr(st, a t)
+
+#
+
+,
+
+where π∗ is the optimal policy in the corresponding MDP, γ ∈ (0 , 1) is the discount factor, and r(·, ·)
+
+is the reward function. For this theoretical analysis, we restrict to the case where the trajectories of all individuals in the training set have exactly T time steps, and policy learning is performed using fitted Q iteration (FQI) with the Q function being estimated by ordinary least squares [28]. Also, we assume that the preprocessor training step and the policy learning step of CFSMDM are performed on two independent samples that contain the same number of individuals; this can be achieved via techniques such as sample splitting. In the analysis that follows, let ˆπ be the stationary policy learned using CFSMDM. Also, define 
+
+˜Ht = { ¯˜St, ¯˜Rt−1, ¯At−1} for t ≥ 1 and ˜Ht = { ¯˜St} for t = 0 , which denotes the history up to time t
+
+in the MDP with the augmented state and reward. Note that, given the observed sensitive attribute z∗
+
+and assuming the counterfactual state estimator and the quantile level estimator are both fixed, the estimated augmented state ˆ˜st,n at time t can be written as a function of the augmented history up to time t (i.e. ˆ˜st,n = gz∗
+
+> t,n
+
+(˜ht) for some function gz∗ 
+
+> t,n
+
+that depends on the observed sensitive attribute z∗,the counterfactual state estimator, the quantile level estimator, and the time step t). Therefore, we can write ˆπ(ˆ ˜st,n ) = (ˆ π ◦ gz∗
+
+> t,n
+
+)( ˜ht). We define ˜πz∗ 
+
+> n
+
+= {˜πz∗
+
+> n,t
+
+}t≥0 where ˜πz∗ 
+
+> n,t
+
+= (ˆ π ◦ gz∗
+
+> t,n
+
+)( ˜ht). Under this definition, ˜πz∗ 
+
+> n
+
+is an alternative representation of the policy learned using CFSMDM, and it is a history-dependent non-stationary policy. As defined in Section I.3 of the Appendix, Mt,n denotes an upper bound of the augmented state estimation error at time t, and δt,n denotes a simultaneous upper bound of both the augmented state and reward estimation errors up to time t. Some additional assumptions needed for the bounds can be found in Section I.3.2 of the Appendix. Theorems 3 and 4 characterize the control of the suboptimality gap and the level of counterfactual unfairness, respectively. 
+
+Theorem 3 (Suboptimality gap bound) . Suppose Assumptions 1-2 and A1-A3 hold. Also, suppose the trajectory for each individual in the training set has exactly T time steps. For any ω ∈ N and 
+
+z ∈ Z , we have 
+
+SG (˜ πzn) ≤ 2BL 1 − γω
+
+1 − γ max  
+
+> t≤ω−1
+
+Mt,n + 2 BL γω
+
+1 − γ M ˜S
+
++ 2C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)3 + 2C2dR max κ log( n)(1 − γ)3λ0
+
+√n + 2γB Rmax 
+
+(1 − γ)2
+
+with probability at least (1 − n−κ − d exp( −nλ 0/8)) P  δT,n ≤ λ0
+
+> 4dL
+
+, where C1 and C2 are positive constants, B is the number of FQI iterations, γ ∈ (0 , 1) is the discount factor, and B, L, and M ˜S are positive constants defined in Assumptions A1 and A2. 
+
+Theorem 4 (Counterfactual unfairness bound) . Suppose Assumptions 1-2 and A1-A4 hold. Also, suppose the trajectory for each individual in the training set has exactly T time steps. Let ξn = 
+
+> C1dLR max δT ,n
+> λ0(λ0−4dLδ T ,n )(1 −γ)2
+
++ C2dR max κ log( n)(1 −γ)2λ0 
+
+> √n
+
++ γB Rmax  
+
+> 1−γ
+
+and ηn = n−κ + d exp( −nλ 0/8) , where C1, C 2
+
+are as defined in Theorem 3 and κ > 0 is an arbitrary constant. For any z′, z ′′ ∈ Z and t ≥ 0,
+
+E
+
+h
+
+∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2
+
+i
+
+≤E [O(ξαn ) + O(( BLδ t,n )α)] + √2 [ P (δT,n > λ 0/(4 dL )) + ηn]
+
+where O stands for the big-O notation, B is the number of FQI iterations, γ ∈ (0 , 1) is the discount factor, and Rmax and α are positive constants defined in Assumptions A1 and A4, respectively. 
+
+It is worth noting that increasing the number of FQI iterations generally both reduces the suboptimality gap and tightens the unfairness bounds. See more discussions of the bounds in Section H of the Appendix. 
+
+## 5 Numerical Experiments 
+
+In this section, we conduct simulation studies to compare the performance of CFSMDM relative to alternative methods using data generated from a known CMDP with nonadditive noise. We also 6present additional numerical experiments in Section J of the Appendix. In particular, in Section J.1 of the Appendix, we conduct an additional numerical experiment using data generated from a CMDP with more restrictive additive noise scenarios where we show the proposed CFSMDM algorithm is comparable in optimal policy value and unfairness control relative to specially designed alternatives. 
+
+Methods to be compared. The methods that are evaluated and compared in this section are: • Full: The standard method that learns the optimal policy using all available covariates, including the sensitive attribute, as the state variable. • Unaware: The method that learns the optimal policy using all available covariates except the sensitive attribute as the state variable. This method is an intuitive, yet often insufficient, way to achieve fairness. • Random: A random policy that selects each available action with equal probability. This method should always be counterfactually fair because its decision-making is independent of both the training trajectory and deployment-time variables, but the quality of the decisions will suffer. • FLAP_M: The FLAP algorithm with (single-stage) marginal distribution mapping, as introduced in [2], adapted to the RL setting. In our implementation of FLAP_M, marginal distribution mapping is performed using empirical quantiles. • ECOCF_M: The method introduced in [32], adapted to the RL setting. In our implementation of ECOCF_M, the counterfactual states are estimated using (single-stage) marginal distribution mapping with empirical quantiles. • CFSDP: The method introduced in [31]. In our implementation of CFSDP, the transition kernel is learned using a neural network. • CFSMDM: The method proposed by this paper. In our implementation of CFSMDM, the quantiles of the conditional state and reward distributions are learned using standard quantile regression with a linear specification [17, 18]. More details on the implementation of the baselines above can be found in Section K of the Appendix. For all of the above methods except “Random”, policy learning is performed using FQI [28]. The “Random” method is a policy on its own, so no policy learning is needed. 
+
+Evaluation metrics. We are interested in the discounted cumulative reward (which we call “policy value” for brevity) and the level of counterfactual unfairness achieved by the policy learned using each of the above methods. In particular, the level of counterfactual fairness is assessed using the following CF metric proposed by [31]: 
+
+max 
+
+> z′,z ∈Z
+
+1
+
+N T 
+
+> N
+
+X
+
+> i=1
+> T
+
+X
+
+> t=1
+
+I
+
+
+
+AZ←z′ 
+
+> t
+
+( ¯Ut(hi,t )) ̸ = AZ←zt ( ¯Ut(hi,t )) 
+
+
+
+.
+
+Intuitively, this metric calculates the maximum empirical rate at which the policy of interest selects different actions for the same individual in the factual and counterfactual worlds across all individuals and time steps, with the maximum taken over all pairs of distinct sensitive attributes z and z′ in 
+
+Z. This metric must lie in the interval [0 , 1] , where 0 and 1 represent perfect and least empirical counterfactual fairness, respectively. 
+
+Experiment setup. We generate data from a CMDP with nonadditive noise that satisfies Assump-tions 1 and 2. The detailed CMDP setup can be found in Section K in the Appendix. Let δ denote the strength of impact of the sensitive attribute on the state and reward variables. We run two experiments with different objectives: • Experiment 1: This experiment evaluates how the policy value and the CF metric change with 
+
+N , the number of individuals in the training dataset. In particular, for the training dataset, we fix 
+
+T = 20 , δ = 2 .0 and vary N ∈ { 100 , 200 , 500 , 1000 , 2000 }.• Experiment 2: This experiment evaluates how the CF metric changes with δ. In particular, for the training dataset, we fix T = 20 , N = 500 and vary δ ∈ { 0.0, 1.0, 2.0, 3.0, 4.0}.7Figure 2: Experiment results under nonadditive noise: (a) CF metric vs. Sample size ( N ); (b) Policy value vs. Sample size ( N ); (c) Policy value vs. CF metric; (d) CF metric vs. Size of effect of Z on St
+
+and Rt (δ). Results are aggregated over 50 replications with different random seeds. Point represents the empirical mean. Shaded area represents the band between 0.025 and 0.975 empirical quantiles. In both experiments, the training trajectories are generated using the “Random” policy as the be-havioral policy. In particular, the sets of trajectories used for preprocessor training (if needed for the method of interest) and policy learning share the same sensitive attributes, while the remaining trajectory components are generated independently conditional on the shared sensitive attributes. The policy value resulting from the methods of interest is approximated by the discounted cumulative reward from a simulated trajectory with 10000 individuals and 20 horizons, generated from the known CMDP using the policy learned with the methods of interest. Similarly, the CF metric is calculated from a simulated dataset containing counterfactual trajectories of 10000 individuals with 
+
+20 horizons, generated from the known CMDP using the policy learned with the methods of interest. 
+
+Results. Figure 2 summarizes the experiment results. Panels (a)-(c) summarize the results from Experiment 1, and Panel (d) summarizes the results from Experiment 2. In particular, panel (a) shows that CFSMDM outperforms all baselines other than “Random” in terms of fairness control. Moreover, although CFSMDM does not achieve perfect counterfactual fairness due to finite-sample counterfactual state and reward estimation errors, its CF metric decreases as the training sample size 
+
+N increases, which supports the consistency of CFSMDM. In panel (b), “Full” achieves the highest policy value because it uses the original states and rewards for reward maximization. CFSMDM achieves a lower policy value than “Full” and “Unaware”, which demonstrates a tradeoff between fairness and policy value. Panel (c) further illustrates this tradeoff between fairness and policy value, as fairer methods generally result in lower policy values. Notably, FLAP_M and ECOCF_M are unfairer than CFSMDM due to their failure to account for the sequential nature of the underlying environment. Similarly, compared to CFSMDM, CFSDP is relatively unfair and achieves a lower policy value, possibly due to the violation of the additive noise assumption. CFSDP also appears unstable in both fairness control and policy value, as shown by the wide shaded bands in panels (a) and (b). In panel (d), CFSMDM remains relatively fair as we inject more unfairness into the underlying CMDP by increasing δ, which shows that CFSMDM is robust against the level of unfairness present in the training trajectories. 
+
+## 6 Application to the PowerED Study on Reducing Opioid Misuse 
+
+In this section, we use CFSMDM and other baseline methods to analyze a dataset from the PowerED study [27]. The dataset consists of 207 patients, each participating in the intervention over a period of 12 weeks (one RL decision per week). We consider sex, education, age, and ethnicity, all binarized, as potential sensitive attributes, and we use weekly pain score and weekly pain interference score as the state variables. The reward is based on participants’ weekly self-reports and calculated as 7 -weekly self-reported opioid medication risk score .8Table 1: CF metric and value of different methods when applied to the PowerED dataset. The analysis is repeated for 50 times using different random seeds. The number without parentheses is the empirical mean, and the number inside the parentheses is the standard deviation. All values are rounded to two decimal points. Metric Method Education Ethnicity Sex Age Unfairness Full 0.45 (0.14) 0.46 (0.15) 0.66 (0.15) 0.35 (0.17) Random 0.00 (0.00) 0.00 (0.00) 0.00 (0.00) 0.00 (0.00) Unaware 0.17 (0.04) 0.17 (0.04) 0.06 (0.02) 0.13 (0.03) CFSDP 0.14 (0.04) 0.18 (0.05) 0.07 (0.02) 0.10 (0.03) ECOCF_M 0.16 (0.03) 0.20 (0.04) 0.14 (0.04) 0.15 (0.03) FLAP_M 0.17 (0.03) 0.20 (0.04) 0.14 (0.04) 0.17 (0.04) 
+
+CFSMDM 0.11 (0.03) 0.10 (0.03) 0.09 (0.05) 0.10 (0.03) 
+
+Value Full 57.25 (0.56) 57.26 (0.69) 57.49 (0.52) 57.35 (0.66) Random 57.04 (0.46) 56.92 (0.66) 57.02 (0.52) 57.04 (0.55) Unaware 57.38 (0.54) 57.36 (0.73) 57.49 (0.54) 57.47 (0.65) CFSDP 57.28 (0.56) 57.19 (0.71) 57.37 (0.57) 57.36 (0.67) ECOCF_M 57.30 (0.56) 57.21 (0.73) 57.44 (0.57) 57.43 (0.63) FLAP_M 57.33 (0.52) 57.27 (0.72) 57.48 (0.58) 57.37 (0.65) 
+
+CFSMDM 57.27 (0.51) 57.26 (0.77) 57.28 (0.55) 57.41 (0.61) 
+
+The methods being run in this section are “Full”, “Unaware”, “Random”, FLAP_M, ECOCF_M, CFSDP, and CFSMDM, all of which are as defined in Section 5. In particular, CFSDP estimates the transition kernel using a neural network, and CFSMDM estimates the conditional quantiles using quantile regression with a linear specification. We are interested in the counterfactual unfairness level and policy value achieved by CFSMDM and the baseline methods. Details on the implementation of the real data analysis can be found in Section L of the Appendix. Table 1 summarizes the results of the analysis. For all candidate sensitive attributes, “Full” has the worst level of counterfactual fairness. Also, for all candidate sensitive attributes, “Random” is perfectly counterfactually fair but has made low-quality decisions resulting in low values. For most sensitive attributes, “Unaware”, FLAP_M, and ECOCF_M have significantly better levels of counterfactual fairness than “Full” but worse than CFSDP and CFSMDM; the unfairness of “Unaware” reflects the fact that simply excluding the sensitive attribute from sequential decision-making (as was done in the clinical trial where this RL decision-process was used) is often insufficient for removing all the unfairness in the training trajectories. CFSMDM achieves the best counterfactual fairness for most sensitive attributes, and it noticeably outperforms CFSDP for “education” and “ethnicity”. However, for “sex”, CFSMDM is slightly more unfair than CFSDP and “Unaware”. One possible explanation for this is that excluding the sensitive attribute from decision-making already removes most of the unfairness (e.g., because sex is uncorrelated with the included state variables), so the fairness improvement due to CFSMDM is outweighed by the unfairness introduced by finite-sample estimation errors in CFSMDM. 
+
+Remark 1. In our analysis of the PowerED study data, the CF metric depends on the quantile models used in SMDM to estimate the counterfactual states of the test dataset. In particular, if the quantile models are inaccurate due to misspecification of the quantile regression or violations of Assumptions 1 or 2, then the CF metric presented in this section might also be inaccurate. 
+
+## 7 Conclusion 
+
+In this paper, we have introduced a novel and general algorithm of sequential data preprocessing (CFSMDM) which, when used in tandem with off-the-shelf RL policy learning algorithms, achieves CF. Specifically, we first estimate all the counterfactual states and rewards by matching the quantiles of conditional counterfactual distributions, and construct a preprocessed trajectory dataset. The vector of all estimated counterfactual states serves as the augmented state variable and a weighted sum of all estimated counterfactual rewards serves as the augmented reward variable. We can then perform offline policy learning using the preprocessed trajectory dataset with the augmented states 9and rewards. Theoretically, we derive suboptimality gap and counterfactual unfairness bounds for the policy learned using data preprocessed by CFSMDM. Our CFSMDM algorithm, together with the CFSDP algorithm by [31], provides fairness-aware researchers and professionals with tools for ensuring CF in RL with distinct advantages and drawbacks. Compared to CFSDP, CFSMDM requires strictly weaker assumptions and is therefore more general and robust. On the other hand, CFSDP is easier to implement and less computationally heavy than CFSMDM because it only estimates the means of the conditional counterfactual state and reward distributions, while CFSMDM requires fitting multiple quantile models corresponding to a grid of quantile levels of conditional counterfactual state and reward distributions for quantile matching. 
+
+## Data Availability Statement 
+
+An anonymized and limited copy of the PowerED dataset that motivates and supports the findings in this paper is available upon reasonable request, subject to the limitations outlined in the study’s Human Subjects Approval and written informed consent statement for study participants. The Python code for the simulations and the data analysis is available and will be provided when the manuscript is published. 10 References 
+
+[1] Bian, Z., Wang, L., Shi, C., and Qi, Z. (2026). Double fairness policy learning: Integrating action fairness and outcome fairness in decision-making. arXiv preprint arXiv:2601.19186 .[2] Chen, H., Lu, W., Song, R., and Ghosh, P. (2024). On learning and testing of counterfactual fair-ness through data preprocessing. Journal of the American Statistical Association , 119(546):1286– 1296. [3] Chen, J. and Jiang, N. (2019). Information-theoretic considerations in batch reinforcement learning. In Chaudhuri, K. and Salakhutdinov, R., editors, Proceedings of the 36th International Conference on Machine Learning , volume 97 of Proceedings of Machine Learning Research ,pages 1042–1051. PMLR. [4] Chen, J., Tian, J., and Quinn, C. J. (2025). Causal logistic bandits with counterfactual fairness constraints. In Forty-second International Conference on Machine Learning .[5] Chernozhukov, V., Fernández-Val, I., and Galichon, A. (2010). Quantile and probability curves without crossing. Econometrica , 78(3):1093–1125. [6] Chernozhukov, V., Fernández-Val, I., and Melly, B. (2013). Inference on counterfactual distribu-tions. Econometrica , 81(6):2205–2268. [7] Chernozhukov, V. and Hansen, C. (2005). An iv model of quantile treatment effects. Economet-rica , 73(1):245–261. [8] Creager, E., Madras, D., Pitassi, T., and Zemel, R. (2020). Causal modeling for fairness in dynamical systems. In Daumé III, H. and Singh, A., editors, Proceedings of the 37th International Conference on Machine Learning , volume 119 of Proceedings of Machine Learning Research ,pages 2185–2195. PMLR. [9] D’Amour, A., Srinivasan, H., Atwood, J., Baljekar, P., Sculley, D., and Halpern, Y. (2020). Fairness is not static: deeper understanding of long term fairness via simulation studies. In 
+
+Proceedings of the 2020 Conference on Fairness, Accountability, and Transparency , FAT* ’20, page 525–534, New York, NY, USA. Association for Computing Machinery. [10] Di Stefano, P. G., Hickey, J. M., and Vasileiou, V. (2020). Counterfactual fairness: removing direct effects through regularization. arXiv preprint arXiv:2002.10774 .[11] Hallak, A., Di Castro, D., and Mannor, S. (2015). Contextual markov decision processes. arXiv preprint arXiv:1502.02259 .[12] Hollingshead, N. A., Ashburn-Nardo, L., Stewart, J. C., and Hirsh, A. T. (2016). The pain experience of hispanic americans: A critical literature review and conceptual model. The Journal of Pain , 17(5):513–528. [13] Hu, Y., Kallus, N., and Uehara, M. (2023). Fast rates for the regret of offline reinforcement learning. arXiv preprint arXiv:2102.00479 .[14] Huang, W., Zhang, L., and Wu, X. (2022). Achieving counterfactual fairness for causal bandit. 
+
+Proceedings of the AAAI Conference on Artificial Intelligence , 36(6):6952–6959. [15] Kakade, S. and Langford, J. (2002). Approximately optimal approximate reinforcement learning. In Proceedings of the Nineteenth International Conference on Machine Learning , ICML ’02, page 267–274, San Francisco, CA, USA. Morgan Kaufmann Publishers Inc. [16] Kingma, D. P. and Ba, J. (2017). Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 .[17] Koenker, R. (2005). Quantile Regression . Econometric Society Monographs. Cambridge University Press. [18] Koenker, R. and Bassett, G. (1978). Regression quantiles. Econometrica , 46(1):33–50. 11 [19] Kusner, M. J., Loftus, J. R., Russell, C., and Silva, R. (2018). Counterfactual fairness. arXiv preprint arXiv:1703.06856 .[20] Le, H., Voloshin, C., and Yue, Y. (2019). Batch policy learning under constraints. In Chaudhuri, K. and Salakhutdinov, R., editors, Proceedings of the 36th International Conference on Machine Learning , volume 97 of Proceedings of Machine Learning Research , pages 3703–3712. PMLR. [21] Li, T., Shi, C., Lu, Z., Li, Y., and Zhu, H. (2024). Evaluating dynamic conditional quantile treatment effects with applications in ridesharing. Journal of the American Statistical Association ,119(547):1736–1750. [22] Liu, L. T., Dean, S., Rolf, E., Simchowitz, M., and Hardt, M. (2018). Delayed impact of fair machine learning. In Dy, J. and Krause, A., editors, Proceedings of the 35th International Conference on Machine Learning , volume 80 of Proceedings of Machine Learning Research ,pages 3150–3158. PMLR. [23] Meinshausen, N. (2006). Quantile regression forests. Journal of Machine Learning Research ,7(35):983–999. [24] Padilla, O. H. M., Tansey, W., and Chen, Y. (2022). Quantile regression with relu networks: Estimators and minimax rates. Journal of Machine Learning Research , 23(247):1–42. [25] Pearl, J., Glymour, M., and Jewell, N. P. (2016). Causal inference in statistics: A primer . John Wiley & Sons. [26] Perdomo, J. C., Krishnamurthy, A., Bartlett, P., and Kakade, S. (2023). A complete characteri-zation of linear estimators for offline policy evaluation. Journal of Machine Learning Research ,24(284):1–50. [27] Piette, J. D., Thomas, L., Newman, S., Marinec, N., Krauss, J., Chen, J., Wu, Z., and Bohnert, A. S. B. (2023). An automatically adaptive digital health intervention to decrease opioid-related risk while conserving counselor time: Quantitative analysis of treatment decisions based on artificial intelligence and patient-reported risk measures. J Med Internet Res , 25:e44165. [28] Riedmiller, M. (2005). Neural fitted q iteration – first experiences with a data efficient neural reinforcement learning method. In Gama, J., Camacho, R., Brazdil, P. B., Jorge, A. M., and Torgo, L., editors, Machine Learning: ECML 2005 , pages 317–328, Berlin, Heidelberg. Springer Berlin Heidelberg. [29] Seabold, S. and Perktold, J. (2010). statsmodels: Econometric and statistical modeling with python. In 9th Python in Science Conference .[30] Taylor, J. W. (2000). A quantile regression neural network approach to estimating the conditional density of multiperiod returns. Journal of Forecasting , 19(4):299–311. [31] Wang, J., Shi, C., Piette, J. D., Loftus, J. R., Zeng, D., and Wu, Z. (2025). Counterfactually fair reinforcement learning via sequential data preprocessing. arXiv preprint arXiv:2501.06366 .[32] Wang, Y., Sridhar, D., and Blei, D. (2023). Adjusting machine learning decisions for equal opportunity and counterfactual fairness. Transactions on Machine Learning Research .[33] Zuo, A., Wei, S., Liu, T., Han, B., Zhang, K., and Gong, M. (2022). Counterfactual fairness with partially known causal graph. In Proceedings of the 36th International Conference on Neural Information Processing Systems , NIPS ’22, Red Hook, NY, USA. Curran Associates Inc. 12 A Table of Key Notation 
+
+Table A1: Summary of Key Notation 
+
+Symbol Description 
+
+Problem Setup & Data-generating Mechanism 
+
+Z, Z Sensitive attribute and its space Z = {z(1) , ..., z (K)}.
+
+St, A t, R t State, action, and reward at time t, with St = ( S(1)  
+
+> t
+
+, . . . , S (M ) 
+
+> t
+
+).
+
+¯St, ¯At, ¯Rt Historical state, action, and reward up to time t.
+
+U St , U At , U Rt Exogenous noise variables for state, action, and reward at time t.
+
+¯U St , ¯U At , ¯U Rt Historical exogenous noise variables for state, action, and reward up to time t.
+
+Ht {Z, ¯St, ¯At−1, ¯Rt−1}, history up to time t.
+
+Counterfactual Fairness & SCM 
+
+SZ←zt (U t(ht)) Counterfactual state at time t for an individual with observed history 
+
+ht had their sensitive attribute been z while experiencing the same action sequence as the observed action sequence ¯at−1; sometimes written as szt for simplicity. 
+
+AZ←zt (U t(ht)) Counterfactual action at time t for an individual with observed history 
+
+ht had their sensitive attribute been z while experiencing the same action sequence as the observed action sequence ¯at−1.
+
+RZ←zt (U t+1 (ht+1 )) Counterfactual reward at time t for an individual with observed history 
+
+ht had their sensitive attribute been z while experiencing the same ac-tion sequence as the observed action sequence ¯at; sometimes written as rzt for simplicity. 
+
+ˆSZ←zt (U t(ht)) , ˆRZ←zt (U t+1 (ht+1 )) Estimated counterfactual states and rewards, respectively, under Z =
+
+z for an individual with observed history ht; sometimes written as ˆszt
+
+and ˆrzt , respectively, for simplicity. 
+
+˜st
+
+ SZ←z(1)  
+
+> t
+
+(U t(ht)) , . . . , S Z←z(K) 
+
+> t
+
+(U t(ht)) , augmented state in-variant to the observed sensitive attribute. 
+
+˜rt
+
+PKk=1 P(Z = z(k))RZ←z(k) 
+
+> t
+
+(U t+1 (ht+1 )) , augmented reward in-variant to the observed sensitive attribute. 
+
+ˆ˜st, ˆ˜rt Estimated augmented state and reward used for policy learning. 
+
+Proof of CFSMDM Performance Guarantees 
+
+ˆπ Policy learned by CFSMDM, written as a stationary policy with re-spect to the estimated augmented state ˆ˜st.
+
+˜πzn Policy learned by CFSMDM, written as a history-dependent policy with respect to the true augmented state ˜st.
+
+Q(i)0 (τ, z ), ˆQ(i)0,n (τ, z ) True and estimated τ -th conditional quantile of S(i)0 given Z = z.
+
+Q(i)(τ, z, s, a ), ˆQ(i) 
+
+> n
+
+(τ, z, s, a ) True and estimated τ -th conditional quantile of S(i) 
+
+> t
+
+for t ≥ 1 given 
+
+Z = z, S t−1 = s, A t−1 = a.
+
+W (τ, z, s, a ), ˆWn(τ, z, s, a ) True and estimated τ -th conditional quantile of the reward Rt given 
+
+Z = z, S t = s, A t = a.
+
+τ (i) 
+
+> j,t
+
+, θ j,t True quantile levels of observed state ( i-th dimension) and reward, respectively. 
+
+ˆτ (i)
+
+> j,t,n
+
+, ˆθj,t,n Estimated quantile levels of observed state ( i-th dimension) and re-ward, respectively. 
+
+∥ · ∥ ∞ Supremum norm (when applied to functions) or max norm (when applied to vectors). 
+
+13 B Comparison of Counterfactual Fairness and Other Fairness Metrics 
+
+To further compare counterfactual fairness (CF) with other fairness criteria, notably demographic parity and equal opportunity, we present the following single-stage decision-making example [32]. Consider the setting where a university uses ML models to assist with making undergraduate admissions decisions. For simplicity, assume an applicant’s features only include the biological sex (i.e. female or male), denoted by S, and entrance exam score, denoted by E. Suppose biologically female students tend to face systemic barriers in early education that negatively impact their entrance exam scores, which is a manifestation of historical bias, and the university wants to enforce some algorithmic fairness criteria to ensure that the admissions decision is fair to applicants of any biological sex. We discuss below what different fairness criteria would enforce in this setting. 
+
+Demographic parity: If demographic parity is enforced, then the university would ensure that the proportion of female applicants being admitted is equal to the proportion of male applicants being admitted. Mathematically, if ˆY = 1 stands for "offered admission" and ˆY = 0 stands for "denied admission", then demographic parity guarantees 
+
+P( ˆY = 1 |S = f emale ) = P( ˆY = 1 |S = male ).
+
+Demographic parity seeks to match the statistical proportions without considering the applicants’ actual qualifications, so it could cause unfairness if applicants in one group are indeed more qualified than those from the other group. Also, demographic parity only focuses on fairness at the group level. As a result, the university can admit only females who faced fewer barriers, while leaving out the others who faced more barriers, without violating demographic parity; this might fail to enforce fairness as intended. 
+
+Equal opportunity: If equal opportunity is enforced, then the university would ensure that among truly qualified applicants, the proportion of females being admitted is equal to the proportion of males being admitted. Suppose ˆY = 1 stands for "offered admission" and ˆY = 0 stands for "denied admission". Also, suppose Y = 1 stands for "qualified for admission" and Y = 0 stands for "not qualified for admission". Then, mathematically, equal opportunity guarantees 
+
+P( ˆY = 1 |S = f emale, Y = 1) = P( ˆY = 1 |S = male, Y = 1) .
+
+While equal opportunity takes into account the actual qualifications, it disregards the mechanism by which group differences arise. Moreover, similar to demographic parity, equal opportunity is also group-based, and the university can systematically favor qualified female applicants who faced less barriers at the cost of other qualified female applicants who faced more barriers. 
+
+Counterfactual fairness: If CF is enforced, then the university would ensure that each female applicant would have the same probability of being admitted had they been male, and each male applicant would have the same probability of being admitted had they been female. CF focuses on how each applicant’s probability of being admitted would change in a counterfactual world where the applicant’s biological sex is switched to the opposite value. In this counterfactual world, not only the applicant’s biological sex changes, but the applicant’s entrance exam score can also change because they might face a different level of educational barriers as a member of the opposite sex. Therefore, rather than match group-level metrics, CF directly models how the sensitive attribute affects each applicant’s features. This enforces fairness at the individual level and corrects for historical barriers that each applicant experienced within the assumed causal graph. The above example shows that, compared to other popular fairness criteria, CF has two notable distinctions. First, CF enforces fairness at an individual level rather than group level. This allows a counterfactually fair algorithm to make decisions that are fair for every individual, which mitigates the risk of the algorithm discriminating against some subgroups of individuals within the sensitive group based specifically on pathways originating from the sensitive attributes. Second, CF takes into account not only the different sensitive attributes but also how the sensitive attribute affects other covariates used for decision-making. Therefore, in addition to addressing the unfairness that directly results from the sensitive attributes, CF also corrects unfairness that is indirectly transmitted through other non-sensitive decision-making variables that are correlated with the sensitive attributes. 14 C Intuition Behind Sequential Marginal Distribution Mapping 
+
+In this section, we explain some intuitions for why sequential marginal distribution mapping works. We focus on the intuition for counterfactual state estimation using SMDM (similarly for counterfactual reward estimation). We consider the problem of estimating the i-th component of the counterfactual states at some t ≥ 1 in a CMDP with state transition kernel 
+
+S(i) 
+
+> t
+
+= g(Z, A t−1, S t−1) + U S(i) 
+
+> t
+
+.
+
+It is easy to check that this transition kernel satisfies Assumption 1, so SMDM is applicable. Suppose the observed sensitive attribute is z, and we want to estimate the counterfactual under z′.For ease of presentation, for ˜z ∈ { z, z ′}, we write 
+
+s˜z, (i) 
+
+> t
+
+= SZ←˜z, (i) 
+
+> t
+
+( ¯U (ht)) , s ˜z, (i) 
+
+> t−1
+
+= SZ←˜z, (i) 
+
+> t
+
+( ¯U (ht−1)) ,s˜zt = SZ←˜zt ( ¯U (ht)) , s ˜zt−1 = SZ←˜zt ( ¯U (ht−1)) .
+
+Also, let uS(i) 
+
+> t
+
+be the realized value of U S(i) 
+
+> t
+
+for our individual of interest. Note that the structural equation representations of szt and sz′ 
+
+> t
+
+are 
+
+sz, (i) 
+
+> t
+
+= g(z, a t−1, s zt−1) + uS(i) 
+
+> t
+
+, s z′,(i) 
+
+> t
+
+= g(z′, a t−1, s z′
+
+> t−1
+
+) + uS(i) 
+
+> t
+
+.
+
+Meanwhile, since S(i) 
+
+> t
+
+= g(Z, A t−1, S t−1) + U S(i) 
+
+> t
+
+, the conditional distributions of S(i) 
+
+> t
+
+are 
+
+P(S(i) 
+
+> t
+
+|Z = z, S t−1 = szt−1, A t−1 = at−1) = P(g(z, a t−1, s zt−1) + U S(i) 
+
+> t
+
+)
+
+P(S(i) 
+
+> t
+
+|Z = z′, S t−1 = sz′
+
+> t−1
+
+, A t−1 = at−1) = P(g(z′, a t−1, s z′
+
+> t−1
+
+) + U S(i) 
+
+> t
+
+).
+
+In this case, we can see that the quantile level of sz, (i) 
+
+> t
+
+on P(S(i) 
+
+> t
+
+|Z = z, S t−1 = szt−1, A t−1 = at−1)
+
+and the quantile level of sz′,(i) 
+
+> t
+
+on P(S(i) 
+
+> t
+
+|Z = z′, S t−1 = sz′
+
+> t−1
+
+, A t−1 = at−1) are both equal to the quantile level of the realized exogenous variable uS(i) 
+
+> t
+
+on P(U S(i) 
+
+> t
+
+), which is in line with Theorem 1. More precisely, suppose U S(i) 
+
+> t
+
+∼ U nif orm [−1, 1] . Then 
+
+S(i) 
+
+> t
+
+|Z = z, S t−1 = szt−1, A t−1 = at−1 ∼ U nif orm [g(z, a t−1, s zt−1) − 1, g (z, a t−1, s zt−1) + 1] 
+
+S(i) 
+
+> t
+
+|Z = z′, S t−1 = sz′
+
+> t−1
+
+, A t−1 = at−1 ∼ U nif orm [g(z′, a t−1, s zt−1) − 1, g (z′, a t−1, s zt−1) + 1] .
+
+Also, suppose uS(i) 
+
+> t
+
+= 0.5 so that it is on the 75 th percentile of P(U S(i) 
+
+> t
+
+). Then sz, (i) 
+
+> t
+
+=
+
+g(z, a t−1, s zt−1) + 0 .5, which is on the 75 th percentile of P(S(i) 
+
+> t
+
+|Z = z, S t−1 = szt−1, A t−1 = at−1).Similarly, sz′(i) 
+
+> t
+
+= g(z′, a t−1, s z′
+
+> t−1
+
+) + 0 .5, which is on the 75 th percentile of P(S(i) 
+
+> t
+
+|Z = z′, S t−1 =
+
+sz′
+
+> t−1
+
+, A t−1 = at−1). This is in line with our previous claim that sz, (i) 
+
+> t
+
+and sz′,(i) 
+
+> t
+
+are on the same quantile on their respective conditional distributions. Finally, we note that the noise does not need to be additive as in the example above. The above analysis holds as long as the CMDP satisfies Assumption 1 (or Assumption 2 if we are interested in the counterfactual rewards). It is the strict monotonicity of S(i) 
+
+> t
+
+in U S(i) 
+
+> t
+
+that guarantees sz, (i) 
+
+> t
+
+and 
+
+sz′,(i) 
+
+> t
+
+are on the same quantile on their respective conditional distributions. 15 D Pseudocodes of SMDM and CFSMDM 
+
+Algorithm 1 Sequential Marginal Distribution Mapping (SMDM) 
+
+Input: Original data D = {sj, 0, s j,t , z j , a j,t −1, r j,t −1 : j = 1 , . . . , N, t = 1 , . . . , T }, where 
+
+sj,t = ( s(1)  
+
+> j,t
+
+, . . . , s (M ) 
+
+> j,t
+
+)
+
+1: for i = 1 , . . . , M do ▷ Step 1: Fit models of the environment dynamics. 
+
+2: Fit models ˆQ(i)0 (τ, z ) and ˆQ(i)(τ, z, s, a ) using D that estimates the conditional quantile functions Q(i)0 (τ, z ) = inf {x ∈ S : P(S(i)0 ≤ x|Z = z) = τ } and Q(i)(τ, z, s, a ) = inf {x ∈S : P(S(i) 
+
+> t
+
+≤ x|Z = z, S t−1 = s, A t−1 = a) = τ, t ≥ 1}, respectively. 
+
+3: end for 
+
+4: Fit model ˆW (τ, z, s, a ) using D that estimates the conditional quantile function W (τ, z, s, a ) = inf {x ∈ R : P(Rt ≤ x|Z = z, S t−1 = s, A t−1 = a) = τ, t ≥ 1}.
+
+5: ∀z ∈ Z , estimate ˆP(Z = z) by the empirical mean. 
+
+6: for j = 1 , . . . , N do 
+
+7: for i = 1 , . . . , M do ▷ Step 2: Preprocessing at t = 0 .
+
+8: Estimate τ (i) 
+
+> j, 0
+
+= P(S(i)0 ≤ s(i)
+
+> j, 0
+
+|Z = zj ) using ˆQ0. Denote the estimate by ˆτ (i) 
+
+> j, 0
+
+.
+
+9: ˆsZ←zj ,(i) 
+
+> j, 0
+
+= s(i)
+
+> j, 0
+
+.
+
+10: ∀z′ ∈ Z\{ zj }, set ˆsZ←z′,(i) 
+
+> j, 0
+
+= ˆQ(i)0 (ˆ τ (i) 
+
+> j, 0
+
+, z ′).
+
+11: end for 
+
+12: ∀z ∈ Z , ˆsZ←zj, 0 = [ˆ sZ←z, (1)  
+
+> j, 0
+
+, . . . , ˆsZ←z, (M ) 
+
+> j, 0
+
+]
+
+13: ˆ˜sj, 0 = [ˆ sZ←z(1)  
+
+> j, 0
+
+, . . . , ˆsZ←z(K) 
+
+> j, 0
+
+]T
+
+14: for t = 1 , . . . , T do ▷ Step 3: Preprocessing for t ≥ 1.
+
+15: Estimate θj,t −1 = P(Rt−1 ≤ rj,t −1|Z = zj , S t−1 = sj,t −1, A t−1 = aj,t −1) using ˆW .Denote the estimate by ˆθj,t −1
+
+16: ˆrZ←zj 
+
+> j,t −1
+
+= rj,t −1.
+
+17: ∀z′ ∈ Z\{ zj }, set ˆrZ←z′ 
+
+> j,t −1
+
+= ˆW (ˆθj,t −1, z ′, ˆsZ←z′ 
+
+> j,t −1
+
+, a j,t −1).
+
+18: ˆ˜rj,t −1 = PKk=1 ˆrZ←z(k) 
+
+> j,t −1
+
+ˆP(Z = z(k))
+
+19: for i = 1 , . . . , M do 
+
+20: Estimate τ (i) 
+
+> j,t
+
+= P(S(i) 
+
+> t
+
+≤ s(i) 
+
+> j,t
+
+|Z = zj , S t−1 = sj,t −1, A t−1 = aj,t −1) using ˆQ.Denote the estimate by ˆτ (i)
+
+> j,t
+
+21: ˆsZ←zj ,(i) 
+
+> j,t
+
+= s(i) 
+
+> j,t
+
+.
+
+22: ∀z′ ∈ Z\{ zj }, set ˆsZ←z′,(i) 
+
+> j,t
+
+= ˆQ(ˆ τ (i) 
+
+> j,t
+
+, z ′, ˆsZ←z′ 
+
+> j,t −1
+
+, a j,t −1).
+
+23: end for 
+
+24: ∀z ∈ Z , ˆsZ←zj,t = [ˆ sZ←z, (1)  
+
+> j,t
+
+, . . . , ˆsZ←z, (M ) 
+
+> j,t
+
+]
+
+25: ˆ˜sj,t = [ˆ sZ←z(1)  
+
+> j,t
+
+, . . . , ˆsZ←z(K) 
+
+> j,t
+
+]T
+
+26: end for 
+
+27: end for Output: Preprocessed experience tuples {ˆ˜sj, 0, ˆ˜sj,t , a j,t −1, ˆ˜rj,t −1 : j = 1 , . . . , N, t = 1 , . . . , T }.
+
+Algorithm 2 Counterfactually Fair Policy Learning via SMDM (CFSMDM) 
+
+Input: Original data D = {sj, 0, s j,t , z j , a j,t −1, r j,t −1 : j = 1 , . . . , N, t = 1 , . . . , T }, where 
+
+sj,t = ( s(1)  
+
+> j,t
+
+, . . . , s (M ) 
+
+> j,t
+
+)
+
+1: Preprocess D using SMDM to obtain preprocessed experience tuples ˜D =
+
+{ˆ˜sj, 0, ˆ˜sj,t , a j,t −1, ˆ˜rj,t −1 : j = 1 , . . . , N, t = 1 , . . . , T }.
+
+2: Train a policy ˆπ using ˜D.
+
+Output: Learned policy ˆπ, which should be close to being counterfactually fair. 16 E Connections Between CFSMDM and CFSDP 
+
+Wang et al. [31] proposed a data preprocessing method for performing counterfactually fair policy learning, which we call CFSDP. CFSDP also enforces CF by performing policy learning on estimates of the augmented states ˜St and the augmented rewards ˜Rt, but it differs from CFSMDM in how the augmented states and rewards are estimated. As a result of the difference in estimation methods, while CFSMDM requires Assumptions 1 and 2, CFSDP makes an additivity assumption: for t ≥ 0,the exogenous variables U St and U Rt are additive to St and Rt, respectively. The following theorem states that the additivity assumption of CFSDP is strictly stronger than Assumptions 1 and 2, which means CFSMDM can be considered strictly more general than CFSDP. 
+
+Theorem A1. The additivity assumption implies Assumptions 1 and 2, but Assumptions 1 and 2 do not imply the additivity assumption in general. 
+
+Now we argue that the CFSDP method can be seen as a simplified version of the CFSMDM method, where the simplification is made possible by the additive noise assumption. We focus on the counterfactual states in the following argument, and the argument for the counterfactual rewards should be similar. Under the additivity assumption and an assumption that U S(i) 
+
+> t
+
+is scalar-valued with mean zero, for an individual with sensitive attribute z(k) and observed history ht, we have 
+
+SZ←z(k),(i) 
+
+> t
+
+( ¯Ut(ht)) =f (z(k), S Z←z(k) 
+
+> t
+
+( ¯Ut(ht)) , A t−1) + U S(i)
+
+> t
+
+=E[SZ←z(k),(i) 
+
+> t
+
+( ¯Ut(ht)) |St−1 = SZ←z(k) 
+
+> t−1
+
+( ¯Ut(ht))] + U S(i)
+
+> t
+
+=E[S(i) 
+
+> t
+
+|Z = z(k), S t−1 = SZ←z(k) 
+
+> t−1
+
+( ¯Ut(ht)) , A t−1 = at−1] + U S(i) 
+
+> t
+
+,
+
+where the second equality follows from the assumptions that U S(i) 
+
+> t
+
+is mean zero, and the third equality is due to exchangeability implied by Figure 1. Assuming the conditional expectation and past counterfactual states are known, this shows that the only stochasticity in the conditional distribution P(S(i) 
+
+> t
+
+|Z = z(k), S t−1 = SZ←z(k) 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , A t−1 = at−1) comes from U S(i) 
+
+> t
+
+.Moreover, since SZ←z(k),(i) 
+
+> t
+
+( ¯Ut(ht)) is strictly increasing in U S(i) 
+
+> t
+
+, the quantile level of U S(i)
+
+> t
+
+in P(U S(i) 
+
+> t
+
+) is the same as the quantile level of SZ←z(k)(i) 
+
+> t
+
+( ¯Ut(ht)) in P(S(i) 
+
+> t
+
+|Z = z(k), S t−1 =
+
+SZ←z(k) 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , A t−1 = at−1). Note that CFSDP performs the following operation to recover the counterfactual state under some sensitive attribute z(j) with j̸ = k:
+
+SZ←z(j),(i) 
+
+> t
+
+( ¯Ut(ht)) =SZ←z(k),(i) 
+
+> t
+
+( ¯Ut(ht)) 
+
+− E[S(i) 
+
+> t
+
+|Z = z(k), S t−1 = SZ←z(k) 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , A t−1 = at−1]+ E[S(i) 
+
+> t
+
+|Z = z(j), S t−1 = SZ←z(j) 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , A t−1 = at−1]=E[S(i) 
+
+> t
+
+|Z = z(j), S t−1 = SZ←z(j) 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , A t−1 = at−1] + U S(i) 
+
+> t
+
+.
+
+By this operation, CFSDP ensures SZ←z(k)(i) 
+
+> t
+
+( ¯Ut(ht)) and SZ←z(j)(i) 
+
+> t
+
+( ¯Ut(ht)) share the same value of U S(i) 
+
+> t
+
+and thereby the same quantile level on their respective conditional distributions. Therefore, the counterfactual state estimation method in CFSDP can be seen as a shortcut for sequential marginal distribution mapping that is specifically tailored to structural equation models satisfying the additive noise assumption. 
+
+## F Connections Between CFSMDM and FLAP 
+
+Consider CFSMDM with only the initial time step, where the agent takes an action based on the state and possibly the sensitive attribute, but no reward is produced. If we view the action taken as an ML prediction or classification, then the problem in this setting can be seen as a single-stage ML problem, and CFSMDM enforces the predictions made by the predictor are counterfactually fair 17 under the definition given in [19]. In this case, CFSMDM reduces to the FLAP algorithm based on the marginal distribution mapping procedure, which is introduced in [2]. In this light, CFSMDM can be seen as a generalization of the marginal distribution mapping-based FLAP algorithm to the sequential decision-making setting. 
+
+## G The FQI and FQE Algorithms 
+
+This section presents the pseudocodes of the FQI and FQE algorithms used in the numerical experi-ments and the real data analysis. 
+
+Algorithm 3 Fitted Q iteration [28] 
+
+Input: Dataset D = {(si, a i, r i, s ′
+
+> i
+
+) : i = 1 , . . . , n }, function class F. 
+
+> 1:
+
+Initialize ˆf0 ∈ F randomly.  
+
+> 2:
+
+for b = 1 , 2, . . . , B do  
+
+> 3:
+
+Compute target yi = ri + γ max a ˆfb−1(s′
+
+> i
+
+, a ) 
+
+> 4:
+
+Build training dataset eDb = {(si, a i), y i}ni=1  
+
+> 5:
+
+Solve a supervised learning problem: 
+
+ˆfb = arg min  
+
+> f∈F
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(f (si, a i) − yi)2 
+
+> 6:
+
+end for Output: Estimated optimal Q function ˆfB .
+
+Algorithm 4 Fitted Q Evaluation [20] 
+
+Input: Dataset D = {(si, a i, r i, s ′
+
+> i
+
+) : i = 1 , . . . , n }. Function class F. Policy π to be evaluated.  
+
+> 1:
+
+Initialize ˆf0 ∈ F randomly.  
+
+> 2:
+
+for b = 1 , 2, . . . , B do  
+
+> 3:
+
+Compute target yi = ri + γ ˆfb−1(s′
+
+> i
+
+, π (s′
+
+> i
+
+)) ∀i 
+
+> 4:
+
+Build training dataset eDb = {(si, a i), y i}ni=1  
+
+> 5:
+
+Solve a supervised learning problem: 
+
+ˆfb = arg min  
+
+> f∈F
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(f (si, a i) − yi)2 
+
+> 6:
+
+end for Output: bV π (s) = ˆfB (s, π (s)) ∀s. 
+
+## H Detailed Discussion of the Suboptimality Gap and Unfairness Bounds 
+
+Suboptimality gap bound. The first term in the bound controls the state and reward estimation error at the deployment stage up to time ω − 1; it tends to grow as ω increases, since a large ω
+
+increases 1 − γω and also requires taking the maximum over Mt,n for more time steps. The second term in the bound covers the state and reward estimation errors for all time steps starting from time ω;it decreases exponentially to 0 as ω grows. The third term in the bound is due to the state and reward estimation error for the training trajectories (which have exactly T time steps). The fourth term in the bound accounts for the one-step FQI regression error. The fifth term is related to the initialization bias in FQI, and it approaches 0 exponentially as the number of FQI iterations increases. 
+
+Unfairness bound. The first term in the expectation term in the bound accounts for the FQI estimation error resulting from FQI regression error, initialization bias, and state and reward estimation errors. The second term in the expectation term in the bound is related to the counterfactual state 18 and reward estimation error at the deployment stage up to time t. Smaller FQI regression error and deployment-time state and reward estimation error will both result in lower unfairness. The rest of the bound adjusts for the possibility of large FQI estimation errors and large state and reward estimation errors. 
+
+Remark A1 . Both the suboptimality gap and counterfactual unfairness bounds involve terms related to the probability P  δT,n ≤ λ0
+
+> 4dL
+
+, which depends on the uniform estimation errors of the state and reward conditional quantiles. For estimators such as linear quantile regression and quantile regression neural networks, it can be shown by concentration inequalities that, under certain conditions, this probability converges to 1 exponentially fast (at rate 1 − exp ( −Ω( n)) ) with respect to the sample size n.
+
+## I Proofs of Theorems 
+
+I.1 Proof of Theorems 1 and 2 Theorem 1. Suppose Assumption 1 hold, and consider an individual with observed history ht =(z, ¯st, ¯at−1, ¯rt−1). Then, for t = 0 , the quantile level of SZ←z′,(i)0 ( ¯U0(h0)) with respect to the law of f S(i) 
+
+> 0
+
+(z′, U S(i) 
+
+> 0
+
+) does not vary by z′ ∈ Z .Similarly, for later time steps t ≥ 1, the quantile level of SZ←z′,(i) 
+
+> t
+
+( ¯Ut(ht)) with respect to the law of f S(i)
+
+(z′, a t−1, S Z←z′ 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , U S(i) 
+
+> t
+
+) does not vary by z′ ∈ Z .
+
+Theorem 2. Suppose Assumption 2 hold, and consider an individual with observed history ht =(z, ¯st, ¯at−1, ¯rt−1). Then, for each time step t ≥ 0, the quantile level of RZ←z′ 
+
+> t
+
+( ¯Ut+1 (ht+1 )) with respect to the law of f R(z′, a t, S Z←z′ 
+
+> t
+
+( ¯Ut(ht)) , U Rt ) does not vary by z′ ∈ Z .Proof. We present a proof of Theorem 1. The proof of Theorem 2 is analogous. For Theorem 1, we first treat the t = 0 case. Here, it suffices to show 
+
+P(S(i)0 ≤ SZ←z(k),(i)0 ( ¯U0(h0)) |Z = z(k)) = P(S(i)0 ≤ SZ←z(j),(i)0 ( ¯U0(h0)) |Z = z(j))
+
+for every k, j ∈ { 1, . . . , K }. For ease of presentation, for each z ∈ Z and i ∈ { 1, . . . , M }, we use 
+
+sz, (i)0 to denote SZ←z, (i)0 ( ¯U0(h0)) , and we use uS(i) 
+
+> 0
+
+to denote the realized value of the exogenous variable U S(i) 
+
+> 0
+
+. Note that for each i ∈ { 1, . . . , M }, we have 
+
+P(S(i)0 ≤ sz(k),(i)0 |Z = z(k))=P(f S(i) 
+
+> 0
+
+(Z, U S(i) 
+
+> 0
+
+) ≤ f S(i) 
+
+> 0
+
+(z(k), u S(i) 
+
+> 0
+
+)|Z = z(k))=P(f S(i) 
+
+> 0
+
+(z(k), U S(i) 
+
+> 0
+
+) ≤ f S(i) 
+
+> 0
+
+(z(k), u S(i) 
+
+> 0
+
+)) =P(U S(i) 
+
+> 0
+
+≤ uS(i) 
+
+> 0
+
+)=P(f S(i) 
+
+> 0
+
+(z(j), U S(i) 
+
+> 0
+
+) ≤ f S(i) 
+
+> 0
+
+(z(j), u S(i) 
+
+> 0
+
+)) =P(f S(i) 
+
+> 0
+
+(Z, U S(i) 
+
+> 0
+
+) ≤ f S(i) 
+
+> 0
+
+(z(j), u S(i) 
+
+> 0
+
+)|Z = z(j))=P(S(i)0 ≤ sz(j),(i)0 |Z = z(j)).
+
+In the derivation above, the first and sixth equalities are due to the structural equation representations of S(i)0 , sz(k),(i)0 , and sz(j),(i)0 , and the third and fourth equalities are due to Assumption 1. This proves the t = 0 case of Theorem 1. Now we treat the t ≥ 1 case. For this case, it suffices to show 
+
+P(S(i) 
+
+> t
+
+≤ SZ←z(k),(i) 
+
+> t
+
+( ¯Ut(ht)) |Z = z(k), S t−1 = SZ←z(k) 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , A t−1 = at−1)=P(S(i) 
+
+> t
+
+≤ SZ←z(j),(i) 
+
+> t
+
+( ¯Ut(ht)) |Z = z(j), S t−1 = SZ←z(j) 
+
+> t−1
+
+( ¯Ut−1(ht−1)) , A t−1 = at−1).
+
+19 for k, j ∈ { 1, . . . , K }. For ease of presentation, for each t ≥ 1, z ∈ Z , and i ∈ { 1, . . . , M }, we use 
+
+sz, (i) 
+
+> t
+
+to denote SZ←z, (i) 
+
+> t
+
+( ¯Ut(ht)) , and we use uS(i) 
+
+> t
+
+to denote the realized value of the exogenous variable U S(i) 
+
+> t
+
+. Note that for each i ∈ { 1, . . . , M }, we have 
+
+P(S(i) 
+
+> t
+
+≤ sz(k),(i) 
+
+> t
+
+|Z = z(k), S t−1 = sz(k) 
+
+> t−1
+
+, A t−1 = at−1)=P(f S(i)
+
+(z(k), a t−1, s z(k) 
+
+> t−1
+
+, U S(i) 
+
+> t
+
+) ≤ f S(i)
+
+(z(k), a t−1, s z(k) 
+
+> t−1
+
+, u S(i) 
+
+> t
+
+)) =P(U S(i) 
+
+> t
+
+≤ uS(i) 
+
+> t
+
+)=P(f S(i)
+
+(z(j), a t−1, s z(k) 
+
+> t−1
+
+, U S(i) 
+
+> t
+
+) ≤ f S(i)
+
+(z(j), a t−1, s z(j)
+
+> t−1
+
+, u S(i) 
+
+> t
+
+)) =P(S(i) 
+
+> t
+
+≤ sz(j),(i) 
+
+> t
+
+|Z = z(j), S t−1 = sz(j)
+
+> t−1
+
+, A t−1 = at−1).
+
+In the derivation above, the first and fourth equalities are due to the structural equation representations of S(i) 
+
+> t
+
+, sz(k),(i) 
+
+> t
+
+, and sz(j),(i) 
+
+> t
+
+, and the second and third equalities are due to Assumption 1. This proves the t ≥ 1 case of Theorem 1. This completes the proof. 
+
+I.2 Proof of Theorem A1 Theorem A1. The additivity assumption implies Assumptions 1 and 2, but Assumptions 1 and 2 do not imply the additivity assumption in general. Proof. We first show that the additivity assumption implies Assumptions 1 and 2. Suppose the additivity assumption is satisfied. In this case, we can write 
+
+S(i)0 =f S(i) 
+
+> 0
+
+(Z, U S(i) 
+
+> 0
+
+) = gS(i) 
+
+> 0
+
+(Z) + U S(i) 
+
+> 0
+
+(for i ∈ { 1, . . . , M }),S(i) 
+
+> t
+
+=f S(i)
+
+(Z, A t−1, S t−1, U S(i) 
+
+> t
+
+) = gS(i)
+
+(Z, A t−1, S t−1) + U S(i)
+
+> t
+
+(for i ∈ { 1, . . . , M } and t ≥ 1),Rt =f R(Z, S t, A t, U Rt ) = gR(Z, S t, A t) + U Rt (for t ≥ 0)for some functions {f S(i) 
+
+> 0
+
+}Mi=0 , {f S(i)
+
+}Mi=0 , and f R. Then Assumptions 1 and 2 are obviously satisfied. Now we show Assumptions 1 and 2 do not imply the additivity assumption in general. Consider the CMDP 
+
+S(1) 0 =( −0.45 + 1 .5δZ + U S, (1) 0 + 0 .5U S, (3) 0 ) 13 ,S(2) 0 =( −0.75 + 2 .5δZ + U S, (1) 0 + U S, (2) 0 + 0 .5U S, (3) 0 ) 13 ,S(1)  
+
+> t
+
+=( −0.45 + 0 .3S(1) 
+
+> t−1
+
+(At−1 − 0.5) + 0 .3δS (1) 
+
+> t−1
+
+(Z − 0.5) + 0 .45 δ(Z − 0.5)( At−1 − 0.5)+ 0.5U S, (1)  
+
+> t
+
++ 0 .25 U S, (3)  
+
+> t
+
+) 13 (for t ≥ 1),S(2)  
+
+> t
+
+=( −0.9 + 0 .4S(1) 
+
+> t−1
+
+(At−1 − 0.5) + 0 .2S(2) 
+
+> t−1
+
+(At−1 − 0.5) + 0 .6δS (1) 
+
+> t−1
+
+(Z − 0.5) + 0 .2δS (2) 
+
+> t−1
+
+(Z − 0.5) + 0 .9δ(Z − 0.5)( At−1 − 0.5) + 0 .5U S, (1) 
+
+> t
+
++ 0 .9U S, (2)  
+
+> t
+
++ 0 .5U S, (3)  
+
+> t
+
+) 13 (for t ≥ 1),Rt = ( − 0.3 + 0 .2δS (1)  
+
+> t
+
+Z + 0 .5S(1)  
+
+> t
+
+At + 0 .2δS (2)  
+
+> t
+
+Z + 0 .5S(2)  
+
+> t
+
+At − 1.0δZA t + 1 .0U Rt ) 13 .
+
+In this environment, we can view U S, (1) 0 + 0 .5U S, (3) 0 and U S, (1) 0 + U S, (2) 0 + 0 .5U S, (3) 0 as the scalar exogenous variables of S(1) 0 and S(2) 0 , respectively. For t ≥ 1, we can also view 0.5U S, (1)  
+
+> t
+
++0.25 U S, (3)  
+
+> t
+
+and 0.5U S, (1)  
+
+> t
+
++ 0 .9U S, (2)  
+
+> t
+
++ 0 .5U S, (3)  
+
+> t
+
+as the scalar exogenous variables of S(1)  
+
+> t
+
+and S(2)  
+
+> t
+
+,respectively. This CMDP satisfies Assumptions 1 and 2 but does not satisfy the additivity assumption, which makes it a counterexample. 20 I.3 Proofs of Theorems 3 and 4 I.3.1 Notation 
+
+We begin by introducing some notation. We first focus on notation for counterfactual state estimation. For convenience, we write sz, (i) 
+
+> t
+
+for sZ←z, (i) 
+
+> t
+
+( ¯Ut(ht)) and szt for SZ←zt ( ¯Ut(ht)) for t ≥ 0 and i ∈{1, . . . , M }. For i ∈ { 1, . . . , M }, let Q(i)0 (ω, z ) be the ω-th quantile of the conditional distribution 
+
+P(S(i)0 |Z = z), and let Q(i)(ω, z, s, a ) be the ω-th quantile of the conditional distribution P(S(i) 
+
+> t
+
+|Z =
+
+z, S t−1 = s, A t−1 = a) for t ≥ 1. That is, 
+
+Q(i)0 (ω, z ) = inf {x ∈ S : P(S(i)0 ≤ x|Z = z) = ω},Q(i)(ω, z, s, a ) = inf {x ∈ S : P(S(i) 
+
+> t
+
+≤ x|Z = z, S t−1 = s, A t−1 = a) = ω}.
+
+Note that the conditional quantile function is the same for time steps t ≥ 1 because the environment is assumed to be stationary. Let ˆQ(i)0,n (ω, z ) and ˆQ(i) 
+
+> n
+
+(ω, z, s, a ) be estimators of Q(i)0 (ω, z ) and 
+
+Q(i)(ω, z, s, a ), respectively. Moreover, for each individual j and t ≥ 0, let τ (i) 
+
+> j,t
+
+be the quantile level of the observed state s(i) 
+
+> j,t
+
+on its conditional distribution under the observed sensitive attribute; that is, 
+
+τ (i) 
+
+> j, 0
+
+= P(S(i)0 ≤ s(i)
+
+> j, 0
+
+|Z = zj ),τ (i) 
+
+> j,t
+
+= P(S(i) 
+
+> t
+
+≤ s(i) 
+
+> j,t
+
+|Z = zj , S t−1 = sj,t −1, A t−1 = aj,t −1) (for t ≥ 1)where zj is the observed sensitive attribute of the j-th individual. Since τ (i) 
+
+> j,t
+
+is unobserved, let ˆτ (i)
+
+> j,t,n
+
+be an estimator of τ (i) 
+
+> j,t
+
+. For simplicity, we consider the case where the quantile level is estimated using the generalized inverse of the estimated conditional quantile functions. That is, 
+
+ˆτ (i) 
+
+> j, 0
+
+= [ ˆQ(i)0,n ]−1(s(i)
+
+> j, 0
+
+, z j ),
+
+ˆτ (i) 
+
+> j,t
+
+= [ ˆQ(i) 
+
+> n
+
+]−1(s(i) 
+
+> j,t
+
+, z j , s j,t −1, a j,t −1) (for t ≥ 1).
+
+We write τj,t = [ τ (1)  
+
+> j,t
+
+, . . . , τ (M ) 
+
+> j,t
+
+]T and ˆτj,t,n = [ˆ τ (1) 
+
+> j,t,n
+
+, . . . , ˆτ (M )
+
+> j,t,n
+
+]T .Now, for each individual j and t ≥ 1, we let the augmented state vector be 
+
+˜sj, 0 =
+
+
+
+sz(1)  
+
+> j, 0
+
+(τj, 0)
+
+...
+
+sz(K) 
+
+> j, 0
+
+(τj, 0)
+
+ , ˜sj,t =
+
+
+
+sz(1)  
+
+> j,t
+
+(τj,t , s z(1) 
+
+> j,t −1
+
+, a j,t −1)
+
+...
+
+sz(K) 
+
+> j,t
+
+(τj,t , s z(K)
+
+> j,t −1
+
+, a j,t −1)
+
+ ,
+
+where, for each z ∈ { z(1) , . . . , z (K)},
+
+szj, 0 =
+
+
+
+Q(1) 0 (τ (1)  
+
+> j, 0
+
+, z )
+
+...
+
+Q(M )0 (τ (M ) 
+
+> j, 0
+
+, z )
+
+ , s zj,t =
+
+
+
+Q(1) (τ (1)  
+
+> j,t
+
+, z, s zj,t −1, a j,t −1)
+
+...
+
+Q(M )(τ (M ) 
+
+> j,t
+
+, z, s zj,t −1, a j,t −1)
+
+ .
+
+Note that, under Assumption 1, Q(i)0 (ω, z ) and Q(i)(ω, z, s, a ) are both strictly increasing in ω.Therefore, for i ∈ { 1, . . . , M }, Q(i)0 (τ (i) 
+
+> j, 0
+
+, z ) = sz, (i) 
+
+> j, 0
+
+and Q(i)(τ (i) 
+
+> j,t
+
+, z, s zj,t −1, a j,t −1) = sz, (i) 
+
+> j,t
+
+by Theorem 1. Since the above quantities are not fully observed, we estimate them by 
+
+ˆ˜sj, 0,n =
+
+
+
+ˆsz(1) 
+
+> j, 0,n
+
+(ˆ τj, 0,n )
+
+...
+
+ˆsz(K)
+
+> j, 0,n
+
+(ˆ τj, 0,n )
+
+ , ˆ˜sj,t,n =
+
+
+
+ˆsz(1) 
+
+> j,t,n
+
+(ˆ τj,t,n , ˆsz(1) 
+
+> j,t −1,n
+
+, a j,t −1)
+
+...
+
+ˆsz(K)
+
+> j,t,n
+
+(ˆ τj,t,n , ˆsz(K)
+
+> j,t −1,n
+
+, a j,t −1)
+
+ ,
+
+where, for each z ∈ { z(1) , . . . , z (K)},
+
+ˆszj, 0,n =
+
+
+
+ˆQ(1) 0,n (ˆ τ (1) 
+
+> j, 0,n
+
+, z )
+
+...
+
+ˆQ(M )0,n (ˆ τ (M )
+
+> j, 0,n
+
+, z )
+
+ , ˆszj,t,n =
+
+
+
+ˆQ(1)  
+
+> n
+
+(ˆ τ (1) 
+
+> j,t,n
+
+, z, ˆszj,t −1,n , a j,t −1)
+
+...
+
+Q(M ) 
+
+> n
+
+(ˆ τ (M )
+
+> j,t,n
+
+, z, ˆszj,t −1,n , a j,t −1)
+
+ .
+
+21 Now, we define similar notation for the rewards. For convenience, we write rzt for RZ←zt ( ¯Ut+1 (ht+1 )) 
+
+for t ≥ 0. Let W (ω, z, s, a ) be the ω-th quantile of the conditional distribution P(Rt|Z = z, S t =
+
+s, A t = a) for t ≥ 0 (that is, W (ω, z, s, a ) = inf {x ∈ R : P(Rt ≤ x|Z = z, S t = s, A t =
+
+a) = ω}), and let ˆWn(ω, z, s, a ) be an estimator of W (ω, z, s, a ). Again, the conditional quantile function W is fixed for all t ≥ 0 because the environment is assumed to be stationary. Moreover, for each individual j and t ≥ 0, let θj,t be the quantile level of the observed reward rj,t on its conditional distribution under the observed sensitive attribute; that is, θj,t = P(Rt ≤ rj,t |Z =
+
+zj , S t = sj,t , A t = aj,t ) for t ≥ 0. Since θj,t is usually unobserved, let ˆθj,t,n be an estimator of 
+
+θj,t . For simplicity, we consider the case where the quantile level is estimated using the generalized inverse of the estimated conditional quantile function. That is, ˆθj,t = ˆW −1 
+
+> n
+
+(rj,t , z j , s j,t , a j,t ). For each individual j and t ≥ 0, we let the augmented reward be 
+
+˜rj,t =
+
+> K
+
+X
+
+> k=1
+
+P(Z = z(k))W (θj,t , z (k), s z(k) 
+
+> j,t
+
+, a t).
+
+Note that, under Assumption 2, W (ω, z, s, a ) is strictly increasing in ω, so Theorem 2 implies that 
+
+W (θj,t , z, s zj,t , a j,t ) = rzj,t . Since the counterfactual rewards rzj,t are unobserved, we estimate the augmented rewards by 
+
+ˆ˜rj,t,n =
+
+> K
+
+X
+
+> k=1
+
+ˆPn(Z = z(k)) ˆWn(ˆθj,t,n , z (k), ˆsz(k)
+
+> j,t,n
+
+, a j,t ).
+
+where Pn denotes the empirical probability measure. For ease of notation, unless it is necessary to identify the individual associated with the variable, we omit the subscript j for simplicity. 
+
+Remark A2 . Recall that in our analysis, we consider estimating the quantile levels using the gen-eralized inverse of the estimated conditional quantile functions. For the generalized inverse to be well-defined, techniques such as quantile rearrangement [5] might be employed to ensure the monotonicity of the estimated conditional quantile functions. 
+
+I.3.2 Assumptions for Theoretical Analysis 
+
+In this section, we introduce the assumptions needed for our theoretical analysis. 
+
+Assumption A1 (Boundedness of State and Reward Spaces) . The state space S is a bounded subset 
+
+RM . Then the space of the augmented state is ˜S = SK , and let M ˜S = sup s,s ′∈ ˜S ∥s − s′∥∞ < ∞.The reward space R is also a bounded subset of R, and Rmax is a positive constant such that 
+
+|r| ≤ Rmax for all r ∈ R . Note that here the space ˜R remains a bounded subset of R.
+
+Assumption A2. Suppose the following hold: 1. (Class of the Q Function). 
+
+F = {wT ϕ(s, a ) : w ∈ Rd, ∥w∥1 ≤ B} ,
+
+where ϕ is a feature map ˜S × A → Rd with ∥ϕ(s, a )∥∞ ≤ 1 and component functions 
+
+{ϕi(s, a )}di=1 . Also, assume that Q∗ is estimated in FQI using ordinary least squares. 2. (Completeness). Let T be the Bellman optimality operator. That is, for f : ˜S × A → R,
+
+T f (s, a ) = r(s, a ) + γEs′∼P (·| s,a ) max  
+
+> a′∈A
+
+f (s′, a ′).
+
+Assume that T f ∈ F for any f ∈ F .3. (Feature Coverage). There exists a constant λ0 > 0 such that the smallest eigenvalue of 
+
+Es,a ∼μb [ϕ(s, a )ϕ(s, a )T ] is greater than or equal to λ0.
+
+Assumption A3 (Lipschitz Continuous Conditional Quantile Functions and Feature Vector) . The true conditional quantile functions {Q(i)0 (τ, z )}Mi=1 , {Q(i)(τ, z, s, a )}Mi=1 , and W (τ, z, s, a ) are Lip-schitz continuous in the quantile level τ with Lipschitz constant H. The true conditional quantile functions {Q(i)(τ, z, s, a )}Mi=1 , W (τ, z, s, a ), and the feature vector components {ϕi(s, a )}di=1 of the Q function class F are Lipschitz continuous in the state s with Lipschitz constant L in the max norm. 
+
+22 Assumption A4 (Margin) . Assume there exists some positive constant α > 0 such that 
+
+P˜st∼˜πznPt
+
+
+
+max  
+
+> a
+
+Q∗(˜ st, a ) − max   
+
+> a′∈A\ arg max aQopt (˜ st,a )
+
+Q∗(˜ st, a ′) ≤ ϵ Ξn
+
+
+
+= O(ϵα)
+
+P˜st∼˜πznPt max  
+
+> a
+
+Q∗(gzt,n (˜ht), a ) − max  
+
+> a′∈A\ arg max aQopt (gzt,n (˜ht),a )
+
+Q∗(gzt,n (˜ht), a ′) ≤ ϵ Ξn
+
+!
+
+= O(ϵα).
+
+for all z ∈ Z and t ≥ 0, where gzt,n is as defined in Section 4 of the main paper. 
+
+Assumption A1 restricts the state and reward spaces to compact subsets of the Euclidean space. Assumption A2 is needed to provide an upper bound for the estimation error of the optimal Q function in FQI, which is crucial for bounding the suboptimality gap and level of counterfactual unfairness. In particular, the completeness assumption is common in analyses of FQI [3, 13, 26], and the feature coverage assumption ensures the convergence of the FQI estimator [13]. Assumption A3 requires that the true conditional quantile functions are Lipschitz continuous in the quantile level τ and the state s. It also requires that the feature vector of the Q function space F is Lipschitz continuous in the state s. Assumption A4 ensures that the optimal action can be distinguished from suboptimal ones with a nontrivial margin, which is needed for bounding the level of counterfactual unfairness. 
+
+I.3.3 Uniform Bound of State and Reward Estimation Errors 
+
+In this section, we derive bounds of the augmented state estimation error ∥ˆ˜sj,t,n − ˜sj,t ∥∞ and the augmented reward estimation error |ˆ˜rj,t,n − ˜rj,t | that are uniform across all individuals regardless of their respective trajectories. Since state and reward estimation errors are a source of the suboptimality gap and counterfactual unfairness, bounding these errors is necessary for bounding the suboptimality gap and level of counterfactual unfairness. 
+
+Definition of the bounds. Define 
+
+M0,n = max  
+
+> i∈{ 1,...,M }
+
+(∥ ˆQ(i)0,n − Q(i)0 ∥∞ + H∥[ ˆQ(i)0,n ]−1 − [Q(i)0 ]−1∥∞)
+
+Mt,n = max  
+
+> i∈{ 1,...,M }
+
+(∥ ˆQ(i) 
+
+> n
+
+− Q(i)∥∞ + H∥[ ˆQ(i) 
+
+> n
+
+]−1 − [Q(i)]−1∥∞ + LM t−1,n ) (for t ≥ 1)
+
+Dt,n =K
+
+
+
+max  
+
+> i∈{ 1,...,M }
+
+(∥ ˆWn − W ∥∞ + H∥[ ˆWn]−1 − [W ]−1∥∞ + LM t,n )
+
+
+
++ Rmax 
+
+X
+
+> z∈Z
+
+|ˆPn(Z = z) − P(Z = z)| (for t ≥ 0)
+
+δt,n = max  
+
+> t′≤t
+
+Mt′,n + max  
+
+> t′≤t
+
+Dt′,n (for t ≥ 0),
+
+where the sup norm ∥ · ∥ ∞ is taken over all inputs of the corresponding function. Note that Mt,n ,which will be shown later to bound the augmented state estimation error at time t, depends on the estimation accuracy of the conditional quantile functions for the states, the estimation accuracy of the quantile level of the observed state, and, if t ≥ 1, the estimation accuracy of the previous time step’s augmented state (which is reflected by Mt−1,n ). Similarly, Dt,n , which will be shown later to bound the augmented reward estimation error at time t, depends on the estimation accuracy of the conditional quantile function for the reward, the estimation accuracy of the quantile level of the observed reward, the estimation accuracy of the current time step’s augmented state (which is reflected by Mt,n ), and the estimation accuracy of the distribution of the sensitive attribute in the population. Finally, δt,n depends on Mt′,n and Dt′,n for all time steps t′ before time t. For all 
+
+t ≥ 0, Mt,n , Dt,n , and δt,n are nonnegative and independent from the trajectory experienced by any individual. Lemmas A1 and A2 below establish uniform bounds for the estimation errors of the augmented states and rewards, respectively. 
+
+Lemma A1. Suppose Assumptions 1 and A3 hold. For each t ≥ 0, ∥ˆ˜sj,t,n − ˜sj,t ∥∞ ≤ Mt,n for all individuals j regardless of the individual’s trajectory. 
+
+23 Proof. We first show that ∥ˆszj,t,n − szj,t ∥∞ ≤ Mt,n for t ≥ 0 and any z ∈ Z . Suppose the observed sensitive attribute is z∗. If z = z∗, then ˆszt,n = szt , so the statement holds trivially because Mt,n ≥ 0
+
+for all t ≥ 0. Now we consider the scenario where z̸ = z∗. In this scenario, we prove the statement by induction. We first prove the case for t = 0 . For each i ∈ { 1, . . . , M }, we have 
+
+|ˆsz, (i) 
+
+> j, 0,n
+
+− sz, (i) 
+
+> j, 0
+
+|
+
+=| ˆQ(i)0,n (ˆ τ (i)
+
+> j, 0,n
+
+, z ) − Q(i)0 (τ (i) 
+
+> j, 0
+
+, z )|≤| ˆQ(i)0,n (ˆ τ (i)
+
+> j, 0,n
+
+, z ) − Q(i)0 (ˆ τ (i)
+
+> j, 0,n
+
+, z )| + |Q(i)0 (ˆ τ (i)
+
+> j, 0,n
+
+, z ) − Q(i)0 (τ (i) 
+
+> j, 0
+
+, z )|≤∥ ˆQ(i)0,n − Q(i)0 ∥∞ + |Q(i)0 (ˆ τ (i)
+
+> j, 0,n
+
+, z ) − Q(i)0 (τ (i) 
+
+> j, 0
+
+, z )|≤∥ ˆQ(i)0,n − Q(i)0 ∥∞ + H|ˆτ (i) 
+
+> j, 0,n
+
+− τ (i) 
+
+> j, 0
+
+|≤∥ ˆQ(i)0,n − Q(i)0 ∥∞ + H∥[ ˆQ(i)0,n ]−1 − [Q(i)0 ]−1∥∞.
+
+Given the above result, we further have 
+
+∥ˆszj, 0,n − szj, 0∥∞ = max   
+
+> i∈{ 1,...,M }
+
+|ˆsz, (i) 
+
+> j, 0,n
+
+− sz, (i) 
+
+> j, 0
+
+|≤ max  
+
+> i∈{ 1,...,M }
+
+(∥ ˆQ(i)0,n − Q(i)0 ∥∞ + H∥[ ˆQ(i)0,n ]−1 − [Q(i)0 ]−1∥∞)=M0,n ,
+
+which proves the t = 0 case. Now we prove the inductive step. Let t ≥ 1. For each i ∈ { 1, . . . , M }, we have 
+
+|ˆsz, (i) 
+
+> j,t,n
+
+− sz, (i) 
+
+> j,t
+
+|
+
+=| ˆQ(i) 
+
+> n
+
+(ˆ τ (i)
+
+> j,t,n
+
+, z, ˆszj,t −1,n , a j,t −1) − Q(i)(τ (i) 
+
+> j,t
+
+, z, s zj,t −1, a j,t −1)|≤| ˆQ(i) 
+
+> n
+
+(ˆ τ (i)
+
+> j,t,n
+
+, z, ˆszj,t −1,n , a j,t −1) − Q(i)(ˆ τ (i)
+
+> j,t,n
+
+, z, ˆszj,t −1,n , a j,t −1)|
+
++ |Q(i)(ˆ τ (i)
+
+> j,t,n
+
+, z, ˆszj,t −1,n , a j,t −1) − Q(i)(τ (i) 
+
+> j,t
+
+, z, ˆszj,t −1,n , a j,t −1)|
+
++ |Q(i)(τ (i) 
+
+> j,t
+
+, z, ˆszj,t −1,n , a j,t −1) − Q(i)(τ (i) 
+
+> j,t
+
+, z, s zj,t −1, a j,t −1)|≤∥ ˆQ(i) 
+
+> n
+
+− Q(i)∥∞ + H|ˆτ (i) 
+
+> j,t,n
+
+− τ (i) 
+
+> j,t
+
+| + L∥ˆszj,t −1,n − szj,t −1∥∞
+
+≤∥ ˆQ(i) 
+
+> n
+
+− Q(i)∥∞ + H∥[ ˆQ(i) 
+
+> n
+
+]−1 − [Q(i)]−1∥∞ + LM t−1,n .
+
+Given the above result, we further have 
+
+∥ˆszj,t,n − szj,t ∥∞
+
+= max   
+
+> i∈{ t,...,M }
+
+|ˆsz, (i) 
+
+> j,t,n
+
+− sz, (i) 
+
+> j,t
+
+|≤ max  
+
+> i∈{ t,...,M }
+
+(∥ ˆQ(i) 
+
+> n
+
+− Q(i)∥∞ + H∥[ ˆQ(i) 
+
+> n
+
+]−1 − [Q(i)]−1∥∞ + LM t−1,n )=Mt,n ,
+
+which proves the inductive step. Therefore, ∥ˆszj,t,n − szj,t ∥∞ ≤ Mt,n for t ≥ 0 and any z ∈ Z .Finally, note that 
+
+∥ˆ˜sj,t,n − ˜sj,t ∥∞ = max  
+
+> z∈Z
+
+∥ˆszj,t,n − szj,t ∥∞ ≤ Mt,n ,
+
+which completes the proof. 
+
+Lemma A2. Suppose Assumptions 1-2, A1, and A3 hold. For each t ≥ 0, |ˆ˜rj,t,n − ˜rj,t | ≤ Dt,n for all individuals j regardless of the individual’s trajectory. Proof. We first show that |ˆrzj,t,n − rzj,t | ≤ ∥ ˆWn − W ∥∞ + H∥[ ˆWn]−1 − [W ]−1∥∞ + LM t,n for 
+
+t ≥ 0 and any z ∈ Z . Let t ≥ 0. Suppose the observed sensitive attribute is z∗. If z = z∗, then 24 ˆrzt,n = rzt , so the statement holds trivially. Now we consider the scenario where z̸ = z∗. In this case, note that 
+
+|ˆrzj,t,n − rzj,t |
+
+=| ˆWn(ˆθj,t,n , z, ˆszj,t,n , a j,t ) − W (θj,t , z, s zj,t , a j,t )|≤| ˆWn(ˆθj,t,n , z, ˆszj,t,n , a j,t ) − W (ˆθj,t,n , z, ˆszj,t,n , a j,t )|
+
++ |W (ˆθj,t,n , z, ˆszj,t,n , a j,t ) − W (θj,t , z, ˆszj,t,n , a j,t )|
+
++ |W (θj,t , z, ˆszj,t,n , a j,t ) − W (θj,t , z, s zj,t , a j,t )|≤∥ ˆWn − W ∥∞ + H|ˆθj,t,n − θj,t | + L∥ˆszj,t,n − szj,t ∥∞
+
+≤∥ ˆWn − W ∥∞ + H∥[ ˆWn]−1 − [W ]−1∥∞ + LM t,n .
+
+Therefore, |ˆrzj,t,n − rzj,t | ≤ ∥ ˆWn − W ∥∞ + H∥[ ˆWn]−1 − [W ]−1∥∞ + LM t,n for t ≥ 0 and any 
+
+z ∈ Z .Then, 
+
+|ˆ˜rj,t,n − ˜rj,t |≤| X
+
+> z∈Z
+
+(ˆPn(Z = z)ˆ rzj,t,n − P(Z = z)rzj,t )|
+
+=| X
+
+> z∈Z
+
+ˆPn(Z = z)(ˆ rzj,t,n − rzj,t ) + X
+
+> z∈Z
+
+(ˆPn(Z = z) − P(Z = z)) rzj,t |≤ X
+
+> z∈Z
+
+|ˆPn(Z = z)|| ˆrzj,t,n − rzj,t | + X
+
+> z∈Z
+
+|ˆPn(Z = z) − P(Z = z)|| rzj,t |≤ X
+
+> z∈Z
+
+|ˆrzj,t,n − rzj,t | + Rmax 
+
+X
+
+> z∈Z
+
+|ˆPn(Z = z) − P(Z = z)|≤ X
+
+> z∈Z
+
+(∥ ˆWn − W ∥∞ + H∥[ ˆWn]−1 − [W ]−1∥∞ + LM t,n )+ Rmax 
+
+X
+
+> z∈Z
+
+|ˆPn(Z = z) − P(Z = z)|
+
+=Dt,n ,
+
+which completes the proof. Now, we show that by combining Mt,n and Dt,n into a single bound, δt,n simultaneously bounds both the state and reward estimation errors up to some specified time point. 
+
+Lemma A3. Suppose Assumptions 1-2, A1, and A3 hold. Then, for all t∗ ≥ 0,
+
+max  
+
+> t≤t∗
+
+∥ˆ˜sj,t,n − ˜sj,t ∥∞ + max  
+
+> t≤t∗
+
+|ˆ˜rj,t,n − ˜rj,t | ≤ δt∗,n 
+
+Proof. By Lemmas A1 and A2, 
+
+max  
+
+> t≤t∗
+
+∥ˆ˜sj,t,n − ˜sj,t ∥∞ + max  
+
+> t≤t∗
+
+|ˆ˜rj,t,n − ˜rj,t | ≤ max  
+
+> t≤t∗
+
+Mt,n + max  
+
+> t≤t∗
+
+Dt,n = δt∗,n ,
+
+which completes the proof. 
+
+I.3.4 Main Proofs of Theorems 3 and 4 Theorem 3. Suppose Assumptions 1-2 and A1-A3 hold. Also, suppose the trajectory for each individual in the training set has exactly T time steps. For any ω ∈ N and z ∈ Z , we have 
+
+SG (˜ πzn) ≤ 2BL 1 − γω
+
+1 − γ max  
+
+> t≤ω−1
+
+Mt,n + 2 BL γω
+
+1 − γ M ˜S
+
++ 2C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)3 + 2C2dR max κ log( n)(1 − γ)3λ0
+
+√n + 2γB Rmax 
+
+(1 − γ)2
+
+25 with probability at least (1 − n−κ − d exp( −nλ 0/8)) P  δT,n ≤ λ0
+
+> 4dL
+
+, where C1 and C2 are positive constants, B is the number of FQI iterations, γ ∈ (0 , 1) is the discount factor, and B, L, and M ˜S are positive constants defined in Assumptions A1 and A2. Proof. Let π∗ be the optimal policy in the Markov decision process with the augmented state and reward. By Theorem 2 of [31], π∗ is a stationary deterministic policy. Let Q∗ be the optimal Q function, and note that Q∗ is Lipschitz continuous in the sense that, for s, s ′ ∈ S and a ∈ A ,
+
+|Q∗(s, a ) − Q∗(s′, a )| =|(ϕ(s, a ) − ϕ(s′, a )) T ω∗|≤∥ ϕ(s, a ) − ϕ(s′, a )∥∞∥ω∗∥1
+
+≤B L∥s − s′∥∞.
+
+Also, let ˆf be the Q function estimated by FQI, and let conditioning on Ξn denote fixing the quantile estimators and empirical probabilities needed for preprocessing using SMDM. We have 
+
+SG (˜ πzn)=
+
+> ∞
+
+X
+
+> t=0
+
+γtE(˜ st,a t)∼˜πznPt [Q∗(˜ st, π ∗(˜ st)) − Q∗(˜ st, a t)|Ξn] (note that at = ˜ πzt,n (˜ht))
+
+≤
+
+> ∞
+
+X
+
+> t=0
+
+γtE(˜ st,a t)∼˜πznPt [Q∗(˜ st, π ∗(˜ st)) − Q∗(ˆ ˜st,n , π ∗(˜ st)) + Q∗(ˆ ˜st,n , π ∗(˜ st)) − ˆf (ˆ ˜st,n , π ∗(˜ st)) + ˆf (ˆ ˜st,n , a t) − Q∗(ˆ ˜st,n , a t) + Q∗(ˆ ˜st,n , a t) − Q∗(˜ st, a t)|Ξn]
+
+≤
+
+> ∞
+
+X
+
+> t=0
+
+γtE(˜ st,a t)∼˜πznPt [2 BL∥ˆ˜st,n − ˜st∥∞ + 2 ∥Q∗ − ˆf ∥∞|Ξn]=2 BL
+
+> ∞
+
+X
+
+> t=0
+
+γtE(˜ st,a t)∼˜πznPt [∥ˆ˜st,n − ˜st∥∞|Ξn] + 2 
+
+> ∞
+
+X
+
+> t=0
+
+γtE(˜ st,a t)∼˜πznPt [∥Q∗ − ˆf ∥∞|Ξn]=2 BL
+
+> ∞
+
+X
+
+> t=0
+
+γtE(˜ st,a t)∼˜πznPt [∥ˆ˜st,n − ˜st∥∞|Ξn] + 21 − γ ∥Q∗ − ˆf ∥∞
+
+=2 BL
+
+> ω−1
+
+X
+
+> t=0
+
+γtE(˜ st,a t)∼˜πznPt [∥ˆ˜st,n − ˜st∥∞|Ξn] + 
+
+> ∞
+
+X
+
+> t=ω
+
+γtE(˜ st,a t)∼˜πznPt [∥ˆ˜st,n − ˜st∥∞|Ξn]
+
+!
+
++ 21 − γ ∥Q∗ − ˆf ∥∞
+
+≤2BL
+
+ 1 − γω
+
+1 − γ max  
+
+> t≤ω−1
+
+Mt,n + γω
+
+1 − γ M ˜S
+
+
+
++ 21 − γ ∥Q∗ − ˆf ∥∞ (1) where the first equality is by the same argument as the one in the proof of Lemma 6.1 in [15], and the first inequality is because ˆf (ˆ ˜st,n , a t) − ˆf (ˆ ˜st,n , π ∗(˜ st)) ≥ 0 by the greediness of ˆπ with respect to 
+
+ˆf (ˆ ˜st,n , ·).For the second term in (1), consider n such that n > d . If δT,n ≤ λ0 
+
+> 4dL
+
+, then, by the same argument as the one in the proof of Theorem 3 in [31], for any κ > 0,
+
+∥Q∗ − ˆf ∥∞ ≤
+
+> B−1
+
+X
+
+> t=0
+
+γt∥ ˆfB−t − T ˆfB−t−1∥∞ + γB Rmax 
+
+1 − γ ,
+
+P
+
+
+
+∥ ˆfB−t − T ˆfB−t−1∥∞ ≤ C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ) + C2dR max κ log( n)(1 − γ)λ0
+
+√n ∀t Ξn
+
+
+
+≥1 − n−κ − d exp ( −nλ 0/8) 
+
+26 where C1 and C2 are positive constants and ˆfb denotes the estimated Q function after b FQI iterations. This implies that, for any κ > 0,
+
+P
+
+
+
+∥Q∗ − ˆf ∥∞ ≤ C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)2 + C2dR max κ log( n)(1 − γ)2λ0
+
+√n + γB Rmax 
+
+1 − γ δT,n ≤ λ0
+
+4dL 
+
+
+
+=E
+
+h
+
+P
+
+
+
+∥Q∗ − ˆf ∥∞ ≤ C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)2 + C2dR max κ log( n)(1 − γ)2λ0
+
+√n
+
++ γB Rmax 
+
+1 − γ δT,n ≤ λ0
+
+4dL , Ξn
+
+
+
+δT,n ≤ λ0
+
+4dL 
+
+i
+
+≥1 − n−κ − d exp( −nλ 0/8) . (2) Combining the above results gives 
+
+P
+
+
+
+SG (˜ πzn) ≤ 2C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)3 + 2C2dR max κ log( n)(1 − γ)3λ0
+
+√n + 2γB Rmax 
+
+(1 − γ)2
+
++ 2 BL 1 − γω
+
+1 − γ max  
+
+> t≤ω−1
+
+Mt,n + 2BLγ ω
+
+1 − γ M ˜S
+
+
+
+≥P
+
+
+
+2BL 1 − γω
+
+1 − γ max  
+
+> t≤ω−1
+
+Mt,n + 2BLγ ω
+
+1 − γ M ˜S + 21 − γ ∥Q∗ − ˆf ∥∞
+
+≤ 2C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)3 + 2C2dR max κ log( n)(1 − γ)3λ0
+
+√n + 2γB Rmax 
+
+(1 − γ)2
+
++ 2 BL 1 − γω
+
+1 − γ max  
+
+> t≤ω−1
+
+Mt,n + 2BLγ ω
+
+1 − γ M ˜S
+
+
+
+≥P
+
+
+
+∥Q∗ − ˆf ∥∞ ≤ C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)2 + C2dR max κ log( n)(1 − γ)2λ0
+
+√n + γB Rmax 
+
+1 − γ
+
+
+
+≥P
+
+ 
+
+∥Q∗ − ˆf ∥∞ ≤ C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)2 + C2dR max κ log( n)(1 − γ)2λ0
+
+√n + γB Rmax 
+
+1 − γ
+
+
+
+∩
+
+
+
+δT,n ≤ λ0
+
+4dL 
+
+ 
+
+=P
+
+
+
+∥Q∗ − ˆf ∥∞ ≤ C1dLR max δT,n 
+
+λ0(λ0 − 4dLδ T,n )(1 − γ)2 + C2dR max κ log( n)(1 − γ)2λ0
+
+√n + γB Rmax 
+
+1 − γ δT,n ≤ λ0
+
+4dL 
+
+
+
+× P
+
+
+
+δT,n ≤ λ0
+
+4dL 
+
+
+
+≥  1 − n−κ − d exp( −nλ 0/8)  P
+
+
+
+δT,n ≤ λ0
+
+4dL 
+
+
+
+. (3) where the first inequality is due to (1) and the final inequality is due to (2). This completes the proof. 
+
+Theorem 4. Suppose Assumptions 1-2 and A1-A4 hold. Also, suppose the trajectory for each indi-vidual in the training set has exactly T time steps. Let ξn = C1dLR max δT ,n  
+
+> λ0(λ0−4dLδ T ,n )(1 −γ)2
+
++ C2dR max κ log( n)(1 −γ)2λ0 
+
+> √n
+
++  
+
+> γBRmax
+> 1−γ
+
+and ηn = n−κ + d exp( −nλ 0/8) , where C1, C 2 are as defined in Theorem 3 and κ > 0 is an arbitrary constant. For any z′, z ′′ ∈ Z and t ≥ 0,
+
+E
+
+h
+
+∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2
+
+i
+
+≤E [O(ξαn ) + O(( BLδ t,n )α)] + √2 [ P (δT,n > λ 0/(4 dL )) + ηn]
+
+where O stands for the big-O notation, B is the number of FQI iterations, γ ∈ (0 , 1) is the discount factor, and Rmax and α are positive constants defined in Assumptions A1 and A4, respectively. Proof. Let An represent the event that ∥Q∗ − ˆf ∥ ≤ ξn, and let Bn represent the event that δT,n ≤ λ0 
+
+> 4dL
+
+.Also, let conditioning on Ξn denote fixing the quantile estimators and empirical probabilities needed 27 for preprocessing using SMDM. By the same argument as the one in the proof of Theorem 4 in [31], we have 
+
+E(˜ st,a t)∼˜πz′  
+
+> nPt
+
+[∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2|Ξn, An, Bn] ≤ O(ξαn ) + O(( BLδ t,n )α) (4) Then 
+
+E(˜ st,a t)∼˜πz′ 
+
+> nPt
+
+h
+
+∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2|Ξn
+
+i
+
+≤E(˜ st,a t)∼˜πz′ 
+
+> nPt
+
+h
+
+∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2 Ξn, An, Bn
+
+i
+
+P (An ∩ B n|Ξn)+ E(˜ st,a t)∼˜πz′ 
+
+> nPt
+
+h
+
+∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2 Ξn, ACn ∪ B Cn
+
+i
+
+P  ACn ∪ B Cn Ξn
+
+
+
+≤E(˜ st,a t)∼˜πz′ 
+
+> nPt
+
+h
+
+∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2 Ξn, An, Bn
+
+i
+
++ √2 [1 − P (An ∩ B n|Ξn)] 
+
+≤O(ξαn ) + O(( BLδ t,n )α) + √2 [1 − P (An|Ξn, Bn) P (Bn|Ξn)] 
+
+≤O(ξαn ) + O(( BLδ t,n )α) + √2 [1 − (1 − ηn)I (Bn)] =O(ξαn ) + O(( BLδ t,n )α) + √2 I  BCn
+
+ + ηnI (Bn) ,
+
+where the fourth inequality holds both due to (4) and because P (An|Ξn, Bn) ≥ 1 − ηn by the argument in the proof of Theorem 3 in [31]. Marginalizing over Ξn gives 
+
+E
+
+h
+
+∥˜πz′
+
+> t,n
+
+(˜ht) − ˜πz′′ 
+
+> t,n
+
+(˜ht)∥2
+
+i
+
+≤E
+
+h
+
+O(ξαn ) + O(( BLδ t,n )α) + √2 I  BCn
+
+ + ηnI (Bn)i
+
+=E [O(ξαn ) + O(( BLδ t,n )α)] + √2 P  BCn
+
+ + ηnP (Bn)
+
+≤E [O(ξαn ) + O(( BLδ t,n )α)] + √2 P  BCn
+
+ + ηn
+
+ ,
+
+which completes the proof. 
+
+## J Additional Numerical Experiments 
+
+This section presents some additional numerical experiments that evaluate the performance of CFSMDM against baseline methods. Unless otherwise specified, the methods being compared in the additional numerical experiments are “Full”, “Unaware”, “Random”, FLAP_M, ECOCF_M, CFSDP, and CFSMDM, which follow the same definition and implementation as their counterparts in Section 5. Also, similar to Section 5, policy learning is performed using FQI, and we evaluate the performance of the methods using the policy value and CF metric defined in Section 5. More details about the implementation of the additional numerical experiments can be found in Section K. 
+
+J.1 Additional Numerical Experiment on Fairness and Policy Value Under Varying N and δ
+
+In this section, we conduct an additional numerical experiment to compare the level of counterfactual fairness and policy value achieved by CFSMDM and baseline methods under varying N and δ using data generated from a known CMDP with additive noise. Again, let δ denote the strength of impact of the sensitive attribute on the state and reward variables. This experiment aims to complement the experiment presented in section 5, which compares the level of counterfactual fairness and policy value in a known CMDP with nonadditive noise. We generate data from Data-generating CMDP 2 defined in Section K. This is a CMDP with univariate state variable and additive noise. Similar to Section 5, we run two experiments with different objectives: • Experiment 1’: This experiment evaluates how the policy value and the CF metric change with N , the number of individuals in the training dataset. In particular, for the training dataset, we fix T = 20 , δ = 1 .0 and vary N ∈ { 100 , 200 , 500 , 1000 , 2000 }.• Experiment 2’: This experiment evaluates how the CF metric changes with δ. In particular, for the training dataset, we fix T = 20 , N = 100 and vary δ ∈ { 0.0, 0.5, 1.0, 1.5, 2.0}.28 Figure A1: Experiment results under additive noise: (a) CF metric vs. Sample size ( N ); (b) Policy value vs. Sample size ( N ); (c) Policy value vs. CF metric; (d) CF metric vs. Size of effect of Z on St
+
+and Rt (δ). Results are aggregated over 50 replications with different random seeds. Point represents the empirical mean. Shaded area represents the band between 0.025 and 0.975 empirical quantiles. In both experiments, the training trajectories are generated using the “Random” policy as the be-havioral policy. In particular, the sets of trajectories used for preprocessor training (if needed for the method of interest) and policy learning share the same sensitive attributes, while the remaining trajectory components are generated independently conditional on the shared sensitive attributes. The policy value resulting from the methods of interest is approximated by the discounted cumulative reward from a simulated trajectory with 10000 individuals and 20 horizons, generated from the known CMDP using the policy learned with the methods of interest. Similarly, the CF metric is calculated from a simulated dataset containing counterfactual trajectories of 10000 individuals with 
+
+20 horizons, generated from the known CMDP using the policy learned with the methods of interest. 
+
+Results. Figure A1 summarizes the experiment results. Panels (a)-(c) summarize the results from Experiment 1’, and Panel (d) summarizes the results from Experiment 2’. In particular, panel (a) shows that CFSMDM and CFSDP achieves similar levels of performance in terms of fairness control, and both are significantly fairer than “Full” and “Unaware”. Moreover, again, the CF metric achieved by CFSMDM decreases as the training sample size N increases, which supports the consistency of CFSMDM. Meanwhile, while FLAP_M and ECOCF_M were fairer than “Full” and “Unaware”, they still result in a noticeable level of unfairness. In panel (b), “Full” achieves the highest policy value because it uses the original states and rewards for reward maximization. CFSMDM and CFSDP achieve similar levels of policy values, but their policy values are lower than those of “Full” and “Unaware”, which again demonstrates a tradeoff between fairness and policy value. Panel (c) shows that fairer methods tend to have lower policy values. In panel (d), CFSMDM remains relatively fair as we inject more unfairness into the underlying CMDP by increasing δ, which shows that CFSMDM is robust against the level of unfairness present in the training trajectories. 
+
+J.2 Additional Numerical Experiment on Fairness Under Varying T
+
+In this section, we conduct an additional numerical experiment to compare the level of counterfactual unfairness achieved by CFSMDM and baseline methods under varying T (number of horizons in the training trajectory). The experiment is repeated for both Data-generating CMDP 1, which has bivariate state variable and nonadditive noise, and Data-generating CMDP 2, which has univariate state variable and additive noise. Both CMDPs are defined in Section K. In particular, for Data-generating CMDP 1, we fix N = 500 , δ = 2 .0, and vary T ∈ { 10 , 20 , 30 , 50 , 100 }; for Data-generating CMDP 2, we fix N = 100 , δ = 1 .0, and vary T ∈ { 10 , 20 , 30 , 50 , 100 }.For both CMDPs, the training trajectories are generated using the “Random” policy as the behavioral policy. In particular, the sets of trajectories used for preprocessor training (if needed for the method of interest) and policy learning share the same sensitive attributes, while the remaining trajectory components are generated independently conditional on the shared sensitive attributes. For each T ∈
+
+29 Figure A2: Level of counterfactual unfairness under varying levels of T . Panel (a) presents results under Data-generating CMDP 1. Panel (b) presents results under Data-generating CMDP 2. Results are aggregated over 50 replications with different random seeds. Point represents the empirical mean. Shaded area represents the band between 0.025 and 0.975 empirical quantiles. 
+
+{10 , 20 , 30 , 50 , 100 }, the CF metric is calculated from a simulated dataset containing counterfactual trajectories of 10000 individuals with T horizons, generated from the known CMDP using the policy learned with the methods of interest. 
+
+Results. Figure A2 summarizes the experiment results. In both CMDPs, the CF metric achieved by CFSMDM decreases slightly as T increases. This shows that, although the counterfactual state and reward estimation errors might accumulate across time, CFSMDM controls the level of unfairness successfully for large levels of T . One possible explanation for this is that since the transition tuples used for SMDM training are pooled across time, a larger T provides more tuples for training the quantile models; this might improve the estimation accuracy of the counterfactual states and rewards. 
+
+J.3 Additional Numerical Experiments on Sensitivity of CFSMDM to the Number of Quantile Models 
+
+CFSMDM requires estimating the conditional quantile function, which is often done by training quantile regression models for a grid of quantile levels in (0 , 1) . For example, in the previous experiments, the conditional quantile function is estimated by fitting quantile regression models for quantile levels τ ∈ { 0.01 , 0.02 , 0.03 , . . . , 0.98 , 0.99 }. The number of quantile levels in this grid can be varied. Therefore, in this section, we conduct an additional numerical experiment to investigate the sensitivity of CFSMDM to the number of quantile levels in this grid. For notational convenience, we denote this number of quantile levels by q.The experiment is repeated for both Data-generating CMDP 1, which has bivariate state variable and nonadditive noise, and Data-generating CMDP 2 (additive noise), which has univariate state variable and additive noise. Both CMDPs are defined in Section K. In particular, for Data-generating CMDP 1, we fix N = 500 , T = 20 , δ = 2 .0, and vary q ∈ { 9, 19 , 49 , 99 , 199 , 499 }; for Data-generating CMDP 2, we fix N = 100 , T = 20 , δ = 1 .0, and vary q ∈ { 9, 19 , 49 , 99 , 199 , 499 }. In our implementation, the q quantile levels are evenly distributed on the interval (0 , 1) . For example, 
+
+q = 49 corresponds to τ ∈ { 0.02 , 0.04 , 0.06 , . . . , 0.96 , 0.98 }, and q = 99 corresponds to τ ∈{0.01 , 0.02 , 0.03 , . . . , 0.98 , 0.99 }.For both CMDPs, the training trajectories are generated using the “Random” policy as the behavioral policy. In particular, the sets of trajectories used for preprocessor training (if needed for the method of interest) and policy learning share the same sensitive attributes, while the remaining trajectory components are generated independently conditional on the shared sensitive attributes. The policy value resulting from the methods of interest is approximated by the discounted cumulative reward from a simulated trajectory with 10000 individuals and 20 horizons, generated from the known CMDP using the policy learned with the methods of interest. Similarly, the CF metric is calculated from a simulated dataset containing counterfactual trajectories of 10000 individuals with 20 horizons, generated from the known CMDP using the policy learned with the methods of interest. 30 q CF Metric Value 
+
+9 0.0848 (0.0212) -3.1881 (0.0911) 
+
+19 0.0528 (0.0152) -3.2787 (0.0798) 
+
+49 0.0456 (0.0171) -3.3039 (0.0840) 
+
+99 0.0444 (0.0173) -3.3042 (0.0853) 
+
+199 0.0426 (0.0161) -3.3035 (0.0791) 
+
+499 0.0430 (0.0159) -3.3054 (0.0784) Table A2: CF metric and value of CFSMDM under varying levels of q (number of quantile levels fitted) in Data-generating CMDP 1. Aggregated over 50 replications with different random seeds. The number without parentheses is the empirical mean, and the number inside the parentheses is the standard deviation. All values are rounded to four decimal points. 
+
+Results. Tables A2 and A3 summarize the experiment results for Data-generating CMDP 1 and Data-generating CMDP 2, respectively. Overall, the performance of CFSMDM appears to be insensitive to the number of quantile levels fitted. Under Data-generating CMDP 1, the level of counterfactual unfairness is relatively low for all the q levels tested. However, q = 9 and q = 19 
+
+resulted in higher unfairness than the other q levels, possibly because a small q degrades the quality of counterfactual state and reward estimation. q = 9 also resulted in higher value than the other q
+
+levels. Under Data-generating CMDP 2, the level of counterfactual unfairness and policy value are similar across all the q levels tested. Also, the resulting policy is close to being counterfactually fair for all the q levels tested. 
+
+q CF Metric Value 
+
+9 0.0438 (0.0171) 4.7583 (0.2918) 
+
+19 0.0394 (0.0173) 4.7356 (0.5918) 
+
+49 0.0372 (0.0169) 4.7817 (0.4774) 
+
+99 0.0368 (0.0204) 4.7609 (0.8844) 
+
+199 0.0362 (0.0191) 4.8301 (0.6153) 
+
+499 0.0347 (0.0162) 4.7962 (0.6757) Table A3: CF metric and value of CFSMDM under varying levels of q (number of quantile levels fitted) in Data-generating CMDP 2. Aggregated over 50 replications with different random seeds. The number without parentheses is the empirical mean, and the number inside the parentheses is the standard deviation. All values are rounded to four decimal points. 
+
+## K Additional Implementation Details of Numerical Experiments 
+
+Data-generating CMDP 1: We define below Data-generating CMDP 1, which has a bivariate state variable and nonadditive noise: 
+
+S(1) 0 =( −0.45 + 1 .5δZ + U S, (1) 0 + 0 .5U S, (3) 0 ) 13 ,S(2) 0 =( −0.75 + 2 .5δZ + U S, (1) 0 + U S, (2) 0 + 0 .5U S, (3) 0 ) 13 ,S(1)  
+
+> t
+
+=( −0.45 + 0 .3S(1) 
+
+> t−1
+
+(At−1 − 0.5) + 0 .3δS (1) 
+
+> t−1
+
+(Z − 0.5) + 0 .45 δ(Z − 0.5)( At−1 − 0.5) + 0 .5U S, (1)  
+
+> t
+
++ 0 .25 U S, (3)  
+
+> t
+
+) 13 (for t ≥ 1),S(2)  
+
+> t
+
+=( −0.9 + 0 .4S(1) 
+
+> t−1
+
+(At−1 − 0.5) + 0 .2S(2) 
+
+> t−1
+
+(At−1 − 0.5) + 0 .6δS (1) 
+
+> t−1
+
+(Z − 0.5) + 0 .2δS (2) 
+
+> t−1
+
+(Z − 0.5) + 0 .9δ(Z − 0.5)( At−1 − 0.5) + 0 .5U S, (1) 
+
+> t
+
++ 0 .9U S, (2)  
+
+> t
+
++ 0 .5U S, (3)  
+
+> t
+
+) 13 (for t ≥ 1),Rt = ( − 0.3 + 0 .2δS (1)  
+
+> t
+
+Z + 0 .5S(1)  
+
+> t
+
+At + 0 .2δS (2)  
+
+> t
+
+Z + 0 .5S(2)  
+
+> t
+
+At − 1.0δZA t + 1 .0U Rt ) 13 ,
+
+where U S, (1)  
+
+> t
+
+, U S, (2)  
+
+> t
+
+, U S, (3)  
+
+> t
+
+, U Rt
+
+> i.i.d.
+
+∼ N (0 , 1) for t ≥ 0. In this environment, we can view U S, (1) 0 +0.5U S, (3) 0 and U S, (1) 0 + U S, (2) 0 + 0 .5U S, (3) 0 as the scalar exogenous variables of S(1) 0 and S(2) 0 ,31 respectively. For t ≥ 1, we can also view 0.5U S, (1)  
+
+> t
+
++ 0 .25 U S, (3)  
+
+> t
+
+and 0.5U S, (1)  
+
+> t
+
++ 0 .9U S, (2)  
+
+> t
+
++0.5U S, (3)  
+
+> t
+
+as the scalar exogenous variables of S(1)  
+
+> t
+
+and S(2)  
+
+> t
+
+, respectively. Note that δ is a constant that controls the strength of impact of the sensitive attribute on the state and reward variables; in particular, there will be no fairness issues with the CMDP if δ = 0 . In this setting, the exogenous variables are not additive to the state or the reward, but Assumptions 1 and 2 are both satisfied. Therefore, in this setting, CFSMDM should result in approximately counterfactually fair policies, while there is no guarantee for the performance of CFSDP. 
+
+Remark A3 . The conditional quantile functions in the setting given above are not linear. However, for simplicity, we estimate the conditional quantile functions in CFSMDM using linear quantile regression with a flexible model specification, where the model specification can be found in the paragraphs below. As shown in Figure 2, the performance of CFSMDM remains robust despite some degree of model misspecification. 
+
+Data-generating CMDP 2: We define below Data-generating CMDP 2, which has a univariate state variable and additive noise: 
+
+S0 = − 0.3 + 1 .0δZ + U S 
+
+> 0
+
+,St = − 0.3 + 1 .0δ(Z − 0.5) + 0 .5St−1 + 0 .4( At−1 − 0.5) + 0 .3St−1(At−1 − 0.5) + 0 .3δS t−1(Z − 0.5) + 0 .4δ(Z − 0.5)( At−1 − 0.5) + U St (for t ≥ 1),Rt = − 0.3 + 0 .3St + 0 .5δZ + 0 .5At + 0 .2δS tZ + 0 .7StAt − 1.0δZA t + U Rt ,
+
+where U St , U Rt
+
+> i.i.d.
+
+∼ N (0 , 1) for t ≥ 0. Note that δ is a constant that controls the strength of impact of the sensitive attribute on the state and reward variables; in particular, there will be no fairness issues with the CMDP if δ = 0 . In this setting, since the exogenous variables of the state are additive to the state, both CFSDP and CFSMDM should result in approximately counterfactually fair policies. 
+
+Implementation of FLAP_M: The Fair Learning through data preprocessing (FLAP) algorithm is introduced by [2]. It is a data preprocessing method that aims to achieve counterfactual fairness in cross-sectional prediction tasks. Our FLAP_M baseline adapts the FLAP algorithm (with marginal distribution mapping) to the sequential decision-making setting, which is detailed in Algorithm 5. Specifically, the quantile levels and quantiles for each time step t and dimension i, which are required by FLAP_M, are estimated using the empirical cumulative distribution function (CDF) of the conditional distribution (denoted by ˆP(i)
+
+> t,n
+
+(·| Z)) and its inverse, respectively. 
+
+Algorithm 5 FLAP_M: FLAP with single-stage marginal distribution mapping, adapted to the sequential decision-making setting 
+
+Input: Original data D = {sj, 0, s j,t , z j , a j,t −1, r j,t −1 : j = 1 , . . . , N, t = 1 , . . . , T }, where 
+
+sj,t = ( s(1)  
+
+> j,t
+
+, . . . , s (M ) 
+
+> j,t
+
+). 
+
+> 1:
+
+for t = 0 , . . . , T do  
+
+> 2:
+
+for i = 1 , . . . , M do  
+
+> 3:
+
+For each z ∈ Z , fit empirical CDF ˆP(i)
+
+> t,n
+
+(S(i) 
+
+> t
+
+|Z) using {s(i) 
+
+> j,t
+
+: j such that zj = z}. 
+
+> 4:
+
+end for  
+
+> 5:
+
+end for  
+
+> 6:
+
+for j = 1 , . . . , N do  
+
+> 7:
+
+for t = 0 , . . . , T do  
+
+> 8:
+
+for i = 1 , . . . , M do  
+
+> 9:
+
+spro, (i) 
+
+> j,t
+
+= P 
+
+> z∈Z
+
+ˆPn(Z = z)[ ˆP(i)
+
+> t,n
+
+]−1(ˆP(i)
+
+> t,n
+
+(s(i) 
+
+> j,t
+
+|Z = zj )|Z = z) 
+
+> 10:
+
+end for  
+
+> 11:
+
+spro j,t = ( spro, (1)  
+
+> j,t
+
+, . . . , s pro, (M ) 
+
+> j,t
+
+) 
+
+> 12:
+
+end for  
+
+> 13:
+
+end for  
+
+> 14:
+
+Train a policy ˆπ using FQI on D′ = {spro j, 0 , s pro j,t , a j,t −1, r j,t −1 : j = 1 , . . . , N, t = 1 , . . . , T }
+
+Output: Learned policy ˆπ.32 Implementation of ECOCF_M: [32] proposes a postprocessing method that aims to achieve counterfactual fairness in cross-sectional prediction tasks. ECOCF_M implements an adaptation of this method to the sequential decision-making setting. In particular, given training dataset D =
+
+{sj,t , z j , a j,t , r j,t : j = 1 , . . . , N, t = 0 , . . . , T } with sj,t = ( s(1)  
+
+> j,t
+
+, . . . , s (M ) 
+
+> j,t
+
+), ECOCF_M trains a policy using FQI with the sensitive attribute being included in the state variable. At deployment time, for each time step t, decisions for each individual j ∈ { 1, . . . , N } are made via the following procedure: 1. For each z ∈ Z , find 
+
+st(z) =  [ˆP(1) 
+
+> t,n
+
+]−1(ˆP(1) 
+
+> t,n
+
+(s(1)  
+
+> j,t
+
+|Z = zj )|Z = z), . . . , [ˆP(M ) 
+
+> t,n
+
+]−1(ˆP(M ) 
+
+> t,n
+
+(s(M ) 
+
+> j,t
+
+|Z = zj )|Z = z),
+
+where ˆP(i)
+
+> t,n
+
+(·| Z) is the empirical CDF of S(i) 
+
+> t
+
+following the same definition as that in FLAP_M. 2. For a ∈ A , calculate the estimated counterfactually fair Q value by 
+
+ˆfcf (sj,t , a ) = X
+
+> z′∈Z
+
+p(z′) X
+
+> z∈Z
+
+p(z) ˆf (z, s t(z′), a )
+
+where p(z) = ˆPn(Z = z) is the empirical population-level probability of the observed sensitive attribute taking the value z, and ˆf : Z × S × A → R is the Q function estimated by FQI. 3. The decision (or action) is made by 
+
+aj,t = arg max 
+
+> a∈A
+
+ˆfcf (sj,t , a ).
+
+Implementation of CFSDP: Our implementation of CFSDP estimates the environment’s transition kernel using a neural network with hidden layers [64 , 64] . The neural network is trained using a maximum of 1000 epochs, a learning rate of 0.005 , and a batch size of 512 . The mean squared error is used as the loss function, and the Adam optimizer [16] is also employed. During training, 80% 
+
+of the data is used as the training set, and the remaining 20% is used as the testing set to test for convergence. Early stopping will be triggered if the test loss barely improves for 10 consecutive epochs. 
+
+Implementation of CFSMDM: Our implementation of CFSMDM estimates the conditional quantiles using quantile regression [17, 18]. For experiments using Data-generating CMDP 1, the quantile regression is fit with the following specification: 
+
+S(1) 0 ∼1 + Z, S(2) 0 ∼1 + Z, S(1)  
+
+> t
+
+∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + At−1
+
++ ZS (1)  
+
+> t−1
+
++ ZA t−1 + S(1) 
+
+> t−1
+
+At−1 (for t ≥ 1),S(2)  
+
+> t
+
+∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + At−1
+
++ ZS (1)  
+
+> t−1
+
++ ZS (2)  
+
+> t−1
+
++ ZA t−1 + S(1) 
+
+> t−1
+
+At−1 + S(2) 
+
+> t−1
+
+At−1 (for t ≥ 1),Rt ∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + At−1
+
++ ZS (1)  
+
+> t−1
+
++ ZA t−1 + S(1) 
+
+> t−1
+
+At−1 (for t ≥ 0).
+
+For experiments using Data-generating CMDP 2, the quantile regression is fit with the following specification: 
+
+S0 ∼1 + Z, St ∼1 + Z + St−1 + At−1 + ZS t−1 + ZA t−1 + St−1At−1 (for t ≥ 1),Rt ∼1 + Z + St−1 + At−1 + ZS t−1 + ZA t−1 + St−1At−1 (for t ≥ 0).
+
+In both cases, the quantile regression is implemented via the QuantReg class of the statsmodels 
+
+library [29]. Unless otherwise specified, the conditional quantile function is estimated by training 33 quantile regression models for quantile levels τ ∈ { 0.01 , 0.02 , 0.03 , . . . , 0.98 , 0.99 } with a maximum of 2000 training iterations. In addition, CFSMDM requires knowledge of the quantile level of the observed state on its conditional distribution, and this quantity is estimated as the quantile level in in 
+
+{0.01 , . . . , 0.99 } whose corresponding quantile is the closest to the observed state. 
+
+Implementation of FQI: FQI is employed in the numerical experiments for policy learning for all the methods except "Random". Our implementation of FQI runs for 200 training iterations (except that FQI runs for 500 training iterations for the experiment in Section J.2) and uses a discount factor of γ = 0 .9. In each iteration, the Q function is estimated using a neural network with hidden layers 
+
+[32] . The neural network is trained with 500 epochs and a learning rate of 0.1. The mean squared error is used as the loss function, and the Adam optimizer [16] is also employed. 
+
+Computing environment: The numerical experiments were run on an internal cluster equipped with two 36-core Intel Xeon Gold 6154 CPUs clocked at 3.0 GHz and 187 GB of RAM. Each job was executed via SLURM on a single node using 1 CPU core and 7 GB of memory. 
+
+## L Additional Implementation Details of the Real Data Analysis 
+
+Details on training and evaluation in the real data analysis: In our analysis, we randomly choose 80% of the dataset for policy learning and use the remaining 20% to evaluate the policies’ performance in terms of the value and CF metric. For CFSDP and CFSMDM, due to the limited size of the dataset, the data used to train the preprocessor is the same as the data that is to be preprocessed. Following [31], we employ cross-fitting to mitigate the bias introduced by the data reuse. Specifically, for the CFSMDM, we divide the training dataset into 10 folds. For each i ∈ { 1, . . . , 10 }, we train a quantile regression model using all data folds except the i-th one, and then use this model to preprocess the i-th data fold. In the end, we will have processed the entire training dataset. 10-fold cross-fitting is implemented similarly for CFSDP. At evaluation time, the policy value is estimated using fitted Q evaluation (FQE) [20] on the test dataset. For the CF metric, we first train an SMDM model on the entire PowerED dataset using quantile regression with a linear specification, and then employ this model to estimate the unobserved counterfactual states of the test dataset. The CF metric is estimated from the actions chosen by the policy based on the estimated counterfactual states. 
+
+Implementation of CFSDP: Our implementation of CFSDP estimates the environment’s transition kernel using a neural network with hidden layers [128 , 128] . The neural network is trained using a maximum of 1000 epochs, a learning rate of 0.0001 , and a batch size of 128 . The mean squared error is used as the loss function, and the Adam optimizer [16] is also employed. The ternary actions are one-hot encoded. During training, 80% of the data is used as the training set, and the remaining 20% 
+
+is used as the testing set to test for convergence. Early stopping will be triggered if the test loss barely improves for 5 consecutive epochs. 
+
+Implementation of CFSMDM: Our implementation of CFSMDM estimates the conditional quantiles using quantile regression [17, 18]. The actions are one-hot encoded because they are ternary. Specifically, the following quantile regression specification is used: 
+
+S(1) 0 ∼1 + Z, S(2) 0 ∼1 + Z, S(1)  
+
+> t
+
+∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + A(1)  
+
+> t−1
+
++ A(2) 
+
+> t−1
+
++ ZS (1)  
+
+> t−1
+
++ ZS (2)  
+
+> t−1
+
++ ZA (1)  
+
+> t−1
+
++ ZA (2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(2) 
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+S(2)  
+
+> t−1
+
+(for t ≥ 1),
+
+34 S(2)  
+
+> t
+
+∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + A(1)  
+
+> t−1
+
++ A(2) 
+
+> t−1
+
++ ZS (1)  
+
+> t−1
+
++ ZS (2)  
+
+> t−1
+
++ ZA (1)  
+
+> t−1
+
++ ZA (2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(2) 
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+S(2)  
+
+> t−1
+
+(for t ≥ 1),Rt ∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + A(1)  
+
+> t−1
+
++ A(2) 
+
+> t−1
+
++ ZS (1)  
+
+> t−1
+
++ ZS (2)  
+
+> t−1
+
++ ZA (1)  
+
+> t−1
+
++ ZA (2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(2) 
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+S(2)  
+
+> t−1
+
+(for t ≥ 0).
+
+where (A(1)  
+
+> t
+
+, A (2)  
+
+> t
+
+) represents the one-hot encoded action at time t. The quantile regression is implemented via the QuantReg class of the statsmodels library [29]. The conditional quantile function is estimated by training quantile regression models for quantile levels τ ∈{0.01 , 0.02 , 0.03 , . . . , 0.98 , 0.99 } with a maximum of 2000 training iterations. In addition, CF-SMDM requires knowledge of the quantile level of the observed state on its conditional distribution, and this quantity is estimated as the quantile level in {0.01 , . . . , 0.99 } whose corresponding quantile is the closest to the observed state. 
+
+Implementation of FQI: FQI is employed in the numerical experiments for policy learning for all the methods except "Random". Our implementation of FQI runs for 100 training iterations and uses a discount factor of γ = 0 .9. In each iteration, the Q function is estimated using a neural network with hidden layers [128 , 128] . The neural network is trained with 1000 epochs and a learning rate of 0.01 . The mean squared error is used as the loss function, and the Adam optimizer [16] is also employed. If the loss is more than 10 at the end of some iteration, then the training will stop early due to likely FQI divergence. If the loss is no less than 2 at the end of FQI training, then the FQI will be refit unless refitting has happened for at least 5 times. 
+
+Implementation of FQE: Our implementation of FQE runs for 100 training iterations and uses a discount factor of γ = 0 .9. In each iteration, the Q function is estimated using a neural network with hidden layers [32] . The neural network is trained with 500 epochs and a learning rate of 0.1. The mean squared error is used as the loss function, and the Adam optimizer [16] is also employed. If the loss is no less than 3 at the end of FQE training, then the FQE will be refit unless refitting has happened for at least 5 times. 
+
+Implementation of the SMDM model for CF metric estimation: Similar to CFSMDM, our implementation of the SMDM model for CF metric estimation estimates the conditional quantiles using quantile regression [17, 18]. The actions are one-hot encoded because they are ternary. Specifically, the following quantile regression specification is used: 
+
+S(1) 0 ∼1 + Z, S(2) 0 ∼1 + Z, S(1)  
+
+> t
+
+∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + A(1)  
+
+> t−1
+
++ A(2) 
+
+> t−1
+
++ ZS (1)  
+
+> t−1
+
++ ZS (2)  
+
+> t−1
+
++ ZA (1)  
+
+> t−1
+
++ ZA (2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(2) 
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+S(2)  
+
+> t−1
+
+(for t ≥ 1),S(2)  
+
+> t
+
+∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + A(1)  
+
+> t−1
+
++ A(2) 
+
+> t−1
+
++ ZS (1)  
+
+> t−1
+
++ ZS (2)  
+
+> t−1
+
++ ZA (1)  
+
+> t−1
+
++ ZA (2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(2) 
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+S(2)  
+
+> t−1
+
+(for t ≥ 1),Rt ∼1 + Z + S(1)  
+
+> t−1
+
++ ( S(1) 
+
+> t−1
+
+)2 + ( S(1) 
+
+> t−1
+
+)3 + S(2)  
+
+> t−1
+
++ ( S(2) 
+
+> t−1
+
+)2 + ( S(2) 
+
+> t−1
+
+)3 + A(1)  
+
+> t−1
+
++ A(2) 
+
+> t−1
+
++ ZS (1)  
+
+> t−1
+
++ ZS (2)  
+
+> t−1
+
++ ZA (1)  
+
+> t−1
+
++ ZA (2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+A(2) 
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(1)  
+
+> t−1
+
++ S(2) 
+
+> t−1
+
+A(2)  
+
+> t−1
+
++ S(1) 
+
+> t−1
+
+S(2)  
+
+> t−1
+
+(for t ≥ 0).
+
+where (A(1)  
+
+> t
+
+, A (2)  
+
+> t
+
+) represents the one-hot encoded action at time t. The quantile regression is implemented via the QuantReg class of the statsmodels library [29]. The conditional 35 quantile function is estimated by training quantile regression models for quantile levels τ ∈{0.01 , 0.02 , 0.03 , . . . , 0.98 , 0.99 } with a maximum of 2000 training iterations. In addition, SMDM requires knowledge of the quantile level of the observed state on its conditional distribution, and this quantity is estimated as the quantile level in {0.01 , . . . , 0.99 } whose corresponding quantile is the closest to the observed state. However, unlike for CFSDP and CFSMDM, we do not use cross-fitting for this SMDM model. 
+
+Computing environment: The numerical experiments were run on an internal cluster equipped with two 36-core Intel Xeon Gold 6154 CPUs clocked at 3.0 GHz and 187 GB of RAM. Each job was executed via SLURM on a single node using 1 CPU core and 7 GB of memory. 
+
+## M Broader Impacts 
+
+This work introduces the CFSMDM algorithm to prevent reinforcement learning agents from learning policies that may disadvantage certain subpopulations, offering significant positive societal impacts such as promoting equity in high-stakes domains and correcting for implicitly encoded historical biases. However, deploying this framework involves a fairness-utility trade-off where enforcing strict equity may reduce overall population-level utility. Additionally, practitioners need to carefully navigate data privacy concerns due to the necessary collection and processing of sensitive demographic attributes for auditing and controlling fairness. 36

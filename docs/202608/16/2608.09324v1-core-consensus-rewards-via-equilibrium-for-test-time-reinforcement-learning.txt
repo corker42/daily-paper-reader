@@ -1,0 +1,627 @@
+Title: CoRE: Consensus Rewards via Equilibrium for Test-Time Reinforcement Learning
+
+URL Source: https://arxiv.org/pdf/2608.09324v1
+
+Published Time: Tue, 11 Aug 2026 02:04:06 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# CoRE: Consensus Rewards via Equilibrium for Test-Time Reinforcement Learning 
+
+Ambuj Mehrish CVML Lab Ca’ Foscari University of Venice 
+
+ambuj.mehrish@unive.it 
+
+Sebastiano Vascon CVML Lab Ca’ Foscari University of Venice 
+
+sebastiano.vascon@unive.it 
+
+Abstract 
+
+On unlabeled test data, reinforcement learning lacks a ground-truth reward; test-time RL methods derive one from the model’s own roll-outs, rewarding those that match the majority vote over 𝑁 sampled answers. That vote discards a correct answer whenever it is a minority and scores every majority-matching roll-out identically. We replace it with CoRE (Consensus Rewards via Equilibrium): the 𝑁 roll-outs form a graph whose edges combine answer agreement, reasoning similarity, and generation confidence, and replicator dynamics extract its dominant set, yielding a refined pseudo-label, a graded per-roll-out reward, and a per-question cohesiveness gate. CoRE strictly generalizes voting: majority voting is recovered as a special case; a block-value analysis gives a sharp threshold for when consensus recovers a correct minority against a larger wrong plurality; and confidence calibration provably lowers that threshold multiplicatively. Across seven backbones and five benchmarks (42 model–benchmark cells, three seeds each), CoRE improves the untrained base by +21 .7 points on average versus +20 .4 for majority-vote TTRL, wins wherever agreement is contestable with margins over the vote of up to +7.5 points, and reaches the voting baseline’s plateau accuracy in 54–70% fewer steps. Consensus, not counting: treating the roll-out group as a graph rather than a ballot box turns a brittle vote into a calibrated, graded, self-supervised reward at no extra roll-out cost. 
+
+# 1 Introduction 
+
+Reinforcement learning has advanced language-model reasoning (Guo et al., 2025; Jaech et al., 2024; Team et al., 2025), but typically requires labeled rewards (Ouyang et al., 2022; Stiennon et al., 2020). Test-time reinforcement learning (TTRL) instead derives supervision from the model’s own roll-outs on unlabeled test questions (Zuo et al., 2026; Yuan et al., 2024; Zelikman et al., 2022). It uses the majority answer as a pseudo-label, rewards agreeing trajectories, and updates the policy. Although TTRL permits other aggregation rules, majority voting remains the default and can yield models that outperform the vote used to train them (Shao et al., 2025; Xie et al., 2019). This apparent paradox arises because model errors often scatter across multiple answers. Even when the majority label is wrong, many incorrect roll-outs disagree with it and still receive negative rewards, preserving part of the training signal. The failure mode is concentrated error: a systematic mistake  
+
+> 1arXiv:2608.09324v1 [cs.AI] 10 Aug 2026 CoRE: Consensus Rewards via Equilibrium Preprint
+
+becomes the plurality while the correct derivation remains in the minority. Majority voting then rewards the wrong trajectories, penalizes the correct ones, and can amplify the error across updates (Arazo et al., 2020; Gao et al., 2023). Two additional limitations arise from the same reduction. First, a binary agreement reward assigns the same value to a well-supported derivation and a lucky guess. Second, each question contributes equally to training, regardless of whether its roll-outs form a coherent consensus or a fragmented set of incompatible solutions. Majority voting cannot distinguish these cases because it compresses each trajectory to a final answer and each answer class to a count (Zuo et al., 2026). It ignores both the model’s confidence during generation and the relational structure among reasoning paths. We address this limitation with CoRE : Consensus Rewards via Equilibrium. CoRE represents roll-outs as a graph whose edges connect trajectories with matching answers and weight their reasoning similarity by generation confidence. Replicator dynamics (Pavan and Pelillo, 2007) identifies a dominant set of mutually supporting trajectories, yielding a refined pseudo-label, graded roll-out rewards, and a cohesiveness gate for question-level updates. CoRE integrates directly into GRPO (Shao et al., 2024a), requires no labels or auxiliary models, and uses the same roll-outs as majority-based test-time reinforcement learning. Majority voting remains a special case of the formulation. 
+
+CoRE ’s dynamics begin from majority voting because uniform initialization assigns each answer class mass proportional to its size. A minority can therefore recover through coherence alone only if its internal support exceeds that of the majority by a factor that grows with the class-size imbalance. This predicts that graph structure rarely improves over voting by itself. Confidence-weighted voting is similarly limited: it rescales class counts but does not model support among reasoning trajectories. The two signals are complementary. Confidence calibration rescales each answer class by its members’ mean confidence, lowering the coherence needed for a correct minority to recover. Under our assumptions, this threshold decreases exponentially with the confidence gap between correct and incorrect roll-outs. Confidence can still fail when incorrect answers are systematically overconfident. Empirically, removing either confidence or graph structure reduces CoRE to near-majority-vote performance, whereas combining them yields consistent gains. We evaluate CoRE on seven backbones from four developers, spanning math-specialized, base, and instruct models across AMC, AIME 2024, MATH-500 and its Level-4/5 subsets, and GPQA-Diamond, with three random seeds per setting. Across 42 model–benchmark pairs, CoRE improves accuracy by 
+
++21 .7 points over the untrained base, compared with +20 .4 for majority-vote TTRL. It is the strongest RL variant in every model family, outperforming voting by up to +7.5 points when consensus is uncertain and remaining within seed variation when the majority is reliable. CoRE also reaches the voting baseline’s final accuracy in 54–70% fewer optimization steps (Fig. 3). These results suggest that CoRE complements majority voting by recovering supervision from smaller, coherent, and confident correct groups that vote counts can miss. 
+
+Contributions. 
+
+• Method. CoRE , an equilibrium-based consensus reward for test-time RL that turns the same 𝑁 
+
+roll-outs into a refined pseudo-label, graded per roll-out rewards, and a question-level cohesiveness gate, with no auxiliary models or extra roll-outs. 
+
+• Theory. Majority voting is a special case of CoRE . A block-value analysis gives the threshold at which a correct minority overturns an incorrect plurality and shows that confidence calibration lowers it multiplicatively.  
+
+> 2CoRE: Consensus Rewards via Equilibrium Preprint
+
+• Evidence. Across 42 model–benchmark settings and seven backbones, CoRE improves over the untrained base by +21 .7 points on average, compared with +20 .4 for TTRL (Tables 1–2). It is the strongest RL method in every model family, exceeds voting by up to +7.5 points when agreement is contested, and reaches the vote’s plateau in 54-70% fewer steps (Fig. 3). Both its gains and failures follow the regimes predicted by the analysis. 
+
+# 2 Related Work 
+
+Test-time adaptation and test-time RL. Test-time adaptation uses unlabeled inputs to update model behavior, either through auxiliary self-supervision or entropy minimization (Sun et al., 2020; Liang et al., 2023; Wang et al., 2020). For LLMs, test-time scaling improves accuracy with additional inference compute (Snell et al., 2024; Brown et al., 2024), while TTRL converts majority votes over sampled roll-outs into reinforcement-learning rewards (Zuo et al., 2026). Recent label-free methods instead optimize semantic-cluster entropy, intrinsic entropy, self-certainty, or majority-based self-training (Zhang et al., 2026; Prabhudesai et al., 2025; Zhao et al., 2025; Shafayat et al., 2025). These approaches extend earlier work on self-generated supervision, self-reward, and self-play (Zelikman et al., 2022; Yuan et al., 2024), alongside unsupervised reasoning objectives and agreement-based rewards (Xu et al., 2025; Zhang et al., 2025). Related analyses suggest that entropy dynamics and robustness to imperfect rewards partly explain why such updates can succeed (Cui et al., 2025; Shao et al., 2025). CoRE likewise trains on unlabeled test questions, but improves the consensus aggregator that produces the reward rather than modifying the adaptation loop itself. 
+
+Aggregating multiple samples at inference. Self-consistency marginalizes over reasoning paths by majority vote (Wang et al., 2022), and confidence-informed self-consistency (CISC) replaces uniform votes with a confidence-weighted vote, cutting the required number of paths "by over 40% on average" (Taubenfeld et al., 2025). The accuracy of such compound inference schemes scales predictably with the number of model calls (Chen et al., 2024). A parallel line reweights or reranks samples with a learned verifier rather than by vote, using outcome-based signals (Cobbe et al., 2021), process- versus outcome-based feedback (Uesato et al., 2022; Lightman et al., 2024), and step-aware verifiers that score intermediate reasoning (Li et al., 2023a). These operate only at inference; CoRE instead turns aggregation into a training signal, and confidence-weighted voting is one of its ablation arms. 
+
+Dominant sets and replicator dynamics. The Motzkin–Straus theorem relates the maximum clique problem to a quadratic optimization over the simplex (Motzkin and Straus, 1965), later extended through regularization (Bomze, 1997). Dominant sets generalize maximal cliques to weighted graphs and recover coherent clusters through replicator dynamics (Pavan and Pelillo, 2007; Bulò and Pelillo, 2017) (RD). This framework, drawn on evolutionary game theory and the Baum–Eagon inequality (Taylor and Jonker, 1978; Weibull, 1997; Baum, 1967), elegantly bridges together combinatorial optimization (clique search), optimization (maximization of a quadratic functional), and dynamical systems (stable points search). To our knowledge, CoRE is the first method to use dominant-set extraction to construct rewards for reinforcement learning and for consensus reaching. 
+
+Policy optimization. CoRE builds on GRPO (Shao et al., 2024a), following policy-gradient methods from PPO and RLHF to critic-free variants (Schulman et al., 2017; Ouyang et al., 2022; Ahmadian et al., 2024; Li et al., 2023b). Since group normalization removes reward magnitude (Liu et al., 2025), CoRE 
+
+applies its cohesiveness gate to the loss rather than the reward. This preserves the advantage estimate and  
+
+> 3CoRE: Consensus Rewards via Equilibrium Preprint
+
+Figure 1: CoRE overview. Roll-outs become a graph whose edges combine answer agreement, reasoning similarity, and calibrated confidence; replicator dynamics extract the dominant set, yielding a refined pseudo-label, graded per-roll-out rewards, and a cohesiveness gate that plug directly into GRPO. 
+
+reduces exposure to reward over-optimization (Gao et al., 2023; Skalse et al., 2022; Pan et al., 2022; Amodei et al., 2016). 
+
+# 3 CoRE : Method and Analysis 
+
+3.1 Problem Setup 
+
+Let D be an unlabeled test set and 𝜋 𝜃 a policy language model. Test-time reinforcement learning adapts 
+
+𝜋 𝜃 on D itself: for each question 𝑞 , the policy samples 𝑁 i.i.d. roll-outs 𝑜 1, . . . , 𝑜 𝑁 ∼ 𝜋 𝜃 (· | 𝑞 ), a consensus function maps the group to a pseudo-label 𝑦 ∗ and per-roll-out rewards {𝑅 𝑖 }𝑁 𝑖 =1, and the policy is updated by group-relative policy optimization (GRPO) (Shao et al., 2024a) on those rewards. TTRL (Zuo et al., 2026) instantiates the consensus function with majority voting: 𝑦 ∗ 
+
+> vote
+
+= arg max 𝑎 |{ 𝑖 : ˆ 𝑦 𝑖 ≡ 𝑎 }| 
+
+and 𝑅 𝑖 = ⊮[ ˆ𝑦 𝑖 ≡ 𝑦 ∗
+
+> vote
+
+], where ˆ 𝑦 𝑖 is the answer extracted from 𝑜 𝑖 . Since this self-generated signal is the only supervision the model receives, the consensus function determines what test-time RL can learn; it is our object of study, with the sampling procedure and the policy-optimization update rule held fixed. Each roll-out exposes three signals, all computable without model internals or external supervision: the extracted answer ˆ 𝑦 𝑖 , compared by symbolic equivalence rather than string match; a reasoning representation ℎ𝑖 ∈ R𝑑 , a TF–IDF 𝑛 -gram vector of the reasoning text (Sparck Jones, 1972; Salton and Buckley, 1988); and a generation confidence 𝑐 𝑖 = 1 
+
+> |𝑜 𝑖 |
+
+Í𝑡 log 𝜋 𝜃 (𝑜 𝑖,𝑡 | 𝑞, 𝑜 𝑖,<𝑡 ), the mean token log-probability (Kadavath et al., 2022; Tian et al., 2023; Lin et al., 2022). Majority voting consumes only the first, and only its mode. Throughout, the reward is computed solely from these signals; ground-truth answers are used only for final evaluation and for the post-hoc diagnostic analyses of §6, and never enter the training loop.  
+
+> 4CoRE: Consensus Rewards via Equilibrium Preprint
+
+3.2 Consensus Reward Construction 
+
+CoRE replaces majority voting with dominant-set extraction over a roll-out graph that encodes answer agreement, reasoning similarity, and group cohesiveness. A dominant set generalizes the maximal clique concept to weighted graphs, allowing a compact and mutually supportive subset of trajectories to emerge from pairwise interactions. CoRE therefore produces three signals rather than TTRL’s two: a refined pseudo-label 𝑦 ∗, a graded reward 𝑅 𝑖 ∈ [ 0, 1], and a question-level cohesiveness gate 𝑤 𝑞 ∈ [ 0, 1].
+
+The roll-out graph The roll-out graph is graph 𝐺 = (𝑉, 𝐸, 𝜔 ) where 𝑉 is the set of roll-out answers generated by the model and 𝐸 ⊆ 𝑉 × 𝑉 is the set of edges connecting different nodes, weighted by the function 𝜔 𝑖, 𝑗 : (𝑖, 𝑗 ) ∈ 𝐸 → R≥0. The graph 𝐺 is encoded into an affinity matrix 𝐴 ′
+
+Affinity graph. Given two nodes 𝑖, 𝑗 ∈ 𝑉 , two kernels compare the corresponding roll-outs: a hard answer kernel 𝐾 ans (𝑖, 𝑗 ) = ⊮[ ˆ𝑦 𝑖 ≡ ˆ𝑦 𝑗 ] and a soft reasoning kernel 𝐾 rsn (𝑖, 𝑗 ) = 12
+
+ 1+cos (ℎ𝑖 , ℎ 𝑗 ) ∈ [ 0, 1].They combine multiplicatively, 
+
+𝐴 𝑖 𝑗 = 𝐾 ans (𝑖, 𝑗 ) 𝜅 + ( 1 − 𝜅 ) 𝐾 rsn (𝑖, 𝑗 ), 𝐴 𝑖𝑖 = 0, (1) so that roll-outs with different answers share no edge regardless of how similar their prose is: 𝐴 is block-diagonal over answer classes, and reasoning similarity can strengthen ties only within a class. The floor 𝜅 guarantees agreeing roll-outs a minimum affinity even when their derivations diverge lexically; 𝜅 
+
+is the generalization knob, and at 𝜅 = 1 the graph reduces to pure answer agreement (Prop. 1). 
+
+Confidence calibration. Node weights 𝑤 𝑖 = exp  (𝑐 𝑖 − max 𝑗 𝑐 𝑗 )/ 𝜏  ∈ ( 0, 1] convert confidences to relative weights anchored at the most confident roll-out. They calibrate the edges symmetrically, 
+
+𝐴 ′ 
+
+> 𝑖 𝑗
+
+= 𝐴 𝑖 𝑗 
+
+√𝑤 𝑖 𝑤 𝑗 , (2) A diagonal congruence 𝐴 ′ = 𝐷 1/2 𝐴𝐷 1/2, 𝐷 = diag (𝑤 ). The geometric mean is a symmetric choice. It preserves the block structure exactly, keeps an edge only when both endpoints are confident, and makes a cluster’s internal score scale linearly with its average confidence. Proposition 3 uses this last property. 
+
+Avoid singletons To avoid singletons, self-loops are added to the calibrated rollout-graph 𝑊 = 𝐴 ′ − 𝛼𝐼 .The self-competition term −𝛼 on the diagonal penalizes small clusters and, per Lemma 3 (see Appendix), excludes singletons outright. Since the diagonal is negative, we shift 𝑊 ′ = 𝑊 + 𝐶 𝑒𝑒 ⊤ with 𝐶 ≥ 𝛼 to obtain a nonnegative affinity matrix, where 𝑒 is the all-ones vector. The blocks external to the main diagonal are kept equal to 0 to avoid incoherent consensus. 
+
+Dominant Set Extraction Given a readout graph 𝐺 = (𝑉, 𝐸, 𝜔 ), a DS is extracted by maximizing a standard quadratic assignment problem 𝑥 ⊤ 𝐴𝑥 over the standard simplex. The optimization is performed by iterating the replicator dynamics 
+
+𝑥 (𝑡 + 1)𝑖 ← 𝑥 (𝑡 )𝑖 
+
+(𝑊 ′𝑥 (𝑡 )) 𝑖 
+
+𝑥 (𝑡 )⊤𝑊 ′𝑥 (𝑡 ) (3) until convergence || 𝑥 (𝑡 ) − 𝑥 (𝑡 +1)|| < 𝜖 or 𝑇 max iterations. Where 𝑥 (𝑡 )𝑖 is the 𝑖 -th component of vector 𝑥 at time 𝑡 . Eq 3 starts from the barycenter of the simplex 𝑥 (0) = 𝑒 /𝑁 , leaving the same chances to each node to get extracted as part of the DS. At convergence, the dynamic system reaches a stable point, denoted  
+
+> 5CoRE: Consensus Rewards via Equilibrium Preprint
+
+by 𝑥 ∗. 𝑥 ∗ concentrates the mass on the most mutually supporting nodes; its support 𝜎 = { 𝑖 : 𝑥 ∗ 
+
+> 𝑖
+
+> 𝜚 }
+
+is the consensus. Three lemmas (Appendix, Lemmas 1–3) establish that the construction is sound: the nonnegativity shift is invariant on the simplex, so 𝑊 and 𝑊 ′ share all maximizers and replicator fixed points (Lemma 1); the update (3) is a Baum–Eagon growth transform, ascending monotonically and converging to fixed points whose supports are dominant sets (Lemma 2); and for 𝛼 > 0 no singleton is ever selected when a genuine answer clique exists (Lemma 3). 
+
+Read-outs. Three signals are read from the equilibrium: 
+
+𝑦 ∗ = arg max 𝑎 
+
+Í𝑖 : ˆ 𝑦 𝑖 ≡𝑎 𝑥 ∗ 
+
+> 𝑖
+
+,𝑅 𝑖 = ( 𝐴𝑥 ∗)𝑖 
+
+max 𝑗 ( 𝐴𝑥 ∗) 𝑗 
+
+, 𝑤 𝑞 = 𝑥 ∗⊤ 𝐴 𝑥 ∗. (4) The pseudo-label is the answer with the greatest equilibrium mass, so it may differ from the count-based plurality. Each roll-out is rewarded by its affinity to this consensus using the uncalibrated matrix 𝐴 : confidence already shapes 𝑥 ∗, and using 𝐴 ′ again would double-count it. The question-level gate 𝑤 𝑞 measures consensus coherence and scales the loss rather than the rewards, since GRPO normalization cancels any per-question reward scaling. It therefore leaves advantage estimation, clipping, and optimization unchanged, with 𝑤 𝑞 ≡ 1 recovering the standard objective. TTRL is the special case 
+
+(𝜅 =1, 𝑤 ≡𝑒, 𝑤 𝑞 ≡1).
+
+3.3 When Does Consensus Beat the Vote? 
+
+Because the answer kernel gates all edges, the affinity matrix is block-diagonal: each answer class 𝑉 𝑎 
+
+(size 𝑛 𝑎 = |𝑉 𝑎 |) is a connected component, where 𝑎 ∈ A is the set of possible answers. For 𝑥 ∈ Δ write 
+
+𝑠 𝑎 = Í𝑖 ∈𝑉 𝑎 𝑥 𝑖 ≤ 1 for the mass on class 𝑎 ; the objective decomposes as 𝑥 ⊤ 𝐴 ′𝑥 = Í𝑎 ∈A 𝑠 2 
+
+> 𝑎
+
+𝜑 𝑎 (𝑥 ), where 
+
+𝜑 𝑎 is the class’s internal coherence score, converging under the within-class dynamics to a limit 𝜇 𝑎 (for a uniform clique of affinity 𝑐 , 𝜇 𝑎 = 𝑐 (1 − 1/𝑛 𝑎 )). Two questions arise: which class the global optimum 
+
+prefers, and which class the replicator dynamics, started from the barycenter, actually select as the global maximizer lies in the class with the largest intensive score 𝜇 𝑎 . The RD starts from the barycenter, allocating initial mass in proportion to class size; therefore the trajectory starts from the basin of the class with the largest extensive score 𝑛 𝑎 𝜇 𝑎 . The initialization literally encodes the ballot, leaving mass to the other possible outcome proportionally to their class size; coherence and confidence are what can overturn the convergence to the largest class size. All proofs are in Appendix D. 
+
+Proposition 1 (Majority voting is a special case) With answer-only affinity ( 𝜅 =1) and uniform confi-dence ( 𝑤 ≡ 𝑒 ), the extracted class maximizes 𝑛 𝑎 𝜇 𝑎 = 𝑛 𝑎 − 1 − 𝛼 , which is strictly increasing in 𝑛 𝑎 : the pseudo-label 𝑦 ∗ equals the plurality answer whenever the largest class is unique. 
+
+Proposition 2 (Extraction threshold) Let a correct clique of size 𝑛 ∗ and affinity 𝑐 ∗ compete with a wrong clique of size 𝑚 > 𝑛 ∗ and affinity 𝑐 𝑤 (𝛼 =0). The dynamics started from the barycenter extract the correct class iff 
+
+𝑐 ∗ > 𝑚 − 1
+
+𝑛 ∗ − 1 𝑐 𝑤 . (5) 
+
+Proposition 3 (Confidence multiplies coherence) For an answer clique 𝑆 with base affinity 𝑐 and confidence weights {𝑤 𝑖 }, the calibrated internal score obeys the exact identity 
+
+𝜇 ′ 
+
+> 𝑆
+
+= 𝑐   ¯𝜇 2 
+
+> 𝑆
+
+− ¯𝜈 𝑆 /| 𝑆 |, ¯𝜇 𝑆 = mean 𝑖 
+
+√𝑤 𝑖 , ¯𝜈 𝑆 = mean 𝑖 𝑤 𝑖 , (6) 
+
+> 6
+
+CoRE: Consensus Rewards via Equilibrium Preprint 
+
+Model Bench Base Majority EC CISC CoRE ΔMaj ΔEC ΔCISC ΔCoRE 
+
+(no RL) (TTRL) (graph) (conf.) (ours) arm − base Qwen2.5-Math-1.5B AMC 26.7 47.3 ±0.8 45.1 ±2.3 45.4 ±3.0 48.9 ±0.9 +20 .7 +18 .4 +18 .7 +22 .3
+
+MATH-500 31.0 71.7 ±0.7 73.5 ±0.3 73.4 ±0.6 77.0 ±1.5 +40 .7 +42 .5 +42 .4 +46 .0
+
+-MATH-L4 31.5 60.9 ±2.6 61.5 ±2.0 62.8 ±1.4 65.9 ±2.0 +29 .4 +30 .0 +31 .3 +34 .4
+
+-MATH-L5 26.3 43.4 ±1.9 40.2 ±6.2 42.1 ±0.8 43.3 ±2.1 +17 .1 +13 .9 +15 .9 +17 .0AIME ¶ 5.6 20.0 ±5.5 18.9 ±4.2 17.8 ±1.6 18.9 ±4.2 +14 .4 +13 .3 +12 .2 +13 .3GPQA ∗ 17.6 27.6 ±0.2 22.5 ±1.3 19.2 ±1.9 23.6 ±3.1 +10 .0 +4.9 +1.6 +6.0Qwen2.5-Math-7B AMC 39.9 67.5 ±1.0 67.1 ±0.6 66.7 ±2.0 67.5 ±0.0 +27 .6 +27 .2 +26 .8 +27 .6MATH-500 47.9 85.0 ±0.2 84.3 ±0.8 85.6 ±0.2 84.7 ±0.4 +37 .1 +36 .4 +37 .7 +36 .8-MATH-L4 46.3 78.6 ±2.9 77.1 ±0.7 78.6 ±0.8 81.5 ±2.1 +32 .3 +30 .8 +32 .3 +35 .2
+
+-MATH-L5 36.1 59.2 ±1.5 61.0 ±1.2 62.1 ±0.3 61.2 ±0.8 +23 .2 +24 .9 +26 .0 +25 .1AIME 6.7 41.1 ±1.6 40.0 ±0.0 41.1 ±1.6 42.2 ±3.2 +34 .4 +33 .3 +34 .4 +35 .6
+
+GPQA 23.5 21.2 ±0.3 29.8 ±1.4 36.2 ±3.0 28.7 ±1.1 −2.3 +6.3 +12 .7 +5.2DeepSeek-Math-7B AMC 9.6 19.1 ±1.7 20.7 ±0.4 19.5 ±2.7 22.9 ±1.2 +9.5 +11 .1 +9.9 +13 .4
+
+MATH-500 18.7 51.7 ±0.5 51.7 ±0.4 51.1 ±1.6 51.6 ±1.0 +33 .0 +32 .9 +32 .4 +32 .8-MATH-L4 15.2 36.6 ±2.5 36.2 ±2.6 38.5 ±2.3 40.1 ±3.1 +21 .4 +21 .0 +23 .2 +24 .9
+
+-MATH-L5 8.3 16.5 ±1.4 14.6 ±1.3 15.9 ±2.3 17.6 ±1.3 +8.2 +6.3 +7.6 +9.3
+
+AIME 2.6 1.7 ±1.7 2.2 ±1.6 1.7 ±1.7 4.4 ±1.6 −1.0 −0.4 −1.0 +1.8
+
+GPQA 30.0 32.1 ±1.6 33.0 ±0.8 33.3 ±1.0 32.3 ±1.0 +2.1 +3.0 +3.3 +2.3
+
+Mean Δ vs. Base +19 .9 +19 .8 +20 .4 +21 .6Table 1: Math-specialized models. Final pass@1, mean ±std over 3 seeds (%). Majority = TTRL ( 𝜅 =1, Prop. 1). 
+
+Δ columns are each arm minus the no-RL base; the largest per-row improvement over base is bold ; ∗out-of-domain (1.5B near random floor, see limitations); ¶ within seed noise. 
+
+so with ¯𝑤 𝑆 := ¯𝜇 2 
+
+> 𝑆
+
+, the extraction threshold (5) becomes 
+
+𝑐 ∗ > ¯𝑤 𝑤 
+
+¯𝑤 ∗
+
+· 𝑚 − 1
+
+𝑛 ∗ − 1 𝑐 𝑤 . (7) 
+
+When correct roll-outs are more confident ( ¯𝑤 ∗ > ¯𝑤 𝑤 ), the threshold drops multiplicatively. 
+
+Confidence is not merely a refinement but the enabling signal. Under temperature-𝜏 weighting, a confidence gap 𝛿 = ¯𝑐 ∗ − ¯𝑐 𝑤 in mean token log-probability reduces the recovery threshold by 𝑒 − 𝛿 /𝜏 . Since 
+
+𝑐 𝑖 uses natural logarithms, 𝛿 is measured in nats. At the gap observed in §6, the 8-vs-24 threshold falls from ≈3.3, 𝑐 𝑤 to below 𝑐 𝑤 , turning minority recovery from unlikely to feasible. Confidence-weighted voting alone only rescales counts and cannot compare class-level reasoning coherence. The analysis therefore predicts that neither confidence nor graph structure is sufficient in isolation; their multiplicative interaction in (7) creates the recovery regime. 
+
+Predictions. The analysis makes falsifiable forecasts that §4 tests: (i) at 𝜅 =1, 𝑤 ≡𝑒 , CoRE ’s pseudo-labels match majority voting exactly (Prop. 1); (ii) the graph alone and confidence-weighted voting alone should each perform on par with the vote, while their combination should not (Props. 2–3); (iii) gains should concentrate where a coherent, confident correct minority exists to be recovered, vanish where the vote is already right or no correct roll-outs exist, and reverse where the confidence premise fails. 
+
+# 4 Experimental Setup 
+
+Models and benchmarks. We evaluate 7 backbones from four developers across three regimes: math-specialized Qwen2.5-Math-1.5B, Qwen2.5-Math-7B (Yang et al., 2024), and DeepSeek-Math-7B (Shao 
+
+7CoRE: Consensus Rewards via Equilibrium Preprint 
+
+Model Bench Base Majority EC CISC CoRE ΔMaj ΔEC ΔCISC ΔCoRE 
+
+(no RL) (TTRL) (graph) (conf.) (ours) arm − base Qwen2.5-7B AMC 21.6 54.2 ±1.0 52.6 ±2.3 56.6 ±1.0 55.4 ±0.0 +32 .6 +31 .0 +35 .0 +33 .8MATH-500 60.5 80.5 ±1.1 80.4 ±1.2 80.5 ±1.0 79.7 ±0.5 +20 .0 +19 .9 +20 .0 +19 .2-MATH-L4 31.0 75.0 ±2.2 74.5 ±2.2 75.5 ±1.6 77.9 ±2.4 +44 .0 +43 .5 +44 .5 +46 .9
+
+-MATH-L5 17.5 50.7 ±1.1 53.5 ±1.0 51.2 ±1.8 56.9 ±0.9 +33 .2 +36 .0 +33 .7 +39 .4
+
+AIME 2.2 23.3 ±2.7 21.1 ±5.7 23.3 ±0.0 23.3 ±0.0 +21 .1 +18 .9 +21 .1 +21 .1GPQA 20.5 29.2 ±0.5 28.7 ±1.2 33.5 ±2.4 29.5 ±4.0 +8.7 +8.2 +13 .0 +9.0Qwen3-8B AMC 58.3 71.3 ±1.3 68.9 ±1.0 70.6 ±0.4 73.3 ±2.0 +13 .1 +10 .6 +12 .3 +15 .0
+
+MATH-500 82.3 90.3 ±0.1 88.9 ±0.4 90.4 ±0.3 88.6 ±0.3 +8.0 +6.6 +8.1 +6.3-MATH-L4 57.7 86.5 ±2.2 84.7 ±2.2 86.3 ±1.6 88.8 ±2.4 +28 .8 +27 .0 +28 .6 +31 .1
+
+-MATH-L5 45.0 67.9 ±1.1 69.2 ±1.0 66.1 ±1.8 71.6 ±0.9 +22 .9 +24 .2 +21 .1 +26 .6
+
+AIME 24.3 46.7 ±2.7 45.1 ±1.4 42.9 ±1.9 42.8 ±1.9 +22 .4 +20 .9 +18 .6 +18 .5GPQA 10.9 42.0 ±4.8 36.7 ±0.9 38.8 ±0.8 37.4 ±1.1 +31 .1 +25 .9 +27 .9 +26 .5
+
+Mean Δ vs. Base +23 .8 +22 .7 +23 .7 +24 .5Table 2: Vanilla (base) models. Measured entries report final pass@1 as mean ±std over 3 seeds. Qwen3-8B is evaluated in non-thinking mode. 
+
+et al., 2024b); vanilla Qwen2.5-7B (Yang et al., 2024) and Qwen3-8B in non-thinking mode (Yang et al., 2025); and Llama-3.1-8B-Instruct (Grattafiori et al., 2024) and Mistral-Nemo-Instruct (Jiang et al., 2023) (Tables 1–3). Each model is adapted and evaluated on five free-form mathematical-reasoning benchmarks: AMC, AIME 2024, MATH-500 (Hendrycks et al., 2021), and its L4 and L5 subsets, which isolate harder, high-disagreement cases where correct minorities are more likely to be outvoted. We additionally use the 198-question GPQA-Diamond subset (Rein et al., 2023) as an out-of-domain probe covering expert-validated, "Google-proof" graduate-level physics, chemistry, and biology questions with four answer choices. Math-specialized models are OOD in both subject and format and remain near the 25% random-guess baseline, making GPQA-Diamond a probe of the operating envelope rather than in-domain ability (§6). Appendix I provides all prompt templates. 
+
+Training Following TTRL (Zuo et al., 2026), each model is adapted on the unlabeled test benchmark. For every question, we sample 𝑁 =64 roll-outs, derive a label-free reward from their consensus, and update the policy with GRPO (Shao et al., 2024b); ground-truth answers are used only for final evaluation. We compare four reward rules under the same training loop: Majority, the standard TTRL vote and the 𝜅 =1 special case of our operator (Prop. 1); EC, equilibrium consensus with graded rewards but no confidence; CISC, a pre-registered confidence-weighted voting control without the graph (Taubenfeld et al., 2025); and CoRE , the full confidence-calibrated method. We report pass@1 as mean@16 using 16 samples at temperature 0 .6 and top-𝑝 0.95, averaged over three seeds for each model–benchmark pair. Base denotes the frozen model without RL, and each Δ reports the corresponding arm minus Base. 
+
+CoRE configuration. We use one fixed setting across all models, benchmarks, and seeds: 𝑁 =64 following TTRL, 𝜅 =0.1, 𝜏 =0.25, 𝛼 =0.1, and 𝐶 =𝛼 .1 Replicator dynamics starts from the barycenter and stops at 𝜖 =10 −6 or 𝑇 max =200, with support threshold 𝜚 =1/( 10 𝑁 ). Each question uses independently fitted character 4-gram TF–IDF reasoning vectors, 2 and consensus adds negligible 𝑂 (𝑁 2) computation     
+
+> 1𝛼 is a small positive self-penalty (§3); 𝜅 =0.1 emphasizes reasoning similarity, whereas 𝜅 =1 recovers majority voting (Prop. 1); and 𝜏 =0.25 provides mild confidence calibration.
+> 2TF–IDF is deterministic and model-free, while lexical overlap captures shared derivation steps without an auxiliary encoder. 8
+
+CoRE: Consensus Rewards via Equilibrium Preprint                                                                                                                                      
+
+> Model Bench Base Majority EC CISC CoRE ΔMaj ΔEC ΔCISC ΔCoRE
+> (no RL) (TTRL) (graph) (conf.) (ours) arm −base LLaMA-3.1-8B AMC 4.5 31.3 ±1.0 33.3 ±2.5 34.5 ±4.6 33.3 ±4.6 +26 .8+28 .8+30 .1+28 .9MATH-500 48.6 65.5 ±1.0 55.5 ±0.9 55.7 ±2.8 65.2 ±2.0 +16 .9+6.9+7.1+16 .6-MATH-L4 5.9 57.3 ±2.1 56.8 ±2.4 59.7 ±1.3 61.5 ±0.9 +51 .4+50 .9+53 .8+55 .6
+> -MATH-L5 4.8 27.2 ±0.9 27.0 ±1.4 27.2 ±1.1 28.2 ±2.4 +22 .5+22 .2+22 .5+23 .5
+> AIME 1.1 7.8 ±4.2 12.2 ±3.2 17.8 ±1.6 10.0 ±2.7 +6.7+11 .1+16 .7+8.9GPQA 22.6 27.9 ±2.0 31.4 ±0.5 32.5 ±0.1 33.0 ±1.5 +5.3+8.8+9.9+10 .4
+> Mistral-Nemo-Instruct AMC 14.0 25.7 ±1.1 20.1 ±2.3 25.3 ±2.6 25.3 ±1.0 +11 .7+6.1+11 .3+11 .3MATH-500 40.8 62.5 ±1.0 49.9 ±0.9 51.1 ±2.8 60.2 ±2.0 +21 .7+9.1+10 .3+19 .4-MATH-L4 36.1 54.4 ±1.4 52.6 ±1.0 54.7 ±0.7 55.7 ±0.3 +18 .3+16 .5+18 .6+19 .6
+> -MATH-L5 13.3 21.1 ±0.5 19.9 ±2.2 21.7 ±1.4 23.3 ±0.9 +7.8+6.6+8.5+10 .0
+> AIME §0.7 2.2 ±1.6 1.1 ±1.6 0.0 ±0.0 0.0 ±0.0 +1.5+0.4−0.7−0.7GPQA 3.3 24.6 ±2.6 24.5 ±2.7 26.9 ±4.5 28.4 ±3.8 +21 .2+21 .2+23 .6+25 .1Mean Δvs. Base +17 .7+15 .7+17 .6+19 .1
+
+Table 3: Instruct & reasoning models. Measured entries report final pass@1 as mean ±std over 3 seeds. § denotes a competence-floor setting: Mistral-Nemo cannot solve competition-level AIME, and TTRL (Zuo et al., 2026) also reports 0. 
+
+relative to roll-out generation. 
+
+# 5 Results 
+
+Math-specialized models: Table 1 reports the math backbones. CoRE improves the no-RL base by 
+
++25 .0 points on average and is the best arm on every model. Against the reward that TTRL actually uses Majority vote, CoRE wins on the benchmarks where agreement is contestable and stays within seed noise elsewhere. On Qwen2.5-Math-1.5B it improves over Majority by +5.3 on MATH-500 and +5.0 on MATH-L4; on Qwen2.5-Math-7B by +7.5 on GPQA; and on DeepSeek-Math-7B by +3.8 on AMC. The gains concentrate on the harder benchmarks, where a correct but non-majority cluster exists to be recovered. The only benchmarks on which CoRE trails Majority is MATH-L5 on Qwen2.5-Math-1.5B and MATH-500 on both Qwen2.5-Math-7B and DeepSeek-Math-7B do so by at most 0 .3 points, within the 0 .2–0 .6 across-seed standard deviation, and on models where Majority already scores above 85% and 50% so little recoverable headroom remains Figure 2 compares offline pseudo-label accuracy before policy updates. Across both Qwen2.5-Math models, CoRE outperforms majority voting at every roll-out count 𝑁 , and the gap persists as 𝑁 increases. The downstream gains therefore arise from a better training signal rather than optimization noise. 
+
+Vanilla and instruct models: The improvement is not specific to math-specialized backbones. Table 2 reports the vanilla base models: on Qwen2.5-7B, CoRE beats Majority by +6.2 on MATH-L5, +2.9on MATH-L4, and +1.2 on AMC (mean Δ vs base +24 .5). Table 3 reports the instruct models: on LLaMA-3.1-8B, CoRE improves over Majority by +4.2 on MATH-L4 and +5.1 on GPQA, and on Mistral-Nemo by +2.2 on MATH-L5 and +3.8 on GPQA (mean Δ vs base +19 .1). Across all three model families the picture is consistent: CoRE is the best RL arm on most benchmarks and improves over the no-RL base by roughly +21 .7 points on average across all 42 cells (family means +21 .6, +24 .5, 
+
++19 .1), spanning four model developers (Qwen, DeepSeek, Meta, Mistral) and three capability regimes. 
+
+Sample efficiency: Figure 3 compares the validation trajectories of CoRE and TTRL on three model– benchmark pairs. CoRE reaches TTRL’s plateau accuracy in 70% fewer steps on LLaMA-3.1-8B (AMC), 
+
+9CoRE: Consensus Rewards via Equilibrium Preprint       
+
+> Figure 2: Offline pseudo-label accuracy versus roll-out count 𝑁 . CoRE outperforms majority voting at every 𝑁 ,indicating a better training signal rather than optimization noise.
+> Figure 3: Validation pass@1 vs. training step (means over 3 seeds). CoRE reaches TTRL’s plateau accuracy in 54–70% fewer steps.
+
+57% fewer on DeepSeek-Math-7B (AMC), and 54% fewer on Qwen2.5-Math-1.5B (MATH). Unlike the binary majority reward, which assigns the same target to every consensus member, the equilibrium reward 𝑅 𝑖 = ( 𝐴𝑥 ∗)𝑖 /max 𝑗 ( 𝐴𝑥 ∗) 𝑗 grades each roll-out by its support within the consensus. This denser signal appears to reduce gradient variance, linking faster convergence to the final accuracy gains. 
+
+# 6 Analysis 
+
+CoRE vs. CISC. CISC retains confidence weighting but removes the graph, equilibrium, and graded reward, so the CoRE − CISC gap isolates the value of second-order structure. CoRE improves over CISC by +1.2 points on average, with family-level gains of +1.2, +0.8, and +1.5. On the contested MATH L4/L5 subsets, it wins 13 of 14 settings, with significance under both the sign test ( 𝑝 =0.002) and Wilcoxon signed-rank test ( 𝑝 =0.001) (Fig. 5a). Unlike confidence voting, which weights roll-outs independently, the quadratic objective 𝑥 ⊤ 𝐴𝑥 captures mutual support and can recover a coherent correct minority. 
+
+Recovery region. Propositions 2–3 predict when a correct minority can be recovered, as visualized in Figure 4. The axes measure its size disadvantage, 𝑟 = 𝑚 /𝑛 ∗, and required coherence advantage, 𝑐 ∗/𝑐 𝑤 .The static optimum requires roughly equal coherence, whereas barycenter-initialized replicator dynamics              
+
+> 10 CoRE: Consensus Rewards via Equilibrium Preprint
+> Figure 4: The recovery region: outnumbering ratio 𝑟 =𝑚 /𝑛 ∗vs. required coherence advantage 𝑐 ∗/𝑐 𝑤 . The majority-vote start raises the bar to ≈𝑟 (red); confidence pulls it back by 𝑒 −𝛿 /𝜏 (green). Measured cells below their bar are recovered wins; those above are losses.
+
+raise the threshold to ≈ 𝑟 because they begin from majority mass. Confidence calibration lowers it by 
+
+𝑒 − 𝛿 /𝜏 , yielding ≈ 0.29 𝑟 here. Model–benchmark pairs below this operative threshold are recoverable; those above it are not. 
+
+Operating regimes of consensus The exceptions in Tables 1–3 occur mainly at the competence floor ,where roll-outs lack coherent structure ( 𝜒 ≈ 0) and no reliable minority cluster exists beyond the majority signal. This regime appears for Qwen2.5-Math-1.5B on out-of-domain GPQA and Mistral-Nemo on AIME, where all consensus methods remain near the underlying performance floor.At the opposite extreme, saturation leaves little room for additional recovery. When a strong model produces nearly unanimous roll-outs, the majority ratio approaches one and the consensus rules become equivalent up to seed variation. The results on Qwen3-8B for GPQA and AMC are consistent with the 𝜅 = 1 limit in Proposition 1, under which CoRE reduces to Majority. Thus, the largest gains arise in the intermediate regime where the sample set contains a coherent correct minority that is not selected by majority voting alone. The analysis also characterizes when confidence information is useful. Proposition 3 assumes that correct clusters are, on average, assigned higher confidence than incorrect clusters. When this ordering is weak or reversed, confidence provides limited additional evidence. This motivates the combined use     
+
+> 11 CoRE: Consensus Rewards via Equilibrium Preprint
+> Figure 5: (a) On MATH L4/L5, CoRE beats the confidence-only control CISC on 13/14 cells. (b) Graph and confidence interact synergistically: adding the graph to CISC helps, removing confidence from CoRE hurts.
+
+of confidence and graph structure in CoRE: each signal is most informative in a different part of the operating envelope, while the method naturally approaches Majority when no additional recoverable consensus is present. 
+
+# 7 Limitations 
+
+CoRE helps only where roll-outs disagree and a coherent correct cluster exists (§6): it cannot manufacture signal at the competence floor and reduces to majority under saturation. The reasoning kernel uses a black-box lexical representation, white-box hidden states are a natural extension and we defer long-context (32k) long-reasoning-model training to future work (Appendix I). 
+
+# 8 Conclusion 
+
+We introduced CoRE , which replaces majority voting in test-time reinforcement learning with the dominant-set equilibrium of a confidence-calibrated roll-out graph. Using the same 𝑁 roll-outs, CoRE 
+
+produces a refined pseudo-label, graded rewards, and a question-level cohesiveness gate, while retaining majority voting as a special case. Our analysis identifies when a coherent correct minority can overturn an incorrect majority and shows that confidence lowers this recovery threshold multiplicatively. Across seven backbones and five benchmarks, CoRE improves over the untrained base by +21 .7 points on average, compared with +20 .4 for majority-vote TTRL, exceeds voting by up to +7.5 points, and reaches its final accuracy in 54–70% fewer steps. The gains concentrate where agreement is contested, while the failures occur near the predicted competence floor. These findings suggest that the consensus operator is a substantive component of self-supervised RL: modeling mutual support among roll-outs yields a denser training signal than treating them as independent votes. Future work may replace lexical reasoning features with hidden-state representations and extend CoRE to long-context reasoning models. 
+
+# Acknowledgements 
+
+This work was supported by the European Union’s Horizon Europe research and innovation programme under the Marie Skłodowska-Curie grant agreement No. 101205348 (CASPER). We acknowledge  
+
+> 12 CoRE: Consensus Rewards via Equilibrium Preprint
+
+the EuroHPC Joint Undertaking for awarding this project access to the EuroHPC supercomputer LEONARDO, hosted by CINECA (Italy) and the LEONARDO consortium, through the EuroHPC AI Factories "AI for Science and Collaborative EU Projects" Access call (proposal No. EHPC-AIF-2026SC01-041). We further acknowledge the CINECA award under the ISCRA initiative (Class C project IsCd5_CASPER-A), for the availability of high performance computing resources and support. Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Research Executive Agency. Neither the European Union nor the granting authority can be held responsible for them. 
+
+# References 
+
+Arash Ahmadian, Chris Cremer, Matthias Gallé, Marzieh Fadaee, Julia Kreutzer, Olivier Pietquin, Ahmet Üstün, and Sara Hooker. Back to basics: Revisiting reinforce-style optimization for learning from human feedback in llms. In Proceedings of the 62nd Annual Meeting of the ACL (Volume 1: Long Papers) , pages 12248–12267, 2024. Dario Amodei, Chris Olah, Jacob Steinhardt, Paul Christiano, John Schulman, and Dan Mané. Concrete problems in ai safety. arXiv preprint arXiv:1606.06565 , 2016. Eric Arazo, Diego Ortego, Paul Albert, Noel E O’Connor, and Kevin McGuinness. Pseudo-labeling and confirmation bias in deep semi-supervised learning. In 2020 International joint conference on neural networks (IJCNN) , pages 1–8. IEEE, 2020. Leonard E Baum. An inequality with applications to statistical estimation for probabilistic functions of markov processes and to a model for ecology. 1967. Immanuel M Bomze. Evolution towards the maximum clique. Journal of Global Optimization , 10(2): 143–164, 1997. Bradley Brown, Jordan Juravsky, Ryan Ehrlich, Ronald Clark, Quoc V Le, Christopher Ré, and Azalia Mirhoseini. Large language monkeys: Scaling inference compute with repeated sampling. arXiv preprint arXiv:2407.21787 , 2024. Samuel Rota Bulò and Marcello Pelillo. Dominant-set clustering: A review. European Journal of Operational Research , 262(1):1–13, 2017. Lingjiao Chen, Jared Davis, Boris Hanin, Peter Bailis, Ion Stoica, Matei Zaharia, and James Zou. Are more llm calls all you need? towards the scaling properties of compound ai systems. NeurIPS , 37: 45767–45790, 2024. Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, et al. Training verifiers to solve math word problems. arXiv preprint arXiv:2110.14168 , 2021. Ganqu Cui, Yuchen Zhang, Jiacheng Chen, Lifan Yuan, Zhi Wang, Yuxin Zuo, Haozhan Li, Yuchen Fan, Huayu Chen, Weize Chen, et al. The entropy mechanism of reinforcement learning for reasoning language models. arXiv preprint arXiv:2505.22617 , 2025. Leo Gao, John Schulman, and Jacob Hilton. Scaling laws for reward model overoptimization. In ICML ,pages 10835–10866. PMLR, 2023.  
+
+> 13 CoRE: Consensus Rewards via Equilibrium Preprint
+
+Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Alex Vaughan, et al. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 , 2024. Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Peiyi Wang, Qihao Zhu, Runxin Xu, Ruoyu Zhang, Shirong Ma, Xiao Bi, et al. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. Dan Hendrycks, Collin Burns, Saurav Kadavath, Akul Arora, Steven Basart, Eric Tang, Dawn Song, and Jacob Steinhardt. Measuring mathematical problem solving with the math dataset. arXiv preprint arXiv:2103.03874 , 2021. Aaron Jaech, Adam Kalai, Adam Lerer, Adam Richardson, Ahmed El-Kishky, Aiden Low, Alec Helyar, Aleksander Madry, Alex Beutel, Alex Carney, et al. Openai o1 system card. arXiv preprint arXiv:2412.16720 , 2024. Albert Q Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford, Devendra Singh Chaplot, Diego de las Casas, Florian Bressand, Gianna Lengyel, Guillaume Lample, Lucile Saulnier, et al. Mistral 7b. 
+
+arXiv preprint arXiv:2310.06825 , 2023. Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, et al. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221 , 2022. Yifei Li, Zeqi Lin, Shizhuo Zhang, Qiang Fu, Bei Chen, Jian-Guang Lou, and Weizhu Chen. Making language models better reasoners with step-aware verifier. In Proceedings of the 61st annual meeting of the ACL (volume 1: long papers) , pages 5315–5333, 2023a. Ziniu Li, Tian Xu, Yushun Zhang, Zhihang Lin, Yang Yu, Ruoyu Sun, and Zhi-Quan Luo. Remax: A simple, effective, and efficient reinforcement learning method for aligning large language models. 
+
+arXiv preprint arXiv:2310.10505 , 2023b. Jian Liang, Ran He, and Tieniu Tan. A comprehensive survey on test-time adaptation under distribution shifts. arXiv preprint arXiv:2303.15361 , 2023. Hunter Lightman, Vineet Kosaraju, Yuri Burda, Harrison Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. Let’s verify step by step. In International Conference on Learning Representations , volume 2024, pages 39578–39601, 2024. Stephanie Lin, Jacob Hilton, and Owain Evans. Teaching models to express their uncertainty in words. 
+
+arXiv preprint arXiv:2205.14334 , 2022. Zichen Liu, Changyu Chen, Wenjun Li, Penghui Qi, Tianyu Pang, Chao Du, Wee Sun Lee, and Min Lin. Understanding r1-zero-like training: A critical perspective. arXiv preprint arXiv:2503.20783 , 2025. T. S. Motzkin and E. G. Straus. Maxima for graphs and a new proof of a theorem of Turán. Canadian Journal of Mathematics , 17:533–540, 1965. Long Ouyang, Jeff Wu, Xu Jiang, Diogo Almeida, Carroll L Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al. Training language models to follow instructions with human feedback. arXiv preprint arXiv:2203.02155 , 2022.  
+
+> 14 CoRE: Consensus Rewards via Equilibrium Preprint
+
+Alexander Pan, Kush Bhatia, and Jacob Steinhardt. The effects of reward misspecification: Mapping and mitigating misaligned models. arXiv preprint arXiv:2201.03544 , 2022. Massimiliano Pavan and Marcello Pelillo. Dominant sets and pairwise clustering. IEEE transactions on pattern analysis and machine intelligence , 29(1):167–172, 2007. Mihir Prabhudesai, Lili Chen, Alex Ippoliti, Katerina Fragkiadaki, Hao Liu, and Deepak Pathak. Maximizing confidence alone improves reasoning. arXiv preprint arXiv:2505.22660 , 2025. David Rein, Betty Li Hou, Asa Cooper Stickland, Jackson Petty, Richard Yuanzhe Pang, Julien Dirani, Julian Michael, and Samuel R Bowman. Gpqa: A graduate-level google-proof q&a benchmark. arXiv preprint arXiv:2311.12022 , 2023. Gerard Salton and Christopher Buckley. Term-weighting approaches in automatic text retrieval. 
+
+Information processing & management , 24(5):513–523, 1988. John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal policy optimization algorithms. arXiv preprint arXiv:1707.06347 , 2017. Sheikh Shafayat, Fahim Tajwar, Ruslan Salakhutdinov, Jeff Schneider, and Andrea Zanette. Can large reasoning models self-train? arXiv preprint arXiv:2505.21444 , 2025. Rulin Shao, Shuyue Stella Li, Rui Xin, Scott Geng, Yiping Wang, Sewoong Oh, Simon Shaolei Du, Nathan Lambert, Sewon Min, Ranjay Krishna, et al. Spurious rewards: Rethinking training signals in rlvr. arXiv preprint arXiv:2506.10947 , 2025. Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang, Mingchuan Zhang, YK Li, et al. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 , 2024a. Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Mingchuan Zhang, Y.K. Li, Y. Wu, and Daya Guo. Deepseekmath: Pushing the limits of mathematical reasoning in open language models, 2024b. URL https://arxiv.org/abs/2402.03300 .Joar Skalse, Nikolaus Howe, Dmitrii Krasheninnikov, and David Krueger. Defining and characterizing reward gaming. NeurIPS , 35:9460–9471, 2022. Charlie Snell, Jaehoon Lee, Kelvin Xu, and Aviral Kumar. Scaling llm test-time compute optimally can be more effective than scaling model parameters. arXiv preprint arXiv:2408.03314 , 2024. Karen Sparck Jones. A statistical interpretation of term specificity and its application in retrieval. Journal of documentation , 28(1):11–21, 1972. Nisan Stiennon, Long Ouyang, Jeffrey Wu, Daniel Ziegler, Ryan Lowe, Chelsea Voss, Alec Radford, Dario Amodei, and Paul F Christiano. Learning to summarize with human feedback. NeurIPS , 33: 3008–3021, 2020. Yu Sun, Xiaolong Wang, Zhuang Liu, John Miller, Alexei Efros, and Moritz Hardt. Test-time training with self-supervision for generalization under distribution shifts. In ICML , pages 9229–9248. PMLR, 2020.  
+
+> 15 CoRE: Consensus Rewards via Equilibrium Preprint
+
+Amir Taubenfeld, Tom Sheffer, Eran Ofek, Amir Feder, Ariel Goldstein, Zorik Gekhman, and Gal Yona. Confidence improves self-consistency in llms. In Findings of the ACL: ACL 2025 , pages 20090–20111, 2025. Peter D Taylor and Leo B Jonker. Evolutionary stable strategies and game dynamics. Mathematical biosciences , 40(1-2):145–156, 1978. Kimi Team, Angang Du, Bofei Gao, Bowei Xing, Changjiu Jiang, Cheng Chen, Cheng Li, Chenjun Xiao, Chenzhuang Du, Chonghua Liao, et al. Kimi k1. 5: Scaling reinforcement learning with llms. arXiv preprint arXiv:2501.12599 , 2025. Katherine Tian, Eric Mitchell, Allan Zhou, Archit Sharma, Rafael Rafailov, Huaxiu Yao, Chelsea Finn, and Christopher D Manning. Just ask for calibration: Strategies for eliciting calibrated confidence scores from language models fine-tuned with human feedback. In Proceedings of the 2023 Conference on EMNLP , pages 5433–5442, 2023. Jonathan Uesato, Nate Kushman, Ramana Kumar, Francis Song, Noah Siegel, Lisa Wang, Antonia Creswell, Geoffrey Irving, and Irina Higgins. Solving math word problems with process-and outcome-based feedback. arXiv preprint arXiv:2211.14275 , 2022. Dequan Wang, Evan Shelhamer, Shaoteng Liu, Bruno Olshausen, and Trevor Darrell. Tent: Fully test-time adaptation by entropy minimization. arXiv preprint arXiv:2006.10726 , 2020. Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le, Ed Chi, Sharan Narang, Aakanksha Chowdhery, and Denny Zhou. Self-consistency improves chain of thought reasoning in language models. arXiv preprint arXiv:2203.11171 , 2022. Jörgen W Weibull. Evolutionary game theory . 1997. Qizhe Xie, Minh-Thang Luong, Eduard Hovy, and Quoc V Le. Self-training with noisy student improves imagenet classification. arXiv preprint arXiv:1911.04252 , 2019. Fangzhi Xu, Hang Yan, Chang Ma, Haiteng Zhao, Qiushi Sun, Kanzhi Cheng, Junxian He, Jun Liu, and Zhiyong Wu. Genius: A generalizable and purely unsupervised self-training framework for advanced reasoning. In Proceedings of the 63rd Annual Meeting of the ACL (Volume 1: Long Papers) , pages 13153–13167, 2025. An Yang, Beichen Zhang, Binyuan Hui, Bofei Gao, Bowen Yu, Chengpeng Li, Dayiheng Liu, Jianhong Tu, Jingren Zhou, Junyang Lin, et al. Qwen2. 5-math technical report: Toward mathematical expert model via self-improvement. arXiv preprint arXiv:2409.12122 , 2024. An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, et al. Qwen3 technical report. arXiv preprint arXiv:2505.09388 , 2025. Weizhe Yuan, Richard Yuanzhe Pang, Kyunghyun Cho, Sainbayar Sukhbaatar, Jing Xu, and Jason Weston. Self-rewarding language models. arXiv preprint arXiv:2401.10020 , 3:2, 2024. Eric Zelikman, Yuhuai Wu, Jesse Mu, and Noah Goodman. Star: Bootstrapping reasoning with reasoning. 
+
+NeurIPS , 35:15476–15488, 2022. Qingyang Zhang, Haitao Wu, Changqing Zhang, Peilin Zhao, and Yatao Bian. Right question is already half the answer: Fully unsupervised llm reasoning incentivization. NeurIPS , 38:67345–67372, 2026.  
+
+> 16 CoRE: Consensus Rewards via Equilibrium Preprint
+
+Zizhuo Zhang, Jianing Zhu, Xinmu Ge, Zihua Zhao, Zhanke Zhou, Xuan Li, Xiao Feng, Jiangchao Yao, and Bo Han. Co-rewarding: Stable self-supervised rl for eliciting reasoning in large language models. 
+
+arXiv preprint arXiv:2508.00410 , 2025. Xuandong Zhao, Zhewei Kang, Aosong Feng, Sergey Levine, and Dawn Song. Learning to reason without external rewards. arXiv preprint arXiv:2505.19590 , 2025. Yuxin Zuo, Kaiyan Zhang, Li Sheng, Shang Qu, Ganqu Cui, Xuekai Zhu, Haozhan Li, Xinwei Long, Ermo Hua, Biqing Qi, et al. Ttrl: Test-time reinforcement learning. NeurIPS , 38:131459–131483, 2026.  
+
+> 17 CoRE: Consensus Rewards via Equilibrium Preprint
+
+# A Code and Reproducibility 
+
+For reproducibility, we release the full codebase, including the roll-out graph construction, the replicator-dynamics consensus and read-outs, the GRPO training loop, and all evaluation scripts, in a public repository: 
+
+TBA 
+
+The repository documents the environment and the configuration files (models, benchmarks, seeds, and the fixed hyperparameters of §4) needed to reproduce every table and figure in this paper. 
+
+# B Use of Large Language Models 
+
+Large language models were used only to improve grammar and clarity in author-written text. 
+
+# C Well-Posedness of the Consensus Construction 
+
+Lemma 1 (Constant-shift invariance) For all 𝑥 on the simplex, 𝑥 ⊤𝑊 ′𝑥 = 𝑥 ⊤𝑊𝑥 + 𝐶 . Hence 𝑊 and 
+
+𝑊 ′ share all local and global maximizers and all replicator fixed points; the discrete dynamics on 𝑊 ′
+
+differ from those on 𝑊 only in convergence rate, and continuous-time trajectories coincide exactly. 
+
+Lemma 2 (Monotone ascent) For entrywise-nonnegative symmetric 𝑊 ′, update (3) is a Baum–Eagon growth transform: 𝑥 ⊤𝑊 ′𝑥 is non-decreasing at every step, strictly increasing off fixed points, and the iterates converge to fixed points whose supports are dominant sets of 𝑊 ′ (Pavan and Pelillo, 2007). 
+
+Lemma 3 (No singleton consensus) For 𝛼 > 0, a singleton has internal score −𝛼 < 0, while any answer clique 𝑆 with |𝑆 | ≥ 2 and internal affinity 𝑐 > 𝛼 /(| 𝑆 | − 1) has positive internal score; hence no singleton is ever the consensus when such a clique exists. 
+
+# D Proofs 
+
+Notation as in §3: Δ is the standard simplex in R𝑁 , 𝑒 the all-ones vector, and the payoff 𝑊 = 𝐴 ′ − 𝛼𝐼 is block-diagonal over answer classes because the answer kernel gates all edges. 
+
+# E Well-posedness of the construction 
+
+The three lemmas of §3.2 establish that the consensus computation is sound: the nonnegativity shift demanded by the dynamics costs nothing, the iteration provably ascends and converges, and the equilibrium can never be a lone roll-out. 
+
+Proof of Lemma 1. For 𝑥 ∈ Δ, 𝑥 ⊤ (𝐶 𝑒𝑒 ⊤)𝑥 = 𝐶 (𝑒 ⊤𝑥 )2 = 𝐶 , so 𝑥 ⊤𝑊 ′𝑥 = 𝑥 ⊤𝑊𝑥 + 𝐶 : the objectives differ by a constant on Δ and share all local and global maximizers. Fixed points also coincide: 𝑊 ′𝑥 = 𝑊𝑥 + 𝐶𝑒 ,so the stationarity condition— (𝑊 ′𝑥 )𝑖 = 𝑥 ⊤𝑊 ′𝑥 on the support, ≤ off it—holds for 𝑊 ′ iff it holds for 𝑊 ,the constants cancelling. The discrete update on 𝑊 ′, 𝑥 𝑖 ↦ → 𝑥 𝑖 (𝑊 𝑥 )𝑖 +𝐶 𝑥 ⊤𝑊 𝑥 +𝐶 , moves in the same direction as the update on 𝑊 with step size damped by 𝐶 : iterates differ along the way but converge to the same fixed points. In continuous time the shift cancels exactly, (𝑊 ′𝑥 )𝑖 − 𝑥 ⊤𝑊 ′𝑥 = (𝑊𝑥 )𝑖 − 𝑥 ⊤𝑊𝑥 , so the flows coincide. This licenses treating 𝑊 and 𝑊 ′ interchangeably in everything that follows. □ 
+
+> 18 CoRE: Consensus Rewards via Equilibrium Preprint
+
+Proof of Lemma 2. For entrywise-nonnegative symmetric 𝑊 ′, 𝑓 (𝑥 ) = 𝑥 ⊤𝑊 ′𝑥 is a degree-2 homogeneous polynomial with nonnegative coefficients and 𝜕 𝑓 /𝜕𝑥 𝑖 = 2(𝑊 ′𝑥 )𝑖 , so update (3) is exactly the Baum– Eagon growth transform of 𝑓 on Δ, and 𝑓 strictly increases at every non-fixed point (Baum, 1967). Continuity of 𝑓 on the compact Δ makes the non-decreasing sequence 𝑓 (𝑥 (𝑡 )) convergent, and strict increase off fixed points forces every limit point of the iterates to be a fixed point. That the supports of strict local maximizers are dominant sets is Theorem 1 of Pavan and Pelillo (2007); we do not reprove it. 
+
+□
+
+Proof of Lemma 3. For 𝑥 = 𝑒 𝑖 : 𝑥 ⊤𝑊𝑥 = 𝑊 𝑖𝑖 = −𝛼 < 0 (zero-diagonal affinity). For an answer clique 𝑆 ,
+
+|𝑆 | = 𝑛 ≥ 2, internal affinity 𝑐 , the uniform vector on 𝑆 attains 𝑥 ⊤𝑊𝑥 =  𝑐 (𝑛 − 1) − 𝛼 /𝑛 , positive iff 
+
+𝑐 > 𝛼 /( 𝑛 − 1). A negative-value point cannot be the maximizer while a positive-value candidate exists. 
+
+□
+
+# F Which class the dynamics extract 
+
+The propositions of §3.3 concern which answer class the replicator selects from the barycenter. The structural fact driving all of them is block-diagonality: the flow decomposes into within-class refinement and a between-class competition for mass. Two auxiliary lemmas make this precise; the propositions then follow by analyzing the mass competition. 
+
+Lemma 4 (Block decomposition) For 𝑥 ∈ Δ, write 𝑠 𝑎 = Í𝑖 ∈𝑉 𝑎 𝑥 𝑖 and, when 𝑠 𝑎 > 0, 𝑦 (𝑎 ) = 𝑥 (𝑎 ) /𝑠 𝑎 
+
+for the within-class conditional. Then 𝑥 ⊤𝑊𝑥 = Í𝑎 𝑠 2 
+
+> 𝑎
+
+𝜑 𝑎 (𝑥 ) with 𝜑 𝑎 (𝑥 ) = (𝑦 (𝑎 ) )⊤𝑊 𝑎 𝑦 (𝑎 ) .Proof. Block-diagonality kills every cross-class term; substituting 𝑥 (𝑎 ) = 𝑠 𝑎 𝑦 (𝑎 ) in each block’s quadratic form gives the claim. □
+
+Lemma 5 (Mass dynamics) Under the continuous-time replicator flow on 𝑊 , for 𝑖 ∈ 𝑉 𝑎 ,
+
+¤𝑦 (𝑎 ) 
+
+> 𝑖
+
+= 𝑦 (𝑎 )
+
+> 𝑖
+
+(𝑊 𝑎 𝑦 (𝑎 ) )𝑖 − 𝜑 𝑎 (𝑥 ), (8) 
+
+¤𝑠 𝑎 = 𝑠 𝑎 
+
+
+
+𝑠 𝑎 𝜑 𝑎 (𝑥 ) − Í𝑏 𝑠 2 
+
+> 𝑏
+
+𝜑 𝑏 (𝑥 )
+
+
+
+. (9) 
+
+Each within-class system (8) is itself a replicator dynamic on 𝑊 𝑎 , so from a generic interior start 
+
+𝜑 𝑎 (𝑥 (𝑡 )) → 𝜇 𝑎 , the internal score of the class’s dominant subset; for a uniform clique of affinity 𝑐 and size 𝑛 𝑎 , 𝜇 𝑎 = 𝑐 (1 − 1/𝑛 𝑎 ) − 𝛼 /𝑛 𝑎 .Proof. For 𝑖 ∈ 𝑉 𝑎 , block-diagonality gives (𝑊𝑥 )𝑖 = 𝑠 𝑎 (𝑊 𝑎 𝑦 (𝑎 ) )𝑖 ; substituting into ¤𝑥 𝑖 = 𝑥 𝑖 [( 𝑊𝑥 )𝑖 −𝑥 ⊤𝑊𝑥 ]
+
+with 𝑥 𝑖 = 𝑠 𝑎 𝑦 (𝑎 ) 
+
+> 𝑖
+
+, summing over 𝑉 𝑎 for ¤𝑠 𝑎 , applying the quotient rule for ¤𝑦 (𝑎 ) 
+
+> 𝑖
+
+, and using Lemma 4 yields (8)–(9). Convergence of (8) is Lemma 2 applied to 𝑊 𝑎 ; the uniform-clique value is the computation in Lemma 3. □
+
+Equation (9) is the object the paper’s slogan refers to: the classes play a coordination game for mass, and the barycenter start enters through 𝑠 𝑎 (0) = 𝑛 𝑎 /𝑁 —the initialization encodes the ballot. 
+
+Proof of Proposition 1. At 𝜅 =1, 𝑤 ≡ 𝑒 , every class is a unit-affinity clique, so by Lemma 5, 
+
+𝜇 𝑎 = (𝑛 𝑎 − 1 − 𝛼 )/ 𝑛 𝑎 and the within-class conditionals start and, by symmetry, remain uniform: 
+
+𝜑 𝑎 ≡ 𝜇 𝑎 throughout. In (9) each class grows iff 𝑠 𝑎 𝜇 𝑎 exceeds the common mean Í𝑏 𝑠 2 
+
+> 𝑏
+
+𝜇 𝑏 ; moreover  
+
+> 𝑑 𝑑𝑡
+
+(𝑠 𝑎 𝜇 𝑎 ) = (𝑠 𝑎 𝜇 𝑎 )  𝑠 𝑎 𝜇 𝑎 − Í𝑏 𝑠 2 
+
+> 𝑏
+
+𝜇 𝑏 
+
+, so the ordering of the quantities {𝑠 𝑎 𝜇 𝑎 } is preserved along the flow. At 𝑡 =0, 𝑠 𝑎 (0)𝜇 𝑎 = (𝑛 𝑎 − 1 − 𝛼 )/ 𝑁 is uniquely maximized by the largest class; its lead persists, all  
+
+> 19 CoRE: Consensus Rewards via Equilibrium Preprint
+
+mass converges to it, and 𝑥 ∗ is uniform on it, so the mass-weighted plurality 𝑦 ∗ equals the count-based one. This is Prediction (i) of §3.3, which we also verify as a unit test. □
+
+Proof of Proposition 2. With two classes ( 𝛼 =0), the conditionals stay uniform with constant scores 
+
+𝜇 ∗ = 𝑐 ∗ (1 − 1/𝑛 ∗), 𝜇 𝑤 = 𝑐 𝑤 (1 − 1/𝑚 ), and writing 𝑠 := 𝑠 ∗, (9) reduces to the one-dimensional system 
+
+¤𝑠 = 𝑠 (1 − 𝑠 ) 𝜇 ∗ 𝑠 − 𝜇 𝑤 (1 − 𝑠 ) .
+
+Both pure states are locally stable (at 𝑠 = 1 − 𝜀 , ¤𝜀 ≈ −( 𝜇 ∗+𝜇 𝑤 )𝜀 ; symmetrically at 𝑠 = 0), and the interior fixed point 𝑠 eq = 𝜇 𝑤 /( 𝜇 ∗+𝜇 𝑤 ) is unstable: the flow reaches 𝑠 =1 iff 𝑠 (0) > 𝑠 eq . The barycenter gives 𝑠 (0) = 𝑛 ∗/( 𝑛 ∗+𝑚 ), and 
+
+𝑛 ∗
+
+𝑛 ∗ + 𝑚 > 𝜇 𝑤 
+
+𝜇 ∗ + 𝜇 𝑤 
+
+⇐⇒ 𝑛 ∗ 𝜇 ∗ > 𝑚 𝜇 𝑤 ,
+
+that is, 𝑐 ∗ (𝑛 ∗−1) > 𝑐 𝑤 (𝑚 −1), which is (5). The discrete update obeys the same threshold: with equilibrated scores the mass ratio 𝜌 = 𝑠 ∗/𝑠 𝑤 evolves as 𝜌 (𝑡 +1) = (𝜇 ∗/𝜇 𝑤 ) 𝜌 (𝑡 )2, whose unstable point is 𝜌 = 𝜇 𝑤 /𝜇 ∗—again 𝑛 ∗ 𝜇 ∗ > 𝑚 𝜇 𝑤 . We verified the threshold to four decimal places on the exact pipeline of §3.2, including 𝛼 = 0.1 and the shift. The severity of the factor (𝑚 −1)/( 𝑛 ∗−1) is what makes coherence alone insufficient, yielding Prediction (ii). □
+
+# G What calibration changes 
+
+Calibration acts on the internal scores that the mass competition compares. The exact identity below yields the threshold rescaling (7) and the 𝑒 − 𝛿 /𝜏 law quoted in §3.3. 
+
+Proof of Proposition 3. For a clique 𝑆 , |𝑆 | = 𝑛 , with 𝐴 ′ 
+
+> 𝑖 𝑗
+
+= 𝑐 √𝑤 𝑖 𝑤 𝑗 off the diagonal, the uniform vector on 𝑆 gives 
+
+𝜇 ′ 
+
+> 𝑆
+
+= 𝑐 𝑛 2∑︁ 𝑖 ≠ 𝑗 
+
+√𝑤 𝑖 𝑤 𝑗 = 𝑐 𝑛 2
+
+h Í𝑖 
+
+√𝑤 𝑖 
+
+2
+
+− Í𝑖 𝑤 𝑖 
+
+i
+
+= 𝑐   ¯𝜇 2 
+
+> 𝑆
+
+− ¯𝜈 𝑆 /𝑛 ,
+
+which is (6); for constant weights 𝑤 𝑖 ≡ 𝑤 it reduces to 𝑤 𝑐 (1 − 1/𝑛 ): exact linear rescaling by 𝑤 .Substituting the rescaled scores 𝜇 ′∗ ≈ ¯𝑤 ∗ 𝜇 ∗ and 𝜇 ′ 
+
+> 𝑤
+
+≈ ¯𝑤 𝑤 𝜇 𝑤 (with ¯𝑤 𝑆 = ¯𝜇 2 
+
+> 𝑆
+
+) into the extraction condition 𝑛 ∗ 𝜇 ′∗ > 𝑚 𝜇 ′ 
+
+> 𝑤
+
+of Proposition 2 multiplies the threshold by ¯ 𝑤 𝑤 / ¯𝑤 ∗, giving (7); under the temperature-𝜏 weights a confidence gap of 𝛿 nats makes this ratio 𝑒 − 𝛿 /𝜏 . By Jensen’s inequality ¯ 𝜇 2 
+
+> 𝑆
+
+≤ ¯𝜈 𝑆 ,so the exact score sits below the first-order form by the finite-size correction 𝑐 ¯𝜈 𝑆 /𝑛 : calibration is automatically conservative for small cliques, vanishing as 𝑛 grows. □
+
+# H Qualitative recovery analysis 
+
+We inspect where CoRE changes the pseudo-label relative to the majority vote, on Qwen2.5-Math-7B / MATH level 4 (128 questions, 𝑁 =64 rollouts each). CoRE recovers the correct answer on 10 questions that the majority vote gets wrong (29% of the majority-wrong questions, all true minority overturns) against only 4 regressions, a net +6. On the recovered questions the correct cluster is on average 
+
++0.78 nats more confident than the wrong plurality and receives +0.89 more graded reward, and CoRE’s cohesiveness gate averages 𝜒 =0.42.  
+
+> 20 CoRE: Consensus Rewards via Equilibrium Preprint
+
+Consistent with the factorial analysis (§6), the two signals carry different cases. On most recoveries the wrong plurality is a degenerate cluster (empty or repetition-collapsed generations); there a confidence-weighted vote already suffices, so CISC recovers the answer too (Example H). The graph becomes 
+
+decisive on the harder cases where the wrong answer is itself fluent, popular, and confidently stated. The one question here where Majority, EC and CISC all fail and only CoRE recovers (Example H). These are exactly the high-disagreement cases the recovery-region theory targets. 
+
+Example A: the graph is decisive (Majority, EC and CISC all wrong) Question. With 𝑆𝑇 ∥ 𝑄𝑅 , ∠𝑃 = 40 ◦ and ∠𝑄 = 35 ◦, find ∠𝑆𝑇 𝑅 . (diagram omitted) 
+
+Ground truth: 75 ◦.
+
+Majority: 35 ◦ (14/64) × EC: 35 ◦ (14/64) × CISC: 35 ◦ (14/64) × CoRE: 75 ◦ (8/64) ✓
+
+The popular wrong answer sets ∠𝑆𝑇 𝑅 = ∠𝑄 = 35 ◦ (using only one angle); the correct minority applies ∠𝑆𝑇 𝑅 = ∠𝑄 + ∠𝑃 = 35 ◦ + 40 ◦ = 75 ◦. Confidence is uninformative here (gap +0.05 nats), so CISC follows the majority — only the graph’s coherence picks out the correct cluster. CoRE graded reward: 0 .88 (correct) vs. 0 .00; gate 𝜒 = 0.51. 
+
+Example B: a confidence-driven recovery (CISC also succeeds) Question. Half the value of 3𝑥 − 9 is 𝑥 + 37 . What is the value of 𝑥 ?
+
+Ground truth: 83. 
+
+Majority: (no valid answer) (5/64) × EC: (no valid answer) (5/64) × CISC: 83 (2/64) ✓ CoRE: 83 (2/64) ✓
+
+The wrong plurality is a degenerate cluster (repeated empty \boxed{} tokens). The correct minority solves 12 (3𝑥 − 9) = 𝑥 + 37 ⇒ 𝑥 = 83 and is much more confident (gap +3.11 nats), so both CISC and CoRE recover it. CoRE graded reward: 1 .00 vs. 0 .00; gate 𝜒 = 0.24. 
+
+# I Prompt Templates 
+
+All questions are presented as a single-turn chat message [{"role": "user", "content": prompt }] ;the backbone’s own chat template is applied at roll-out time. The prompt is the benchmark question with a task-appropriate answer-format instruction appended, as follows. 
+
+Mathematical reasoning (AMC, MATH-500, MATH Level 4/5, AIME 2024). The question is followed by the boxing instruction: 
+
+> Math prompt template
+> {question}
+> Please reason step by step, and put your final answer within \boxed{}.
+
+Qwen2.5-Math backbones emit \boxed{} natively and are run with the bare question (no appended instruction); all non-Qwen-Math backbones (LLaMA, Mistral, DeepSeek, vanilla Qwen) use the boxing instruction above (the _instr data variant), without which they box poorly and score near zero. 
+
+Multiple-choice science (GPQA-Diamond). GPQA answers are letters (A–D). The question is followed by:  
+
+> 21 CoRE: Consensus Rewards via Equilibrium Preprint
+> Multiple-choice prompt template
+> {question}
+> Give your reasoning, then output ONLY the letter of the correct option in \boxed{}, e.g. \boxed{A}.
+
+This keeps a single \boxed{} answer channel and one grader across math and multiple-choice tasks (no separate MC parser). 
+
+Qwen3-8B (non-thinking mode). To match the non-thinking, 3k-context evaluation, the soft switch 
+
+/no_think is appended to the user content before the boxing instruction, so the model does not emit a 
+
+<think> block (equivalently, the chat template is rendered with enable_thinking=False ). 
+
+No system prompt; sampling. No system message is used; the instruction lives in the user turn. Sampling for evaluation follows TTRL: temperature 0 .6, top-𝑝 0.95, mean@16 (16 samples/question); maximum generation length 3072 tokens (all non-LRM models) or 32 ,768 tokens (LRMs: DeepSeek-R1-Distill, Skywork-OR1).
