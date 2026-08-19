@@ -6,24 +6,19 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-18
-- 运行时间：2026-08-18 19:58:17 UTC
+- 最新运行日期：2026-08-19
+- 运行时间：2026-08-19 19:17:43 UTC
 - 运行状态：成功
-- 本次总论文数：2
-- 精读区：2
+- 本次总论文数：0
+- 精读区：0
 - 速读区：0
 
 ### 今日简报（AI）
-今日精读两篇高分论文，聚焦深度搜索智能体的自蒸馏策略优化。两篇均获8.0分，分别提出步骤级奖励自蒸馏与潜在在线自蒸馏方法，突破仅依赖最终结果奖励的局限。建议关注自蒸馏机制在复杂推理与搜索任务中的实际效果与落地潜力。
-- 详情：[/202608/18/README](/202608/18/README)
+> 今日无新推荐，系统未产出可展示论文。
+- 详情：[/202608/19/README](/202608/19/README)
 
 ### 精读区论文标签
-1. [Beyond Outcome Rewards: Step-Level Self-Distilled Policy Optimization for Deep Search Agents](/202608/18/2608.12764v1-beyond-outcome-rewards-step-level-self-distilled-policy-optimization-for-deep-search-agents)  
-   标签：评分：8.0/10、query:med-rl-agent
-   evidence：面向深度搜索智能体的步骤级策略优化
-2. [Latent On-Policy Self-Distillation](/202608/18/2608.13040v1-latent-on-policy-self-distillation)  
-   标签：评分：8.0/10、query:med-rl-agent
-   evidence：基于可学习特权上下文的在线自蒸馏策略学习
+- 本次无精读推荐。
 
 ### 速读区论文标签
 - 本次无速读推荐。
