@@ -1,0 +1,1435 @@
+Title: ClinTraceBench: Source-Verifiable Longitudinal Clinical Reasoning over EHR-Derived Dialogues
+
+URL Source: https://arxiv.org/pdf/2609.01111v1
+
+Published Time: Wed, 02 Sep 2026 01:14:28 GMT
+
+Number of Pages: 26
+
+Markdown Content:
+# ClinTraceBench: Source-Verifiable Longitudinal Clinical Reasoning over EHR-Derived Dialogues 
+
+Huimin Wang 1 Zhengyi Zhao 2 Yutian Zhao 3 *1Shenzhen University 2The Chinese University of Hong Kong 3 Dealism 
+
+wanghm520@gmail.com zyzhao@se.cuhk.edu.hk rosezhao929@gmail.com 
+
+Abstract 
+
+Clinical LLM assistants must reason over multi-visit patient trajectories, yet whether the compact history representations used to scale them—retrieval, structured timelines, LLM summaries, agentic memory—preserve the longitudinal signal clinical reasoning needs has not been measured. We introduce Clin-TraceBench: 385 MIMIC-IV-derived verified dialogues with event-ID provenance, a nine-task taxonomy (T1–T9), and L0–L4 determinis-tic + L5 human-audit validation (98.92% agree-ment). We evaluate eight history representa-tion strategies—a no-context floor, last-visit-only , full-context , BGE-M3 dense-retrieval ,two compression schemes, and two agentic-memory systems ( Mem0 , A-Mem )—across four backbones (DeepSeek-V3, GPT-4o-mini, Haiku 4.5, Sonnet 4.6) on 6,271 questions: 32 cells, 200,672 predictions. Four findings: (SP4) a controlled T3 injection probe isolates compression-induced relation loss—with the attribution sentence present before construc-tion, Mem0 , A-Mem and llm-summary still re-cover only 0–5.3% of the injected positives; (SP1) compressed strategies pay an aggrega-tion tax on multi-visit trends and cross-patient comparisons; (SP2) the blind-to-full gap spans 
+
++29 .8 pp (GPT-4o-mini) to +62 .7 pp (Haiku); (SP3) abstention scales non-monotonically with context length. On the Pareto frontier Haiku dominates Sonnet under full-context 
+
+($25.76 vs. $106.21), inverting the “biggest backbone wins” heuristic. 
+
+1 Introduction 
+
+Clinical assistants built on LLMs must reason over long, multi-visit patient trajectories: retrieving labs, tracking trends across encounters, linking findings to problems within a visit, recalling treatment, com-paring patients, and abstaining when the record is silent. As context windows grow (Liu et al., 2024;  
+
+> *Corresponding author.
+
+Bai et al., 2024), feeding the full chart is increas-ingly tractable but expensive, latency-bound, and— as we show—interacts non-monotonically with ab-stention. Practitioners therefore rely on compact history representations: retrieval-augmented gener-ation (Lewis et al., 2020; Chen et al., 2024), struc-tured timelines, LLM-generated summaries, and agentic memory systems such as Mem0 (Chhikara et al., 2025) and A-Mem (Xu et al., 2025). Whether these representations preserve enough signal for longitudinal clinical reasoning is the empirical question this paper addresses. Three gaps make this question hard to answer with existing resources. First, EHR-derived clinical benchmarks (Kweon et al., 2024; Fleming et al., 2024; Ma et al., 2024; Ben Abacha et al., 2025) are dominated by single-encounter or single-document prompts; they do not stress multi-visit aggregation, encounter-local linkage, or abstention under un-stated facts. Second, open-domain memory bench-marks (Maharana et al., 2024; Wu et al., 2025; Hu et al., 2025) evaluate dialogue memory but lack clinical semantics and event-level source prove-nance, so a failure cannot be traced to a specific dialogue turn. Third, when frontier LLMs are eval-uated on long clinical context, known long-context pathologies (lost-in-the-middle attention (Liu et al., 2024), miscalibrated abstention (Kadavath et al., 2022)) have not been characterized at the level of specific clinical cognitive operations. 
+
+ClinTraceBench fills these gaps with 385 MIMIC-IV-derived verified dialogues (Johnson et al., 2023) carrying event-ID provenance, a nine-task taxonomy covering fact recall, temporal trends, encounter-level linkage, retrospective propagation, contradiction, cross-patient comparison, treatment recall, observed treatment response, and absten-tion, and L0–L4 deterministic + L5 human-audit validation 1 (98.92%). We evaluate eight rep-
+
+> 1L0–L5 denote six validation gates applied to each (anchor,
+
+1arXiv:2609.01111v1 [cs.CL] 1 Sep 2026 resentation strategies against four frontier back-bones (DeepSeek-V3, GPT-4o-mini, Haiku 4.5, Sonnet 4.6) on a fixed 6,271-question set: 32 cells, 200,672 predictions, $527.85. Contributions: 1. Benchmark construction. A reproducible pipeline turning real MIMIC-IV trajectories into verified, source-anchored dialogues with L0–L4 deterministic + L5 human spot-check validation—linking every gold answer to a spe-cific dialogue turn, a property absent from prior memory benchmarks (Maharana et al., 2024; Wu et al., 2025). 2. Task taxonomy. Nine tasks covering longitu-dinal axes existing clinical and memory bench-marks miss, organized by the cognitive opera-tion a clinician performs over a chart (T1–T9, defined in §3). 3. Controlled preservation probe. A sentence-level injection probe (T3), run with the sen-tence inserted both before construction (equal input) and after it (update/staleness), isolating signal preservation from backbone capacity—a methodology generalizable beyond clinical set-tings. 4. Findings. Full context wins on pooled accu-racy but is not uniformly best; dense retrieval is competitive at lower cost; compressed and agen-tic memory representations exhibit task-specific failures (aggregation tax, loss of the finding– diagnosis relation even under equal input, ab-stention drift); the cost–quality Pareto frontier inverts the “biggest backbone wins” heuristic. 
+
+2 Related work 
+
+EHR-derived clinical evaluation. 
+
+EHRN OTE QA (Kweon et al., 2024) curates MIMIC-IV discharge-summary QA pairs validated by clinicians; M ED ALIGN (Fleming et al., 2024) similarly grounds clinician-written instructions in real EHR notes; CLI BENCH (Ma et al., 2024) extends MIMIC-IV to multi-decision clinical tasks (diagnosis, procedure, lab, pre-scription); MEDEC (Ben Abacha et al., 2025) probes medical error detection on clinical notes; DR.BENCH (Gao et al., 2023) targets progress-note diagnostic reasoning over multi-encounter MIMIC-III records; MED HELM (Bedi et al., 2025) provides a multi-capability evaluation framework for medical LLMs. These benchmarks 
+
+> gold) pair: L0 schema check, L1 source verification, L2 gold consistency, L3 deduplication, L4 stratification balance, and L5 human audit. Full criteria in Appendix A.
+
+evaluate models against real chart data, but each is dominated by single-document or single-encounter prompts. None stress multi-visit aggregation, encounter-local attribution, or abstention under unstated facts. 
+
+Temporal and longitudinal clinical reasoning. 
+
+The i2b2 temporal challenges (Sun et al., 2013) established temporal-relation extraction on clinical notes; TIMER (Cui et al., 2025) introduces tem-poral instruction tuning over multi-encounter EHR data; and Kruse et al. (2025) evaluate LLM tempo-ral reasoning for longitudinal clinical summariza-tion and prediction. None of these provide event-level source-provenance from the answer back to a specific dialogue turn, nor a controlled probe that isolates signal-preservation failure modes from backbone reasoning capacity. 
+
+Long-context and retrieval evaluation in NLP. Long-context benchmarks evaluate retrieval and reasoning across extended inputs: LONG -BENCH (Bai et al., 2024) and needle-in-a-haystack probes (Kamradt, 2023) characterize attention drift; Liu et al. (2024) document the lost-in-the-middle phenomenon. Retrieval-augmented genera-tion (Lewis et al., 2020) and dense-retrieval embed-dings (Chen et al., 2024) form the foundation of one strategy family we evaluate. Kadavath et al. (2022) establish calibration and abstention as a measurable LLM capability, which our T9 task operationalizes in a clinical setting. 
+
+Memory benchmarks and agentic memory. 
+
+LOCOMO (Maharana et al., 2024) evaluates multi-session conversational memory; LONG -MEM EVAL (Wu et al., 2025) extends to longer, more diverse memory horizons; M EMORY AGENT -BENCH (Hu et al., 2025) evaluates incremental multi-turn memory; a recent survey (Zhang et al., 2025) reviews memory mechanisms in LLM agents. The open-domain memory lineage motivates agentic-memory methods we evaluate Mem0 (Chhikara et al., 2025), AMEM (Xu et al., 2025), MemGPT (Packer et al., 2023). We re-purpose this lineage to ask whether memory-style representations preserve enough longitudinal clinical signal to compete with full-context feeding on tasks designed around real EHR trajectories. 
+
+Position of our work. We are not the first MIMIC-IV (Johnson et al., 2023) benchmark, not the first temporal benchmark, and not the first memory benchmark. Our contribution is the in-tegration: real EHR-derived longitudinal trajecto-ries, verified dialogue substrate with event-level 2Figure 1: ClinTraceBench task taxonomy. The nine tasks (T1–T9) are grouped by five cognitive operations: point-in-time retrieval (T1, T7), within-encounter reasoning (T3, T5), longitudinal trajectory (T2, T4, T8), inter-patient comparison (T6), and epistemic awareness (T9). Each card shows the task identifier, a schematic of the source anchor, and one example question (Q) with its deterministic gold answer (A). Per-task question counts are broken out in Table 1. 
+
+provenance, a nine-task taxonomy covering fact / temporal / linkage / retrospective / contradic-tion / comparison / treatment / response / absten-tion, L0–L4 deterministic + L5 human-audit val-idation, and a controlled-injection probe that iso-lates representation-level signal preservation from backbone capacity—enabling head-to-head paired comparison of history representation strategies. 
+
+3 Benchmark design 
+
+Figure 1 shows the T1–T9 task taxonomy orga-nized by the cognitive operation a clinician per-forms when reading a longitudinal record; Figure 2 shows the source-verifiable construction pipeline, whose per-stage Output bands report the full-cohort headline counts ( 400 patients yielding 385 verified dialogues, 6,271 evaluation questions, 200 ,672 pre-dictions) and per-stage validation gates. 
+
+Cohort. We sample 400 MIMIC-IV (hospital-table) patients, balanced across four target diseases (diabetes, hypertension, CKD, CAD; 100 each) and stratified within each disease into low / medium / high complexity tertiles (33/34/33) by event, ad-mission, span, and medication counts. Inclusion requires ≥ 2 admissions > 7 days apart, ≥ 5
+
+labs, ≥ 2 prescriptions, and ≥ 2 ICD codes in the index disease; sampling is deterministic. 15 pa-tients fail dialogue invariants during synthesis and are dropped, yielding 385 verified dialogues. Lab extraction uses a fixed 18-lab panel with canoni-cal units and clinical-priority deduplication (full schema in Appendix). Each record is transformed into a multi-visit patient–clinician dialogue, pre-serving structured fields (dates, lab values, ICD / procedure codes, medications) inside narrative turns. Consistent with prior evidence that frontier LLMs encode clinical knowledge (Singhal et al., 2023), we use a held-out frontier generator with de-terministic templates for structured fields. MIMIC-IV is HIPAA-compliant and we introduce no addi-tional identifiers. 
+
+Task layers. The nine tasks make unequal demands on longitudinal reasoning and fall into three layers: preservation / access (T1, T3, T7), which tests whether a representation retains the evidence at all—a prerequisite for cross-visit rea-soning rather than an instance of it; integrative (T2, T4, T6, T8), which requires synthesis across visits or patients; and diagnostic / epistemic probes (T5, T9), which characterize contradiction handling and abstention and carry trivial-baseline ceilings. We reserve reasoning claims for the integrative layer and describe T1 / T3 / T7 results as evidence preser-vation or representation fidelity. 
+
+Task suite. The nine tasks are: • T1 — Numeric lab retrieval. Given a lab name and date, return the value. • T2 — Trend classification. Direction (increased / decreased / stable) and magnitude across two-to-five visits. • T3 — Controlled attribution detection. For selected same-encounter finding–problem pairs, the dialogue either contains or omits a physician-attribution sentence of the form “physician noted: 31 · COHORT    
+
+> MIMIC-IV → 400 patients
+> PROCESS
+> source
+> MIMIC-IV v3.1 364,627 patients
+> filter
+> 5-stage clinical: ≥18 y · ≥2 adm · ICD ≥5 labs · ≥2 Rx
+> sample
+> tertile-stratified 4 dx ×33 / 34 / 33 → 800 pool → 400 cohort
+> VERIFY
+> PASS de-identification
+> cohort feasibility
+> ≥50 evt · ≥180 d · ≥20 labs
+> OUTPUT
+
+400 
+
+> verified patients
+
+2 · EVENTS  
+
+> per-patient event selection
+> PROCESS
+> input
+> raw events / patient ≈ 1,660
+> rule
+> event selector cap = 300 / patient abnormal labs + Rx + proc
+> schema
+> fixed 18-lab panel canonical units · ATC
+> VERIFY
+> cap = 300 enforced
+> 18-lab schema · units
+> clinical-priority dedup
+> OUTPUT
+
+103,453 
+
+> events
+
+3 · DIALOGUE    
+
+> multi-visit synthesis
+> PROCESS
+> input
+> 400 ×≤ 300 events
+> gen
+> LLM synthesis Style B prompt deterministic templates
+> anchor
+> per-event event_uid (source provenance)
+> VERIFY
+> 25 HARD per-dialogue checks
+> schema · anchor · coverage
+> 98.92 % human spot-check
+> OUTPUT
+
+385 
+
+> dialogues
+
+4 · TASKS  
+
+> 2-stage question generation
+> PROCESS
+> stage 1
+> Python deterministic rule-based anchor + deterministic gold
+> source
+> T1–T8 ← verified_covered T9 ← missed_events
+> stage 2
+> LLM paraphrase NL question wording
+> VERIFY
+> L0–L5 deterministic checks
+> anchor · re-gold · no-leak
+> 1,501-Q stratified subset
+> OUTPUT
+
+6,271 
+
+> evaluation questions
+
+5 · EVAL      
+
+> 8×4 cell matrix
+> PROCESS
+> repr.
+> 8 history strategies (floor / recency / full / retrieval / compress / agentic memory)
+> backbone
+> 4 frontier LLMs
+> matrix
+> 8×4 = 32 cells
+> VERIFY
+> deterministic rule-based score
+> fixed 1,501-Q subset
+> paired McNemar (Holm-Bonf.)
+> OUTPUT
+
+200,672 
+
+> predictions
+
+Figure 2: ClinTraceBench construction pipeline. 1. Cohort: MIMIC-IV 364 ,627 → 400 , 4-disease balanced + complexity-tertile stratified. 2. Events: fixed 18-lab panel, deterministic event IDs for provenance. 3. Dialogue: Sonnet 4.6 synthesis + DeepSeek/Qwen3-Max rescue; verifier v3.2 (10 HARD + 3 SOFT); 385/400 pass. 4. Tasks: Python-generated anchor+gold, Sonnet paraphrases to questions; L0–L4 deterministic + L5 human audit yields the 6,271-question set (98.92% agreement). 5. Evaluation: 8 × 4 = 32 cells, 200,672 predictions. Each panel lists its PROCESS , V ERIFY , O UTPUT .
+
+finding is consistent with problem” (balanced yes / no). T3 runs in two settings. (a) Post-construction (staleness probe ): the sentence is injected after each representation is built, so the four upstream-built strategies (Mem0, A-Mem, llm-summary , structured-timeline ) cannot recover it by construction—this measures stal-eness under update, not discarding. (b) Pre-construction equal input (preservation probe ,our primary setting): the sentence enters the dia-logue before Mem0, A-Mem or the llm-summary 
+
+is built, so every constructor sees it; it is scored by positive-class recall on the injected positives rather than balanced accuracy (Section 5.5). • T4 — Retrospective propagation. Given a later diagnosis, list the earlier findings constituting its evidence. Scored as binarized set-F1 on event UIDs (1 iff exact match), so T4 pools identically with accuracy. Cross-visit and longitudinal. • T5 — Controlled contradiction detection (ex-ploratory). Does the chart contain a con-trolled self-contradictory statement? Contradicts-skewed by construction (455 / 40), giving a trivial majority baseline of 0.919 that no cell beats; re-ported only for relative ordering. • T6 — Cross-patient comparison. Three sub-types T6a / T6b / T6c (number of diagnoses, max lab value, delta value). • T7 — Treatment fact recall. Four-option clinical-management question grounded in docu-mented treatment events; pool split between med-ication and procedure subtypes to avoid within-task class bias. • T8 — Observed treatment response (ex-ploratory). Did a lab increase, decrease, or stay similar after a documented treatment event? Exploratory: concurrent-medication annotations were not retained, so T8 tracks post-treatment lab change, not causal response. • T9 — Abstention. All gold answers are “in-sufficient information”; T9 accuracy equals the abstention rate, with over-answer rate = 1 −
+
+abstention. A trivial always-abstain classifier scores 100% by construction, so T9 is used as a relative ordering, not an absolute benchmark. 
+
+Evaluation set. The L0–L4 + L5 pipeline yields a 6,271-question stratified set (T1 = 1500, T2 
+
+= 889, T3 = 600, T4 = 53, T5 = 495, T6 =
+
+700, T7 = 400, T8 = 134, T9 = 1500), fixed across all 32 cells to support paired McNemar tests. At p = 0 .5, the pooled Wilson 95% CI is ±0.6 pp; per-task CIs range from ±1.3 pp (T1, T9) to ±9 pp (T4); per-task minimum-detectable effects span 5.1–27 .2 pp, leaving T8 ( 17 .1 pp) weakly powered and T4 ( 27 .2 pp) under-powered (Appendix G). Pairwise headline comparisons use Holm–Bonferroni at α = 0 .05 (m = 12 ); all 12 remain significant after correction. 
+
+Headline metric. We report pooled accuracy (over all 6,271 questions) and macro accuracy (mean of the nine per-task accuracies). Because per-task sizes are unbalanced ( nT1 = nT9 = 1500 vs. 
+
+nT4 = 53 ), pooled accuracy is T1/T9-dominated; macro accuracy and the per-task surface (Table 1) 4should be consulted for representation comparisons that should not be task-mix-weighted. 
+
+4 History representation strategies and backbones 
+
+History representation strategies. Eight strate-gies span the principal context-access choices, grouped into six families: • Floor. no-context-blind — the model sees only the question. • Recency. last-visit-only — only the most recent encounter. • Full. full-context — entire multi-visit dialogue fed verbatim; upper bound for context coverage. • Retrieval. dense-retrieval — BGE-M3 chunk embeddings per patient, top-K=5 , the chunk unit being one complete clinical visit. Rerank-ing and hybrid retrieval are not evaluated; a 
+
+K ∈ { 3, 5, 10 } ablation shows no consistent gain from larger K (Appendix G). • Compression. structured-timeline (per-encounter table) and llm-summary (single 500-token DeepSeek summary; doubling the budget to 1,000 tokens does not remove the aggregation tax, Appendix G). • Agentic memory. Mem0 (extracted facts, DeepSeek-prepared, top-K=5 ) and A-Mem (Zettelkasten-style atomic notes, DeepSeek-prepared). 
+
+Backbones. Inference is routed through OpenRouter: DeepSeek-V3 (deepseek-chat-v3.1, 64k), GPT-4o-mini (gpt-4o-mini, 128k), Claude Haiku 4.5 (claude-haiku-4.5, 200k), and Claude Sonnet 4.6 (claude-sonnet-4.6, 200k). Prompt-prefix caching is enabled across all backbones (90.7 M cache-read tokens, a 17.1% cache-read hit rate); output-token caps are 120 for T8 and 80 for T9. Provider caching settings, T8 / T9 output-token caps, and the T9 abstention parser are in Appendix D. 
+
+Memory prep model. Both agentic-memory strategies extract artifacts (facts or atomic notes) from the dialogue once before any question is asked. We hold the prep model fixed at DeepSeek-V3 across all four answering backbones, isolating answering-side use of memory from construction-side extraction. A consequence: non-DeepSeek Mem0 and A-Mem cells run a heterogeneous pipeline (DeepSeek-extracted artifacts answered by GPT-4o-mini / Haiku / Sonnet); we discuss the SP2 impact in §Limitations. 
+
+5 Results 
+
+5.1 Main accuracy 
+
+Table 1 reports the full strategy-×-backbone-×-task cube; the three right-margin columns give pooled, macro, and ∆blind (macro lift over the same-backbone blind). full-context is best on ev-ery backbone (pooled 67.2 / 63.0 / 70.6 / 69.8 for DeepSeek / GPT-4o-mini / Haiku / Sonnet). dense-retrieval follows on every backbone (60.4–69.7), within 1–4 pp of full-context —BGE-M3 with K=5 
+
+captures most but not all of what full-context pro-vides. structured-timeline sits third (58.4–59.6) and is strikingly backbone-invariant ( ±0.6 pp). Mem0 
+
+and A-Mem cluster at 50.8–55.9; llm-summary and 
+
+last-visit-only trail at 41.6–49.5. Macro accuracy preserves the same ordering as pooled. The per-task surface exposes the difficulty structure: even under full-context , T2 / T4 / T6 / T8 / T9 remain hard while T1 / T3 / T5 / T7 are tractable; com-pressed strategies show the T3 constant-No band of 50.0 cells under post-construction injection (Sec-tion 5.5) and the aggregation tax on T2 / T6 / T8. Three checks show this ordering is not an ar-tifact of task mix, scoring metric, or prep model (Appendix G). It survives recomputing macro accu-racy without T5 / T8 / T9 and without the T3 probe. Under macro-F1, full-context , dense-retrieval and 
+
+structured-timeline stay above the compressed strategies on T5 (0.695 / 0.736 / 0.656 vs. a 0.478 majority baseline) and structured-timeline leads on T8 (0.523 vs. 0.247), so the skewed tasks do separate representations. And rebuilding Mem0 
+
+/ A-Mem with each answering backbone gives six matched cells, none better than DeepSeek-prepared (∆ −0.045 to −0.244 ). Table 2 decomposes the context lift (vs. same-backbone blind) for three regimes ( full-context ,
+
+dense-retrieval , and the agentic-memory mean of 
+
+Mem0 and A-Mem ); blue shades positive lift, red the rare cells where context hurts. 
+
+5.2 SP1: The aggregation bottleneck 
+
+We index findings along two complementary axes: SP1 (task × strategy, this subsection) and SP2 (backbone × strategy, Section 5.3). The two are entangled—GPT-4o-mini’s −7.8 pp on T2 with summary memory is both an SP1 observation (T2 demands aggregation; summaries destroy it) and an SP2 one (GPT-4o-mini has the narrowest blind-to-full gap). Compressed representations lose to full-context 
+
+5blind last-vis full dense struct. summ. Mem0 A-MEM Task DS GPT Hk Sn DS GPT Hk Sn DS GPT Hk Sn DS GPT Hk Sn DS GPT Hk Sn DS GPT Hk Sn DS GPT Hk Sn DS GPT Hk Sn T1 0 0 1 0 16 15 13 12 81 78 81 84 80 74 78 79 89 89 92 92 36 36 35 36 52 52 51 49 49 42 43 49 T2 17 33 0 30 33 35 18 35 38 26 35 47 35 27 43 43 30 21 29 41 26 33 32 34 33 30 35 39 33 32 37 38 T3 50 49 50 50 56 54 55 51 94 93 87 89 83 85 87 77 51 51 50 50 50 49 50 50 49 48 50 50 50 48 48 50 T4 13 8 19 11 6 11 17 11 23 28 19 25 21 23 15 6 6 21 25 17 15 17 19 11 4 13 9 15 8 11 9 13 T5 25 39 17 38 79 58 37 64 86 90 85 84 87 89 86 84 75 78 87 86 83 67 64 63 80 73 72 75 78 69 74 78 T6 36 31 0 10 42 47 47 42 54 50 51 52 47 39 44 46 61 53 52 56 44 39 42 42 46 42 45 43 50 46 44 48 T7 26 24 1 20 36 30 14 37 94 87 97 95 90 86 94 93 64 62 51 69 51 48 35 45 73 64 54 66 65 62 44 62 T8 23 25 17 26 31 35 18 23 44 27 46 47 39 28 40 40 45 40 54 49 23 25 19 22 37 36 31 30 37 34 29 37 T9 36 69 0 20 88 90 99 93 70 70 91 75 77 71 92 79 56 66 48 44 80 78 94 74 81 82 94 73 82 78 97 73 Pool. 24 33 8 20 47 46 42 45 67 63 71 70 66 60 70 66 59 59 58 60 48 47 50 46 55 54 56 52 55 51 54 53 Macro 25 31 12 23 43 42 35 41 65 61 66 67 62 58 64 61 53 53 54 56 45 44 43 42 51 49 49 49 50 47 47 50                         
+
+> ∆blind ——— — 18 11 24 18 40 30 54 44 37 27 53 38 28 22 43 33 20 13 32 19 26 18 37 26 25 16 36 27
+
+Table 1: ClinTraceBench main results: 8 strategies × 4 backbones × 9 tasks. Per-cell accuracy (%) for every (strategy, backbone, task) triple. Bottom rows: Pool. = accuracy pooled across tasks weighted by subset size; Macro = equal-task-weight mean; ∆blind = Macro minus the same-backbone no-context-blind Macro (pp). Task layers (Section 3): T1, T3, T7 are preservation/access tasks; T2, T4, T6, T8 are integrative tasks requiring cross-visit or cross-patient synthesis; T5 and T9 are diagnostic/epistemic probes with trivial-baseline ceilings. Backbones: DS = DeepSeek-V3, GPT = GPT-4o-mini, Hk = Claude Haiku 4.5, Sn = Claude Sonnet 4.6. Strategies: blind = 
+
+no-context-blind ; last-vis = last-visit-only ; full = full-context ; dense = dense-retrieval ; struct. = structured-timeline ;summ. = llm-summary . Blue heat: accuracy ( < 30 30–45 45–60 60–70 ≥ 70 ). Green heat ( ∆blind row only): ( 10–20 20–40 ≥ 40 ).                                                                                                                                    
+
+> Strategy BB T1 T2 T3 T4 T5 T6 T7 T8 T9 Macro full
+> DS +81 +20 +44 +9 +61 +19 +69 +21 +35 +40 GPT +78 -8 +44 +21 +51 +19 +63 +2 +1 +30 Hk +81 +35 +37 0+68 +51 +95 +29 +91 +54 Sn +84 +17 +39 +13 +46 +42 +76 +21 +54 +44
+> dense
+> DS +80 +18 +33 +8 +62 +11 +64 +16 +42 +37 GPT +74 -7 +35 +15 +50 +8 +62 +2 +3 +27 Hk +77 +43 +37 -4 +69 +44 +93 +23 +92 +53 Sn +78 +13 +27 -6 +46 +36 +73 +13 +59 +38
+> mem avg
+> DS +50 +16 0-8 +54 +12 +44 +14 +46 +25 GPT +47 -2 -2 +5 +32 +13 +38 +9 +12 +17 Hk +46 +36 -1 -9 +56 +45 +48 +13 +95 +36 Sn +48 +8 0+3 +38 +35 +44 +8 +53 +26
+
+Table 2: Per-cell context-lift over no-context-blind .Accuracy differences (pp) between three context regimes (full-context , dense-retrieval , mem-avg =mean of Mem0 and A-MEM) and the same-backbone, same-task no-context-blind baseline. Macro =mean over T1–T9. Diverging color encodes lift ( ≤ − 5 −5 to 0 0–5 5–15 15 –30 30 –60 ≥ 60 ). See Appendix I for heatmap visualization. 
+
+because preprocessing discards signal needed at an-swer time. The penalty is sharpest on multi-value aggregation—T2 (trend across visits), T6b / T6c (max and delta across patients), and exploratory T8. On T8, full-context reaches 0.269–0.470 across backbones while Mem0 , A-Mem , and llm-summary 
+
+fall to 0.291–0.373, 0.291–0.373, and 0.194–0.254 respectively. T7 makes the contrast cleanest by rewarding single-fact recall over aggregation: full-context reaches 0.942–0.965 (DeepSeek / Haiku / Sonnet), while Mem0 drops to 0.535–0.733 and 
+
+llm-summary to 0.349–0.512. Figure 3 visual-izes the T2 / T6 bottleneck. The mechanism is structural: agentic-memory representations never store per-visit value pairs, and a 500-token llm-summary cannot encode a multi-visit trajectory. Dense retrieval mitigates this—original text re-mains addressable—but still fails when aggregation crosses non-contiguous chunks. 
+
+5.3 SP2: Backbone-specific extraction profiles 
+
+The blind-to-full gap diagnoses how much of the answer each backbone can extract from the chart when given full access: • Haiku : 0.079 → 0.706 , gap +62 .7 pp (largest). • Sonnet : 0.203 → 0.698 , gap +49 .6 pp. • DeepSeek-V3 : 0.236 → 0.672 , gap +43 .6 pp. • GPT-4o-mini : 0.332 → 0.630 , gap +29 .8 pp (smallest). Haiku exhibits the cleanest context utilization: lowest blind (0.079), tied top under full-context ,largest 62.7 pp lift. Sonnet and DeepSeek-V3 occupy the middle. GPT-4o-mini is the outlier: highest blind (0.332), lowest full-context (0.630), narrowest lift—a pattern consistent with a halluci-nation floor that subsequent SP3 evidence on T9 reinforces. “How much a model uses given context” therefore varies more across backbones than over-6no-context last-visit LLM Mem0 A-Mem struct dense full 0.0 0.2 0.4 0.6 Accuracy Panel A. T2 — multi-value trend aggregation DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet no-context last-visit LLM Mem0 A-Mem struct dense full 0.0 0.2 0.4 0.6 Accuracy Panel B. T6 — cross-patient comparison Figure 3: Accuracy on two longitudinal-reasoning bottlenecks, grouped by strategy (x-axis) and back-bone (color). (A) T2 trend aggregation (889 q/cell). (B) T6 cross-patient comparison (700 q/cell, subtypes T6a/T6b/T6c). Dotted line in Panel B = 0.5 reference (suppressed in A where all bars sit below 0.5). Missing Haiku no-context and Sonnet’s near-zero on the same column are parser-strictness artifacts on verbose absten-tions. Even full-context stays well below ceiling: T2/T6 are reasoning bottlenecks distinct from point-fact recall. 
+
+all accuracy suggests, and backbone choice cannot be reduced to a single capacity dimension. 
+
+5.4 SP3: Non-monotonic abstention under longer context 
+
+T9 probes abstention over unstated facts; all 1,500 gold answers are “insufficient information”, so ac-curacy equals the abstention rate and over-answer rate = 1 − abstention. Per-cell: • no-context-blind : abstention 0.355 / 0.685 / 0.000 / 0.204 (DeepSeek / GPT-4o-mini / Haiku / Son-net); over-answer 0.645 / 0.315 / 1.000 / 0.796. • full-context : abstention 0.701 / 0.698 / 0.907 / 0.747; over-answer 0.299 / 0.302 / 0.093 / 0.253. • last-visit-only : abstention 0.883 / 0.895 / 0.994 / 0.926; over-answer 0.117 / 0.105 / 0.006 / 0.074. Two findings. First, full-context beats blind on ev-ery backbone—any patient context lifts abstention. Second, abstention is non-monotonic: last-visit-only dominates full-context on every backbone by 5–30 pp (Haiku 0.994 vs. 0.907; Sonnet 0.926 vs. 0.747; DeepSeek 0.883 vs. 0.701; GPT-4o-mini 0.895 vs. 0.698). Adding dialogue beyond the most-recent encounter actively degrades abstention. Fig-ure 4 shows the over-answer fraction climbing from 
+
+last-visit-only through full-context to structured-timeline . GPT-4o-mini’s anomalous blind T9 of no-context last-visit LLM Mem0 A-Mem struct dense full 0500 1000 1500 Question count correct abstain patched correct other rescored parser-missed over-answer 
+
+Figure 4: T9 per-cell decomposition into five outcomes: correct abstain (refused as expected), patched correct / other rescored (post-hoc parser recovered abstention via synonyms), parser-missed (verbose abstention not captured), over-answer (confident hallucination); 1500 q/cell, bars are DeepSeek/GPT-4o-mini/Haiku/Sonnet left to right within each strategy cluster. Abstention rate = correct + patched + parser-missed. Over-answer grows from last-visit-only to full-context and structured-timeline : abstention is non-monotonic in context length. 
+
+0.685 (vs. its pooled-blind 0.332) reflects a default abstention prior under empty context—a backbone-specific blind hedging. Per the trivial-baseline caveat (§3), T9 is a relative ordering, not an ab-solute measure. The last-visit-only advantage is significant on paired data (0.924 vs. 0.763 pooled; 
+
+∆ = 0 .161 , McNemar p = 1 .7 × 10 −38 ) and sur-vives parser strictness: a lenient parser leaves it ahead (0.930 vs. 0.838), narrowing the gap to 0.092 without changing direction. Of the 307 full-context 
+
+non-abstentions, fabricated values make up ≈ 54% 
+
+of genuine over-answers once parser-missed ver-bose abstentions are discounted—plausible-but-unsupported detail, not cross-visit confusion, is the dominant mode (Appendix G). 
+
+5.5 SP4: Controlled preservation probe: compressed representations drop the finding–diagnosis relation even under equal input 
+
+T3 isolates preprocessing-induced signal loss. Each “yes” instance carries one physician-attribution sen-tence linking a same-encounter finding to its prob-lem; “no” instances are unmodified. We report the equal-input setting first, since it is the one in which every representation receives the same text. 
+
+Equal input (preservation probe). On a strati-fied 20-patient subset of the cohort—47 T3 ques-tions, 19 injected-positive and 28 negative—the at-tribution sentence is inserted before Mem0 , A-Mem 
+
+7DS GPT Hk Sn                                     
+
+> DeepSeek-V3–prepared Mem0 0.053 0.053 0.000 0.000
+> A-Mem 0.053 0.053 0.000 0.000
+> llm-summary 0.000 0.000 0.000 0.000
+> Backbone-matched prep Mem0 —0.053 0.000 0.000
+> A-Mem —0.053 0.000 0.000
+> Table 3: SP4 equal-input preservation probe: positive-class recall on the 19 injected-positive T3 instances (stratified 20-patient subset), with the attribution sen-tence present before the representation is built. DS / GPT / Hk / Sn = DeepSeek-V3 / GPT-4o-mini / Haiku 4.5 / Sonnet 4.6; for DS the DeepSeek-prepared cell is already backbone-matched. structured-timeline
+> was not run in this setting ( Scope ).
+> Figure 5: T3 constant-No collapse under post-construction injection (update/staleness probe). (A) Per-cell yes/no/other predictions (600 q/cell); dashed line at 300 = balanced gold; red triangles flag cells with pred =no ≥575 /600 . (B) Per-cell accuracy; dashed 0.5 = constant-No floor. The four upstream-built strate-gies flatten to 0.50 across all 16 cells. Primary preserva-tion evidence is the equal-input probe (Table 3).
+
+or the 500-token llm-summary is constructed, so ev-ery constructor sees it. Table 3 gives positive-class recall on the 19 positives: at best 1/19 ( 5.3% ) for 
+
+Mem0 and A-Mem , and 0/19 for every llm-summary 
+
+cell. Rebuilding the memory with the answering backbone rather than DeepSeek-V3 changes noth-ing (lower block), so neither injection order nor prep-model mismatch explains it. Artifact inspection shows what is lost: the underlying lab fact is usually retained, the ex-plicit finding–diagnosis attribution usually omit-ted. The failure is relation-level, not access-level— compression keeps the facts and drops the link. 
+
+Post-construction injection (update/staleness probe). Injecting the sentence after construction leaves full-context (0.869–0.938), last-visit-only 
+
+and dense-retrieval (0.769–0.869) intact, while all four upstream-built strategies answer “No” on all 600 T3 questions in all 16 cells, giving exactly 0.500 on the balanced gold—the constant-No floor of Figure 5. A derived representation cannot con-tain a sentence introduced after it was built, so this measures staleness under update, not discarding; we report it as a secondary probe. Neither setting depends on backbone capacity: GPT-4o-mini, the weakest backbone overall, still reaches 0.931 post-construction under full context, and under equal input the strongest backbones re-cover no more of the signal than the weakest. 
+
+Scope. The equal-input conclusion covers 
+
+Mem0 , A-Mem and llm-summary only; structured-timeline has not been run under pre-construction in-jection and enters only under the post-construction setting. Neither setting is an apples-to-apples rank-ing across all eight strategies, and what the probe measures is signal preservation, not unsupervised linkage reasoning. 
+
+5.6 Retrieval, cost, and Pareto efficiency 
+
+Dense retrieval matches full-context accuracy at a fraction of the cost. BGE-M3 hit rates over 4,771 retrieval-eligible questions: hit@1 = 0.595, hit@3 = 0.852, hit@5 = 0.926, hit@10 = 0.979 (Appendix C). Figure 6 places every cell in (cost, accuracy) space and traces the 11-cell Pareto fron-tier. Two consequences. First, full-context × Son-net ($106.21, 0.698) is dominated by full-context ×
+
+Haiku ($25.76, 0.706), inverting the “biggest back-bone wins” heuristic. Second, structured-timeline 
+
+never reaches the frontier despite competitive ac-curacy (0.58–0.60)—the structured tokens fail to compress enough to offset per-call cost. 
+
+5.7 Illustrative failure modes 
+
+Aggregate accuracy collapses categorically distinct errors into a single number. Four case studies in Appendix H (Figure 25) make the distinction con-crete: T3 constant-No collapse (Case 1), T9 over-answering (Case 2), Haiku-specific T2 trend failure (Case 3), and T6 cross-patient confusion (Case 4). The underlying errors differ in kind—conflating them obscures the diagnostic signal that each rep-resentation strategy fails in a characteristic way. 8Figure 6: Cost vs. pooled accuracy across 32 cells. Cost: USD per 6,271-question cell (log scale). Color = strategy family; shape = backbone. Dashed curve: Pareto frontier (11/32). Haiku dominates Sonnet on   
+
+> full-context ;structured-timeline is off-frontier on cost despite competitive accuracy.
+
+6 Discussion 
+
+What compact representations get right. Dense retrieval lands within 1–4 pp of full-context pooled and within 0–9 pp on every task except T4 (small-
+
+n); when answers are chunk-localizable, BGE-M3 surfaces them reliably. Structured timelines beat 
+
+full-context on numeric retrieval (T1 0.886–0.923) by reducing noise around the cell. Mem0 and A-Mem hold their own on T4 and T9 where compres-sion incidentally aligns with gold density. 
+
+What compact representations get wrong. (i) Aggregation (T2/T6b/T6c, exploratory T8): pre-processing discards per-visit value pairs needed for trends/deltas. (ii) Relation preservation (T3): even with the attribution sentence present at construction time, Mem0 , A-Mem and llm-summary recover 0– 5.3% of injected positives while typically keeping the underlying lab fact—the loss is of the finding– diagnosis relation, not of access. Post-construction, those strategies plus structured-timeline sit at the constant-No floor, showing additionally that de-rived artifacts go stale. (iii) Contradiction (T5): trivial always-contradicts scores 91.9%; no cell beats it. (iv) Non-monotonic abstention (T9): full-context helps over blind but degrades vs. last-visit-only on every backbone, and trivial always-abstain scores 100% by construction. 
+
+What the dialogue substrate contributes. In a small full-context pilot the model received either the dialogue or a bare structured-event table over the same events. The table keeps the events but does not explicitly represent the narrative relations T3, T4 and T5 target, so those tasks cannot be evaluated equivalently from it (Appendix G). 
+
+Cost flips “biggest backbone wins”. On the Pareto frontier (Figure 6), Haiku not Sonnet sits on it under full-context : cheaper ($25.76 vs. $106.21) and slightly more accurate (0.706 vs. 0.698). Memory-equipped clinical agents should be benchmarked on the cost–quality frontier. 
+
+Memory size ̸ = accuracy. Total Mem0 char-acter budget is uncorrelated with patient-level T1 Mem0 accuracy (Pearson r = −0.129 ; Ap-pendix 15). Architectural choice (atomic facts vs. visit-level notes vs. prose) matters more than bud-get; more facts can introduce retrieval noise. 
+
+Future work. Multi-EHR replication, longer horizons, dynamic memory updates, evaluation on real longitudinal notes and conversations, and extending the equal-input probe to structured-timeline and the full cohort. A future release will rebalance T5 and enlarge T8 to remove the trivial-class ceilings. 
+
+7 Conclusion 
+
+ClinTraceBench provides the first source-verifiable benchmark for longitudinal clinical reasoning over EHR-derived dialogues: 9 tasks, 385 verified dia-logues, 8 history representation strategies, 4 fron-tier backbones, 6,271 questions, and 200,672 pre-dictions. Three high-level findings emerge. First, full context remains the accuracy upper bound, and the gap to compressed representations is driven not by retrieval failure but by a preprocessing tax on relational signal: when the finding–diagnosis attri-bution sentence is present in the input before the representation is built, compressed strategies still typically retain the underlying fact while dropping the relation, and no scaling of backbone capacity recovers it. Second, abstention discipline does not improve monotonically with context length, com-plicating the case for feeding longer charts. Third, the cost–quality Pareto frontier inverts the “biggest backbone wins” heuristic, with smaller backbones dominating under full-context. 
+
+Limitations 
+
+Synthetic dialogues. The 385 dialogues are LLM-generated from de-identified structured MIMIC-IV fields. What the 98.92% audit and the determin-istic verifier establish is source fidelity and gold correctness, not conversational realism: key labs, admissions and discharges, procedures, and diag-noses are covered at ≥ 98% ; hallucination checks on values, reference ranges, ICD codes, and drugs 9pass at 99.8–100%; independent gold recomputa-tion mismatches on < 0.5% of items. Patients are also stratified by source-record complexity, but none of this shows that synthetic dialogues repro-duce the ambiguity, redundancy, temporal inconsis-tency, and missing documentation of real clinical text. All eight strategies are compared over the same dialogues, so within-benchmark comparisons are supported, but transfer to real clinical conver-sations is not established and we do not claim it; validating whether the strategy ordering persists on real longitudinal notes and conversations is future work. 
+
+Scope. (i) Single EHR source (MIMIC-IV, hospital-wide admissions rather than an ICU-only cohort); evaluation is English-only and general-ization to other settings, languages, and pediatric populations is untested. (ii) Single time horizon (385 dialogues); multi-year follow-up and dynamic memory updates are deferred. (iii) T5 is controlled rather than natural-EHR contradiction; T8 mea-sures post-treatment lab change rather than causal efficacy (concurrent-medication annotations were not retained); T9 covers unstated lab and medica-tion facts only. (iv) full-context serves as a coverage upper bound, not a deployment target, given its cost and latency profile. 
+
+Residual artifacts. Approximately 1,400 empty API responses (0.7% of 200,672; Appendix E) are retained in headline numbers: excluding them would inflate Sonnet / Haiku full-context by at most 
+
++0 .2 pp, well below all headline contrasts, and the sensitivity appendix confirms that every SP1–SP4 contrast holds ( ∆ < 0.5 pp) under either policy. Roughly 13% of Sonnet T8 rows hit the original 120-token cap before we extended it, so residual truncation may persist on a small subset. Long-context degradation is uniform across backbones (−13 to −14 pp from shortest to longest quartile), but length and disease severity remain entangled. 
+
+Agentic-memory prep confound. The head-line cube fixes the prep model at DeepSeek-V3, so non-DeepSeek Mem0 / A-Mem cells run a heteroge-neous pipeline and SP2’s gap on those cells partly conflates answering- and construction-side effects. We therefore ran six backbone-matched cells (GPT-4o-mini, Haiku, Sonnet × Mem0 , A-Mem ) on the stratified 20-patient subset: matching prep to the answering backbone did not improve accuracy in any of the six ( ∆ from −0.045 to −0.244 ) and left the T3 attribution signal almost entirely lost (≤ 1/19 positives recovered), so the prep model does not explain the weak agentic-memory results. Being confined to that subset, this check corrobo-rates the full-cohort ordering in Table 1 only at that scale. 
+
+Task-design limits and planned revisions. 
+
+Trivial baselines leave T5 / T6 / T8 / T9 not discrim-inable from majority-class predictors at α = 0 .05 
+
+in accuracy terms, so T1 / T3 / T4 / T7 carry the cleanest representation signal and the rest serve as supporting probes; macro-F1 recovers usable sig-nal on T5 and T8 (Appendix G). T4’s 53 questions leave it under-powered at a 27.2 pp minimum de-tectable effect. A future release will rebalance the T5 contradiction classes and enlarge the T8 pool; neither change is part of the present benchmark version. 
+
+Ethics statement 
+
+Data access and de-identification. Clin-TraceBench is derived from MIMIC-IV (Johnson et al., 2023), a HIPAA-compliant, de-identified electronic health record dataset released under the PhysioNet Credentialed Health Data License; all authors completed the required CITI training and signed the PhysioNet Data Use Agreement before accessing it. No re-identification was attempted, and the synthetic dialogues are generated from structured fields only (dates, lab values, ICD codes, drugs), so they contain no protected health information. 
+
+Scope and intended use. The 385 verified dia-logues are LLM-generated doctor–patient conver-sations synthesized from de-identified structured records; they are not real clinical communications and are not clinically validated. ClinTraceBench evaluates information retrieval and reasoning fi-delity over EHR-derived dialogues: it does not mea-sure clinical safety, diagnostic accuracy, treatment appropriateness, or patient outcomes, and must not be used as a proxy for clinical readiness, for clinical decision support, for deployment-oriented model training, or in any patient-facing application. 
+
+Release and redistribution. The question set with event-ID provenance and gold answers, all 200,672 predictions, the scoring harness, and the controlled-injection generator are released at https://github.com/HathyHuimin/ ClinTraceBench . The dialogues inherit MIMIC-IV’s redistribution restrictions: their text is not redistributed, and regenerating it requires PhysioNet credentialing and MIMIC-IV access. 10 References 
+
+Yushi Bai, Xin Lv, Jiajie Zhang, Hongchang Lyu, Jiankai Tang, Zhidian Huang, Zhengxiao Du, Xiao Liu, Aohan Zeng, Lei Hou, Yuxiao Dong, Jie Tang, and Juanzi Li. 2024. LongBench: A bilingual, mul-titask benchmark for long context understanding. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (ACL), pages 3119–3137. Suhana Bedi, Hejie Cui, Miguel Fuentes, Alyssa Unell, Michael Wornow, Juan M. Banda, Nikesh Kotecha, Timothy Keyes, Yifan Mai, et al. 2025. MedHELM: Holistic evaluation of large language models for med-ical tasks. arXiv preprint arXiv:2505.23802. Asma Ben Abacha, Wen-wai Yim, Yujuan Fu, Zhaoyi Sun, Meliha Yetisgen, Fei Xia, and Thomas Lin. 2025. MEDEC: A benchmark for medical error de-tection and correction in clinical notes. In Findings of the Association for Computational Linguistics: ACL 2025, pages 22539–22550. Jianlv Chen, Shitao Xiao, Peitian Zhang, Kun Luo, Defu Lian, and Zheng Liu. 2024. M3-Embedding: Multi-linguality, multi-functionality, multi-granularity text embeddings through self-knowledge distillation. In Findings of the Association for Computational Linguistics: ACL 2024, pages 2318–2335. Prateek Chhikara, Dev Khant, Saket Aryan, Taranjeet Singh, and Deshraj Yadav. 2025. Mem0: Building production-ready AI agents with scalable long-term memory. arXiv preprint arXiv:2504.19413. Hejie Cui, Alyssa Unell, Bowen Chen, Jason Alan Fries, Emily Alsentzer, Sanmi Koyejo, and Nigam H. Shah. 2025. TIMER: Temporal instruction modeling and evaluation for longitudinal clinical records. npj Digital Medicine, 8(1):577. Scott L. Fleming, Alejandro Lozano, William J. Haberkorn, Jenelle A. Jindal, Eduardo P. Reis, Rahul Thapa, Louis Blankemeier, Julian Z. Genk-ins, Ethan Steinberg, Ashwin Nayak, Birju S. Patel, Chia-Chun Chiang, Alison Callahan, Zepeng Huo, Sergios Gatidis, Scott J. Adams, Oluseyi Fayanju, Shreya J. Shah, Thomas Savage, Ethan Goh, Ak-shay S. Chaudhari, Nima Aghaeepour, Christopher Sharp, Michael A. Pfeffer, Percy Liang, Jonathan H. Chen, Keith E. Morse, Emma P. Brunskill, Jason A. Fries, and Nigam H. Shah. 2024. MedAlign: Aclinician-generated dataset for instruction following with electronic medical records. In Proceedings of the AAAI Conference on Artificial Intelligence, vol-ume 38, pages 22021–22030. Yanjun Gao, Dmitriy Dligach, Timothy Miller, Samuel Tesch, Ryan Laffin, Matthew M. Churpek, and Majid Afshar. 2023. DR.BENCH: Diagnostic reasoning benchmark for clinical natural language processing. Journal of Biomedical Informatics, 138:104286. Yuanzhe Hu, Yu Wang, and Julian McAuley. 2025. Eval-uating memory in LLM agents via incremental multi-turn interactions. arXiv preprint arXiv:2507.05257. Alistair E. W. Johnson, Lucas Bulgarelli, Lu Shen, Alvin Gayles, Ayad Shammout, Steven Horng, Tom J. Pol-lard, Sicheng Hao, Benjamin Moody, Brian Gow, Li-wei H. Lehman, Leo A. Celi, and Roger G. Mark. 2023. MIMIC-IV, a freely accessible electronic health record dataset. Scientific Data, 10(1):1. Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, Scott Johnston, Sheer El-Showk, Andy Jones, Nelson Elhage, Tristan Hume, et al. 2022. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221. Greg Kamradt. 2023. Needle in a haystack – pres-sure testing LLMs. https://github.com/ gkamradt/LLMTest_NeedleInAHaystack .GitHub repository. Maya Kruse, Shiyue Hu, Nicholas Derby, Yifu Wu, Samantha Stonbraker, Bingsheng Yao, Dakuo Wang, Elizabeth Goldberg, and Yanjun Gao. 2025. Large language models with temporal reasoning for longi-tudinal clinical summarization and prediction. arXiv preprint arXiv:2501.18724. Sunjun Kweon, Jiyoun Kim, Heeyoung Kwak, Dongchul Cha, Hangyul Yoon, Kwanghyun Kim, Jeewon Yang, Seunghyun Won, and Edward Choi. 2024. EHRNoteQA: An LLM benchmark for real-world clinical practice using discharge summaries. In Advances in Neural Information Processing Systems (NeurIPS), Datasets and Benchmarks Track, vol-ume 37, pages 124575–124611. Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Hein-rich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-täschel, Sebastian Riedel, and Douwe Kiela. 2020. Retrieval-augmented generation for knowledge-intensive NLP tasks. In Advances in Neural Information Processing Systems (NeurIPS), vol-ume 33, pages 9459–9474. Nelson F. Liu, Kevin Lin, John Hewitt, Ashwin Paran-jape, Michele Bevilacqua, Fabio Petroni, and Percy Liang. 2024. Lost in the middle: How language models use long contexts. Transactions of the Association for Computational Linguistics, 12:157– 173. Mingyu Derek Ma, Chenchen Ye, Yu Yan, Xiaoxuan Wang, Peipei Ping, Timothy S. Chang, and Wei Wang. 2024. CliBench: A multifaceted and multigranular evaluation of large language models for clinical deci-sion making. arXiv preprint arXiv:2406.09923. Adyasha Maharana, Dong-Ho Lee, Sergey Tulyakov, Mohit Bansal, Francesco Barbieri, and Yuwei Fang. 2024. Evaluating very long-term conversa-tional memory of LLM agents. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (ACL), pages 13851– 13870. 
+
+11 Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir G. Patil, Ion Stoica, and Joseph E. Gonzalez. 2023. MemGPT: Towards LLMs as operating sys-tems. arXiv preprint arXiv:2310.08560. Karan Singhal, Shekoofeh Azizi, Tao Tu, S. Sara Mah-davi, Jason Wei, Hyung Won Chung, Nathan Scales, Ajay Tanwani, Heather Cole-Lewis, Stephen Pfohl, Perry Payne, Martin Seneviratne, Paul Gamble, Chris Kelly, Abubakr Babiker, et al. 2023. Large lan-guage models encode clinical knowledge. Nature, 620(7972):172–180. Weiyi Sun, Anna Rumshisky, and Ozlem Uzuner. 2013. Evaluating temporal relations in clinical text: 2012 i2b2 challenge. Journal of the American Medical Informatics Association, 20(5):806–813. Di Wu, Hongwei Wang, Wenhao Yu, Yuwei Zhang, Kai-Wei Chang, and Dong Yu. 2025. LongMemEval: Benchmarking chat assistants on long-term inter-active memory. In International Conference on Learning Representations (ICLR). Wujiang Xu, Zujie Liang, Kai Mei, Hang Gao, Jun-tao Tan, and Yongfeng Zhang. 2025. A-MEM: Agentic memory for LLM agents. arXiv preprint arXiv:2502.12110. Zeyu Zhang, Xiaohe Bo, Chen Ma, Rui Li, Xu Chen, Quanyu Dai, Jieming Zhu, Zhenhua Dong, and Ji-Rong Wen. 2025. A survey on the mem-ory mechanism of large language model based agents. ACM Transactions on Information Systems. ArXiv:2404.13501. 
+
+12 A Validation gates 
+
+Each (anchor, gold) pair passes through five deter-ministic levels (L0–L4) plus a final human spot-check (L5) before entering the 6,271-question eval-uation set: • L0 — Schema. JSONL fields and types match the task-specific schema; threshold 0 failure. • L1 — Anchor source. Anchors for T1–T8 must lie in verified_covered_events ; T9 an-chors must lie in missed_events ; threshold 
+
+< 1% .• L2 — Gold recompute. The gold is indepen-dently regenerated from the spec and the raw structured fields, and must equal the candidate gold; threshold < 0.5% .• L3 — No gold leakage. The question text must not contain the gold answer (critical for T2 trend labels and T9 abstention cues); threshold 0 fail-ure. • L4 — Distribution coverage. Per-task disease, complexity-tertile, patient, and event-type dis-tributions are checked against the construction targets; reported as a soft warning rather than a hard fail. • L5 — Human spot-check. A stratified sample of 370 questions (30/task low-risk × 4 + 50/task high-risk × 5) was hand-audited by the authors; 366/370 = 98.92% agreement with the automated gold. 7/9 tasks scored 0% FAIL; T7 = 2% (dis-tractor substring leak), T9 = 6% (Secondary-pool textual templating). Both below the 10% fix threshold. L0–L4 are deterministic and run on all generated questions; L5 is a human verification pass on a stratified subsample. 
+
+B Per-task subtype diagnostics 
+
+The headline tables pool over every within-task subtype for compactness, but each of our nine evaluation tasks has at least one principled axis along which difficulty varies by construction. This appendix reopens those axes one task at a time, so the reader can see which question variants drive the aggregate task scores in the main pa-per. Three recurring patterns are worth flagging up front. First, tasks whose subtypes are categor-ical anchors (T3 attribution class, T7 medication vs procedure, T9 silent-evidence kind) split cleanly into separate distributions. Second, tasks with an explicit controlled-vs-natural design (T5) collapse onto that family axis and the headline finding lives there. Third, tasks with a magnitude × direction lattice (T8) need both axes to read off difficulty; small-magnitude bins are categorically harder than larger ones across every backbone. 
+
+B.1 Subtype overview 
+
+Figure 7 is the six-panel overview: T1, T3, T5, T6, T7, T8 under full-context across all four backbones. T2 / T4 / T9 are deferred to their own dedicated figures below because their subtype axes do not match the generic layout. Per-task subtype n counts are listed inside the figure. admission diagnosis discharge lab procedure 0.00 0.25 0.50 0.75 1.00    
+
+> accuracy  T1
+> N-admit Y-admit Y-er N-er 0.00 0.25 0.50 0.75 1.00 T3
+> c-dx c-proc n-lab c-lab c-ctrl 0.00 0.25 0.50 0.75 1.00
+> accuracy  T5
+> T6b T6c T6a 0.00 0.25 0.50 0.75 1.00 T6
+> medication procedure 0.00 0.25 0.50 0.75 1.00
+> accuracy  T7
+> S- S+ S0 L- M-M+ L+ 0.00 0.25 0.50 0.75 1.00 T8 DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet
+
+Figure 7: Per-task subtype accuracy under full-context across four backbones. T5 short codes: c-dx / c-proc / c-lab / c-ctrl = controlled_dx_presence / _procedure / _lab_value / _control; n-lab = natu-ral_c2_lab_non_glucose. T8 short codes: L/M/S =
+
+large/medium/small magnitude; −/+/0 = negative/posi-tive/flat direction. 
+
+B.2 T3 four-class attribution detail 
+
+T3’s design crosses injection presence ( Y / N) with encounter category ( admit / er ) to produce four classes. The DeepSeek panel in Figure 8 is the representative split; the other three backbones show the same qualitative pattern. The story is the same in every backbone we tested: injected cells (Y-∗)collapse to ∼0 under compressed memories and are recovered by dense and full-context ;not-injected cells (N-∗) sit near ceiling for every strategy except the dense / full-context strategies, where additional context occasionally adds noise. 13 no-ctx last-v LLM Mem0 A-Mem struct dense full Y-admit Y-er N-admit N-er Class                              
+
+> 0.00 0.15 0.00 0.00 0.03 0.06 0.82 1.00 0.00 0.13 0.00 0.03 0.03 0.00 0.81 1.00 1.00 0.98 1.00 0.95 0.95 0.98 0.88 0.88 1.00 1.00 1.00 1.00 1.00 1.00 0.77 0.86 0.0 0.2 0.4 0.6 0.8 1.0
+> Accuracy
+
+Figure 8: T3 attribution-detection accuracy by 4-class stratification (DeepSeek backbone, representative). n:Y-admit 34, Y-er 31, N-admit 43, N-er 22. 
+
+B.3 T5 controlled vs. natural contradiction 
+
+T5 is designed as a controlled contradiction probe rather than a natural EHR-contradiction mining task. Figure 9 makes that explicit: the five subtypes collapse cleanly onto a single controlled-vs-natural axis – four controlled subtypes against a single nat-ural one – and the two families move in opposite directions as memory becomes richer. Controlled subtypes climb from 0.32 at no-ctx to 0.97 un-der full-context , while the lone natural sub-type (lab non-glucose) goes the other way ( 0.80 →
+
+0.07 ), because dense and full-context in-troduce confounding lab evidence that triggers spu-rious contradictions. no-ctx last-v LLM Mem0 A-Mem struct dense full 0.00 0.25 0.50 0.75 1.00 Accuracy  (A) per-subtype no-ctx last-v LLM Mem0 A-Mem struct dense full 0.00 0.25 0.50 0.75 1.00 Accuracy  (B) controlled vs natural ctrl: dx presence ctrl: procedure ctrl: lab value ctrl: control natural: lab controlled natural 
+
+Figure 9: T5 controlled-vs-natural contradiction break-down (Sonnet backbone exemplar). (A) per-subtype ac-curacy across the 8 memory baselines; (B) the same data collapsed onto the controlled-vs-natural family axis. 
+
+B.4 T4 retrospective evidence retrieval 
+
+T4 scores strict set-F1 on event UIDs and is the smallest task in the suite ( n = 53 ); the question pool is biased toward a handful of condition fami-lies. Figure 10 reports the pool composition, per-backbone full-context set-F1, and the full 8 × 4
+
+cell heatmap. The small-n profile is intentional and is the reason T4 is treated as a limited rather than headline finding throughout the paper. 0 10 20 # questions Diabetes Kidney / CKD Hypertension Ischemic heart 22 17 86(A) Condition family DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet 0.0 0.2 0.4 0.6 Set-F1  0.38 0.45 0.35 0.41 (B) F1 per backbone (full ctx)                           
+
+> DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet no-ctx last-v LLM Mem0 A-Mem struct dense full
+> 0.18 0.19 0.32 0.22 0.15 0.26 0.24 0.25 0.23 0.34 0.36 0.24 0.19 0.25 0.23 0.29 0.21 0.20 0.31 0.34 0.23 0.41 0.47 0.34 0.38 0.35 0.27 0.15 0.38 0.45 0.35 0.41
+> (C) Set-F1 per (memory baseline ×backbone)
+> 0.0 0.2 0.4 Set-F1
+
+Figure 10: T4 retrospective evidence retrieval. (A) condition-family distribution of the n = 53 questions; (B) per-backbone set-F1 under full-context; (C) set-F1 heatmap across 8 memory baselines × 4 backbones. 
+
+B.5 T8 observed treatment-response bins 
+
+T8 is observed post-treatment lab change track-ing, not causal treatment-response estimation; concurrent-medication annotations were deliber-ately not retained in the final evaluation parquet, so the seven magnitude × direction bins are a difficulty proxy rather than a clinical-effect esti-mate. The headline pattern is that large/medium bins climb from 0.29 –0.65 at no-ctx to 0.69 –
+
+0.94 at full-context , but the small bins are categorically harder: S− and S+ sit at ∼0 across every baseline including full-context (Fig-ure 11), while S0 is rescued only by structured timeline (1.00 ) and full-context (0.75 ). 
+
+B.6 T9 silent-evidence kind: lab vs. other 
+
+The active T9 pool is structurally degenerate along the primary-or-secondary axis: ev-ery question has anchor_count = 1 and 
+
+primary_or_secondary = “primary”. The cleanest available stratification is therefore the silent-evidence kind (lab vs. other), and Figure 12 reports accuracy, abstention rate, and over-answer rate on that split. The T9 pool splits 1,147 lab-anchored vs. 353 other-anchored, an ≈ 76% /24% 
+
+ratio. 14 L- L+ M- M+ S- S+ S0 Bin (mag × dir) 020 40 # questions                                                   
+
+> 17 817 13 34 25 20
+> (A) Bin counts
+> no-ctx last-v LLM Mem0 A-Mem struct dense full L-L+ M-M+ S-S+ S0 Bin
+> 0.53 0.71 0.29 0.65 0.71 0.88 0.71 0.94 0.50 0.50 0.50 0.62 0.62 0.88 0.75 0.75 0.65 0.35 0.53 0.53 0.59 0.88 0.76 0.88 0.54 0.38 0.38 0.46 0.62 0.69 0.69 0.77 0.03 0.00 0.00 0.00 0.09 0.00 0.03 0.00 0.00 0.00 0.04 0.00 0.00 0.00 0.04 0.04 0.15 0.20 0.25 0.45 0.60 1.00 0.55 0.75
+> (B) Per-bin accuracy (Sonnet)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Accuracy
+
+Figure 11: T8 per-bin breakdown (Sonnet exemplar). (A) question counts in the seven (magnitude × direction) bins ( n = 134 total); (B) per-bin accuracy across the 8 memory baselines. 
+
+C Cohort, retrieval, and compression footprints 
+
+This appendix characterises the static building blocks of the benchmark: the patient cohort it draws from, the auxiliary retrieval index it lets the dense baseline rely on, and the compressed-memory structures the Mem0 / A-Mem / LLM summary baselines build upstream of answer time. The point is to make clear that the headline accu-racy differences come from representation choice, not from asymmetric access to the underlying clin-ical evidence. 
+
+C.1 Patient cohort 
+
+The 6,271-question evaluation set is drawn from 
+
+n = 385 verified dialogues. Figure 13 reports the three distributional cuts that matter: visits per pa-tient (median 10, mean 16.0, max 93), dialogue length in thousands of characters (median 13.7 k, mean 15.0 k, max 30.7 k), and stratified-eval ques-tions per patient (median 4, mean 4.3, max 12). The vast majority of the 385 dialogues contribute at least one question to the eval set. 
+
+C.2 BGE-M3 dense-retrieval hit rate 
+
+The dense baseline relies on BGE-M3 to embed visits and rank them against the query. Figure 14 reports top-k visit-hit rate per task on the 1,177 retrieval-eligible questions (T9 silent-evidence is excluded by construction). The overall headline is hit@1 = 0.595, hit@3 = 0.852, hit@5 = 0.926, hit@10 = 0.979, which is sufficient quality that the retrieval step is not the bottleneck on any of the tasks where dense loses to full-context .
+
+C.3 Compression footprints 
+
+The three compressed-memory strategies produce structures of very different sizes. Figure 15 re-ports the per-patient footprint of each, plus a size-vs-accuracy scatter that disposes of the hy-pothesis that headline accuracy differences are driven by raw representation size. Pearson 
+
+r(Mem0 size , Mem0 T1 accuracy ) = −0.129 on 
+
+n = 210 patients: bigger is not better, and the com-pressed representations are bottlenecked by what they encode, not by how much. 
+
+D Resource consumption 
+
+Tables and figures in this appendix attach a dol-lar / token / cache cost to each of the 32 (mem-ory baseline × backbone) cells. The takeaway is the same one the main paper draws: most of the representation-driven accuracy gains do not require the most expensive cell, and the cost ranges across the grid are wide enough that efficiency–accuracy trade-offs are a real decision rather than a marginal one. Table 4 gives the per-cell figures and Figure 16 visualises them. 
+
+E Pipeline-quality diagnostics 
+
+This appendix documents the failure modes of the evaluation pipeline itself. Two kinds of issue can in principle confound the headline accuracies: a model returning no response at all, and the strict gold parser failing to recover a prediction. We measure both, and we measure where each one concentrates so the reader can see they are not driving the comparisons in the main paper. 
+
+E.1 Empty responses (D1) 
+
+After the M1 retry pass, roughly 0.7% of the 200,672 prediction rows still have an empty 
+
+raw_response . They concentrate on GPT-4o-mini and Claude Haiku under retrieval-style con-texts ( Mem0 , A-Mem , dense ); DeepSeek’s col-umn is uniformly zero (Figure 17). These rows are documented but not excluded from the headline accuracy numbers. 15 lab other 0.00 0.25 0.50 0.75 1.00      
+
+> accuracy (A) Accuracy
+> lab other 0.00 0.25 0.50 0.75 1.00
+> P(abstain) (B) Abstention rate
+> lab other 0.00 0.25 0.50 0.75 1.00
+> 1 - P(abstain | wrong) (C) Over-answer rate DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet
+
+Figure 12: T9 silent-evidence abstention stratified by anchor kind (lab vs. other) under full-context. (A) accuracy; (B) abstention rate; (C) over-answer rate when wrong. n = 1 ,147 lab vs. n = 353 other. 
+
+Strategy Backbone Cost (USD) $/q Input (M) Output (K) Cache hit % no-context blind DeepSeek-V3 $0.19 $0.0000 0.5 52.3 2.2% GPT-4o-mini $0.13 $0.0000 0.5 74.3 0.0% Haiku 4.5 $1.54 $0.0002 0.6 272.8 0.0% Sonnet 4.6 $5.27 $0.0008 0.6 238.1 0.0% last-visit-only DeepSeek-V3 $1.45 $0.0002 5.3 40.4 1.9% GPT-4o-mini $0.71 $0.0001 5.5 81.9 21.9% Haiku 4.5 $5.80 $0.0009 6.4 208.1 3.0% Sonnet 4.6 $19.34 $0.0031 6.4 163.1 13.9% full-context DeepSeek-V3 $9.62 $0.0015 36.8 51.3 4.1% GPT-4o-mini $3.92 $0.0006 37.7 78.8 35.0% Haiku 4.5 $25.76 $0.0041 44.7 137.9 32.8% Sonnet 4.6 $106.20 $0.0169 44.9 141.4 25.2% dense-retrieval DeepSeek-V3 $5.42 $0.0009 20.1 52.2 1.4% GPT-4o-mini $2.68 $0.0004 20.2 75.2 14.4% Haiku 4.5 $18.61 $0.0030 24.0 131.4 6.5% Sonnet 4.6 $67.63 $0.0108 24.2 131.6 10.8% structured-timeline DeepSeek-V3 $8.91 $0.0014 34.2 45.2 4.4% GPT-4o-mini $3.70 $0.0006 34.9 69.5 33.4% Haiku 4.5 $24.72 $0.0039 41.0 158.1 29.6% Sonnet 4.6 $90.83 $0.0145 41.2 133.2 31.3% LLM-summary DeepSeek-V3 $1.29 $0.0002 4.7 50.3 2.9% GPT-4o-mini $0.78 $0.0001 4.9 78.9 1.2% Haiku 4.5 $5.49 $0.0009 5.9 187.9 0.0% Sonnet 4.6 $20.78 $0.0033 6.0 200.0 0.5% mem0 DeepSeek-V3 $1.76 $0.0003 6.4 45.3 0.4% GPT-4o-mini $0.99 $0.0002 6.4 75.3 0.8% Haiku 4.5 $6.65 $0.0011 7.5 158.9 0.0% Sonnet 4.6 $25.16 $0.0040 7.7 145.0 0.0% amem DeepSeek-V3 $3.17 $0.0005 11.7 48.1 1.7% GPT-4o-mini $1.62 $0.0003 12.0 76.1 14.1% Haiku 4.5 $11.99 $0.0019 14.1 168.1 0.0% Sonnet 4.6 $45.75 $0.0073 14.5 143.5 0.0% 
+
+Total — $527.87 — 532 3714 17.1% 
+
+Table 4: Per-cell resource consumption over the 6,271-question evaluation set. Each row is one (strategy, backbone) cell. Per-question cost ( $/q ) is cost / 6,271. Total spend: $527.87 across all 32 cells. 
+
+E.2 Parse failures (D2) 
+
+A response can be present but un-parseable by the strict gold-format matcher. About 6.5% 
+
+of the 200,672 rows fall into this bucket, and they are dominated by Claude refusal-as-prose under no-context blind ; the Haiku ×
+
+no-context cell is the single largest contributor (Figure 18). The pattern is concentrated on a small number of cells and does not affect the comparative ordering between memory strategies under richer contexts. 16 0 50 Visits per patient 010 20 Number of patients  (A) Visits per patient 10 20 30 Dialogue length 010 20 30 Number of patients  (B) Dialogue length 0 10 Eval questions per patient 020 40 60 Number of patients (C) Eval questions per patient Figure 13: Cohort statistics for the n = 385 verified dialogues. (A) visits per patient, (B) dialogue length, (C) eval questions per patient. T1 T2 T3 T4 T5 T6 T7 T8 0.00 0.25 0.50 0.75 1.00 Retrieval hit rate top-1 top-3 top-5 top-10 
+
+Figure 14: BGE-M3 dense-retrieval hit rate by task on 4,771 retrieval-eligible questions. Per-task eligible n:T1 1500, T2 889, T3 600, T4 53, T5 495, T6 700, T7 400, T8 134. Dotted lines mark the overall hit rate at each k.100 200 Mem0 facts per patient 020 40 60 Number of patients  (A) Mem0 0 50 A-MEM notes per patient 010 20 Number of patients  (B) A-MEM 100 200 LLM-summary words per patient 020 40 Number of patients  (C) LLM-summary 0 10000 20000 Mem0 character budget 0.0 0.5 1.0 T1 (Mem0) accuracy  (D) Size vs T1 accuracy 
+
+Figure 15: Per-patient compression footprints. (A) 
+
+Mem0 facts per patient, (B) A-Mem notes per patient, (C) LLM-summary words per patient, (D) total Mem0 
+
+size vs T1 accuracy ( n = 210 , Pearson r = −0.129 ). DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet no-context last-visit LLM Mem0 A-Mem struct dense full                         
+
+> 0.0000 0.0000 0.0002 0.0008 0.0002 0.0001 0.0009 0.0031 0.0002 0.0001 0.0009 0.0033 0.0003 0.0002 0.0011 0.0040 0.0005 0.0003 0.0019 0.0073 0.0014 0.0006 0.0039 0.0145 0.0009 0.0004 0.0030 0.0108 0.0015 0.0006 0.0041 0.0169
+
+Avg cost per question (USD)                         
+
+> DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet no-context last-visit LLM Mem0 A-Mem struct dense full
+> 2.2 0.0 0.0 0.0 1.9 21.9 3.0 13.9 2.9 1.2 0.0 0.5 0.4 0.8 0.0 0.0 1.7 14.1 0.0 0.0 4.4 33.4 29.6 31.3 1.4 14.4 6.5 10.8 4.1 35.0 32.8 25.2
+
+Cache hit (%) 
+
+0.005 0.010 0.015 
+
+> USD
+
+010 20 30 
+
+> %
+
+Figure 16: Companion visualisation to Table 4: avg cost per question (top) and cache hit % (bottom) per (strategy, backbone) cell. Sonnet × full-context 
+
+is the most expensive cell ($0.0169/q); DeepSeek ×
+
+no-context blind is the cheapest ($0.00003/q). Cache-hit range: 0%–35%. DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet no-context last-visit LLM Mem0 A-Mem struct dense full Memory baseline                          
+
+> 047006620673041 35 6037 39 10860047 31 24 011 81010 20 30 40
+> Empty count
+
+Figure 17: D1: empty API responses per cell after the M1 retry pass ( ≈ 0.7% of 200,672 rows). DeepSeek’s column is uniformly zero; the mass sits on GPT-4o-mini and Haiku, with a small Sonnet residue. 
+
+E.3 Output length and truncation 
+
+The model is given a per-task max_tokens bud-get. Two diagnostics follow: the full output-length distribution per task overlaid by backbone (Fig-ure 19), and the rate at which a response is trun-cated at ceiling minus one token (Figure 20). T4 is the only task where the 120-token ceiling binds in a meaningful way ( 86 –88% truncation on Haiku / 17 DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet no-context last-visit LLM Mem0 A-Mem struct dense full Memory baseline                          
+
+> 13 25 611 223 44 56 330 100 74 71 162 94 40 87 144 75 41 104 146 47 26 48 44 51 40 119 67 89 27 76 26 39 0100 200 300 400 500 600
+> Unparseable count
+
+Figure 18: D2: parse-failure rate ( pred is None )per cell across 8 memory baselines × 4 backbones (6,271 questions per cell). 
+
+Sonnet under the worst memory baseline); T1 and T8 are the next largest binders. T3 / T5 / T6 / T7 are essentially un-truncated across the board. 0 50 01000          
+
+> count T1 (max=60)
+> 050 01000
+> T2 (max=60)
+> 050 01000 T3 (max=80)
+> 0100 0200
+> count T4 (max=120)
+> 050 0500
+> T5 (max=80)
+> 050 01000
+> T6 (max=80)
+> 050
+> output tokens
+> 0250
+> count T7 (max=80)
+> 0100
+> output tokens
+> 0500
+> T8 (max=120)
+> 050
+> output tokens
+> 01000
+> T9 (max=80) DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet max_tokens ceiling
+
+Figure 19: D3: output-length histograms per task over-laid by backbone, with the per-task max_tokens ceil-ing marked. 
+
+F Robustness and stratification 
+
+The headline numbers in the main paper are point estimates averaged over patients, diseases, and within-task difficulty tertiles. This appendix reports the four sensitivity checks that we think matter most: per-patient skew, per-disease drift, per-tertile calibration of the stratifier, and bootstrap-CI width per cell. 
+
+F.1 Per-patient accuracy distribution (D5) 
+
+Figure 21 renders the per-cell distribution of per-patient mean accuracy as a violin. The head-line observation is that full-context vio-lins are uniformly narrower than the compressed-representation cells on every backbone – richer DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet T1 T2 T3 T4 T5 T6 T7 T8 T9 Task                             
+
+> 0.3% 0.1% 17.9% 12.5% 0.0% 0.0% 0.7% 0.0% 0.0% 0.0% 0.0% 0.0% 5.9% 14.2% 86.1% 88.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 0.0% 17.7% 14.6% 0.0% 0.0% 4.9% 2.0% 0.0 0.2 0.4 0.6 0.8
+> Truncation rate
+
+Figure 20: D4: truncation rate per (task, backbone), mean across the 8 memory baselines. Per-task ceilings: T1 60, T2 60, T4 120, T8 120, T9 80; others 80. 
+
+memory produces less between-patient skew, not just a higher mean. no-context last-visit LLM Mem0 A-Mem struct dense full 0.0 0.5 1.0 
+
+> per-patient accuracy  DeepSeek
+> no-context last-visit LLM Mem0 A-Mem struct dense full
+> GPT-4o-mini
+> no-context last-visit LLM Mem0 A-Mem struct dense full 0.0 0.5 1.0
+> per-patient accuracy  Claude Haiku
+> no-context last-visit LLM Mem0 A-Mem struct dense full
+> Claude Sonnet
+
+Figure 21: D5: per-patient accuracy distribution as a violin per cell; medians overlaid in black, patient-level scatter in grey. 
+
+F.2 Per-disease drift (D6) 
+
+The benchmark spans four condition families: CKD, Coronary, Diabetes, and Hypertension. Fig-ure 22 reports full-context accuracy pooled across all nine tasks, by backbone × disease. The hy-pertension row is consistently the weakest (mean 
+
+0.615 ), but this is a task-mix bias – the hyperten-sion question pool over-indexes the longitudinal / comparison families – rather than evidence of a disease-specific knowledge gap. 
+
+F.3 Per-tertile calibration of the stratifier (D7) 
+
+Each question carries a difficulty tertile from the generation-time stratifier. Figure 23 checks whether the tertile actually predicts difficulty under 18 DeepSeek GPT-4o-mini Claude Haiku Claude Sonnet CKD Coronary Diabetes Hypertension Disease              
+
+> 0.650 0.605 0.707 0.686 0.721 0.662 0.749 0.732 0.686 0.663 0.718 0.725 0.622 0.582 0.625 0.629 0.0 0.2 0.4 0.6 0.8 1.0
+> Accuracy
+
+Figure 22: D6: per-disease full-context accuracy by backbone, pooled across T1–T9. Per-disease n per backbone: CKD 488, Coronary 358, Diabetes 404, Hy-pertension 251. 
+
+full-context . T1 and T9 are monotonically calibrated, while T8’s “high” tertile is the easiest of the three – T8 tertile anti-alignment, which we flag in the main paper. T1 T2 T3 T4 T5 T6 T7 T8 T9 0.00 0.25 0.50 0.75 1.00 
+
+> full-context accuracy
+
+easy (low) medium hard (high) 
+
+Figure 23: D7: per-tertile full-context accuracy per task, pooled across backbones. Patients are split into low / medium / high complexity tertiles by the stratifier of Section 3; per-task tertile sizes follow the per-task question counts reported there. 
+
+F.4 Bootstrap CI widths per cell (D8) 
+
+Figure 24 reports the bootstrap 95% CI width for each of the 9 × 8 × 4 = 288 cells (100 resamples per cell, seed 20260519). The headline is that CI width is dominated by per-cell sample size, not by memory strategy or backbone: T4 (smallest n) and T8 are the widest by construction; T1 / T7 / T9 (the highest-resampled tasks) are the tightest. Conclu-sion: the headline rankings in the main paper are robust to within-cell sampling noise. 
+
+G Supplementary analyses: balanced metrics, sensitivity, and ablations 
+
+This appendix collects the analyses referenced from Section 3, Section 4, Section 5 and Section 6. No models were rerun for the re-scoring analyses (Ta-ble 5–Table 9, Table 7, Table 13); the ablations in Table 10–Table 12 were run on a stratified 20-patient subset of the 385-dialogue cohort. 
+
+G.1 Class-balanced metrics for the skewed tasks 
+
+Accuracy on T5 and T8 conflates two questions: whether a task beats a trivial majority predictor, and whether it separates representation strategies. Macro-F1 separates them: Table 5 reports T5 and Table 6 reports T8.                                              
+
+> strategy DS GPT Hk Sn pooled
+> full-context 0.731 0.710 0.674 0.661 0.695
+> dense-retrieval 0.743 0.760 0.709 0.734 0.736
+> structured-timeline 0.620 0.559 0.738 0.717 0.656
+> Mem0 0.524 0.482 0.466 0.491 0.491
+> A-Mem 0.580 0.491 0.593 0.599 0.565
+> llm-summary 0.578 0.428 0.468 0.446 0.476
+> last-visit-only 0.513 0.367 0.340 0.412 0.408
+> no-context-blind 0.247 0.348 0.155 0.425 0.308
+
+Table 5: T5 macro-F1 (majority-class baseline = 0 .478 ). 
+
+full-context , dense-retrieval , and structured-timeline ex-ceed the baseline on every backbone; the compressed strategies do not.                                              
+
+> strategy DS GPT Hk Sn pooled
+> full-context 0.504 0.377 0.498 0.547 0.485
+> dense-retrieval 0.478 0.378 0.476 0.479 0.455
+> structured-timeline 0.513 0.465 0.538 0.569 0.523
+> Mem0 0.454 0.440 0.435 0.414 0.435
+> A-Mem 0.455 0.435 0.411 0.459 0.442
+> llm-summary 0.354 0.360 0.329 0.372 0.353
+> last-visit-only 0.399 0.454 0.328 0.359 0.389
+> no-context-blind 0.249 0.275 0.328 0.373 0.294
+
+Table 6: T8 macro-F1 (majority-class baseline = 0 .247 ;
+
+n = 134 per cell). structured-timeline leads, followed by full-context and dense-retrieval .
+
+T6 is already discriminative under accuracy: its best cell reaches 0.609 against a 0.423 majority baseline (Table 1). T5, T6 and T8 therefore do separate representations; T9 remains a relative di-agnostic probe. 
+
+G.2 Statistical power per task G.3 Parser-strictness sensitivity 
+
+T9 abstentions can be phrased in many ways, so we re-scored the existing T9 predictions with a lenient parser that also accepts synonymous or verbose abstentions (e.g. “no sodium value was reported on that date”, “not measured”); Table 8 reports the result. For T7 we used a lenient matcher accept-ing either the option label or the full option text (Table 9). 19 DS 4o-mini Haiku Sonnet no-ctx last-v LLM Mem0 A-Mem struct dense full                         
+
+> 0.00 0.00 0.02 0.01 0.08 0.08 0.07 0.08 0.11 0.09 0.10 0.09 0.11 0.12 0.10 0.10 0.11 0.11 0.11 0.10 0.06 0.08 0.05 0.06 0.08 0.10 0.08 0.10 0.09 0.09 0.07 0.08
+
+T1 
+
+DS 4o-mini Haiku Sonnet                         
+
+> 0.10 0.13 0.00 0.13 0.14 0.12 0.10 0.12 0.11 0.13 0.13 0.12 0.11 0.12 0.14 0.12 0.14 0.12 0.13 0.15 0.13 0.11 0.15 0.15 0.12 0.14 0.13 0.13 0.17 0.14 0.14 0.13
+
+T2 
+
+DS 4o-mini Haiku Sonnet                         
+
+> 0.16 0.18 0.16 0.15 0.14 0.17 0.18 0.16 0.18 0.15 0.14 0.18 0.18 0.18 0.17 0.17 0.16 0.18 0.15 0.18 0.16 0.14 0.16 0.15 0.12 0.10 0.12 0.13 0.08 0.08 0.12 0.10
+
+T3 
+
+DS 4o-mini Haiku Sonnet no-ctx last-v LLM Mem0 A-Mem struct dense full                         
+
+> 0.15 0.16 0.21 0.17 0.09 0.13 0.19 0.18 0.18 0.15 0.21 0.15 0.09 0.16 0.14 0.17 0.13 0.14 0.14 0.15 0.13 0.20 0.21 0.19 0.21 0.22 0.20 0.11 0.21 0.21 0.21 0.21
+
+T4 
+
+DS 4o-mini Haiku Sonnet                         
+
+> 0.16 0.15 0.14 0.17 0.14 0.20 0.20 0.14 0.15 0.16 0.19 0.17 0.14 0.16 0.17 0.15 0.16 0.14 0.17 0.14 0.15 0.15 0.13 0.12 0.11 0.10 0.11 0.15 0.13 0.13 0.13 0.14
+
+T5 
+
+DS 4o-mini Haiku Sonnet                         
+
+> 0.16 0.16 0.00 0.09 0.15 0.14 0.16 0.15 0.16 0.15 0.17 0.18 0.16 0.16 0.14 0.16 0.16 0.14 0.16 0.15 0.13 0.14 0.14 0.15 0.18 0.16 0.13 0.17 0.15 0.15 0.16 0.15
+
+T6 
+
+DS 4o-mini Haiku Sonnet no-ctx last-v LLM Mem0 A-Mem struct dense full                         
+
+> 0.20 0.19 0.03 0.17 0.20 0.18 0.12 0.18 0.20 0.17 0.22 0.21 0.16 0.18 0.19 0.19 0.16 0.18 0.18 0.19 0.20 0.20 0.20 0.18 0.12 0.14 0.09 0.09 0.09 0.12 0.08 0.09
+
+T7 
+
+DS 4o-mini Haiku Sonnet                         
+
+> 0.13 0.14 0.12 0.13 0.15 0.16 0.14 0.18 0.13 0.14 0.12 0.13 0.16 0.15 0.14 0.15 0.15 0.16 0.15 0.15 0.17 0.16 0.17 0.14 0.18 0.14 0.15 0.14 0.18 0.14 0.16 0.15
+
+T8 
+
+DS 4o-mini Haiku Sonnet                         
+
+> 0.10 0.08 0.00 0.07 0.06 0.06 0.01 0.06 0.06 0.09 0.05 0.08 0.08 0.09 0.05 0.08 0.08 0.08 0.04 0.10 0.12 0.10 0.10 0.11 0.10 0.09 0.06 0.08 0.11 0.10 0.06 0.08
+
+T9 
+
+0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 
+
+> CI width
+
+Figure 24: D8: bootstrap 95% CI width per (task, baseline, backbone) cell. Shared magma_r colour scale across all nine sub-panels. Per-task questions/cell: T1 n = 1500 , T2 889, T3 600, T4 53, T5 495, T6 700, T7 400, T8 134, T9 1500. 
+
+task n MDE assessment T1 / T9 1500 5.1 pp well-powered T2 889 6.6 pp well-powered T6 700 7.5 pp well-powered T3 600 8.1 pp well-powered T5 495 8.9 pp well-powered T7 400 9.9 pp well-powered T8 134 17.1 pp weak T4 53 27.2 pp under-powered 
+
+Table 7: Conservative per-task minimum detectable ef-fects (two-proportion approximation, α = 0 .05 , 80% power, p = 0 .5). T8 has limited power for moderate differences; T4 is clearly under-powered. 
+
+G.4 T9 over-answer composition 
+
+On the T9 diagnostic subset the strict parser scored 307 full-context responses as non-abstentions. Of these, 36% fabricated a specific value, 28% gave a bare Yes/No, and 36% fell into an “other” category—but 93% of that “other” bucket were verbose abstentions the strict parser missed. Dis-counting those parser misses, fabricated values ac-count for roughly 54% of genuine over-answers, making plausible-but-unsupported detail the largest observed error type behind SP3. 
+
+strategy strict lenient ∆
+
+full-context 0.763 0.838 +0 .075 
+
+dense-retrieval 0.798 0.832 +0 .034 
+
+structured-timeline 0.535 0.791 +0 .256 
+
+Mem0 0.823 0.842 +0 .019 
+
+A-Mem 0.825 0.841 +0 .016 
+
+llm-summary 0.814 0.880 +0 .066 
+
+last-visit-only 0.924 0.930 +0 .005 
+
+no-context-blind 0.311 0.353 +0 .042 
+
+Table 8: T9 abstention accuracy under strict and le-nient parsers, full T9 evaluation set (1,500 questions per backbone, pooled over backbones). last-visit-only stays above full-context (0.930 vs. 0.838); the gap narrows from 0.161 to 0.092, so parser strictness changes the magnitude but not the direction of SP3. 
+
+G.5 Backbone-matched memory preparation 
+
+We rebuilt Mem0 and A-Mem with each non-DeepSeek answering backbone, so that GPT-4o-mini, Haiku and Sonnet each prepared and an-swered from their own memory. The preparation model is the only changed factor. 20 strategy strict lenient ∆                        
+
+> full-context 0.933 0.933 0.000
+> dense-retrieval 0.907 0.907 0.000
+> structured-timeline 0.613 0.613 0.000
+> Mem0 0.642 0.642 0.000
+> A-Mem 0.581 0.581 0.000
+> llm-summary 0.448 0.448 0.000
+> last-visit-only 0.294 0.294 0.000
+> no-context-blind 0.177 0.177 0.000
+
+Table 9: T7 accuracy (4-option MCQ) under strict and lenient matching: identical throughout. Models answer as “option label + option text”, so the strict parser al-ready captures valid answers and incorrect responses are genuine errors rather than parser misses.                                  
+
+> cell DS-prepared matched ∆
+> GPT-4o-mini ×Mem0 0.532 0.340 −0.192
+> Haiku ×Mem0 0.571 0.327 −0.244
+> Sonnet ×Mem0 0.526 0.372 −0.154
+> GPT-4o-mini ×A-Mem 0.474 0.346 −0.128
+> Haiku ×A-Mem 0.513 0.365 −0.147
+> Sonnet ×A-Mem 0.481 0.436 −0.045
+
+Table 10: Overall accuracy with DeepSeek-V3– prepared versus backbone-matched agentic memory on the stratified 20-patient subset. Matching prep to the answering backbone does not improve accuracy in any of the six cells. The corresponding T3 positive-class recall is reported in Table 3. 
+
+G.6 Dense-retrieval and summary-length ablations 
+
+Table 11 varies the retrieval depth and Table 12 the summary budget; neither knob removes the gap to 
+
+full-context .                  
+
+> backbone K= 3 K= 5 K= 10
+> DeepSeek-V3 0.474 0.513 0.487 GPT-4o-mini 0.410 0.397 0.391 Haiku 4.5 0.423 0.487 0.385 Sonnet 4.6 0.468 0.506 0.558
+
+Table 11: dense-retrieval accuracy across top-K on the stratified 20-patient subset, all nine tasks. Larger K
+
+gives no consistent gain, matching the retrieval diagnos-tics in Section C: hit rate rises from 0.852 at K=3 to 0.979 at K=10 without a corresponding accuracy gain. 
+
+K=5 is therefore not the sole source of the remaining retrieval errors.                      
+
+> all 9 tasks aggregation backbone 500 1000 500 1000 DeepSeek-V3 0.465 0.393 0.211 0.259 GPT-4o-mini 0.392 0.309 0.235 0.185 Haiku 4.5 0.405 0.372 0.235 0.210 Sonnet 4.6 0.399 0.415 0.258 0.304
+
+Table 12: llm-summary accuracy at a 500- versus 1,000-token budget on the stratified 20-patient subset; “ag-gregation” pools T2, T6 and T8. Doubling the budget lowers overall accuracy for three of four backbones and moves aggregation accuracy in both directions within 0.185–0.304. The 500-token limit is not the sole expla-nation for SP1.                            
+
+> strategy all 9 w/o T5,T8,T9 w/o T3
+> full-context 0.645 0.628 0.612
+> dense-retrieval 0.612 0.580 0.585
+> structured-timeline 0.541 0.508 0.545
+> Mem0 0.493 0.421 0.493
+> A-Mem 0.485 0.408 0.484
+> llm-summary 0.435 0.365 0.428
+> last-visit-only 0.403 0.306 0.385
+> no-context-blind 0.226 0.200 0.193
+
+Table 13: Macro-accuracy averaged over the included tasks and the four backbones, recomputed from the ex-isting predictions. The strategy ordering is unchanged when the exploratory tasks (T5, T8, T9) or the T3 probe are excluded, so the headline comparison does not de-pend on them. 
+
+G.7 Macro-accuracy under task-subset ablation G.8 Substrate pilot: dialogue versus a bare event table 
+
+As a check on what the dialogue layer contributes, we ran a small full-context pilot in which the model received either the dialogue or a bare structured-event table built from the same source events. The table retained the events, but the narrative relations targeted by T3, T4 and T5 were not explicitly rep-resented in it, so those tasks could not be evaluated equivalently from the table alone. This delimits what the dialogue substrate adds; it is not a valida-tion of real-note realism, and a controlled compari-son against a visit-organized table is left to future work. 21 H Case studies 
+
+The main paper carries four illustrative failure-mode case studies; we reprint them here so the appendix is self-contained. 
+
+Case 1 – T3: Controlled Evidence–Problem Linkage Q: Did the physician explicitly attribute the Creatinine 1.7 mg/dL (2183-01-13) to a diagnosis of. . . (full-context, DeepSeek): yes [correct] (mem0, DeepSeek): no [incorrect] 
+
+Lesson: Compressed representations lose the encounter-local linkage sentence and collapse to constant-No. 
+
+Case 2 – T9: Abstention over Unstated Facts Q: Based on the dialogue, what was the patient’s Potassium on 2138-04-03? (last-visit-only, Sonnet): insufficient [correct] (full-context, Sonnet): the patient’s Pota. . . [incorrect] 
+
+Lesson: More context can hurt abstention; full-context over-answers. 
+
+Case 3 – T2: Multi-Visit Trend Classification Q: How did the patient’s Potassium change overall from 2126-02-06 to 2126-12-06? Answer <direction>;<magnitude> .(full-context, Sonnet): decreased;weak [correct] (full-context, Haiku): stable;none [incorrect] 
+
+Lesson: Even with full chart access, multi-visit trend aggregation remains backbone-sensitive. 
+
+Case 4 – T6: Cross-Patient Comparison Q: Comparing patient A and patient B, which patient has more diagnoses documented in the dialogue? Answer A, B, or similar. (full-context, Sonnet): B [correct] (mem0, Sonnet): A [incorrect] 
+
+Lesson: Agentic memory representations can confuse facts across patients when retrieval is keyed on similar attributes. 
+
+Figure 25: Four illustrative failure modes drawn from the master results table: representational loss (Case 1, T3), uncritical answering (Case 2, T9), reasoning-capacity ceiling (Case 3, T2 on Haiku), cross-document aggregation breakdown (Case 4, T6). Green = correct prediction; red = incorrect. 
+
+I Full per-task strategy-by-backbone matrix 
+
+For completeness, the full 9 × 8 × 4 = 288 -cell accuracy matrix from which all per-task figures in the main paper and in this appendix are derived is reproduced in Table 14. 
+
+Table 14: Complete per-task accuracy across all 32 (history representation strategy, backbone) cells, on the 6,271-question stratified evaluation set (200,672 evaluations total). n is the per-task sample size; per-task sizes are T1=1500, T2=889, T3=600, T4=53, T5=495, T6=700, T7=400, T8=134, T9=1500. The rightmost column marks rows from the stratified evaluation set (every row is). 
+
+Task Strategy Backbone n Accuracy Subset T1 no-context (blind) DeepSeek 1500 0.000 ✓
+
+T1 no-context (blind) GPT-4o-mini 1500 0.000 ✓
+
+T1 no-context (blind) Claude Haiku 1500 0.006 ✓
+
+T1 no-context (blind) Claude Sonnet 1500 0.003 ✓
+
+T1 last-visit only DeepSeek 1500 0.160 ✓
+
+T1 last-visit only GPT-4o-mini 1500 0.148 ✓
+
+T1 last-visit only Claude Haiku 1500 0.127 ✓
+
+T1 last-visit only Claude Sonnet 1500 0.120 ✓
+
+T1 LLM summary DeepSeek 1500 0.355 ✓
+
+T1 LLM summary GPT-4o-mini 1500 0.361 ✓
+
+T1 LLM summary Claude Haiku 1500 0.352 ✓
+
+T1 LLM summary Claude Sonnet 1500 0.355 ✓
+
+T1 Mem0 DeepSeek 1500 0.515 ✓
+
+T1 Mem0 GPT-4o-mini 1500 0.515 ✓
+
+T1 Mem0 Claude Haiku 1500 0.509 ✓
+
+T1 Mem0 Claude Sonnet 1500 0.488 ✓
+
+T1 A-Mem DeepSeek 1500 0.491 ✓
+
+T1 A-Mem GPT-4o-mini 1500 0.420 ✓
+
+T1 A-Mem Claude Haiku 1500 0.426 ✓
+
+T1 A-Mem Claude Sonnet 1500 0.485 ✓
+
+T1 structured timeline DeepSeek 1500 0.886 ✓
+
+T1 structured timeline GPT-4o-mini 1500 0.886 ✓
+
+T1 structured timeline Claude Haiku 1500 0.920 ✓
+
+T1 structured timeline Claude Sonnet 1500 0.923 ✓
+
+T1 dense retrieval DeepSeek 1500 0.802 ✓
+
+T1 dense retrieval GPT-4o-mini 1500 0.738 ✓
+
+T1 dense retrieval Claude Haiku 1500 0.778 ✓
+
+T1 dense retrieval Claude Sonnet 1500 0.787 ✓
+
+(continued on next page) 
+
+22 (continued from previous page) 
+
+Task Strategy Backbone n Accuracy Subset T1 full context DeepSeek 1500 0.806 ✓
+
+T1 full context GPT-4o-mini 1500 0.781 ✓
+
+T1 full context Claude Haiku 1500 0.812 ✓
+
+T1 full context Claude Sonnet 1500 0.843 ✓
+
+T2 no-context (blind) DeepSeek 889 0.172 ✓
+
+T2 no-context (blind) GPT-4o-mini 889 0.333 ✓
+
+T2 no-context (blind) Claude Haiku 889 0.000 ✓
+
+T2 no-context (blind) Claude Sonnet 889 0.302 ✓
+
+T2 last-visit only DeepSeek 889 0.328 ✓
+
+T2 last-visit only GPT-4o-mini 889 0.354 ✓
+
+T2 last-visit only Claude Haiku 889 0.177 ✓
+
+T2 last-visit only Claude Sonnet 889 0.354 ✓
+
+T2 LLM summary DeepSeek 889 0.260 ✓
+
+T2 LLM summary GPT-4o-mini 889 0.333 ✓
+
+T2 LLM summary Claude Haiku 889 0.323 ✓
+
+T2 LLM summary Claude Sonnet 889 0.339 ✓
+
+T2 Mem0 DeepSeek 889 0.333 ✓
+
+T2 Mem0 GPT-4o-mini 889 0.297 ✓
+
+T2 Mem0 Claude Haiku 889 0.349 ✓
+
+T2 Mem0 Claude Sonnet 889 0.391 ✓
+
+T2 A-Mem DeepSeek 889 0.333 ✓
+
+T2 A-Mem GPT-4o-mini 889 0.323 ✓
+
+T2 A-Mem Claude Haiku 889 0.365 ✓
+
+T2 A-Mem Claude Sonnet 889 0.380 ✓
+
+T2 structured timeline DeepSeek 889 0.297 ✓
+
+T2 structured timeline GPT-4o-mini 889 0.214 ✓
+
+T2 structured timeline Claude Haiku 889 0.292 ✓
+
+T2 structured timeline Claude Sonnet 889 0.406 ✓
+
+T2 dense retrieval DeepSeek 889 0.354 ✓
+
+T2 dense retrieval GPT-4o-mini 889 0.266 ✓
+
+T2 dense retrieval Claude Haiku 889 0.427 ✓
+
+T2 dense retrieval Claude Sonnet 889 0.432 ✓
+
+T2 full context DeepSeek 889 0.375 ✓
+
+T2 full context GPT-4o-mini 889 0.255 ✓
+
+T2 full context Claude Haiku 889 0.349 ✓
+
+T2 full context Claude Sonnet 889 0.474 ✓
+
+T3 no-context (blind) DeepSeek 600 0.500 ✓
+
+T3 no-context (blind) GPT-4o-mini 600 0.492 ✓
+
+T3 no-context (blind) Claude Haiku 600 0.500 ✓
+
+T3 no-context (blind) Claude Sonnet 600 0.500 ✓
+
+T3 last-visit only DeepSeek 600 0.562 ✓
+
+T3 last-visit only GPT-4o-mini 600 0.538 ✓
+
+T3 last-visit only Claude Haiku 600 0.554 ✓
+
+T3 last-visit only Claude Sonnet 600 0.508 ✓
+
+T3 LLM summary DeepSeek 600 0.500 ✓
+
+T3 LLM summary GPT-4o-mini 600 0.492 ✓
+
+T3 LLM summary Claude Haiku 600 0.500 ✓
+
+T3 LLM summary Claude Sonnet 600 0.500 ✓
+
+T3 Mem0 DeepSeek 600 0.492 ✓
+
+T3 Mem0 GPT-4o-mini 600 0.477 ✓
+
+T3 Mem0 Claude Haiku 600 0.500 ✓
+
+T3 Mem0 Claude Sonnet 600 0.500 ✓
+
+T3 A-Mem DeepSeek 600 0.500 ✓
+
+T3 A-Mem GPT-4o-mini 600 0.477 ✓
+
+T3 A-Mem Claude Haiku 600 0.477 ✓
+
+T3 A-Mem Claude Sonnet 600 0.500 ✓
+
+T3 structured timeline DeepSeek 600 0.508 ✓
+
+T3 structured timeline GPT-4o-mini 600 0.508 ✓
+
+T3 structured timeline Claude Haiku 600 0.500 ✓
+
+T3 structured timeline Claude Sonnet 600 0.500 ✓
+
+T3 dense retrieval DeepSeek 600 0.831 ✓
+
+T3 dense retrieval GPT-4o-mini 600 0.846 ✓
+
+T3 dense retrieval Claude Haiku 600 0.869 ✓
+
+T3 dense retrieval Claude Sonnet 600 0.769 ✓
+
+T3 full context DeepSeek 600 0.938 ✓
+
+T3 full context GPT-4o-mini 600 0.931 ✓
+
+T3 full context Claude Haiku 600 0.869 ✓
+
+T3 full context Claude Sonnet 600 0.885 ✓
+
+T4 no-context (blind) DeepSeek 53 0.132 ✓
+
+T4 no-context (blind) GPT-4o-mini 53 0.075 ✓
+
+(continued on next page) 
+
+23 (continued from previous page) 
+
+Task Strategy Backbone n Accuracy Subset T4 no-context (blind) Claude Haiku 53 0.189 ✓
+
+T4 no-context (blind) Claude Sonnet 53 0.113 ✓
+
+T4 last-visit only DeepSeek 53 0.057 ✓
+
+T4 last-visit only GPT-4o-mini 53 0.113 ✓
+
+T4 last-visit only Claude Haiku 53 0.170 ✓
+
+T4 last-visit only Claude Sonnet 53 0.113 ✓
+
+T4 LLM summary DeepSeek 53 0.151 ✓
+
+T4 LLM summary GPT-4o-mini 53 0.170 ✓
+
+T4 LLM summary Claude Haiku 53 0.189 ✓
+
+T4 LLM summary Claude Sonnet 53 0.113 ✓
+
+T4 Mem0 DeepSeek 53 0.038 ✓
+
+T4 Mem0 GPT-4o-mini 53 0.132 ✓
+
+T4 Mem0 Claude Haiku 53 0.094 ✓
+
+T4 Mem0 Claude Sonnet 53 0.151 ✓
+
+T4 A-Mem DeepSeek 53 0.075 ✓
+
+T4 A-Mem GPT-4o-mini 53 0.113 ✓
+
+T4 A-Mem Claude Haiku 53 0.094 ✓
+
+T4 A-Mem Claude Sonnet 53 0.132 ✓
+
+T4 structured timeline DeepSeek 53 0.057 ✓
+
+T4 structured timeline GPT-4o-mini 53 0.208 ✓
+
+T4 structured timeline Claude Haiku 53 0.245 ✓
+
+T4 structured timeline Claude Sonnet 53 0.170 ✓
+
+T4 dense retrieval DeepSeek 53 0.208 ✓
+
+T4 dense retrieval GPT-4o-mini 53 0.226 ✓
+
+T4 dense retrieval Claude Haiku 53 0.151 ✓
+
+T4 dense retrieval Claude Sonnet 53 0.057 ✓
+
+T4 full context DeepSeek 53 0.226 ✓
+
+T4 full context GPT-4o-mini 53 0.283 ✓
+
+T4 full context Claude Haiku 53 0.189 ✓
+
+T4 full context Claude Sonnet 53 0.245 ✓
+
+T5 no-context (blind) DeepSeek 495 0.252 ✓
+
+T5 no-context (blind) GPT-4o-mini 495 0.393 ✓
+
+T5 no-context (blind) Claude Haiku 495 0.168 ✓
+
+T5 no-context (blind) Claude Sonnet 495 0.383 ✓
+
+T5 last-visit only DeepSeek 495 0.785 ✓
+
+T5 last-visit only GPT-4o-mini 495 0.579 ✓
+
+T5 last-visit only Claude Haiku 495 0.374 ✓
+
+T5 last-visit only Claude Sonnet 495 0.636 ✓
+
+T5 LLM summary DeepSeek 495 0.832 ✓
+
+T5 LLM summary GPT-4o-mini 495 0.673 ✓
+
+T5 LLM summary Claude Haiku 495 0.636 ✓
+
+T5 LLM summary Claude Sonnet 495 0.626 ✓
+
+T5 Mem0 DeepSeek 495 0.804 ✓
+
+T5 Mem0 GPT-4o-mini 495 0.729 ✓
+
+T5 Mem0 Claude Haiku 495 0.720 ✓
+
+T5 Mem0 Claude Sonnet 495 0.748 ✓
+
+T5 A-Mem DeepSeek 495 0.776 ✓
+
+T5 A-Mem GPT-4o-mini 495 0.692 ✓
+
+T5 A-Mem Claude Haiku 495 0.738 ✓
+
+T5 A-Mem Claude Sonnet 495 0.776 ✓
+
+T5 structured timeline DeepSeek 495 0.748 ✓
+
+T5 structured timeline GPT-4o-mini 495 0.776 ✓
+
+T5 structured timeline Claude Haiku 495 0.869 ✓
+
+T5 structured timeline Claude Sonnet 495 0.860 ✓
+
+T5 dense retrieval DeepSeek 495 0.869 ✓
+
+T5 dense retrieval GPT-4o-mini 495 0.888 ✓
+
+T5 dense retrieval Claude Haiku 495 0.860 ✓
+
+T5 dense retrieval Claude Sonnet 495 0.841 ✓
+
+T5 full context DeepSeek 495 0.860 ✓
+
+T5 full context GPT-4o-mini 495 0.897 ✓
+
+T5 full context Claude Haiku 495 0.850 ✓
+
+T5 full context Claude Sonnet 495 0.841 ✓
+
+T6 no-context (blind) DeepSeek 700 0.358 ✓
+
+T6 no-context (blind) GPT-4o-mini 700 0.311 ✓
+
+T6 no-context (blind) Claude Haiku 700 0.000 ✓
+
+T6 no-context (blind) Claude Sonnet 700 0.099 ✓
+
+T6 last-visit only DeepSeek 700 0.424 ✓
+
+T6 last-visit only GPT-4o-mini 700 0.470 ✓
+
+T6 last-visit only Claude Haiku 700 0.470 ✓
+
+T6 last-visit only Claude Sonnet 700 0.424 ✓
+
+T6 LLM summary DeepSeek 700 0.444 ✓
+
+(continued on next page) 
+
+24 (continued from previous page) 
+
+Task Strategy Backbone n Accuracy Subset T6 LLM summary GPT-4o-mini 700 0.391 ✓
+
+T6 LLM summary Claude Haiku 700 0.417 ✓
+
+T6 LLM summary Claude Sonnet 700 0.424 ✓
+
+T6 Mem0 DeepSeek 700 0.457 ✓
+
+T6 Mem0 GPT-4o-mini 700 0.424 ✓
+
+T6 Mem0 Claude Haiku 700 0.450 ✓
+
+T6 Mem0 Claude Sonnet 700 0.430 ✓
+
+T6 A-Mem DeepSeek 700 0.503 ✓
+
+T6 A-Mem GPT-4o-mini 700 0.464 ✓
+
+T6 A-Mem Claude Haiku 700 0.444 ✓
+
+T6 A-Mem Claude Sonnet 700 0.477 ✓
+
+T6 structured timeline DeepSeek 700 0.609 ✓
+
+T6 structured timeline GPT-4o-mini 700 0.530 ✓
+
+T6 structured timeline Claude Haiku 700 0.523 ✓
+
+T6 structured timeline Claude Sonnet 700 0.563 ✓
+
+T6 dense retrieval DeepSeek 700 0.470 ✓
+
+T6 dense retrieval GPT-4o-mini 700 0.391 ✓
+
+T6 dense retrieval Claude Haiku 700 0.437 ✓
+
+T6 dense retrieval Claude Sonnet 700 0.457 ✓
+
+T6 full context DeepSeek 700 0.543 ✓
+
+T6 full context GPT-4o-mini 700 0.497 ✓
+
+T6 full context Claude Haiku 700 0.510 ✓
+
+T6 full context Claude Sonnet 700 0.523 ✓
+
+T7 no-context (blind) DeepSeek 400 0.256 ✓
+
+T7 no-context (blind) GPT-4o-mini 400 0.244 ✓
+
+T7 no-context (blind) Claude Haiku 400 0.012 ✓
+
+T7 no-context (blind) Claude Sonnet 400 0.198 ✓
+
+T7 last-visit only DeepSeek 400 0.360 ✓
+
+T7 last-visit only GPT-4o-mini 400 0.302 ✓
+
+T7 last-visit only Claude Haiku 400 0.140 ✓
+
+T7 last-visit only Claude Sonnet 400 0.372 ✓
+
+T7 LLM summary DeepSeek 400 0.512 ✓
+
+T7 LLM summary GPT-4o-mini 400 0.477 ✓
+
+T7 LLM summary Claude Haiku 400 0.349 ✓
+
+T7 LLM summary Claude Sonnet 400 0.453 ✓
+
+T7 Mem0 DeepSeek 400 0.733 ✓
+
+T7 Mem0 GPT-4o-mini 400 0.640 ✓
+
+T7 Mem0 Claude Haiku 400 0.535 ✓
+
+T7 Mem0 Claude Sonnet 400 0.663 ✓
+
+T7 A-Mem DeepSeek 400 0.651 ✓
+
+T7 A-Mem GPT-4o-mini 400 0.616 ✓
+
+T7 A-Mem Claude Haiku 400 0.442 ✓
+
+T7 A-Mem Claude Sonnet 400 0.616 ✓
+
+T7 structured timeline DeepSeek 400 0.640 ✓
+
+T7 structured timeline GPT-4o-mini 400 0.616 ✓
+
+T7 structured timeline Claude Haiku 400 0.512 ✓
+
+T7 structured timeline Claude Sonnet 400 0.686 ✓
+
+T7 dense retrieval DeepSeek 400 0.895 ✓
+
+T7 dense retrieval GPT-4o-mini 400 0.860 ✓
+
+T7 dense retrieval Claude Haiku 400 0.942 ✓
+
+T7 dense retrieval Claude Sonnet 400 0.930 ✓
+
+T7 full context DeepSeek 400 0.942 ✓
+
+T7 full context GPT-4o-mini 400 0.872 ✓
+
+T7 full context Claude Haiku 400 0.965 ✓
+
+T7 full context Claude Sonnet 400 0.953 ✓
+
+T8 no-context (blind) DeepSeek 134 0.231 ✓
+
+T8 no-context (blind) GPT-4o-mini 134 0.254 ✓
+
+T8 no-context (blind) Claude Haiku 134 0.172 ✓
+
+T8 no-context (blind) Claude Sonnet 134 0.261 ✓
+
+T8 last-visit only DeepSeek 134 0.313 ✓
+
+T8 last-visit only GPT-4o-mini 134 0.351 ✓
+
+T8 last-visit only Claude Haiku 134 0.179 ✓
+
+T8 last-visit only Claude Sonnet 134 0.231 ✓
+
+T8 LLM summary DeepSeek 134 0.231 ✓
+
+T8 LLM summary GPT-4o-mini 134 0.254 ✓
+
+T8 LLM summary Claude Haiku 134 0.194 ✓
+
+T8 LLM summary Claude Sonnet 134 0.216 ✓
+
+T8 Mem0 DeepSeek 134 0.373 ✓
+
+T8 Mem0 GPT-4o-mini 134 0.358 ✓
+
+T8 Mem0 Claude Haiku 134 0.306 ✓
+
+T8 Mem0 Claude Sonnet 134 0.299 ✓
+
+(continued on next page) 
+
+25 (continued from previous page) 
+
+Task Strategy Backbone n Accuracy Subset T8 A-Mem DeepSeek 134 0.373 ✓
+
+T8 A-Mem GPT-4o-mini 134 0.336 ✓
+
+T8 A-Mem Claude Haiku 134 0.291 ✓
+
+T8 A-Mem Claude Sonnet 134 0.373 ✓
+
+T8 structured timeline DeepSeek 134 0.448 ✓
+
+T8 structured timeline GPT-4o-mini 134 0.396 ✓
+
+T8 structured timeline Claude Haiku 134 0.537 ✓
+
+T8 structured timeline Claude Sonnet 134 0.493 ✓
+
+T8 dense retrieval DeepSeek 134 0.388 ✓
+
+T8 dense retrieval GPT-4o-mini 134 0.276 ✓
+
+T8 dense retrieval Claude Haiku 134 0.403 ✓
+
+T8 dense retrieval Claude Sonnet 134 0.396 ✓
+
+T8 full context DeepSeek 134 0.440 ✓
+
+T8 full context GPT-4o-mini 134 0.269 ✓
+
+T8 full context Claude Haiku 134 0.463 ✓
+
+T8 full context Claude Sonnet 134 0.470 ✓
+
+T9 no-context (blind) DeepSeek 1500 0.355 ✓
+
+T9 no-context (blind) GPT-4o-mini 1500 0.685 ✓
+
+T9 no-context (blind) Claude Haiku 1500 0.000 ✓
+
+T9 no-context (blind) Claude Sonnet 1500 0.204 ✓
+
+T9 last-visit only DeepSeek 1500 0.883 ✓
+
+T9 last-visit only GPT-4o-mini 1500 0.895 ✓
+
+T9 last-visit only Claude Haiku 1500 0.994 ✓
+
+T9 last-visit only Claude Sonnet 1500 0.926 ✓
+
+T9 LLM summary DeepSeek 1500 0.796 ✓
+
+T9 LLM summary GPT-4o-mini 1500 0.775 ✓
+
+T9 LLM summary Claude Haiku 1500 0.941 ✓
+
+T9 LLM summary Claude Sonnet 1500 0.744 ✓
+
+T9 Mem0 DeepSeek 1500 0.806 ✓
+
+T9 Mem0 GPT-4o-mini 1500 0.818 ✓
+
+T9 Mem0 Claude Haiku 1500 0.941 ✓
+
+T9 Mem0 Claude Sonnet 1500 0.725 ✓
+
+T9 A-Mem DeepSeek 1500 0.818 ✓
+
+T9 A-Mem GPT-4o-mini 1500 0.784 ✓
+
+T9 A-Mem Claude Haiku 1500 0.966 ✓
+
+T9 A-Mem Claude Sonnet 1500 0.731 ✓
+
+T9 structured timeline DeepSeek 1500 0.556 ✓
+
+T9 structured timeline GPT-4o-mini 1500 0.664 ✓
+
+T9 structured timeline Claude Haiku 1500 0.481 ✓
+
+T9 structured timeline Claude Sonnet 1500 0.438 ✓
+
+T9 dense retrieval DeepSeek 1500 0.772 ✓
+
+T9 dense retrieval GPT-4o-mini 1500 0.710 ✓
+
+T9 dense retrieval Claude Haiku 1500 0.920 ✓
+
+T9 dense retrieval Claude Sonnet 1500 0.790 ✓
+
+T9 full context DeepSeek 1500 0.701 ✓
+
+T9 full context GPT-4o-mini 1500 0.698 ✓
+
+T9 full context Claude Haiku 1500 0.907 ✓
+
+T9 full context Claude Sonnet 1500 0.747 ✓
+
+26
