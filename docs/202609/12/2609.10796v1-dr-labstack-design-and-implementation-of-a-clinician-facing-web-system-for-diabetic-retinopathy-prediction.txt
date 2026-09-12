@@ -1,0 +1,270 @@
+Title: DR-LabStack: Design and Implementation of a Clinician-Facing Web System for Diabetic Retinopathy Prediction
+
+URL Source: https://arxiv.org/pdf/2609.10796v1
+
+Published Time: Fri, 11 Sep 2026 00:13:54 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# DR-LabStack: Design and Implementation of a Clinician-Facing Web System for Diabetic Retinopathy Prediction 
+
+Yingfan Xu 1∗ Tieming Liu 1 Ye Liang 2
+
+> 1
+
+School of Industrial Engineering and Management, Oklahoma State University 
+
+> 2
+
+Department of Statistics, Oklahoma State University 
+
+September 9, 2026 
+
+Abstract 
+
+Pretrained diabetic retinopathy (DR) prediction models differ in their input fields, serialization formats, preprocessing requirements, and output semantics. Making these models accessible through a common clinical interface therefore requires explicit coordination between the user interface and the inference service. We designed and implemented DR-LabStack, a React–Flask web system integrating four externally developed pretrained models: RuleFit, Pruned RuleFit, Elaborative XGBoost, and Two-level Ensemble. A shared form retrieves ordered model features, renders model-specific numerical and categorical controls, and constructs a positional input vector. Backend adapters load heterogeneous artifacts and apply the ensemble’s accompanying scaler, while a common JSON response supports binary classification display alongside method and source information. Functional evaluation on September 8, 2026 used copied application files and real model artifacts in a documented isolated environment. All four models loaded and exposed their 14-, 6-, 8-, and 25-field contracts. Sixty-two Flask test-client requests characterized service behavior; 12 limited-vector checks confirmed invocation-path and threshold consistency. Twenty-four browser-component scenarios with mocked transport verified input ordering and result rendering and characterized input-validation behavior. The resulting system demonstrates a reusable interaction and serving workflow for heterogeneous DR models. The contribution is web-system design, integration, and software functionality; clinical effectiveness and clinician usability require separate evaluation. 
+
+# 1 Introduction 
+
+Diabetic retinopathy (DR) prediction from structured clinical data has motivated research using laboratory measurements, recorded complications, and demographic variables. Related studies have also developed web tools that make predictive models accessible through manual data entry [9, 10, 17]. For a research group working with several such models, the software task extends beyond exposing a single prediction function. Each model can require a different ordered feature vector, artifact loader, preprocessing object, and interpretation of its numerical output. A common interface must preserve these distinctions while presenting an understandable interaction. Model reuse and deployment are also central concerns in broader software-engineering studies of machine-learning applications [1]. We designed and implemented DR-LabStack to support this workflow across four pretrained models: RuleFit, Pruned RuleFit, Elaborative XGBoost, and Two-level Ensemble. The application 
+
+> ∗
+
+Corresponding author. 
+
+1arXiv:2609.10796v1 [cs.LG] 9 Sep 2026 combines React model pages and a shared prediction form with Flask model-discovery, feature-discovery, and inference endpoints. The project repository is publicly available. 1 This paper describes the complete four-model system and evaluates its implemented integration paths. The predictive models were developed by their respective researchers in separate prior work. The contribution of this paper is the design, implementation, and functional evaluation of the web application and its integration interfaces. Algorithm design, training, feature selection, rule pruning, and ensemble learning belong to the underlying model research. We neither introduce a new prediction algorithm nor retrain the supplied artifacts in this study. Three engineering concerns motivate the design. First, positional inference APIs make feature order a correctness condition: recognizable labels alone cannot ensure that a value reaches the expected model input. Second, heterogeneous artifacts require model-specific loading and prepro-cessing, including an external scaler for the ensemble. Third, a uniform display must distinguish a shared response format from a shared probabilistic meaning. These concerns connect interface design directly to the serving layer. The system contributions are: (i) a shared React interaction that uses model-derived ordering while retaining model-specific display labels, hints, and categorical controls; (ii) a Flask integration layer for heterogeneous pretrained artifacts, associated preprocessing, and a common classification response; and (iii) a functional evaluation separating real-model service checks from browser-component tests. The evaluation establishes implemented behavior for specified inputs and identifies the integration contracts needed for further use. The interface is clinician-facing in its intended audience and presentation; clinician participation and clinical utility were not evaluated in this study. 
+
+# 2 Related Work 
+
+2.1 Structured-data DR prediction and web delivery 
+
+Gandhi, Daskivich, and Ogunyemi describe DRRisk, a Flask-based tool for assessing current DR risk using an EHR-derived model [9]. Their study includes clinical consultation and presents probability-based risk categories. This work provides directly relevant precedent for delivering non-image DR predictions through a web interface. DR-LabStack focuses on the integration of multiple model-dependent input and artifact contracts within a common interaction. Wan et al. study DR prediction using routine laboratory tests and examine an XGBoost model with SHAP [17]. He et al. report a multicenter laboratory-based prediction study and a Streamlit application with four inputs, shared preprocessing, probability output, and individual SHAP visualization [10]. These studies address model performance in defined cohorts and, in the latter case, a model-specific deployment interface. Our evaluation concerns software integration across four supplied models. Original-study diagnostic estimates are not pooled, ranked across cohorts, or presented as reproduced results of this system. 
+
+2.2 Underlying models and interpretability 
+
+RuleFit represents predictions through an additive combination of rule indicators and linear terms [8]. The pruning-and-merging research linked from the Pruned RuleFit page is attributed to Bani Ahmad and Liu [3]. Laoh and Liu describe incorporating medical domain knowledge into DR model development [11]; that research provides context for the eight-input Elaborative XGBoost artifact. XGBoost itself is an established gradient-boosting method [5]. Mahmoudi and Liu’s two-level 
+
+> 1https://github.com/TerrificXu/diabetic-retinopathy-web
+
+2ensemble work develops nested stacking configurations for DR prediction [12]. DR-LabStack supplies the interaction and serving interfaces for these externally developed artifacts. Model structure, predictor selection, methodological context, and individual explanations serve different purposes. The distinction between interpretable models and explanations of black-box predictions is discussed by Rudin [13]. We use this distinction to describe what the integration exposes: a model may have inspectable rules or a domain-informed input subset while the application presents only field labels, method context, and a classification. 
+
+2.3 Model serving and systems engineering 
+
+General serving systems such as Clipper use modular interfaces to connect applications to heteroge-neous machine-learning frameworks [7]. DR-LabStack applies a small in-process architecture to a clinical research application, emphasizing ordered inputs, artifact adapters, and user-facing output semantics. Its implementation and evaluation scope differ from serving-infrastructure benchmarks concerned with throughput, caching, and distributed execution. Amershi et al. describe an iterative development workflow spanning model requirements, data preparation, evaluation, deployment, and monitoring [1]. DR-LabStack addresses the application-integration part of that broader workflow, accepting pretrained artifacts and connecting them to a shared interface. Sculley et al. identify data dependencies and package-specific integration code as sources of maintenance difficulty in ML systems [15]. In our application, ordered features, display definitions, and preprocessing objects make these dependencies concrete at the boundary between manual entry and model invocation. 
+
+2.4 Clinical interfaces and human–AI interaction 
+
+Amershi et al.’s interaction guidelines distinguish communicating system capabilities from commu-nicating expected reliability [2]. This distinction separates an operable prediction form from an adequate account of what its output means. In a qualitative study with 21 pathologists using a prostate-cancer AI assistant, Cai et al. identified needs for global information about model limita-tions and design objectives, beyond explanations of individual decisions [4]. That study concerns clinical onboarding in image-based pathology; DR-LabStack provides method and source context beside structured-data entry forms. Its current information panels offer a place to communicate model context, while their adequacy for clinicians remains an empirical question. TRIPOD+AI guides reporting of prediction-model development and evaluation [6], while DECIDE-AI addresses early live clinical evaluation of AI decision support [16]. These frame-works inform the evidence needed for later diagnostic or clinical-workflow studies. The present evaluation is a software functional study with explicitly defined fixtures and interface boundaries. 
+
+# 3 Intended Use and System Overview 
+
+DR-LabStack provides a manual-entry workflow for selecting a DR model, supplying its required inputs, and viewing a binary classification. Inputs span laboratory measurements, recorded compli-cations, age, and demographic fields. The interface is intended to make research models accessible to clinical personnel for demonstration and assessment. The present evidence does not establish a basis for patient-care decisions, replacing retinal assessment, or excluding DR after a low output. A prediction horizon or early-stage disease target has not been verified for the integrated artifacts. The implementation supports four interaction requirements: discovering the selected model’s ordered fields; presenting recognizable labels and appropriate numerical or categorical controls; 3Four-model web application and integration layer  
+
+> React model pages
+> Four configured routes Shared PredictionForm
+> Presentation and inputs
+> Local labels / hints / codes Metadata-ordered vector
+> Flask JSON endpoints
+> GET /get_features POST /predict
+> Startup loader
+> Recursive .pkl / .json scan Skip scaler.pkl as a model
+> Supplied pretrained artifacts
+> RuleFit / Pruned RuleFit XGBoost / nested ensemble Paired StandardScaler
+> In-memory model dictionary
+> Filename-based identifiers Successfully loaded objects
+> Prediction helper
+> Reshape numeric input Invoke predict path First output > 0.5
+> Ensemble adapter
+> CompositeModel.predict Calls supplied scaler.transform Then supplied model.predict
+> React result display
+> Integer 0 / 1 response Low Risk / High Risk text Method / source context
+> HTTP via API
+> Blue: project web / integration code Amber: externally developed model objects
+
+Figure 1: DR-LabStack architecture for the complete four-model system. Blue boxes denote the web application and integration code developed in this project; amber boxes denote externally developed pretrained models and the paired scaler. The scaler path is used for Two-level Ensemble. Arrows describe implemented metadata and inference relationships; model training is outside this online workflow. applying the supplied inference and preprocessing path; and returning a consistent result display with method and source context. The system includes four configured model pages, a model-list page, Home, Members, and Contact. The common form is the main connection between page-level presentation and model-specific inference. 
+
+# 4 System Architecture and Implementation 
+
+4.1 Component responsibilities 
+
+Figure 1 distinguishes application components implemented in this project from the pretrained artifacts and preprocessing object supplied by the model researchers. React handles routing, entry controls, input state, requests, and result rendering. Flask maintains the in-memory model dictionary, exposes feature metadata, and invokes an artifact-specific prediction path. Method descriptions, research links, and researcher information accompany the form as interface content. The React entry point renders the application under StrictMode. Four model routes and their navigation links are explicitly configured, and each model page passes a fixed identifier to the shared 
+
+PredictionForm . The model-list page separately requests the successfully loaded backend names. This arrangement supports shared form behavior while allowing model-specific page text. Adding an artifact can expand backend discovery, but a complete additional website page still requires route, navigation, and presentation configuration. 44.2 Feature discovery and shared form construction 
+
+When the selected model changes, the shared form requests /get_features?model_name=... . The response contains an ordered features array. The component uses exact names as state keys, generates controls by iterating over the array, and constructs the request vector in the same order. Display normalization is separate: frontend mappings provide readable labels, units, placeholders, and aliases for short or punctuation-heavy artifact names. Numerical fields use required number inputs. Complication, gender, and race fields use required selectors with explicit numerical option values. Input hints remain frontend-maintained rather than supplied by a typed backend schema. Keeping presentation separate from exact artifact keys allows the same component to render different model contracts, while preserving responsibility for the meaning of units and categorical codes at the integration boundary. 
+
+4.3 Artifact loading and preprocessing adaptation 
+
+At startup, Flask recursively scans the relative models/ directory for .pkl and .json files, skipping 
+
+scaler.pkl as an independent model. A successfully loaded artifact is stored under its filename stem. Loading failures are reported and the corresponding entry is omitted. This mechanism is startup discovery; the implemented service has no hot-loading or online-upload operation. The JSON adapter loads an XGBClassifier and obtains feature names from its booster. The Python serialization adapter tries joblib and then pickle. The helper contains additional format branches, but application discovery is limited to the two extensions above. Models remain in process memory for subsequent requests. The dictionary is an inference registry keyed by names, rather than a version-governance service. An ensemble filename beginning with the normalized phrase “two level ensemble” triggers a lookup for a same-directory scaler. CompositeModel combines the predictor and scaler behind a common interface. It derives feature order from the model where available, otherwise from the scaler’s feature_names_in_ , and calls scaler.transform before prediction. The supplied ensemble uses this second metadata path. If the scaler is missing, the loader warns and returns the unwrapped model; the missing-scaler behavior is characterized in Section 6. 
+
+4.4 Request and response flow 
+
+Figure 2 follows the interaction from selection to display. For model m, let Fm = ( f1, . . . , f dm ) be the returned feature sequence and u[f ] the component’s stored input string. The client sends 
+
+xm = ( g(u[f1]) , . . . , g (u[fdm ])) , g(v) = parseFloat(v) || 0 . (1) This expression describes JavaScript conversion, including a zero fallback for empty or unparseable values if conversion is reached. Native required controls govern ordinary blank-form submission; the fallback is not a model-derived missing-data procedure. The /predict endpoint accepts a JSON model identifier and feature list. The helper converts the list to a floating-point array with shape (1 , −1), invokes predict , takes the first returned value, and applies a strict threshold: ̂
+
+cm = 1[first {predict m(Pm(xm)) } > 0.5] , (2) where Pm is the external scaler for the ensemble and the identity operation for the other application adapters. Internal estimator transformations are retained within the supplied model. The JSON response contains an integer prediction ; React maps 0 and 1 to “Low Risk of DR!” and “High 5Select model 
+
+> Configured React route
+> Fetch ordered fields
+> GET /get_features
+> Fill / encode
+> Shared ordered form
+> Submit numerical list
+> POST /predict
+> Invoke supplied artifacts
+> Scaler (ensemble), then predict
+> Map / display class
+> 0 or 1 -> risk text Application adapters invoke pretrained objects; no training occurs in this request path.
+
+Figure 2: Shared request sequence across all four models. Blue steps are implemented by the application. The amber step invokes the supplied predictor and, for the ensemble, its supplied scaler through the application adapter. The same metadata order drives rendered fields and the positional request. Table 1: Main integration endpoints. Feature order is returned as metadata; field meanings and option labels are maintained by the frontend. 
+
+Endpoint Request Response / behavior GET /models No payload Names of successful startup loads. GET /get_features Query model_name Ordered features array; unknown model returns an empty array with 200. POST /predict JSON model and features list Integer prediction ; invalid envelopes return 400; prediction failures return 500. 
+
+Risk of DR!” respectively. This common response structure simplifies rendering while preserving the need to explain the underlying output semantics. Auxiliary pages organize program, researcher, and contact information. Separate Flask-WTF template paths also coexist with the React workflow. These supporting paths do not alter the shared React inference contract; their implementation details and observed ancillary failures are summarized in Appendix B.5. 
+
+# 5 Integrated Models and Interface Semantics 
+
+5.1 Model integration contracts 
+
+Table 2 lists all four integrated pretrained models and their source context. Field counts refer to inputs rather than laboratory tests. Appendix A provides complete numbered keys, display meanings, and units/options as part of the manuscript’s numerical contract. Both RuleFit artifacts use regression mode. Their returned scores pass through Equation 2. The XGBoost JSON contains eight named features and a binary:logistic objective, but the application uses the classifier’s predict method, which returns labels. The integrated ensemble is an outer stacking classifier with four inner stacking classifiers corresponding to Random Forest, Gradient Boosting, LinearSVC, and XGBoost. Each inner stack contains estimators named for 6Table 2: Integrated pretrained models. L: laboratory measurements; C: complication fields. Source citations attribute the underlying methods, not an independently reproduced diagnostic result or a verified experiment identity for each artifact.            
+
+> Model / source context Inputs Artifact / external preprocessing Output used by the helper RuleFit [8] 14: 12 L + 2 C Pickle; no external scaler Regression-mode predict
+> score. Pruned RuleFit [3] 6: 4 L + 2 C Pickle; no external scaler Regression-mode predict
+> score. Elaborative XGBoost [5, 11] 8: 5 L + age + 2 C JSON; no external scaler Classifier predict label. Two-level Ensemble [12] 25: 20 L + age + 2 C + gender + race Pickle and paired StandardScaler Nested classifier predict
+> label.
+
+accuracy, recall, and precision; the supplied configuration uses Logistic Regression as the four inner and outer final estimators. These structures are retained from the supplied artifacts rather than learned by the web service. Method descriptions must be associated with the actual integrated artifact. In particular, the interface name “Pruned RuleFit” is retained without asserting a four-rule-only deployed predictor: the local artifact and the concise method description have not been fully reconciled. Appendix B.4 records the relevant artifact-level facts. This is an integration-documentation boundary, not a conclusion about the validity of the original pruning research. 
+
+5.2 Field meanings, coding, and validation 
+
+The field order is authoritative for positional construction, while clinical interpretation also depends on definitions and coding. RuleFit includes case-sensitive Hematocrit ; ensemble names include long punctuated keys and use age, gender, and race in addition to laboratory and complication fields. The frontend preserves exact names as keys while mapping many of them to readable labels. The complication options encode Yes=1 and No=0. The gender selector uses Female=0, Male=1, Unknown=2. Race is represented by nine displayed categories with codes 0–8, listed in Appendix A. These are implemented interface codes; their correspondence to training-data codebooks and the meaning of the source gender field require confirmation. Likewise, the displayed units are entry guidance rather than an implemented unit-conversion layer. Numerical controls are required, with no explicit min , max , or step . Suggested ranges and age’s positive-integer instruction appear in placeholders. The service checks model membership and list type but delegates most value and shape handling to numerical conversion and the estimator. Section 6 reports the resulting browser and API behavior. A fuller integration contract would couple feature order with units, categorical definitions, allowed values, and missingness semantics. 
+
+5.3 Method context and prediction interpretation 
+
+The application provides method summaries, original-research links, and researcher information beside the form. These features support navigation from an input interface to its research context. RuleFit’s rule structure and the elaborative model’s feature-selection rationale remain properties of the underlying model research. The current result display presents a binary classification with method context; it does not render patient-specific rules, feature contributions, probabilities, or uncertainty intervals. The helper’s common threshold therefore establishes a display contract, not a 7shared calibrated probability scale. High/Low Risk text is a label for that classification, rather than an individual explanation or a clinical exclusion rule. 
+
+# 6 System Functional Evaluation 
+
+6.1 Evaluation design 
+
+The completed evaluation was performed on September 8, 2026. It combines three evidence layers: source-level verification of component contracts, real-model execution through Flask’s test client, and actual browser interaction with the shared React component using mocked transport. The four-model application snapshot and its supplied artifacts define the evaluated system. Backend execution used unchanged copies of the application files and artifacts in an isolated Python 3.12.14 environment. The original environment’s Python 3.13 startup did not complete the initial probe. An import-only PyTorch shim supported the helper’s unused unconditional import; PyTorch loading was unavailable. The test harness also restricted deserialized globals and blocked network operations and subprocesses. These are test-environment adaptations, not application features. Main package versions, differences and diagnostic scope appear in Appendix B.1. For each model, three synthetic vectors were used: a hand-constructed numerical baseline, a 5% perturbation of its non-age numerical measurements with categorical codes retained, and an all-zero vector. Exact baselines and construction rules appear in Appendix B.2. They are software fixtures without patient identities or DR labels. The twelve comparisons check invocation paths and application thresholding. For the nine non-composite cases, both raw paths call the same estimator’s predict(x) ; their agreement is not an independent implementation comparison. The three ensemble cases compare explicit model.predict(scaler.transform(x)) with the composite wrapper, then check the helper’s thresholded class. This design provides bounded adapter and threshold evidence rather than cross-version equivalence or diagnostic validation. Flask’s test client made 62 requests without a running HTTP server. Cases covered registry and feature retrieval, normal vectors, wrong lengths, type and numerical boundaries, invalid envelopes, and ancillary routes. Browser testing mounted the original form component in an isolated React 19.0.0/Axios harness and used Chrome 152.0.7977.77. Feature responses supplied the verified ordered lists; prediction responses were controlled classes 0 and 1. Distinct values at numerical positions made payload ordering observable. Twenty-four model-related scenarios covered blank input, ordered payloads, result mapping, decimal focus/blur and keyboard behavior, and values outside displayed hints. 
+
+6.2 Model loading, input order, and response behavior 
+
+All four artifacts loaded under the documented adaptations and exposed the expected 14, 6, 8, and 25 fields. The scaler was excluded from the standalone model list and paired with the ensemble. All 12 limited-vector path and threshold checks agreed. The baseline, perturbation, and zero-vector outputs are provided in Appendix B.2; these results describe invocation behavior, not clinical accuracy. The 62 requests comprise 48 model-dependent prediction cases, four ordered-feature requests, five registry/unknown-feature/ancillary GETs, and five invalid-envelope POSTs. The model-dependent outcomes are shown in Appendix B.3. Wrong-length, empty-list, and nonnumeric-value inputs returned 500 for all models, whereas numeric strings, nested one-row lists, negative values, and an out-of-domain neuropathy code were accepted. Every successful prediction response contained an 8integer 0 or 1. HTTP 200 indicates that the software produced a response, not that an input is medically reasonable. Unknown models and invalid feature-envelope types returned 400 through the prediction route. Feature retrieval for an unknown model returned 200 with an empty list. A separate missing-scaler check returned an unwrapped stacking classifier without the expected feature_names attribute. This confirms the loader’s fallback behavior and motivates an explicit artifact–preprocessor pairing contract. 
+
+6.3 Browser behavior and representative interface 
+
+The component rendered and submitted all 53 field positions across the four model contracts in their returned order. Required blank forms produced no prediction request. Controlled class 0 and 1 responses produced the corresponding Low/High Risk text on all four forms. This verifies the browser component and JSON construction against known transport responses; it does not establish complete browser-to-model end-to-end operation. Decimal behavior depended on interaction state. After a prior integer value attribute of 10, entering 1.7 in the focused first numerical field produced stepMismatch=true ; pressing Enter sent no prediction request. After blur, React synchronized the value attribute to 1.7, the control became valid, and button submission transmitted 1.7. An uncontrolled input retained the mismatch, consistent with HTML’s default numerical step of 1 [18]. A first value of −999 was also submitted on every form. These observations distinguish browser-native required/step behavior from enforcement of the displayed medical hints. Figure 3 presents two representative pages from the complete four-model system. The left Elaborative XGBoost panel includes all eight input fields, and the right Two-level Ensemble panel includes all 25. Both retain the model title, complete input form, Predict button, Prediction Result heading, and waiting-for-input state. These supplied screenshots illustrate the shared interaction structure and are separate from the executed tests. 
+
+# 7 Discussion 
+
+7.1 Separating numerical identity from presentation 
+
+The shared form connects two representations of an input: its exact model key and its displayed clinical label. Using the returned sequence for both rendering and payload construction makes positional correspondence explicit across four different input sizes. Keeping the label map separate permits readable names without rewriting the numerical contract. The browser results support this ordering behavior for the implemented fields. Structural reuse is a design property here; development time, clinical input-error reductions, and usability improvements were not measured. Feature order is one part of the contract. The same correctly positioned value can have a wrong unit, an unsupported categorical code, or an ambiguous clinical definition. A transferable next step is a typed feature schema that binds those meanings to exact keys, then drives both presentation and service-side validation. Such a schema would also distinguish a required value from an acceptable missing-value representation. The current separation between artifact metadata and frontend hints makes these responsibilities visible. This is consistent with Sculley et al.’s analysis of input dependencies: a change in an input’s meaning can affect the consuming model even when the software connection remains intact [15]. 9Figure 3: Representative pages from the complete four-model DR-LabStack system: (a) Elaborative XGBoost with all 8 input fields (left); (b) Two-level Ensemble with all 25 input fields (right). Both show the complete prediction operation column in the waiting-for-input state. 10 7.2 Adapting artifacts while retaining preprocessing 
+
+A common prediction interface allows the service to accommodate JSON and Python-serialized models, with an additional composite path for external preprocessing. The ensemble checks directly exercise that composite path. Maintaining this behavior over time requires more than adding a file: artifact and scaler identity, metadata origin, compatible dependencies, and page configuration must remain aligned. A versioned integration manifest could bind these elements without treating model training as part of online serving. Source and researcher links are useful alongside this technical contract because they preserve attribution and offer method context. Their association with a specific artifact should be maintained when an integration changes. This responsibility is distinct from reassessing the original researchers’ algorithmic claims or assigning a published experiment’s performance to an unmatched binary. 
+
+7.3 Uniform responses and meaningful outputs 
+
+A shared response field and classification display simplify the interface across heterogeneous estima-tors. The underlying predict outputs nevertheless differ: the RuleFit artifacts provide regression scores, while the classifier interfaces provide labels. Equation 2 standardizes the final class, not the evidential meaning of that class. Future probability or explanation displays would require model-specific output definitions and validation before being added to the common response schema. This distinction matters for a clinician-facing application. Labels, method context, and the actual prediction should have a clearly stated role in the workflow. A low classification cannot establish absence of DR. Age, complication codes, gender, and race also require context about ascertainment and population; their inclusion is not evidence of a causal mechanism. Usability evaluation should therefore assess interpretation as well as successful data entry. The capability/reliability distinction and clinical onboarding research suggest concrete future tasks: asking users to identify required inputs, explain the binary result, and describe the intended limits of use [2, 4]. These are proposed evaluation tasks; successful performance on them has not been established for this system. 
+
+# 8 Limitations and Future Work 
+
+The functional evidence covers one four-model snapshot and a limited set of software inputs. Isolated execution differed from the original environment in Python and several dependencies, with explicit test-only adaptations. Browser tests used mocked transport in one Chrome version, and Flask test-client calls did not exercise a live full-stack HTTP deployment. The study therefore establishes the tested component and service behaviors within those boundaries. This work evaluates the integration and serving behavior of externally developed pretrained models. Model development and training were outside its scope, and no independent diagnostic validation was performed. Available handoff materials did not establish a complete mapping from every integrated artifact to a specific published experiment; consequently, performance estimates from the original studies are not attributed to the deployed artifacts. This limitation concerns the evidence available for system integration, rather than whether the original researchers performed particular procedures. Further engineering work should prioritize a unified feature schema, server-side validation of input shape, type and values, explicit binding of models to preprocessing objects, a reproducible dependency environment, and clearer error responses. The observed missing-scaler fallback and browser decimal behavior provide concrete cases for these changes. Serialization compatibility requires attention because successful loading under a newer library does not establish agreement 11 with the training runtime [14]. Real frontend–backend integration tests and cross-browser checks should follow within a fixed application version. The current implementation is a research web system: its hardcoded loopback HTTP endpoints, permissive CORS, debug-mode startup and limited operational controls require deployment-specific engineering. Deployment performance and clinical-workflow use have not been measured. Future work should evaluate task completion, input errors, result comprehension and satisfaction with intended clinical users under a documented protocol. Any subsequent diagnostic evaluation should be conducted with the original model researchers, using an authorized cohort and a defined target and validation design. Usability and clinical studies should follow appropriate ethics and stage-specific reporting procedures [6, 16]. 
+
+# 9 Conclusion 
+
+We designed and implemented DR-LabStack as a common web workflow for four externally developed DR prediction models. The application connects model-derived feature order to shared React controls, adapts heterogeneous artifacts and the ensemble scaler through Flask, and presents a common classification response with research context. Real-model service checks and separate browser-component tests establish the reported loading, ordering, invocation and display behavior under documented conditions. The system provides a concrete foundation for further integration engineering and clinician-facing evaluation, with usability, deployment performance and clinical effectiveness remaining to be assessed. 
+
+# Data and Code Availability 
+
+The project repository is available at TerrificXu/diabetic-retinopathy-web. Public availability and permission to reuse individual components are separate matters; a uniform license over code, model artifacts and third-party assets is not asserted here. The functional evaluation used synthetic software vectors rather than patient records. This manuscript and its appendices specify the principal input contracts, fixtures, environment and outcomes. No training dataset or complete training-pipeline release is claimed, and no patient data or model binaries are included in the manuscript source package. 
+
+# Ethics and Declarations 
+
+The software functional evaluation used synthetic inputs, recruited no participants, and processed no patient records. Training and clinical validation of the externally developed models were outside this study’s scope. The present software evaluation makes no claim about ethics approval for those separate studies. 
+
+System development. Yingfan Xu was responsible for web-system design, implementation, integration, and software verification. The underlying prediction models were developed in separate research, as attributed in this manuscript. 
+
+AI assistance. OpenAI Codex assisted with manuscript drafting and editing, literature verification, evaluation-tool preparation and execution, figure preparation, and document compilation and checking. The reported functional results are the recorded software-test outcomes. The authors are responsible for the submitted manuscript. 12 References 
+
+[1] Saleema Amershi, Andrew Begel, Christian Bird, Robert DeLine, Harald Gall, Ece Kamar, Nachiappan Nagappan, Besmira Nushi, and Thomas Zimmermann. Software engineering for machine learning: A case study. In 2019 IEEE/ACM 41st International Conference on Software Engineering: Software Engineering in Practice (ICSE-SEIP) , pages 291–300. IEEE, 2019. doi: 10.1109/ICSE-SEIP.2019.00042. URL https://www.microsoft.com/en-us/research/publi cation/software-engineering-for-machine-learning-a-case-study/ .[2] Saleema Amershi, Dan Weld, Mihaela Vorvoreanu, Adam Fourney, Besmira Nushi, Penny Collisson, Jina Suh, Shamsi Iqbal, Paul N. Bennett, Kori Inkpen, Jaime Teevan, Ruth Kikin-Gil, and Eric Horvitz. Guidelines for human-AI interaction. In Proceedings of the 2019 CHI Conference on Human Factors in Computing Systems , pages 1–13. Association for Computing Machinery, 2019. doi: 10.1145/3290605.3300233. URL https://www.microsoft.com/en-us/ research/publication/guidelines-for-human-ai-interaction/ . Paper 3. [3] Oday Bani Ahmad and Tieming Liu. Designing a pruning and merging method to achieve simple rules for diabetic retinopathy screening with routine lab results. SSRN preprint, 2025. URL https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5168882 . Preprint. [4] Carrie J. Cai, Samantha Winter, David Steiner, Lauren Wilcox, and Michael Terry. “hello AI”: Uncovering the onboarding needs of medical practitioners for human–AI collaborative decision-making. Proceedings of the ACM on Human-Computer Interaction , 3(CSCW):104:1–104:24, 2019. doi: 10.1145/3359206. URL https://doi.org/10.1145/3359206 .[5] Tianqi Chen and Carlos Guestrin. XGBoost: A scalable tree boosting system. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining ,pages 785–794, 2016. doi: 10.1145/2939672.2939785. URL https://arxiv.org/abs/1603.0 2754 .[6] Gary S. Collins, Karel G. M. Moons, Paula Dhiman, Richard D. Riley, Andrew L. Beam, Ben Van Calster, Marzyeh Ghassemi, Xiaoxuan Liu, Johannes B. Reitsma, et al. TRIPOD+AI statement: updated guidance for reporting clinical prediction models that use regression or machine learning methods. BMJ , 385:e078378, 2024. doi: 10.1136/bmj-2023-078378. URL 
+
+https://www.bmj.com/content/385/bmj-2023-078378 .[7] Daniel Crankshaw, Xin Wang, Guilio Zhou, Michael J. Franklin, Joseph E. Gonzalez, and Ion Stoica. Clipper: A low-latency online prediction serving system. In 14th USENIX Symposium on Networked Systems Design and Implementation (NSDI 17) , pages 613–627. USENIX Association, 2017. URL https://www.usenix.org/conference/nsdi17/technical-sessions/presenta tion/crankshaw .[8] Jerome H. Friedman and Bogdan E. Popescu. Predictive learning via rule ensembles. The Annals of Applied Statistics , 2(3):916–954, 2008. doi: 10.1214/07-AOAS148. URL https: //arxiv.org/abs/0811.1679 .[9] Meghal Gandhi, Lauren Patty Daskivich, and Omolola I. Ogunyemi. DRRisk: A web-based tool to assess the risk of diabetic retinopathy through machine learning on electronic health records. AMIA Annual Symposium Proceedings , 2022:452–460, 2023. URL https://pmc.nc bi.nlm.nih.gov/articles/PMC10148369/ . Published April 29, 2023; proceedings collection 2022. PMID: 37128428. 13 [10] Lu He, Mengyu Zhang, Xuanxuan Wang, Tian Wang, and Peng Wang. Machine learning-based prediction of diabetic retinopathy using clinlabomics: a multi-center study. BMC Medical Informatics and Decision Making , 26:236, 2026. doi: 10.1186/s12911-026-03524-y. URL 
+
+https://link.springer.com/article/10.1186/s12911-026-03524-y .[11] Enrico Laoh and Tieming Liu. A robust and trustable approach to incorporate medical domain knowledge in machine learning models for diabetic retinopathy screening using routine lab results. SSRN preprint, 2024. URL https://papers.ssrn.com/sol3/papers.cfm?abstract _id=4950302 . Posted September 11, 2024. [12] Mahyar Mahmoudi and Tieming Liu. Predicting diabetic retinopathy using a two-level ensemble model. arXiv preprint arXiv:2510.01074, 2025. URL https://arxiv.org/abs/2510.01074 .Version 1. [13] Cynthia Rudin. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nature Machine Intelligence , 1:206–215, 2019. doi: 10.1038/s42256-019-0048-x. URL https://arxiv.org/abs/1811.10154 .[14] scikit-learn developers. Model persistence. scikit-learn 1.7 documentation, 2025. URL https: //scikit-learn.org/1.7/model_persistence.html . Accessed September 8, 2026. [15] D. Sculley, Gary Holt, Daniel Golovin, Eugene Davydov, Todd Phillips, Dietmar Ebner, Vinay Chaudhary, Michael Young, Jean-François Crespo, and Dan Dennison. Hidden technical debt in machine learning systems. In Advances in Neural Information Processing Systems , volume 28. Curran Associates, Inc., 2015. URL https://papers.nips.cc/paper_files/paper/2015/ha sh/86df7dcfd896fcaf2674f757a2463eba-Abstract.html .[16] Baptiste Vasey, Myura Nagendran, Bruce Campbell, David A. Clifton, Gary S. Collins, Spiros Denaxas, Alastair K. Denniston, Livia Faes, Bart Geerts, Mudathir Ibrahim, Xiaoxuan Liu, Bilal A. Mateen, Piyush Mathur, Melissa D. McCradden, Lauren Morgan, Johan Ordish, Campbell Rogers, Suchi Saria, Daniel S. W. Ting, Peter Watkinson, Wim Weber, Peter Wheatstone, Peter McCulloch, and DECIDE-AI expert group. Reporting guideline for the early-stage clinical evaluation of decision support systems driven by artificial intelligence: DECIDE-AI. Nature Medicine , 28:924–933, 2022. doi: 10.1038/s41591-022-01772-9. URL 
+
+https://www.nature.com/articles/s41591-022-01772-9 .[17] Xiaohua Wan, Ruihuan Zhang, Yanan Wang, Wei Wei, Biao Song, Lin Zhang, and Yanwei Hu. Predicting diabetic retinopathy based on routine laboratory tests by machine learning algorithms. 
+
+European Journal of Medical Research , 30:183, 2025. doi: 10.1186/s40001-025-02442-5. URL 
+
+https://link.springer.com/article/10.1186/s40001-025-02442-5 .[18] WHATWG. HTML living standard: Number state, 2026. URL https://html.spec.whatwg .org/multipage/input.html#number-state-(type=number) . Accessed September 8, 2026. 14 A Ordered Input Fields and Display Definitions 
+
+Exact keys retain their original spelling and order. The accompanying labels, units and codes describe the implemented interface; compatibility with source-data definitions requires confirmation. Numerical inputs are required, with suggested ranges in placeholders and no explicit min/max/step attributes. Complication selectors use Yes=1 and No=0. 
+
+RuleFit (14) 
+
+No. Exact model key Display meaning / unit or encoding 1 hba1c HbA1c; % 2 creatinine Creatinine; mg/dL 3 neu Neuropathy (Neu); Yes=1; No=0 4 Hematocrit Hematocrit; % 5 bun Blood Urea Nitrogen (BUN); mg/dL 6 neph Nephropathy (Neph); Yes=1; No=0 7 albumin Albumin; g/dL 8 calcium Calcium; mg/dL 9 sodium Sodium; mEq/L 10 anion_gap Anion Gap; mEq/L 11 alt Alanine Aminotransferase (ALT); U/L 12 bilirubin Bilirubin; mg/dL 13 chloride Chloride; mEq/L 14 potassium Potassium; mEq/L 
+
+Pruned RuleFit (6) 
+
+No. Exact model key Display meaning / unit or encoding 1 creatinine Creatinine; mg/dL 2 neu Neuropathy (Neu); Yes=1; No=0 3 hba1c HbA1c; % 4 bun Blood Urea Nitrogen (BUN); mg/dL 5 neph Nephropathy (Neph); Yes=1; No=0 6 anion_gap Anion Gap; mEq/L 
+
+Elaborative XGBoost (8) 
+
+No. Exact model key Display meaning / unit or encoding 1 hba1c HbA1c; % 2 creatinine Creatinine; mg/dL 3 glucose Glucose; mg/dL 4 hemoglobin Hemoglobin; g/dL 5 albumin Albumin; g/dL 6 age Age; in years 7 neph Nephropathy (Neph); Yes=1; No=0 8 neu Neuropathy (Neu); Yes=1; No=0 
+
+15 Two-level Ensemble (25)                                                        
+
+> No. Exact model key Display meaning / unit or encoding 1AGE_IN_YEARS Age; in years 2Alanine.Aminotransferase...SGPT Alanine Aminotransferase (ALT); IU/L 3Albumin..Serum Albumin; g/dL 4Alkaline.Phosphatase..Serum Alkaline Phosphatase (ALP); IU/L 5Anion.Gap..Blood Anion Gap; mEq/L 6Aspartate.Aminotransferase Aspartate Aminotransferase (AST); U/L 7Bilirubin.Total.Serum.or.Plasma.Mass.Volume Bilirubin; mg/dL 8Blood.Urea.Nitrogen Blood Urea Nitrogen (BUN); mg/dL 9Calcium..Serum Calcium; mg/dL 10 Chloride..Serum Chloride; mEq/L 11 Creatinine..Serum.Quantitative Creatinine; mg/dL 12 GENDER Gender; codes defined below 13 Glucose..Serum.Plasma.Quantitative Glucose; mg/dL 14 Hematocrit Hematocrit; % 15 Hemoglobin Hemoglobin; g/dL 16 Mean.Corpuscular.Hemoglobin.Concentration Mean Corpuscular Hemoglobin Concentration (MCHC); g/dL 17 Mean.Corpuscular.Volume Mean Corpuscular Volume (MCV); fL 18 Platelet.Count Platelet Count; ×10 3/L 19 Potassium..Serum Potassium..Serum; mEq/L 20 Red.Blood.Cell.Count Red Blood Cell Count (RBC); ×10 6/L 21 Sodium..Serum Sodium..Serum; mEq/L 22 White.Blood.Cell.Count White Blood Cell Count (WBC); ×10 3/L 23 nephropathy Nephropathy (Neph); Yes=1; No=0 24 neuropathy Neuropathy (Neu); Yes=1; No=0 25 race Race; codes defined below
+
+Gender is encoded Female=0, Male=1, Unknown=2. Race codes are African American=0, Asian=1, Biracial=2, Caucasian=3, Hispanic=4, Eastern Indian=5, Native American=6, Other=7, and Pacific Islander=8. Source-data meanings and coding require confirmation. The platelet/WBC hints show ×10 3/L and the RBC hint ×10 6/L as implemented; these are reproduced rather than medically corrected. Some serum keys retain their original name as a display fallback. 
+
+# B Functional Evaluation Details 
+
+B.1 Environment and adaptation scope 
+
+The September 8, 2026 run used Windows 11 build 26200 and Python 3.12.14. Package versions were NumPy 2.3.1, SciPy 1.18.1, scikit-learn 1.7.0, pandas 2.3.0, XGBoost 3.0.2, joblib 1.5.1, RuleFit 0.3.1, Flask 3.1.1, Flask-CORS 6.0.1, Flask-WTF 1.2.2, WTForms 3.2.2, and Werkzeug 3.1.8. The inspected original environment used Python 3.13, SciPy 1.16.0, WTForms 3.2.1 and Werkzeug 3.1.3. The current artifacts include serialized scikit-learn 1.6.0 (RuleFit) and 1.6.1 (pruned model and ensemble/scaler) metadata; the XGBoost JSON records version 2.0.3. Copied application and artifact bytes were unchanged. The harness introduced an import-only torch shim, disabled PyTorch artifact loading, restricted deserialization globals, and prevented network/subprocess calls. The shim was removed from global module discovery after helper import. Initial harness failures due to a narrow allowlist and shim handling were corrected in testing code only; they were not application repairs or counted as successful original-environment runs. The successful evaluation applies to this adapted environment. Browser tests used Node 24.19, React/ReactDOM 16 19.0.0, Axios 1.7.9 and Chrome 152.0.7977.77, with the shared component transpiled into an isolated root and feature/prediction transport intercepted. 
+
+B.2 Synthetic fixtures and comparison definition 
+
+The following baseline vectors follow the field order in Appendix A. A second vector multiplies numerical measurements by 1.05, retaining age, gender, race and complication values; a third sets all positions to zero. These inputs contain no outcome label, and zero or perturbed values may be medically implausible. For non-composite models, direct and raw paths both call the same estimator. For the ensemble, the direct path explicitly scales then predicts, while the raw path calls CompositeModel. In every case, the helper’s returned class is compared with a strict > 0.5threshold applied to the first direct output. 
+
+RuleFit baseline: 
+
+> [7, 1, 0, 40, 20, 0, 4, 9, 140, 12, 20, 1, 100, 4]
+
+Pruned RuleFit baseline: 
+
+> [1, 0, 7, 20, 0, 12]
+
+Elaborative XGBoost baseline: 
+
+> [7, 1, 120, 14, 4, 50, 0, 0]
+
+Two-level Ensemble baseline: 
+
+> [50, 20, 4, 80, 12, 20, 1, 20, 9, 100, 1, 0, 120, 40, 14, 34, 90, 250, 4, 5, 140, 7, 0, 0, 3]
+
+Table 3: Retained fixture results, shown as first raw output / helper class. Decimal scores are rounded here to six places; equality checks used unrounded arrays. Each row represents three software inputs, not patients.                
+
+> Model Baseline Perturbed All-zero RuleFit 0.369084 / 0 0.378369 / 0 0.080717 / 0 Pruned RuleFit 0.323701 / 0 0.390906 / 0 0.075631 / 0 Elaborative XGBoost 0 / 0 1 / 1 0 / 0 Two-level Ensemble 0 / 0 0 / 0 1 / 1
+
+B.3 Model-dependent API outcomes 
+
+The 48 prediction requests comprise the twelve conditions below for each of four models. Each test changes the baseline vector as named: nonnumeric first value is “bad”, numeric strings apply to every position, nested input is a one-row list, negative first value is −999, and neuropathy code is 9. Null replaces the first value. NaN/Infinity stress requests use the permissive Python JSON encoder and are nonstandard JSON; they are distinct from ordinary browser JSON. Outcomes below preserve failures and acceptance behavior as observed. The other 14 requests were four metadata-order checks; GETs to models, unknown-model features, the legacy root, about, and its stylesheet; and five prediction envelopes: empty object, unknown model with a list, known model with a string, missing features, and null features. The latter five returned 400. The 24 browser scenarios comprise six per model: required-empty submission, ordered payload/class 0, class 1 display, focused-decimal Enter, blurred-decimal button submission, and negative-value submission. Numerical positions used distinct values starting at 10; selectors used valid option codes. Two additional non-model probes characterized JavaScript conversion and an uncontrolled number input. They are outside the 24 model-scenario count. 17 Table 4: HTTP status of model-dependent test-client cases. RF: RuleFit; PRF: Pruned RuleFit; ENS: Two-level Ensemble. HTTP 200 is software acceptance, not medical validity.                                                     
+
+> Input condition RF PRF XGB ENS Baseline numerical vector 200 200 200 200 Last field removed 500 500 500 500 One extra value (1) 500 500 500 500 Nonnumeric first value 500 500 500 500 Empty feature list 500 500 500 500 Numeric strings 200 200 200 200 Nested one-row list 200 200 200 200 Negative first value 200 200 200 200 Neuropathy code 9 200 200 200 200 Null first value 500 500 200 500 NaN first value (nonstandard JSON) 500 500 200 500 Infinity first value (nonstandard JSON) 200 200 200 500
+
+B.4 Artifact-to-description scope 
+
+The current RuleFit object stores 1,443 rule terms and 14 linear terms, of which 110 and 10 respectively have nonzero coefficients. The Pruned RuleFit object stores 1,452 rule terms and 6 linear terms, with 91 and 4 nonzero coefficients. These are stored term counts, not per-patient active-rule counts. They qualify the local four-rule interface description without establishing a conclusion about the underlying pruning study. The integrated ensemble has Logistic Regression final estimators; the source study reports multiple configurations. Artifact-to-experiment correspondence remains incomplete, so its principal Random Forest configuration’s performance is not assigned to this artifact. 
+
+B.5 Ancillary application paths 
+
+Flask-WTF templates coexist with the React interface. The legacy root returned 200, its about route 500 because the referenced template was absent, and its stylesheet 404. The JSON model-list endpoint does not render the separate models.html template. Standalone ModelSelection and Predic-tionResult components are outside the active prediction route graph. The contact component sends name/email/subject/message/body while the backend expects recipient/user_email/subject/body. This static contract mismatch was not tested by sending email. These supporting-path findings are separate from the four-model inference results. 18
