@@ -6,28 +6,28 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-09-12
-- 运行时间：2026-09-12 21:39:58 UTC
+- 最新运行日期：2026-09-13
+- 运行时间：2026-09-13 21:17:30 UTC
 - 运行状态：成功
 - 本次总论文数：1
 - 精读区：0
 - 速读区：1
 
 ### 今日简报（AI）
-今日速读1篇，聚焦糖尿病视网膜病变预测的临床医生端Web系统DR-LabStack。
+今日扫读 1 篇、精读 0 篇，唯一入选的是速读评分为 6.0 的《CHILD: Human-in-the-Loop OOD Detection for Safe Clinical Deployment》。
 
-该系统展示了从模型到临床可用工具的落地思路，适合关注医学AI产品化与眼底筛查的读者。
+值得关注的方向是把"人在回路"引入临床场景的分布外（OOD）检测，用人工介入来兜住模型面对异常样本时的安全风险。
 
-普通读者可留意这类工具能否真正进入诊室、帮医生更快完成糖网初筛。
-- 详情：[/202609/12/README](/202609/12/README)
+若你对医疗 AI 落地感兴趣，可先读这篇了解基本思路，再顺着"临床部署安全 + OOD 检测"这条线找更深入的资料。
+- 详情：[/202609/13/README](/202609/13/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-1. [DR-LabStack: Design and Implementation of a Clinician-Facing Web System for Diabetic Retinopathy Prediction](/202609/12/2609.10796v1-dr-labstack-design-and-implementation-of-a-clinician-facing-web-system-for-diabetic-retinopathy-prediction)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：面向临床医生的糖尿病视网膜病变预测Web系统
+1. [CHILD: Human-in-the-Loop OOD Detection for Safe Clinical Deployment](/202609/13/2609.07188v1-child-human-in-the-loop-ood-detection-for-safe-clinical-deployment)  
+   标签：评分：6.0/10、query:topic
+   evidence：面向医疗AI安全临床部署的人在环OOD检测
 
 
 <div class="dpr-home-promo-card">

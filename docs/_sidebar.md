@@ -1,6 +1,9 @@
 * <a class="dpr-sidebar-root-link" href="#/">首页</a>
 * <a class="dpr-sidebar-root-link dpr-sidebar-noactive-link" href="javascript:void(0)" data-dpr-hash="#/tutorial/README">使用教程</a>
 * Daily Papers
+  * 2026-09-13 <!--dpr-date:20260913-->
+    * 速读区
+      * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/202609/13/2609.07188v1-child-human-in-the-loop-ood-detection-for-safe-clinical-deployment" data-sidebar-item="{&quot;title&quot;: &quot;CHILD: Human-in-the-Loop OOD Detection for Safe Clinical Deployment&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/2609.07188v1-child-human-in-the-loop-ood-detection-for-safe-clinical-deployment&quot;, &quot;score&quot;: &quot;6.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;topic&quot;}], &quot;evidence&quot;: &quot;面向医疗AI安全临床部署的人在环OOD检测&quot;}">CHILD: Human-in-the-Loop OOD Detection for Safe Clinical Deployment</a>
   * 2026-09-12 <!--dpr-date:20260912-->
     * 速读区
       * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/202609/12/2609.10796v1-dr-labstack-design-and-implementation-of-a-clinician-facing-web-system-for-diabetic-retinopathy-prediction" data-sidebar-item="{&quot;title&quot;: &quot;DR-LabStack: Design and Implementation of a Clinician-Facing Web System for Diabetic Retinopathy Prediction&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/2609.10796v1-dr-labstack-design-and-implementation-of-a-clinician-facing-web-system-for-diabetic-retinopathy-prediction&quot;, &quot;score&quot;: &quot;6.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;retina-agent&quot;}], &quot;evidence&quot;: &quot;面向临床医生的糖尿病视网膜病变预测Web系统&quot;}">DR-LabStack: Design and Implementation of a Clinician-Facing Web System for Diabetic Retinopathy Prediction</a>
