@@ -1,0 +1,384 @@
+Proceedings of CIBB 2026
+1
+ClinAgent: A ReAct-Based Agent for Conversational Access
+to Clinical Trial Information
+Antonino Vaccarella1,2,3, Riccardo Cantini∗,2, Domenico Talia2, Paolo
+Trunfio2, Marianna Talia4, Rosamaria Lappano4,5, and Marcello Maggiolini4
+1 Department of Computer Science, University of Pisa, Pisa, Italy
+2 Department of Computer Engineering, Modeling, Electronics and Systems, University of Calabria, Rende, Italy.
+3 Institute of Information Science and Technologies “Alessandro Faedo”, National Research Council, Pisa, Italy.
+4 Department of Pharmacy, Health and Nutritional Sciences, University of Calabria, Rende, Italy.
+5 Department of Experimental and Clinical Medicine, University “Magna Græcia” of Catanzaro, Catanzaro, Italy.
+ORCID codes: AV 0009-0004-0428-540X; RC 0000-0003-3053-6132; DT 0000-0003-1910-9236; PT
+0000-0002-5076-6544; MT 0000-0002-3440-5618; RL 0000-0002-9374-9701; MM 0000-0002-7485-854X.
+∗corresponding author: rcantini@dimes.unical.it
+Keywords: Agentic AI, Retrieval-Augmented Generation, Clinical Trials, ReAct, Medical Informatics.
+Abstract. Querying clinical trial registries remains a manual and error-prone process, requir-
+ing researchers to navigate large volumes of semi-structured data without support for natural-
+language interaction or cross-source synthesis. To address this, we introduce ClinAgent, a con-
+versational system based on agentic Retrieval-Augmented Generation (RAG) that enables clini-
+cians and researchers to query clinical trial information in plain language and receive grounded,
+up-to-date responses across multi-turn interactions. The system centers on a Large Language
+Model (LLM) agent following the ReAct paradigm, which iteratively reasons over queries, se-
+lects among a set of integrated tools, and refines its actions based on intermediate outputs. These
+tools include a ClinicalTrials.gov search interface, a PubMed module, and a Python-based ana-
+lyzer operating on a locally cached structured dataset of clinical trials. We evaluate the system
+using a three-phase framework assessing operational effectiveness, planning quality, tool-use
+efficiency, and expert qualitative judgments, comparing three LLM backends: Gemini 3.0 Flash
+and two variants of DeepSeek V3.2 (thinking and non-thinking). Results reveal complementary
+strengths, with DeepSeek (thinking mode) excelling in planning quality, while Gemini achieves
+the highest overall performance and strongest expert ratings. Overall, our findings highlight
+the potential of agentic AI systems to improve the accessibility and synthesis of clinical trial
+information, supporting more efficient and user-centered biomedical research workflows.
+1
+Introduction
+Clinical trial registries, such as ClinicalTrials.gov, index over a million registered studies
+spanning several therapeutic areas and study phases. Despite the scale of this resource, querying
+it remains a largely manual activity, with users relying on keyword-based search through web
+interfaces or bulk CSV exports inspection with general-purpose tools [1, 2]. Neither approach
+supports natural language interaction nor offers any mechanism for synthesising information
+across multiple records or contextualising registry data against the broader scientific literature.
+Large Language Models (LLMs) have changed what is technically feasible here, yet their ten-
+dency to hallucinate — generating plausible but factually incorrect content — is not acceptable
+Article version: 15th September 2026 h00:39 CET
+arXiv:2609.13860v1  [cs.AI]  12 Sep 2026
+
+
+Proceedings of CIBB 2026
+2
+in a clinical context. Retrieval-Augmented Generation (RAG) addresses this by grounding model
+responses in documents retrieved at query time from verified external sources, substantially
+reducing hallucination without requiring model retraining. Standard RAG pipelines, however,
+operate in a single retrieval-then-generate pass, which limits their ability to handle queries
+that require gathering information from multiple sources or that benefit from iterative refine-
+ment. Agentic approaches address this through an explicit reasoning loop: under the ReAct
+paradigm [3], an agent alternates between formulating a reasoning step, invoking a tool, and
+observing the result, repeating the cycle until sufficient evidence has been accumulated.
+Building upon these considerations, this paper makes two contributions. First, we intro-
+duce ClinAgent, a conversational AI system built on agentic RAG that enables clinicians and
+researchers to query clinical trial information in plain language, integrating three specialised
+tools under a single LLM agent. These tools comprise a ClinicalTrials.gov search module for
+retrieving trial records, a PubMed interface for accessing and summarising relevant biomedical
+literature, and a Python-based analysis component that operates over a locally cached, structured
+dataset of clinical trials accumulated during user interactions. Second, we propose a three-phase
+evaluation framework covering (i) operational effectiveness, (ii) plan quality and tool-use effi-
+ciency, and (iii) expert qualitative assessment, and apply it comparatively across three recent
+LLM backends—Gemini 3.0 Flash and two versions of DeepSeek V3.2, i.e., the standard model
+and a reasoning-enabled variant (thinking mode). Results reveal non-trivial trade-offs across
+backends: DeepSeek leads on plan quality in thinking mode, consistent with its explicit reasoning
+capabilities, while Gemini 3.0 Flash achieves the highest overall score and strongest expert
+ratings. These findings suggest that agentic RAG is a practically viable approach to clinical trial
+information retrieval, and that the trade-off between reasoning depth and factual reliability is a
+critical consideration for backend selection in clinical deployment.
+2
+Background and Related Work
+Generative language models, despite their fluency, are prone to factual errors and cannot incor-
+porate knowledge postdating their training. Retrieval-Augmented Generation (RAG) addresses
+both issues by grounding outputs in dynamically retrieved external documents, thereby improv-
+ing factual accuracy and enabling access to up-to-date information without retraining. Yang et
+al. [4] systematically analyze RAG in medical AI, showing that grounding responses in curated
+knowledge reduces hallucinations and mitigates pre-training biases, making RAG well-suited to
+high-stakes domains. Miao et al. [5] apply these principles in nephrology, demonstrating that
+standard LLMs without retrieval exhibit hallucination rates too high for clinical use, thereby
+establishing domain-specific grounding as an operational requirement rather than a theoretical
+refinement. OpenEvidence [6] is a clinical question-answering system that provides grounded
+answers to medical queries by retrieving evidence from PubMed and curated clinical guidelines.
+While it demonstrates the viability of AI-assisted medical QA in high-stakes settings, it operates
+over general clinical knowledge rather than trial registries, and does not support structured
+registry querying, programmatic analysis of trial records, or agentic multi-step reasoning across
+heterogeneous tools and knowledge sources.
+The system most closely related to ClinAgent is TrialGPT [7], which uses LLMs to match
+individual patients to eligible clinical trials by evaluating eligibility criteria and aggregating
+judgments into a trial-level score, achieving expert-level accuracy and significantly reducing
+manual matching time. While TrialGPT and ClinAgent operate in the same domain, they address
+different problems: TrialGPT focuses on patient recruitment, whereas ClinAgent supports
+open-ended natural-language queries by synthesizing grounded responses from heterogeneous
+sources. To the best of our knowledge, no existing system combines agentic RAG with multi-
+
+
+Proceedings of CIBB 2026
+3
+source retrieval across both a trial registry and biomedical literature for conversational clinical
+information access, a capability with direct practical relevance for clinicians and researchers
+who require timely, grounded access to trial evidence without the overhead of manual registry
+navigation and inspection.
+3
+Proposed System
+ClinAgent is an agentic AI conversational system for clinical trial information retrieval built
+on the ReAct paradigm [3]. Upon receiving a natural language query, the LLM agent does not
+attempt to answer immediately; instead, it engages in an iterative reasoning–acting–observation
+loop. In the reasoning step, the agent interprets the query, decomposes it into sub-goals, and
+formulates a retrieval plan. In the acting step, it invokes one of the available tools, delegating
+retrieval or computation to the appropriate external component. In the observation step, it
+examines the tool’s output and decides whether the accumulated evidence is sufficient to produce
+a response or whether further actions are needed. The overall architecture is shown in Figure 1.
+User query
+Reasoning
+Acting
+Observation
+action
+needed
+Answer 
+generation
+no further
+actions needed
+tool
+selection
+Python REPL
+tool
+PubMed
+search tool
+ClinicalTrial
+search tool
+cache
+clinical trials
+analyze cached clinical trials
+Figure 1: High-level architecture of ClinAgent. The LLM agent operates a closed reasoning–action–observation
+loop, selecting among three specialised tools within a multi-turn user interaction.
+The system integrates three specialised tools. The ClinicalTrial search tool wraps a module
+that translates free-text queries into well-formed requests to the ClinicalTrials.gov REST API.
+An LLM first extracts structured parameters from the query (e.g., medical condition, intervention,
+NCT identifier, and result-availability filter), which are validated against a Pydantic schema
+before being serialised into a targeted HTTP request. Retrieved records are cached locally in a
+CSV dataset, ensuring that data fetched during a session remains available for subsequent queries
+without redundant API calls. The Python Read-Eval-Print Loop (REPL) tool allows the agent to
+perform programmatic analyses on this locally cached dataset using Pandas-based code, enabling
+filtering, aggregation, and statistical operations directly over retrieved trial records. The PubMed
+search tool accesses the NCBI Entrez API via LangChain, enabling the agent to retrieve relevant
+biomedical literature and ground its answers in peer-reviewed evidence as well as trial data.
+The agent dynamically selects tools based on the query and observed results, allowing high
+autonomy and resilience. If a primary tool fails or returns insufficient information, the agent
+replans and attempts an alternative strategy without external intervention, ensuring seamless user
+interaction. This iterative, self-correcting approach enhances reliability and enables adaptation to
+complex, evolving queries, making the agent well-suited for high-stakes biomedical applications
+where precision and evidence-based reasoning are essential.
+
+
+Proceedings of CIBB 2026
+4
+The workflow is implemented using LangChain and LangGraph frameworks, the latter provid-
+ing native support for the cyclic execution graphs required by agentic architectures. Conversation
+state is persisted across successive requests via a MemorySaver component, enabling the agent
+to resolve follow-up queries by reference to earlier exchanges, thus allowing effective multi-turn
+interaction with the user.
+4
+Experimental Evaluation
+We evaluate ClinAgent using a three-phase framework designed to assess distinct aspects of
+system performance: operational effectiveness (Phase 1), plan quality and tool-use efficiency
+(Phase 2), and qualitative assessment by clinical domain experts (Phase 3). Three LLM backends
+were included: Gemini 3.0 Flash and two variants of DeepSeek V3.2 (thinking and non-thinking
+mode). Each model was evaluated on a standardised query set comprising factual retrieval of
+trial attributes, comparative analysis across studies, literature-based questions, and mixed queries
+combining trial data with published evidence from PubMed. The full results across all phases
+are reported in Table 1 and discussed in the following sections.
+Table 1: Summary of results across all three evaluation phases. For each metric, the best result across backends is
+highlighted in bold. DeepSeek’s variant annotated with TM was used in thinking mode.
+Evaluation
+Phase
+Metric
+Gemini 3.0 Flash
+DeepSeek V3.2 (TM)
+DeepSeek V3.2
+Phase 1
+Goal Achievement Rate
+1.00
+0.94
+0.88
+Phase 2
+ReAct Quality
+0.75
+0.73
+0.62
+Plan Quality
+0.94
+0.97
+0.85
+Tool Use Efficiency
+0.56
+0.49
+0.39
+Phase 3
+Aggregate Expert Score
+0.66
+0.45
+0.65
+Clarity
+0.73
+0.63
+0.75
+Completeness
+0.58
+0.35
+0.68
+Logical consistency
+0.75
+0.35
+0.65
+Correctness
+0.68
+0.33
+0.68
+Factuality
+0.65
+0.28
+0.65
+Relevance to question
+0.65
+0.60
+0.45
+Quality of interaction
+0.68
+0.75
+0.75
+Clinical relevance
+0.65
+0.30
+0.60
+Overall score
+0.80
+0.71
+0.72
+4.1
+Phase 1 — Operational Effectiveness
+Phase 1 establishes whether each candidate LLM reliably completes a given set of queries Q.
+For each query q ∈Q, a binary success function is defined as follows:
+success(q) =
+(
+1
+if the agent produces a response relevant to the query
+0
+otherwise
+(1)
+The Goal Achievement Rate (GAR) is then computed as the fraction of successful queries:
+GAR = 1
+|Q|
+X
+q∈Q
+success(q)
+(2)
+
+
+Proceedings of CIBB 2026
+5
+Gemini 3.0 Flash achieved a GAR of 1.00, successfully handling all queries in the evaluation
+set. DeepSeek V3.2 also demonstrated strong operational reliability, with performance varying
+across modes: the reasoning-enabled (thinking) mode attains a higher GAR (0.94) than the
+non-thinking mode (0.88). The observed failures are primarily attributable to incomplete tool
+invocations or premature termination of the reasoning loop before sufficient evidence is gathered.
+4.2
+Phase 2 — Plan Quality and Tool-Use Efficiency
+Phase 2 analyzes not only whether the system reaches an answer, but also how it does so. We
+first define the success function for a single action a recursively to account for self-correction:
+success(a) =
+(
+1
+if
+
+⊤(a) ∧¬ redundant(a)
+
+∨
+
+⊥(a) ∧success(replan(a))
+
+0
+otherwise
+(3)
+where ⊤(a) denotes that the invocation of action a succeeds, ⊥(a) that it fails, redundant(a)
+that a retrieves information already present in the current context, and replan(a) the corrective
+action generated by the agent following the failure of a. In this definition, an action that fails but
+is followed by a successful replan is credited, while one that fails irrecoverably or duplicates
+already-retrieved information is penalized. We then define the Plan Quality (PQ) and Tool Use
+Efficiency (Teff) metrics. PQ measures the proportion of actions in the agent’s plan that are both
+successful and non-redundant, crediting self-correction through replanning. Teff measures the
+fraction of tool invocations that succeed on the first attempt, without considering recovery, thus
+penalising agents that reach a correct answer only after multiple failed invocations:
+PQ = 1
+|Q|
+X
+q∈Q
+1
+|Aq|
+X
+a∈Aq
+success(a) ,
+Teff = 1
+|Q|
+X
+q∈Q
+1
+|Aq|
+X
+a∈Aq
+1[⊤(a)]
+(4)
+Here, Aq is the set of actions executed by the agent for query q, and 1[⊤(a)] is the indicator
+function that equals 1 if action a succeeds on the first attempt and 0 otherwise. A composite
+ReAct Quality score is finally defined as the average of PQ and Teff, rewarding both robust
+multi-step planning and resilience to failure, as well as precision and efficiency in tool selection.
+DeepSeek V3.2 in thinking mode achieved the highest PQ (0.97), consistent with its explicit
+reasoning capabilities, which support more structured multi-step planning. Conversely, Gemini
+3.0 Flash attains the highest Teff (0.56), reflecting more reliable first-attempt tool selection
+and invocation. On the composite ReAct Quality score, Gemini 3.0 Flash (0.75) marginally
+outperformed reasoning-enabled DeepSeek V3.2 (0.73), while DeepSeek V3.2 in non-thinking
+mode (0.62) lags substantially behind.
+4.3
+Phase 3 — Expert Qualitative Assessment
+In this phase, experts evaluated system responses across four test scenarios—factual retrieval,
+comparative analysis, literature-based questions, and mixed queries—using a five-point Likert
+scale over eight criteria: clarity, completeness, logical consistency, correctness, factuality, rel-
+evance to the question, quality of interaction, and clinical relevance. Scores were normalized
+to the [0, 1] interval. Gemini 3.0 Flash exhibits the most balanced profile, achieving the highest
+scores in logical consistency and clarity, with comparatively lower performance in complete-
+ness, suggesting well-structured and accurate responses that occasionally omit relevant aspects.
+DeepSeek V3.2 in non-thinking mode performs strongly in clarity and completeness but drops
+markedly in relevance, indicating a tendency toward detailed yet less focused answers. In
+contrast, the reasoning-enabled version of DeepSeek V3.2 scores substantially lower than both
+models in factuality, correctness, and clinical relevance, despite leading in interaction quality.
+
+
+Proceedings of CIBB 2026
+6
+4.4
+Overall Results
+The overall score is computed as the average of Phase 1, Phase 2, and Phase 3 assessment
+scores, aggregated across experts and metrics. Gemini 3.0 Flash achieves the highest overall
+score (0.80), emerging as the most balanced backend for deployment in this setting. DeepSeek
+V3.2 variants perform comparably at the aggregate level, but exhibit complementary strengths:
+the standard variant (0.72) yields clearer and more complete responses according to expert
+evaluations, whereas the reasoning-enabled variant (0.71) demonstrates superior multi-step
+planning and greater resilience to tool failures, albeit at the cost of reduced factual reliability.
+5
+Conclusion
+We presented ClinAgent, a ReAct-based agentic AI system for conversational clinical trial
+information retrieval, along with a three-phase evaluation framework to assess agentic approaches
+in biomedical information access. Evaluation across three different LLMs highlights non-trivial
+trade-offs in backend selection: Gemini 3.0 Flash achieves the highest overall score and the
+strongest expert ratings, making it the recommended choice for deployment, whereas DeepSeek’s
+reasoning-enabled variant offers measurable advantages in multi-step planning at the cost of
+lower factual reliability. Future work will focus on extending ClinAgent to include additional
+domain-specific sources, such as regulatory databases and institutional electronic health records.
+Conflict of interests
+The authors declare no conflicts of interest.
+Funding
+We acknowledge financial support from “FAIR – Future Artificial Intelligence Research”
+project - CUP H23C22000860006, and “ECHO-TWIN – Edge-Cloud-HPC Optimized Twins”
+project, an initiative of the National Center ICSC-HPC, Big Data and Quantum Computing.
+Availability of data and software code
+The developed ClinAgent system is publicly available as open source at the following URL:
+https://github.com/antoninovaccarella/clinical-chat.
+References
+[1] Milica Paunic, Sanghyuk Rim, Olla Hilal, Ren´ee Nassar, Zoe Driedger, et al. Cross sectional analysis of clinical
+trials search results for cancer patients using a navigator-assisted clinical trials search using five different search
+engines. Plos one, 20(6):e0326139, 2025.
+[2] Tony Tse, Kevin M Fain, and Deborah A Zarin. How to avoid common problems when using clinicaltrials. gov
+in research: 10 issues to consider. Bmj, 361, 2018.
+[3] Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, et al. React: Synergizing reasoning and acting in
+language models. In ICLR, 2022.
+[4] Rui Yang, Yilin Ning, Emilia Keppo, Mingxuan Liu, Chuan Hong, et al. Retrieval-augmented generation for
+generative artificial intelligence in health care. Npj health systems, 2(1):2, 2025.
+[5] Jing Miao, Charat Thongprayoon, Supawadee Suppadungsuk, Oscar A Garcia Valencia, and Wisit Cheungp-
+asitporn. Integrating retrieval-augmented generation with large language models in nephrology: advancing
+practical applications. Medicina, 60(3):445, 2024.
+[6] OpenEvidence. https://www.openevidence.com. Accessed: April 2026.
+[7] Qiao Jin, Zifeng Wang, Charalampos S Floudas, Fangyuan Chen, Changlin Gong, et al. Matching patients to
+clinical trials with large language models. Nature communications, 15(1):9074, 2024.

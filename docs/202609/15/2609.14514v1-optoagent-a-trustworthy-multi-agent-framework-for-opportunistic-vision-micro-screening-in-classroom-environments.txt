@@ -1,0 +1,770 @@
+OptoAgent: A Trustworthy Multi-Agent Framework
+for Opportunistic Vision Micro-Screening in
+Classroom Environments
+Toqeer Ali Syed1, Ali Akarma1,2*, Adeel Ahmad1 and Hammad Muneer3
+1AI Center, Faculty of Computer and Information Systems, Islamic University of Madinah, Madinah, Saudi Arabia
+toqeer@iu.edu.sa
+443059463@stu.iu.edu.sa
+443057803@stu.iu.edu.sa
+2AI V&V Lab, King Fahd University of Petroleum and Minerals, Dhahran, Saudi Arabia
+3Department of Computer Science, The Islamia University of Bahawalpur, Bahawalpur, Pakistan
+s21bdocs1m01009@iub.edu.pk
+*Corresponding author: 443059463@stu.iu.edu.sa
+Abstract—A child with reduced distance vision often does
+not know that anything is wrong. Children adapt, move closer,
+and rarely report the difficulty, so the problem can survive
+years of schooling before an adult notices. School screening
+addresses part of this, but it runs on a schedule, depends on
+staffing, and is separated from the classroom moments where
+the difficulty appears. Smartphone and web-based acuity tests
+have widened access, yet every one of them still needs some-
+body to start a test. We present SightSentinel, an architecture
+that turns a wall display a child already reads from into a
+recurring screening site. Ordinary educational content carries
+short calibrated optotype probes, and eight specialized agents
+divide the work. Perception agents recover viewing distance,
+recognition accuracy, approach behavior, gaze stability, response
+latency, and interocular difference from each encounter. A quality
+agent discards observations taken under bad geometry, poor
+lighting, or inattention. A longitudinal agent accumulates only
+the surviving evidence against the child’s own baseline, and an
+orchestrator reports a Vision Concern Score routed through a
+safety gate whose output range excludes diagnosis, refraction,
+prescription, and reassurance. The design question is whether
+many cheap, noisy, well-gated encounters can reach a referral
+decision that one scheduled test reaches late or misses. We state
+the formulation, the architecture, a four-stage validation protocol
+against clinical reference standards, and the conditions under
+which the approach should be rejected.
+Index Terms—Opportunistic screening, referral triage, visual
+acuity, child eye health, multi-agent systems, ambient intelligence,
+gaze analysis, evidence accumulation, privacy by design.
+I. INTRODUCTION
+Reduced distance vision in a child is easy to miss because
+the child has no reference point for what normal vision
+looks like. Teachers and parents do see the downstream signs,
+including squinting, drifting toward the board, losing their
+place in text, and avoiding distant material, but each of those
+signs has many innocent explanations and none of them carries
+a date stamp.
+Screening programs exist to catch what informal observation
+misses. Al-Atawi’s synthesis of 35 studies covering more
+than 30,000 Saudi schoolchildren found that refractive error
+and amblyopia remain common at school age while routine
+screening coverage and parental awareness stay uneven [1].
+Little et al. reach a similar conclusion from the international
+literature and stress that referral and follow-up matter as much
+as the screening event itself [2]. The structural weakness is the
+same in both reviews: screening is an event, and the functional
+difficulty is continuous.
+Digital acuity testing has attacked the access side of that
+problem. A phone application tested in 100 children agreed
+acceptably with conventional charts and reached roughly 89%
+sensitivity for subnormal acuity [3]. The DigiVis paired-device
+web test has been validated in children aged 4 to 10 [4], and
+three years of service data from a pediatric ophthalmology
+service later showed that most remote consultations produced
+usable acuity results [5]. Custom phone-based at-home testing
+has been evaluated in a large pediatric cohort [6], and an
+objective detector has been validated in 461 children aged 12
+to 47 months [7]. Every one of these tools, however, begins
+when a person decides to run a test.
+The gap. Two research lines sit next to each other without
+meeting. Calibrated testing controls the stimulus but requires
+a deliberate session. Behavioral work observes children con-
+tinuously and controls nothing: the Hong Kong Children Eye
+Study measured habitual reading distance in 2,363 children
+and linked shorter distance to undercorrected myopia and
+poorer habitual vision [8], which is a real signal but not one
+that can support a decision on its own. What is missing is
+a system that keeps the calibrated stimulus and gives up the
+deliberate session.
+Our position. A wall display already knows the angular
+size of what it shows. If it can also estimate how far away the
+child is standing and check whether the child read a known
+symbol correctly, then a normal reading interaction becomes
+a measurement. Any single measurement of that kind is weak.
+The claim we want to test is that a long sequence of weak
+measurements, filtered hard for validity and scored against the
+child’s own history, supports a referral decision that a single
+arXiv:2609.14514v1  [cs.AI]  13 Sep 2026
+
+
+annual test reaches late.
+We deliberately do not aim at diagnosis. Non-cycloplegic in-
+strument refraction underestimates refractive error in children,
+particularly hyperopia, and cannot replace cycloplegic assess-
+ment [9]. A recent review of AI-enabled pediatric ophthalmic
+systems reports growing capability alongside unresolved ques-
+tions about safety, workflow, and equity [10]. Both findings
+point the same way: the appropriate output is a referral, not a
+label.
+This paper contributes the following.
+1) A sequential formulation of screening. We recast
+pediatric vision screening as evidence accumulation over
+many low-cost encounters under an explicit validity gate,
+rather than classification from one scheduled exami-
+nation. We call this Opportunistic Longitudinal Vision
+Screening (OLVS).
+2) An interaction model. A Smart Vision Wall interleaves
+brief calibrated optotype probes with the educational
+content a child is already reading, so screening evidence
+arrives without a screening appointment.
+3) An agent decomposition with a bounded output
+range. Eight agents separate geometry, stimulus control,
+behavior, asymmetry, validity, history, governance, and
+referral reasoning. An orchestrator fuses them into a
+Vision Concern Score (VCS), and a Clinical Safety
+Gate constrains the output range so that diagnosis,
+refraction, prescription, and reassurance are unreachable
+by construction.
+4) A
+personal-baseline
+mechanism. Quality-weighted
+temporal decay against a within-child baseline makes
+an isolated poor encounter non-actionable, which targets
+the false-positive burden that limits practical school
+screening.
+5) A validation protocol with stated failure conditions.
+We specify four evaluation stages against clinical refer-
+ence standards and name the outcomes that would refute
+the approach.
+Sections II through IV develop the position, the formulation,
+and the architecture. Section V gives the protocol. Nothing in
+this paper reports measured performance.
+II. RELATED WORK AND POSITIONING
+A. Screening programs and instrument-based screening
+School screening is the established route to finding children
+who would otherwise go undetected, and the two recent
+reviews above agree on both its value and its coverage limits
+[1], [2]. Instrument-based screening extends reach to younger,
+preverbal, or developmentally delayed children because pho-
+toscreening and autorefraction identify amblyopia risk factors
+without demanding a symbolic response [11]. Neither route
+changes the episodic character of the encounter: a child who
+passes in March can develop or reveal a problem in October.
+B. Digital and objective acuity measurement
+Self-administered and automated acuity testing is now cred-
+ible in children [3]–[7], though a 2023 systematic review
+of pragmatic trials found results heterogeneous enough to
+warrant more real-world validation before wide deployment
+[12]. These systems demonstrate that the calibrated part of
+our design is achievable on commodity hardware. They also
+share the trigger problem, because a test that nobody starts
+produces no data.
+C. Naturalistic reading signals
+Habitual reading distance carries measurable information
+about visual status [8], and eye-tracking work converts natural
+reading into fixation duration, regression counts, and gaze
+stability features for automated assessment of reading ability
+[13]. The target variable there is reading skill rather than
+acuity, which is precisely why we treat such features as priors
+on validity and concern rather than as evidence of refractive
+error. Children move closer for attention, posture, glare, and
+text difficulty.
+D. Agentic AI and multi-agent coordination
+Recent paradigms in agentic artificial intelligence demon-
+strate that decomposing complex, multi-objective domains into
+specialized, collaborating autonomous agents improves mod-
+ularity, auditability, and operational robustness. Multi-agent
+architectures have been successfully formulated for constraint-
+driven personal planning, including joint personal finance and
+nutrition optimization under budget and health constraints
+[14], [15]. In assistive and inclusive technologies, agentic
+frameworks have been deployed to coordinate multilingual
+disability-inclusive workflows [16] and to provide adaptive
+personalized support for individuals with physical disabilities
+and neurodivergence [17]. In broader cyber-physical settings,
+agentic coordination and digital twin frameworks manage
+complex urban and civil infrastructure through autonomous,
+auditable decision workflows [18], [19], while collaborative
+interactive environments explore spatial interaction with pre-
+served data integrity [20].
+However, existing agentic systems predominantly operate
+within conversational interfaces, virtual task spaces, or macro-
+scopic civil infrastructure. They have not addressed the prob-
+lem of micro-calibrated, opportunistic sensory screening em-
+bedded within everyday physical learning environments. Sight-
+Sentinel translates the agentic paradigm to pediatric health
+triage by distributing sensory geometry, stimulus calibration,
+behavioral priors, validity filtering, and governance across
+specialized agents operating under a strictly bounded safety
+gate.
+E. What this leaves open
+Calibrated tools need an appointment. Behavioral studies
+avoid the appointment but abandon stimulus control. AI oph-
+thalmic systems mostly consume clinical images or dedicated
+screening data [10]. And while agentic architectures have
+advanced in personal planning [14], [15], disability inclusion
+[16], [17], and infrastructure monitoring [18], [19], they have
+not been applied to ambient physiological sensing. SightSen-
+tinel occupies the untaken combination, keeping controlled
+
+
+micro-stimuli inside uncontrolled everyday behavior, and pay-
+ing for the resulting noise with aggressive validity filtering,
+multi-agent arbitration, and repetition over time.
+III. PROBLEM FORMULATION
+A. Encounter model
+Child i interacts with an instrumented display at encounter
+times t = 1, . . . , T. Each encounter yields a privacy-limited
+feature vector
+xi,t = [ ai,t, di,t, hi,t, gi,t, ri,t, qi,t, li,t ],
+(1)
+collecting calibrated recognition accuracy a, viewing dis-
+tance d, head pose and approach behavior h, gaze-derived
+reading features g, response latency r, test quality and confi-
+dence q, and display and lighting context l. Reliably extracting
+head pose, gaze stability, and facial landmarks from ambient
+video under unconstrained classroom illumination requires
+discriminative and noise-resilient visual representations. In
+related domains processing high-dimensional sensory and vi-
+sual streams, hybrid deep learning architectures that integrate
+convolutional neural networks for spatial feature extraction
+with vision transformers and dimensionality reduction have
+demonstrated high classification fidelity in noisy environments
+[21]. SightSentinel adopts a lightweight edge-deployed vision
+backbone to extract the geometric and behavioral components
+of xi,t on-device while immediately expiring raw image
+buffers.
+Stimulus control follows from geometry. To subtend a visual
+angle θ at measured distance d, an optotype of height s
+satisfies
+s = 2d tan
+θ
+2
+
+,
+(2)
+so distance error propagates directly into an error in the
+tested acuity level. For the small angles involved in acuity
+testing, θ ≈s/d, and differentiating gives
+δθ
+θ ≈δd
+d ,
+(3)
+a one-to-one transfer of relative distance error into relative
+error in the angular size actually presented. A 10% distance
+error therefore mislabels the tested acuity level by roughly
+10%, which is why AD suppresses an encounter outright once
+distance uncertainty passes tolerance instead of reporting a
+wider interval.
+Difficulty adapts by a staircase on the optotype level zt,
+zt+1 =
+(
+zt −∆,
+correct response,
+zt + ∆,
+incorrect response,
+(4)
+and the system reports a screening interval rather than a
+point acuity, because the probe count per encounter is small
+by design.
+Where a validated separate-eye interaction is available under
+the deployment protocol, the interocular difference
+∆VAi = |VAi,L −VAi,R|
+(5)
+between the left-eye and right-eye acuity estimates VAi,L
+and VAi,R raises referral priority, since binocular viewing
+masks unilateral loss.
+B. Validity before evidence
+The difference between an ambient screener and a surveil-
+lance heuristic is what it refuses to score. An encounter
+contributes nothing unless
+Qi,t = Qdist · Qlight · Qpose · Qattn · Qdisp ≥Qmin.
+(6)
+The product form is deliberate. Any single failed condition
+drives Qi,t toward zero, so a wrong answer from a distracted
+child standing at an uncertain distance cannot raise concern
+about that child’s vision.
+C. Accumulation against a personal baseline
+Surviving evidence accumulates with temporal decay,
+Ei(T) =
+T
+X
+t=1
+λ T −t Qi,t ei,t,
+(7)
+where ei,t is the encounter’s evidence contribution and λ ∈
+(0, 1] sets how fast old encounters lose weight. Each child is
+compared against their own record, which is what separates a
+genuine decline from a bad afternoon.
+The orchestrator reports a Vision Concern Score,
+VCSi = w1Ai + w2Di + w3Bi + w4Gi + w5Li
++ w6∆VAi + w7Trendi −w8QPenaltyi,
+(8)
+over calibrated acuity concern A, distance-dependent per-
+formance D, repeated behavioral concern B, gaze concern G,
+latency concern L, interocular asymmetry, deterioration from
+the personal baseline Trend, and a penalty for uncertain evi-
+dence. Synthesizing disparate, potentially noisy signals across
+time mirrors multi-criteria optimization in goal-driven agentic
+architectures, where coordinating agents balance competing
+behavioral attributes against rigid personal constraints, such
+as financial budgets versus nutritional targets in personalized
+planning agents [14], [15]. In Eq. (8), the orchestrator balances
+immediate behavioral observations against longitudinal trend
+stability and quality penalties, ensuring that fleeting behavioral
+variance does not trigger an inappropriate clinical escalation.
+The score maps onto one of four referral bands,
+{Insufficient Evidence, Routine Recheck,
+Vision Screening Recommended, Prompt Clinical Review}.
+(9)
+No band names a condition, and no band clears a child.
+“Insufficient Evidence” is a statement about the data, not about
+the eye.
+
+
+TABLE I
+AGENTS AND THEIR RESPONSIBILITIES
+Agent
+Role
+Responsibility
+AD
+Geometry
+Eye-to-display distance from depth,
+stereo, or calibrated monocular cues.
+Suppresses the encounter when dis-
+tance uncertainty exceeds tolerance.
+AO
+Stimulus
+Age-appropriate
+optotype
+selection
+and
+staircase
+control.
+Reports
+an
+acuity interval, never a point value.
+AB
+Behavior
+Approach, head tilt, squint-like nar-
+rowing, latency, gaze stability, reading
+regressions. Weak priors only.
+AE
+Asymmetry
+Brief separate-eye screening where the
+protocol permits it. Drives interocular
+priority.
+AC
+Validity
+Distance, lighting, pose, attention, and
+display checks. Holds veto power over
+every encounter.
+AL
+History
+Decayed, quality-weighted accumula-
+tion against the child’s own baseline.
+AP
+Governance
+On-device processing, buffer expiry,
+purpose limitation, identity separation.
+AR
+Referral
+Maps the score to a band and routes
+it to the guardian through an approved
+channel.
+IV. ARCHITECTURE
+The
+agent
+set
+is
+A
+=
+{AD, AO, AB, AE, AC, AL, AP , AR},
+summarized
+in
+Table I, and the orchestrator resolves their candidate outputs
+into a single decision,
+I∗= Aorch(ID, IO, IB, IE, IC, IL, IP ).
+(10)
+Figure 1 shows the path evidence takes. The ordering
+carries the safety argument. Because AC sits upstream of
+accumulation, a behavioral observation can never outvote the
+fact that the observation was unusable, and because the safety
+gate sits downstream of the score, no tuning of the weights in
+Eq. (8) can produce a clinical claim.
+A. Interaction design
+The wall runs in two modes. Natural Reading Mode presents
+ordinary educational material and yields only passive features,
+namely distance, pose, gaze, and approach behavior. Micro-
+Screening Mode inserts a short calibrated challenge into the
+existing activity, for example, identifying one symbol, letter,
+number, or picture inside a classroom game, and adds the
+recognition accuracy term that anchors Eq. (8). Mode selection
+is itself a scheduling decision, since probing too often turns a
+reading wall back into a test.
+A single encounter contributes a handful of responses. That
+is the point: the burden per encounter stays near zero, and
+statistical strength comes from Eq. (7) instead.
+B. Worked example
+Consider a nine-year-old who handles a tablet at arm’s
+length without complaint and cannot resolve the same size of
+print once it appears on the board across the room. Nothing
+about this strikes the child as unusual, so nobody hears about
+it. Over several weeks the wall records encounters, most of
+which AC discards for inattention or uncertain geometry.
+Among the encounters that survive, the child repeatedly misses
+calibrated symbols at the standard classroom distance and
+succeeds on the same level after moving closer. AD confirms
+the change tracks a real distance change rather than a geometry
+error, and AL finds the pattern repeating rather than isolated,
+so Trendi and Di in Eq. (8) both rise while QPenaltyi stays
+low.
+The system does not report myopia, and it does not report a
+dioptric value. It reports repeated distance-vision concern and
+recommends a formal visual-acuity and eye examination. An
+optometrist or ophthalmologist then decides what is actually
+wrong, which is the only point in the pathway where a
+diagnosis exists.
+C. The safety gate
+The gate is a constraint on the output range, written as
+SightSentinel̸ →{Diagnosis, Prescription, Treatment}, (11)
+with the sanctioned pathway
+Persistent concern →formal screening
+→eye care professional →diagnosis.
+(12)
+The system never emits “myopia,” “amblyopia,” a dioptric
+value, or “eyes normal.” Confirmation stays clinical, and
+cycloplegic refraction remains the reference where accom-
+modation would bias a non-cycloplegic estimate [9]. Prevent
+Blindness guidance likewise treats the evidence for some
+machine-based school screening as insufficient, which argues
+for conservative thresholds and prospective validation rather
+than early autonomy [22]. Bounding the operational and
+semantic scope of autonomous agents is a fundamental tenet
+of trustworthy agentic AI. As established by Syed et al.,
+unconstrained multi-agent pipelines and multimodal systems
+are vulnerable to goal drift, semantic over-reach, and input
+manipulation unless protected by strict boundary enforcement
+and defensive validation layers [23]. In SightSentinel, where
+the inputs originate from uncurated classroom interactions, the
+Clinical Safety Gate provides an architectural guarantee: by
+hardcoding Eq. (11), the system eliminates the possibility that
+unexpected sensory inputs or agent deliberation drifts could
+generate unauthorized diagnostic assertions or false clinical
+clearances.
+D. Privacy by architecture
+Continuous observation of children is the part of this design
+most likely to fail on governance grounds, so the constraints
+are structural rather than procedural. Video is processed locally
+where the hardware allows, raw frames live in a short rolling
+buffer that expires after feature extraction, and the durable
+
+
+Fig. 1. Evidence path through SightSentinel. Perception agents run on every encounter, the validity gate of Eq. (6) discards encounters taken under unusable
+conditions, and only surviving evidence reaches the accumulator. The Clinical Safety Gate sits between the score and any human-facing output, so a referral
+band is the only thing the system can say.
+record holds calibrated screening features rather than class-
+room footage. Identity is stored apart from analytic features.
+Nothing resembling a medical inference reaches a teacher.
+Referral wording travels to a guardian over a sanctioned route
+and nowhere else, and AP enforces
+DataUse ⊆PurposeVisionScreening,
+(13)
+which rules out attention scoring, behavior monitoring, aca-
+demic profiling, and advertising derived from screening data.
+This structural posture operationalizes the core tenets of ethical
+AI governance frameworks developed for sensitive IoT and
+connected sensing environments [24]. Under the four-pillar
+governance principles articulated by Jan et al., encompass-
+ing privacy preservation, robust cybersecurity, accountability,
+and ethical transparency, AP ensures that sensor telemetry
+remains purpose-bound and cryptographically insulated. By
+enforcing Eq. (13) through on-device ephemeral memory and
+role-restricted dissemination channels, the system prevents
+secondary function creep and provides verifiable ethical gov-
+ernance in public educational spaces.
+E. Distributed checkpoints
+Instrumented surfaces can sit at classroom boards, library
+walls, corridors, home study areas, pediatric waiting rooms,
+and community kiosks. Under guardian consent and secure
+identity matching, evidence from Nc checkpoints merges as
+Ei =
+Nc
+[
+c=1
+Ei,c,
+(14)
+which raises encounter frequency without lengthening any
+individual interaction. Aggregating micro-screening evidence
+across heterogeneous, distributed surfaces mirrors the design
+of agentic digital twins and secure federated multi-agent
+networks deployed in smart community and urban environ-
+ments [16], [18], [19]. In such distributed systems, edge-
+situated agents execute local validation, maintain temporal
+state, and securely communicate decentralized observations to
+an orchestrating node without exposing raw sensory streams to
+a central repository. Furthermore, maintaining perceptual and
+geometric consistency across diverse interactive checkpoints
+draws on principles established in collaborative augmented
+reality frameworks [20], guaranteeing that stimulus geometry,
+display calibration, and interaction logs maintain data integrity
+across school and community environments.
+V. EVALUATION PROTOCOL
+The framework is a design. We have run no experiments,
+and the statements below describe how it should be tested
+rather than what it achieved.
+Four questions organize the work. Can calibrated probes
+embedded in ordinary reading detect reduced distance acu-
+ity at useful sensitivity and specificity? Does fusing many
+encounters beat a single ambient encounter? Do distance,
+approach, gaze, and latency add anything beyond optotype
+performance alone? Can a within-child baseline cut the false-
+positive referrals that attention, fatigue, and posture would
+otherwise generate? Each maps to one stage below.
+
+
+Stage 1, calibration against clinical reference. Recruit
+children spanning a range of clinically measured acuity and
+refractive status, and compare display-based micro-screening
+against standardized monocular acuity and clinical refraction.
+Report the rejection rate of the validity gate, mean absolute
+error against the reference acuity, test-retest reliability, and the
+sensitivity, specificity, and area under the receiver operating
+characteristic curve for reduced acuity. The rejection rate
+decides feasibility, since a system that discards most of what
+it sees needs an implausible encounter rate.
+Stage 2, ablation of the fusion model. Compare optotype
+performance alone against optotype with distance, with behav-
+ior, with gaze, the full multimodal model, and the longitudinal
+model. The informative outcome is the one that refutes us: if
+optotype performance alone matches the full model, then AB,
+AE, and the fusion weights of Eq. (8) should be removed
+rather than defended.
+Stage 3, prospective school deployment. Run the system
+in consented classrooms without disturbing normal teaching,
+and compare its referrals against conventional school screening
+followed by clinical examination. The clinical outcomes are
+previously unknown problems found, clinically relevant cases
+missed, false-positive referral rate, and elapsed time to referral.
+The operational outcomes are screening coverage, cost per
+confirmed referral, added teacher workload, cooperation from
+the children themselves, and the privacy objections families
+raise once the system is running rather than once it is de-
+scribed.
+Stage 4, longitudinal test of the central claim. Measure
+the lead time between the moment repeated ambient encoun-
+ters raise a band and the moment a yearly or sporadic screening
+round would have caught the same decline. OLVS lives or dies
+here, and a null result refutes the paradigm regardless of how
+well Stages 1 to 3 go.
+Accuracy is not the only thing that decides whether the
+system deploys. Two further questions run alongside the stages
+above. The first is how much screening performance on-device
+feature extraction with raw-imagery deletion costs relative to
+a permissive-retention configuration, since a privacy design
+that destroys utility gets switched off. The second is whether
+continuous ambient screening is acceptable to the people living
+with it. Answering that needs a structured stakeholder study
+across children, their families, classroom teachers, school
+administrators, and the eye care professionals who receive the
+referrals, rather than a single metric.
+VI. DISCUSSION AND LIMITATIONS
+Reduced performance at a wall display has many causes.
+Attention, literacy, language, neurodevelopmental difference,
+fatigue, glare, ocular disease, and refractive error all produce
+missed symbols, and behavior observed in a classroom cannot
+separate them. Formally,
+ScreenPositive̸ = Diagnosis.
+(15)
+Three risks deserve naming. Validity gating is the load-
+bearing component and also the least proven: if Qi,t is miscal-
+ibrated, the system either discards everything or accumulates
+noise, and only Stage 1 data can settle that. The asymmetry
+agent AE requires safe, supervised occlusion, which rules
+out improvised procedures with unsupervised young children.
+Equity is a live concern, because a system that works well
+at one reading level, language, or optotype set and poorly
+at another would redistribute screening access rather than
+widen it, which matches the implementation gaps reported
+for pediatric ophthalmic AI [10]. Validation must therefore
+be stratified along every axis that shifts the measurement,
+covering refractive status and age on the child’s side, reading
+language and optotype set on the stimulus side, and display
+size, ambient lighting, and viewing distance on the environ-
+ment’s side. In particular, children with neurodevelopmental
+differences (such as autism spectrum disorder or ADHD) and
+those with motor or communication disabilities may naturally
+exhibit idiosyncratic visual behaviors, such as intermittent
+fixations, prolonged response latencies, or irregular approach
+dynamics. Recent developments in agentic frameworks for
+people with disabilities and neurodivergence emphasize the ne-
+cessity of adaptive interaction profiles, multimodal expression
+channels, and barrier-aware persona modeling [16], [17]. With-
+out such inclusive accommodations, an ambient screener risks
+misclassifying neurodivergent behavioral traits as indicators of
+visual deterioration, thereby inflating false-positive referrals.
+Incorporating neurodiversity-aware baseline adjustments and
+non-verbal response modalities will be essential in preventing
+disparate impact.
+Finally, as with any connected sensing infrastructure de-
+ployed across distributed educational facilities, system security
+is paramount. The communication links connecting distributed
+checkpoints must be fortified against denial-of-service disrup-
+tions, sensor spoofing, and malicious tampering, leveraging
+hybrid deep learning threat detection and rigorous cyber-
+physical safeguards [21], [24] to ensure that triage records
+remain authentic and uninterrupted.
+The framework complements established screening path-
+ways and does not substitute for professional eye care.
+VII. CONCLUSION
+Children adapt to poor vision quietly, and scheduled screen-
+ing is not built to notice quiet adaptation. SightSentinel
+responds by changing when screening happens rather than
+how acuity is measured: calibrated probes ride inside ordinary
+reading, a validity gate throws out most of what it sees,
+and evidence accumulates against each child’s own record
+until a referral is justified. The output stays a referral band
+by construction, so the system can be wrong about concern
+without ever being wrong about a diagnosis.
+The paradigm stands or falls on one empirical question:
+whether many weak gated encounters detect deterioration
+earlier than an infrequent strong test. We have specified the
+protocol that answers it, including the results that would tell us
+to abandon the approach. Until those studies run, SightSentinel
+is an architecture and a hypothesis.
+
+
+REFERENCES
+[1] S. Al-Atawi, “Eye health awareness and school-based screening in Saudi
+schools: A systematic literature review,” Clinical Optometry, vol. 18, p.
+569431, 2026.
+[2] J.-A. Little, V. F. Chan, S.-M. Saw, Y. C. Tham, L. Chew, L. L. Foo,
+M. Collins, A. E. Ebri, X. Han, L. Schultz, D. Gleason, L. Jacobs,
+W. D. P. Devaraj, P. Morjaria, S. K. Robler, S. D. Emmett, G. MacKen-
+zie, N. Wang, R. C. Khanna, D. Bundy, and N. Congdon, “Current status
+of school vision screening—rationale, models, impact and challenges: A
+review,” British Journal of Ophthalmology, vol. 109, no. 11, pp. 1207–
+1214, 2025.
+[3] L. H. Raffa, N. T. Balbaid, and M. M. Ageel, “Smart optometry
+phone-based application as a visual acuity testing tool among pediatric
+population,” Saudi Medical Journal, vol. 43, no. 8, pp. 946–953, 2022.
+[4] L. Allen, A. J. Thirunavukarasu, S. Podgorski, and D. Mullinger, “Novel
+web application for self-assessment of distance visual acuity to support
+remote consultation: A real-world validation study in children,” BMJ
+Open Ophthalmology, vol. 6, no. 1, p. e000801, 2021.
+[5] F. Liu, R. Ahmed, B. Ellis, D. Mullinger, and L. Allen, “Real-world
+evaluation of online visual acuity self-testing and remote consultation:
+Three years of implementation experience in a paediatric ophthalmology
+service,” Eye, vol. 40, no. 12, pp. 1899–1905, 2026.
+[6] T. L. Roberts, E. D. Bothun, Y. Zhu, R. J. Henderson, N. M. Boyle, D. A.
+Leske, S. R. Hatt, S. M. Wernimont, C. E. Marino, A. Raghuram, V. M.
+Manh, J. M. Youngerman, J. N. Qayum, G. Srinivasan, J. R. Titelbaum,
+E. R. Crouch, J. D. Colburn, C. A. Esposito, V. L. Zeto, K. S. Connolly,
+R. M. Bhakta, I. J. Lorenzana, P. S. McDowell, W. T. Beaulieu, R. T.
+Kraker, J. M. Holmes, S. L. Pineles, K. K. Weise, S. A. Cotter, and
+Pediatric Eye Disease Investigator Group, “At-home visual acuity in
+children using a custom iPhone application compared with standardized
+in-office visual acuity testing,” Optometry and Vision Science, vol. 103,
+no. 4, p. e70040, 2026.
+[7] F. Du, Z. Li, Y. Cheng, Z. Yang, Z. Hu, J. Yang, C. Li, Y. Yu, Y. Tian,
+Y. Luo, and C. Che, “Validation of an objective visual acuity detector
+for visual acuity assessment in young children: A multicenter, self-
+controlled study,” European Journal of Medical Research, 2026.
+[8] S. M. Tang, X. J. Zhang, Y. M. Wang, Y. Zhang, L. M. Wong, H.-
+N. Chan, B. N. Zhang, W. K. Chu, K. W. Kam, A. L. Young, C. C.
+Tham, L. J. Chen, A. N. French, K. A. Rose, C. P. Pang, and J. C.
+Yam, “Effect of myopic undercorrection on habitual reading distance in
+schoolchildren: The Hong Kong Children Eye Study,” Ophthalmology
+and Therapy, vol. 12, no. 2, pp. 925–938, 2023.
+[9] A. Roque, A. F. Nunes, H. Nascimento, and C. Martinez-Perez,
+“Instrument-based, non-cycloplegic versus cycloplegic refraction in pe-
+diatric and young adult populations (≤25 years): A systematic review
+and meta-analysis,” Advances in Ophthalmology Practice and Research,
+vol. 6, no. 1, pp. 56–67, 2026.
+[10] J. Somerville, M. H. Mustafa, M. M. Seweid, and R. A. El Arab,
+“Clinical performance and implementation of AI-enabled paediatric
+ophthalmic screening, triage, diagnosis, and surveillance in primary,
+community, and referral-linked pathways: A systematic review,” Diag-
+nostics, vol. 16, no. 15, p. 2389, 2026.
+[11] J. M. Miller, H. R. Lessin, American Academy of Pediatrics Section
+on Ophthalmology, Committee on Practice and Ambulatory Medicine,
+American Academy of Ophthalmology, American Association for Pe-
+diatric Ophthalmology and Strabismus, and American Association of
+Certified Orthoptists, “Instrument-based pediatric vision screening pol-
+icy statement,” Pediatrics, vol. 130, no. 5, pp. 983–986, 2012.
+[12] A. J. Thirunavukarasu, R. Hassan, A. Limonard, and S. V. Savant, “Accu-
+racy and reliability of self-administered visual acuity tests: Systematic
+review of pragmatic trials,” PLoS ONE, vol. 18, no. 6, p. e0281847,
+2023.
+[13] Hariyama Laboratory, Tohoku University, “AI assessment of chil-
+dren’s reading ability,” https://www.ecei.tohoku.ac.jp/hariyama-lab/en/
+research/reading-assessment.html, 2026, accessed September 12, 2026.
+[14] T. A. Syed, A. Alshahrani, A. Ullah, A. Akarma, S. Khan, M. Nauman,
+and S. Jan, “FinAgent: An agentic AI framework integrating personal
+finance and nutrition planning,” in Proceedings of the 2025 IEEE Inter-
+national Conference on Computing and Applications (ICCA).
+IEEE,
+2025, pp. 1–7.
+[15] T. A. Syed, A. Alshahrani, A. Akarma, S. Khan, M. Nauman, I. E. Lee,
+S. Jan, and A. Ullah, “FinNutriAgent (FNA): An agentic AI for nutrition
+planning considering budget constraints,” Engineering, Technology &
+Applied Science Research, vol. 16, no. 3, pp. 36 408–36 417, 2026.
+[Online]. Available: https://doi.org/10.48084/etasr.15640
+[16] T.
+A.
+Syed,
+M.
+S.
+Siddiqui,
+A.
+Akarma,
+and
+A.
+Formisano,
+“FedAgent-Chain: A secure federated and agentic AI framework
+for multilingual disability-inclusive employment in AI cities,” Smart
+Cities, vol. 9, no. 7, p. 106, 2026. [Online]. Available: https:
+//www.mdpi.com/2624-6511/9/7/106
+[17] M. S. Siddiqui, T. A. Syed, and A. Akarma, “Adapt: An agentic ai
+framework for people with disabilities and neurodivergence,” Journal of
+Disability Research, vol. 5, no. 2, p. e20260830, 2026.
+[18] T. A. Syed, A. Akarma, M. T. Naqash, D. Hameed, S. Kamal, and
+A. Formisano, “Agentic AI for climate-resilient cities: A PRISMA-
+guided review and digital twin framework,” Sustainability, vol. 18,
+no. 17, p. 8917, 2026. [Online]. Available: https://www.mdpi.com/
+2071-1050/18/17/8917
+[19] T. A. Syed, A. Akarma, A. Alatify, M. T. Naqash, and A. Alqurashi,
+“Agentic AI-enhanced digital twins for smart city civil infrastructure: A
+secure, autonomous and auditable management framework,” PLoS ONE,
+vol. 21, no. 7, p. e0353610, 2026.
+[20] T. A. Syed, S. Jan, M. S. Siddiqui, A. Alzahrani, A. Nadeem, A. Ali,
+and A. Ullah, “CAR-tourist: An integrity-preserved collaborative
+augmented
+reality
+framework—tourism
+as
+a
+use-case,”
+Applied
+Sciences, vol. 12, no. 23, p. 12022, 2022. [Online]. Available:
+https://doi.org/10.3390/app122312022
+[21] J. Shaikh, T. A. Syed, S. A. Shah, S. Jan, Q. U. Ain, and
+P. K. Singh, “Advancing DDoS attack detection with hybrid deep
+learning: integrating convolutional neural networks, PCA, and vision
+transformers,” International Journal on Smart Sensing and Intelligent
+Systems,
+vol.
+17,
+no.
+1,
+pp.
+1–16,
+2024.
+[Online].
+Available:
+https://doi.org/10.2478/ijssis-2024-0040
+[22] National Center for Children’s Vision and Eye Health at Prevent
+Blindness, “Vision screening guidelines by age,” https://nationalcenter.
+preventblindness.org/vision-screening-guidelines-by-age/,
+accessed
+September 12, 2026.
+[23] T. A. Syed, M. A. Almutairi, and M. A. Moaty, “Toward trustworthy
+agentic AI: A multimodal framework for preventing prompt injection
+attacks,” arXiv preprint arXiv:2512.23557, 2025.
+[24] S. Jan, A. Akarma, T. A. Syed, M. A. Muhammad, and S. Kamal,
+“EAGF: A four-pillar ethical AI governance framework for trustworthy
+cybersecurity in 5G renewable energy IoT systems,” Scientific Reports,
+2026.

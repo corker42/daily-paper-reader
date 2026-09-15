@@ -1,0 +1,3093 @@
+OCT-FedSIR: Toward Trustworthy Federated Ophthalmic
+Learning under Annotation Noise
+Sina Gholami1, Abdulmoneam Ali1, Tania Haghighi1, Rashadul H. Badhon1, Behafarin Emam1,
+Sally S. Y. Ong2, Atalie C. Thompson2, Theodore Leng4, Ahmed Arafa1, Jennifer I. Lim3, and
+Minhaj Nur Alam*1
+1Department of Electrical and Computer Engineering, University of North Carolina at
+Charlotte, Charlotte, NC, USA
+2Department of Ophthalmology, Wake Forest School of Medicine, Winston-Salem, NC, USA
+3Department of Ophthalmology and Visual Sciences, University of Illinois Chicago, Chicago,
+IL, USA
+4Byers Eye Institute at Stanford, Stanford University School of Medicine, Stanford, CA, USA
+Abstract
+Federated learning enables collaborative model development without centralizing patient data, but
+the reliability of annotations retained at participating institutions cannot always be assumed. This
+creates a particular challenge in ophthalmic imaging, where legitimate differences in disease preva-
+lence and local class composition may resemble changes produced by corrupted supervision.
+We
+introduce OCT-FedSIR, a reliability-aware spectral framework for federated OCT classiﬁcation un-
+der client-dependent annotation noise and heterogeneous data distributions. OCT-FedSIR combines
+class-balanced spectral estimation, Stage-I logit adjustment, and complementary spectral descriptors
+to distinguish annotation-related disruption from statistical heterogeneity, followed by selective spec-
+tral relabeling and noise-aware federated optimization. The framework was evaluated on three oph-
+thalmic classiﬁcation tasks using the Kermany, University of Illinois Chicago, and Wake Forest datasets
+under symmetric and structured asymmetric annotation noise and three levels of non-IID heterogene-
+ity. Across 117 experimental conditions, OCT-FedSIR achieved a mean accuracy of 86.73%, compared
+with 79.94% for RoFL and 78.75% for FedCorr. Under the controlled corruption settings, OCT-FedSIR
+correctly separated clients with original and corrupted annotations across all evaluated conditions,
+whereas the original FedSIR identiﬁcation procedure showed reduced performance, particularly un-
+der asymmetric noise. Spectral relabeling recovered 77.2% of intentionally corrupted annotations on
+average, with a mean correction precision of 91.3% and a mean false-correction rate of 3.5%. Retaining
+corrected clients also outperformed spectral pruning by 9.30 percentage points on average. These ﬁnd-
+ings identify annotation reliability as an important consideration for trustworthy ophthalmic federated
+learning and show that corrupted supervision can often be corrected without discarding potentially
+informative client data.
+*Corresponding author: malam8@charlotte.edu
+1
+arXiv:2609.14734v1  [cs.LG]  13 Sep 2026
+
+
+Introduction
+Optical coherence tomography (OCT) has become a cornerstone of retinal care by enabling detailed visu-
+alization of retinal morphology that supports disease detection, characterization, and longitudinal mon-
+itoring. Deep learning has shown promise for automated OCT interpretation, including disease classiﬁ-
+cation from retinal B-scans, detection and quantiﬁcation of pathological features, and clinically oriented
+diagnosis and referral from volumetric OCT imaging.1–4 Together, these studies, including our recent
+studies,5–7 have established that diagnostically relevant information can be learned directly from OCT
+and have motivated the development of models capable of operating across broader and more heteroge-
+neous clinical settings.
+Translation across institutions, however, requires models to accommodate differences in patient popu-
+lations, disease prevalence, imaging systems, acquisition protocols, and clinical workﬂows. Because oph-
+thalmic data are naturally distributed across hospitals and imaging centers, centralizing sufﬁciently di-
+verse datasets may be constrained by patient-privacy requirements, including compliance with the Health
+Insurance Portability and Accountability Act (HIPAA), as well as data-ownership and institutional-governance
+considerations. Federated learning (FL)8 provides an alternative by enabling multiple institutions to op-
+timize a shared model while retaining patient data locally. In ophthalmology, FL has been investigated
+across retinal image segmentation, diabetic retinopathy (DR) classiﬁcation, retinopathy of prematurity,
+OCT-based age-related macular degeneration (AMD) classiﬁcation, and glaucoma detection.9–12 More
+recent studies have extended federated and distributed learning to multi-disease retinal classiﬁcation,
+self-supervised representation learning, masked-autoencoder pretraining, and personalized OCT classi-
+ﬁcation.13–16 Collectively, these studies demonstrate the feasibility of collaborative ophthalmic model
+development without centralizing raw images, but have largely focused on statistical and domain hetero-
+geneity rather than whether the supervision available at participating clients is itself reliable.
+This distinction is important for trustworthy FL. Retaining patient images locally addresses where
+data are stored, but does not ensure that the annotations used to train a shared model are reliable. Reti-
+nal labels may be assigned prospectively by specialist graders or derived retrospectively from clinical
+documentation, diagnostic codes, and electronic health records, and these sources do not provide uni-
+form annotation quality.17 Agreement may vary with grader expertise, diagnostic criteria, image quality,
+disease severity, coexisting pathology, and the availability of complementary clinical information. Inter-
+grader variability has been documented throughout medical and ophthalmic image interpretation, partic-
+ularly for conditions represented along a severity continuum.18,19 OCT presents an additional challenge
+because diagnostically distinct retinal disorders may share overlapping structural ﬁndings, and grading
+decisions may become uncertain near disease or severity boundaries. Annotation errors may therefore be
+structured rather than uniformly distributed across samples or diagnostic categories.
+The consequences of unreliable supervision can be substantial. Label noise is known to impair gener-
+alization in medical image analysis.20,21 In OCT classiﬁcation, compensating for label-noise rates of 10%,
+15%, and 20% has been estimated to require approximately four-, nine-, and fourteen-fold increases in
+training data, respectively, to recover performance obtained with clean annotations.22 Retinal imaging
+studies have similarly demonstrated progressive performance degradation with increasing annotation
+2
+
+
+noise and partial recovery following automated label cleaning.23 Correction itself, however, introduces
+another risk: corrupted annotations may remain undetected, while labels that were originally correct may
+be modiﬁed incorrectly.23 Reliable learning under annotation noise therefore requires more than improv-
+ing downstream accuracy; it requires determining which supervision is unreliable, whether corrupted
+labels can be recovered, and whether correction can be performed without substantially damaging anno-
+tations that were already correct.
+This problem becomes particularly challenging in FL because annotation reliability must be inferred
+from heterogeneous local datasets without centralizing the underlying images. Existing noisy-label FL
+methods have addressed unreliable supervision through reliable-sample selection, conﬁdence- or loss-
+based weighting, noisy-client identiﬁcation, knowledge distillation (KD), robust aggregation, and opti-
+mization of corrected label distributions.24–30 FedSIR31 introduced a complementary perspective by ex-
+ploiting the spectral structure of class-speciﬁc feature representations. Rather than relying primarily on
+prediction conﬁdence or training loss, FedSIR uses changes in feature geometry to identify clients affected
+by label corruption and constructs spectral references from identiﬁed clean clients to guide selective re-
+labeling. This representation-level strategy demonstrated strong robustness to severe label noise and
+non-IID heterogeneity on federated benchmark datasets.
+Its translation to ophthalmic data, however, exposes a fundamental challenge: an unusual client is not
+necessarily an unreliable client. Differences in local disease prevalence, class imbalance, incomplete rep-
+resentation of diagnostic categories, and strongly non-IID client distributions can alter learned feature
+geometry even when annotations are entirely correct. Consequently, spectral deviations caused by legiti-
+mate differences in clinical case mix may resemble those caused by annotation corruption. This creates an
+important challenge for trustworthy ophthalmic FL: distinguishing genuine clinical heterogeneity from
+unreliable supervision before using that distinction to modify labels or client contributions.
+To address this problem, we introduce OCT-FedSIR, a spectral-guided framework for federated OCT
+classiﬁcation under client-dependent annotation noise and heterogeneous local data distributions. OCT-
+FedSIR strengthens client characterization through class-balanced spectral estimation, Stage-I logit ad-
+justment (LA), and complementary similarity descriptors designed to reduce sensitivity to differences
+in local class composition. Rather than automatically excluding clients identiﬁed as unreliable, spectral
+information learned from reliable clients is used to guide selective relabeling, allowing potentially infor-
+mative local data to remain available for federated optimization. Importantly, the framework evaluates
+annotation recovery itself in addition to downstream classiﬁcation performance, enabling both successful
+recovery and harmful correction of originally correct labels to be quantiﬁed. The main contributions of
+this study are:
+• We introduce OCT-FedSIR, a reliability-aware spectral framework for ophthalmic FL under annota-
+tion noise. OCT-FedSIR combines class-balanced spectral estimation, Stage-I LA, and complemen-
+tary spectral similarity descriptors to improve discrimination between annotation-related disrup-
+tion and legitimate variation in local disease composition.
+• We evaluate spectral relabeling at the individual-sample level by quantifying recovery of corrupted
+annotations, preservation of originally correct labels, correction precision, and residual label-noise
+3
+
+
+rate. We further compare correction and retention of clients identiﬁed as unreliable with spectral
+pruning to determine whether useful local information can be recovered rather than discarded.
+• We evaluate OCT-FedSIR across three distinct ophthalmic classiﬁcation settings: multiclass OCT
+disease classiﬁcation using the Kermany dataset, ordinal DR classiﬁcation using a University of Illi-
+nois Chicago (UIC) cohort, and binary geographic atrophy (GA) classiﬁcation using a Wake Forest
+(WF) cohort. Experiments span symmetric and structured asymmetric annotation noise, multiple
+noise ratios, and varying degrees of non-IID client heterogeneity, with comparisons against conven-
+tional FL and dedicated noisy-label FL approaches.
+Through these experiments, we investigate whether spectral characteristics can distinguish annotation-
+related disruption from legitimate client heterogeneity, how reliably corrupted supervision can be recov-
+ered without damaging originally correct annotations, and whether retaining corrected clients provides
+greater beneﬁt than excluding them from federated optimization. More broadly, this study examines
+annotation reliability as an important and previously underexplored requirement for trustworthy oph-
+thalmic FL.
+Figure 1: Overview of the OCT-FedSIR framework. a, Global initialization is distributed to participating
+clients. b, Local training. c–e, Spectral statistics are estimated, communicated to the server, and used to
+identify clean and noisy clients. f, Clean-client spectral information is used to construct representative
+and residual references for relabeling. g, Noise-aware federated optimization using LA, KD, and DaAgg.
+Results
+We evaluated OCT-FedSIR across three distinct ophthalmic classiﬁcation tasks: multiclass OCT disease
+classiﬁcation using Kermany, ordinal DR severity classiﬁcation using UIC, and binary GA classiﬁca-
+4
+
+
+Table 1: Mean classiﬁcation accuracy (%) across label-noise levels and client-heterogeneity settings. Sym-
+metric and asymmetric results are averaged over 21 and 18 experimental conditions per dataset, re-
+spectively, and overall accuracy is averaged across all 117 conditions. Bold and underline indicate the
+best- and second-best-performing noisy-label FL methods, respectively. Pruning and all-clean FedAvg
+are shown as reference conﬁgurations.
+Multi-class (Kermany)
+Ordinal DR severity (UIC)
+Binary GA (WF)
+Overall
+Method
+Sym.
+Asym.
+Sym.
+Asym.
+Sym.
+Asym.
+FedAvg8
+70.13
+53.79
+68.71
+57.10
+65.82
+66.44
+64.02
+FedProx32
+69.85
+52.28
+67.40
+55.80
+64.89
+66.32
+63.11
+RoFL24
+87.56
+82.24
+81.69
+81.94
+72.45
+73.49
+79.94
+RHFL26
+44.53
+33.53
+52.65
+38.39
+59.64
+45.42
+46.20
+FedLSR33
+67.46
+62.32
+71.55
+64.99
+69.81
+71.86
+68.12
+FedCorr27
+86.19
+81.76
+81.57
+83.43
+68.88
+70.62
+78.75
+FedNed29
+69.21
+54.20
+67.46
+56.77
+64.72
+59.52
+62.38
+FedELC30
+60.01
+50.84
+64.36
+55.79
+61.56
+62.36
+59.37
+FedNoRo28
+64.23
+61.48
+76.07
+68.04
+70.24
+69.62
+68.43
+OCT-FedSIR (Ours)
+94.76
+93.59
+88.39
+89.57
+75.79
+78.47
+86.73
+Pruning
+81.23
+84.20
+83.47
+79.97
+67.22
+68.53
+77.43
+FedAvg (all clients clean)
+98.97
+98.97
+94.47
+94.47
+81.86
+81.86
+91.76
+tion using WF. Experiments included controlled symmetric and structured asymmetric annotation noise
+across multiple noise ratios and three degrees of client heterogeneity, α ∈{2.0, 0.5, 0.1}, with lower values
+representing increasingly heterogeneous non-IID client distributions. OCT-FedSIR was compared with
+conventional FL baselines, including FedAvg8 and FedProx,32 and dedicated noisy-label FL methods, in-
+cluding RoFL,24 RHFL,26 FedLSR,33 FedCorr,27 FedNed,29 FedELC,30 and FedNoRo.28 We additionally
+evaluated a pruning baseline in which clients identiﬁed as having corrupted annotations were excluded
+from subsequent federated optimization, and an all-clean FedAvg reference in which all participating
+clients retained their original annotations.
+Overall performance
+Table 1 summarizes classiﬁcation accuracy across datasets, noise mechanisms, noise levels, and client-
+heterogeneity settings. For each dataset, symmetric results were averaged across 21 experimental condi-
+tions, corresponding to seven noise levels ranging from 30% to 90% with 10% increments and three values
+of α, whereas asymmetric results were averaged across 18 conditions, corresponding to six noise levels
+ranging from 40% to 90% and the same three values of α. The overall result therefore summarizes 117
+condition-level mean accuracies.
+Across all 117 evaluated conditions, OCT-FedSIR achieved the highest mean accuracy among meth-
+ods trained in the presence of noisy clients, reaching 86.73%. The next strongest methods were RoFL at
+5
+
+
+Table 2: Clean-client identiﬁcation F1 score (%) for FedSIR and OCT-FedSIR, averaged across the evalu-
+ated label-noise levels and Dirichlet heterogeneity settings. Bold indicates the best-performing method.
+Dataset
+Method
+Symmetric F1 (%)
+Asymmetric F1 (%)
+Kermany
+FedSIR
+92.4
+71.8
+OCT-FedSIR
+100.0
+100.0
+UIC
+FedSIR
+89.7
+68.5
+OCT-FedSIR
+100.0
+100.0
+WF
+FedSIR
+91.2
+74.6
+OCT-FedSIR
+100.0
+100.0
+79.94% and FedCorr at 78.75%, corresponding to absolute differences of 6.79 and 7.98 percentage points,
+respectively.
+On Kermany, OCT-FedSIR achieved mean accuracies of 94.76% and 93.59% under symmetric and
+asymmetric noise, respectively. The corresponding values were 88.39% and 89.57% for UIC and 75.79%
+and 78.47% for WF. The all-clean FedAvg reference achieved an overall mean accuracy of 91.76%, a 5.03
+percentage-point difference relative to OCT-FedSIR under corrupted supervision. In addition to overall
+accuracy, we examined macro-F1 to characterize performance across diagnostic classes. Macro-F1 results
+under symmetric and asymmetric label noise are shown in Figs. 3 and 4, respectively. Across the three
+ophthalmic tasks, the macro-F1 results generally followed the trends observed for classiﬁcation accu-
+racy. OCT-FedSIR maintained comparatively strong macro-F1 across increasing label noise levels, with
+the greatest degradation occurring when severe symmetric label noise was combined with strong client
+heterogeneity.
+Spectral identiﬁcation and annotation recovery
+We next evaluated the two stages that precede noise-aware federated optimization: identiﬁcation of
+clients with corrupted labels and recovery of their sample-level supervision. We ﬁrst examined whether
+the FedSIR spectral identiﬁcation procedure transferred directly to the ophthalmic setting considered
+here, particularly under structured asymmetric label noise. For this comparison, FedSIR and OCT-FedSIR
+procedures were evaluated using the same client partitions, corrupted labels, model architectures, and
+experimental seeds. The FedSIR identiﬁcation procedure remained comparatively effective under sym-
+metric noise but showed reduced clean-client F1 under asymmetric noise. The principal failure mode
+was over-assignment to the clean component: true clean clients were generally retained, but additional
+clients affected by label noise were also classiﬁed as clean. This reduced the purity of the clean reference
+subset used for subsequent spectral construction. In contrast, the OCT-FedSIR identiﬁcation procedure
+completely separated clients retaining their original annotations from clients subjected to simulated la-
+bel corruption across both noise mechanisms (Table 2). Across all evaluated datasets, noise mechanisms,
+noise ratios, and client-heterogeneity settings, OCT-FedSIR correctly recovered the simulated annotation-
+6
+
+
+status partition. Identiﬁcation accuracy was 100%, with 100% recall for clients subjected to label cor-
+ruption and 100% precision for clients assigned to the clean reference subset. These results apply to the
+controlled corruption settings evaluated here. (Fig. 2 shows that complete separation was retained under
+both symmetric and asymmetric label noise, including the most heterogeneous conﬁguration α = 0.1).
+Compared with the original identiﬁcation formulation, the extended procedure incorporated class-
+balanced spectral estimation, Stage-I LA, and the complementary maximum off-diagonal similarity de-
+scriptor smax
+k
+. The resulting spectral representations showed greater separation between clients with clean
+and corrupted labels. Corrupted-label clients exhibited greater cross-class alignment, reﬂected by the
+mean off-diagonal similarity µk, off-diagonal energy ek, and maximum off-diagonal similarity smax
+k
+, which
+jointly formed the descriptor space used by the two-component Gaussian Mixture model (GMM).
+We then examined whether identifying corrupted-label clients resulted in recovery of their local an-
+notations. Across the six dataset–noise summaries, spectral relabeling restored a mean of 77.2% of inten-
+tionally corrupted labels to their reference class (Table 3). Mean recovery was 75.7% under symmetric
+noise and 78.7% under asymmetric noise. Recovery rates under symmetric and asymmetric noise were
+81.6% and 84.3% for Kermany, 75.2% and 78.6% for UIC, and 70.4% and 73.1% for WF, respectively.
+Accepted corrections were predominantly consistent with the reference labels. Correction precision
+ranged from 86.7% to 95.0%, with the highest values observed on Kermany. Across the six dataset–noise
+summaries, the mean false-correction rate was 3.5%, corresponding to preservation of approximately
+96.5% of annotations that were initially correct. False-correction rates ranged from 2.4% to 4.8%.
+The proportion of annotations modiﬁed by OCT-FedSIR varied according to dataset and noise mech-
+anism. Under symmetric noise, edit rates were 52.0%, 49.7%, and 48.7% for Kermany, UIC, and WF,
+respectively. Under asymmetric noise, the corresponding values were 57.7%, 55.5%, and 31.1%. The
+lower edit rate observed for WF under asymmetric noise was accompanied by a recovery rate of 73.1%
+and correction precision of 89.2%, demonstrating that a lower overall frequency of label changes did not
+preclude recovery of a substantial fraction of corrupted annotations.
+Together, the client- and sample-level analyses show that the spectral procedure not only identiﬁed
+clients affected by simulated annotation noise but also recovered a substantial fraction of the corrupted
+supervision while producing comparatively few harmful changes to labels that were originally correct.
+Dataset-speciﬁc robustness
+Kermany
+OCT-FedSIR remained robust across the Kermany experiments, with differences among methods becom-
+ing most apparent under severe label noise (Tables S1 and S2; Figs. 3a and 4a). The macro-F1 curves
+showed a pattern consistent with the accuracy results, with OCT-FedSIR maintaining strong class-balanced
+performance across most symmetric and asymmetric noise settings. Under symmetric noise with α = 2,
+OCT-FedSIR achieved 96.00% accuracy at 80% noise and 93.60% at 90%, compared with 83.50% for RoFL,
+20.60% for FedAvg, and 19.70% for FedProx at the 90% noise level. With α = 0.5, OCT-FedSIR remained
+between 97.30% and 99.70% across the complete 30–90% symmetric noise range. Performance decreased
+under the most heterogeneous conﬁguration. At α = 0.1, OCT-FedSIR achieved 74.10% and 74.20% ac-
+7
+
+
+(a) Clean clients
+(b) Asymmetric label noise
+(c) Symmetric label noise
+(d) Distributions of the client-level spectral descriptors µk, ek, and smax
+k
+for clean
+and noisy clients.
+(e)
+Joint
+spectral
+descriptor
+space formed by (µk, ek, smax
+k
+).
+(f) Client-identiﬁcation confusion matrices.
+Figure 2: Spectral characterization and identiﬁcation of clients with corrupted labels in representative
+Kermany experiments under severe statistical heterogeneity (α = 0.1). a–c, Class-wise spectral similarity
+matrices for clean, asymmetric-noise, and symmetric-noise clients, respectively. d, Distributions of mean
+off-diagonal similarity (µk), off-diagonal energy (ek), and maximum off-diagonal similarity (smax
+k
+). e, Joint
+spectral descriptor space. f, Client-identiﬁcation confusion matrices across the evaluated symmetric and
+asymmetric noise levels.
+8
+
+
+(a) Kermany.
+(b) UIC.
+(c) WF.
+Figure 3: Macro-F1 performance under symmetric label noise. Results are shown across α ∈{2.0, 0.5, 0.1}
+for a, Kermany OCT classiﬁcation; b, UIC DR classiﬁcation; and c, WF GA classiﬁcation. The dashed line
+denotes the all-clean FedAvg reference.
+9
+
+
+(a) Kermany.
+(b) UIC.
+(c) WF.
+Figure 4:
+Macro-F1 performance under asymmetric label noise.
+Results are shown across α
+∈
+{2.0, 0.5, 0.1} for a, Kermany OCT classiﬁcation; b, UIC DR classiﬁcation; and c, WF GA classiﬁcation.
+The dashed line denotes the all-clean FedAvg reference.
+10
+
+
+Table 3: Sample-level spectral relabeling performance at clients selected for correction. Values are re-
+ported as mean ± standard deviation across three independent seeds and averaged across the evaluated
+label-noise levels and Dirichlet heterogeneity settings. For WF under asymmetric noise, the target cor-
+ruption ratio applies only to the GA source class.
+Dataset
+Edit rate
+(%)
+Recovery
+(%)
+Correction
+precision (%)
+False-correction
+rate (%)
+Residual noise
+(%)
+a. Symmetric noise (mean target noise = 60%)
+Kermany
+52.0 ± 1.8
+81.6 ± 2.1
+94.1 ± 0.9
+2.7 ± 0.4
+12.1 ± 1.5
+UIC
+49.7 ± 2.2
+75.2 ± 2.7
+90.8 ± 1.2
+3.9 ± 0.6
+16.4 ± 2.2
+WF
+48.7 ± 2.6
+70.4 ± 3.1
+86.7 ± 1.5
+4.8 ± 0.7
+19.7 ± 2.7
+b. Asymmetric noise (mean target noise = 65%)
+Kermany
+57.7 ± 2.0
+84.3 ± 1.9
+95.0 ± 0.8
+2.4 ± 0.4
+11.0 ± 1.5
+UIC
+55.5 ± 2.4
+78.6 ± 2.4
+92.1 ± 1.1
+3.4 ± 0.5
+15.1 ± 2.0
+WF
+31.1 ± 2.8
+73.1 ± 2.9
+89.2 ± 1.4
+3.7 ± 0.6
+12.5 ± 1.7
+curacy at 80% and 90% symmetric noise, respectively, compared with 72.60% and 72.90% for RoFL. A
+similar convergence among the methods was observed in macro-F1 at the most severe symmetric-noise
+levels (Fig. 3a). OCT-FedSIR showed greater stability under asymmetric noise, which was also reﬂected
+in macro-F1 (Fig. 4a). With α = 2, accuracy remained between 96.70% and 98.60% across all evaluated
+noise levels and reached 97.10% at 90% noise, compared with 91.20% for FedCorr and 71.90% for RoFL. At
+α = 0.5, OCT-FedSIR retained 95.70% accuracy at 90% noise. Under the strongest heterogeneity (α = 0.1),
+accuracy decreased from 95.50% at 40% noise to 75.60% at 90%, but remained above RoFL (71.50%), Fed-
+NoRo (64.10%), and FedLSR (60.10%) at the highest noise level.
+UIC
+OCT-FedSIR achieved the highest accuracy among the evaluated noisy-label methods across the reported
+UIC symmetric and asymmetric conditions (Tables S3 and S4).
+The corresponding macro-F1 results
+showed similar robustness across increasing noise levels (Figs. 3b and 4b). Under symmetric noise with
+α = 2, accuracy decreased from 95.80% at 30% noise to 84.60% at 90%, compared with 72.30% for RoFL
+and 68.80% for FedCorr at the highest noise level. With α = 0.5, OCT-FedSIR retained 80.20% accuracy at
+90% noise, compared with 71.60% for FedCorr and 68.20% for RoFL. At α = 0.1, OCT-FedSIR decreased
+from 89.60% at 30% symmetric noise to 73.80% at 90%, whereas RoFL achieved 69.10% at the highest
+noise level. Under asymmetric noise, OCT-FedSIR remained comparatively stable in both accuracy and
+macro-F1 (Fig. 4b). With α = 2, OCT-FedSIR remained above 90% accuracy throughout the 40–90% noise
+range and achieved 90.70% at 90% noise, compared with 80.50% for FedCorr and 72.40% for RoFL. At the
+same 90% noise level, OCT-FedSIR achieved 88.60% with α = 0.5 and 81.40% with α = 0.1.
+11
+
+
+WF
+The differences among methods were smaller on WF than on Kermany and UIC in several symmetric-
+noise settings (Table S5). This behavior was also reﬂected in macro-F1, where the separation among the
+stronger methods was narrower than that observed for Kermany and UIC. With α = 2, OCT-FedSIR
+remained between 77.57% and 78.74% across the complete 30–90% symmetric noise range. At α = 0.5,
+RoFL exceeded OCT-FedSIR at several intermediate noise levels, whereas OCT-FedSIR performed more
+strongly as noise became severe. At 90% noise, OCT-FedSIR achieved 72.82%, compared with 62.44% for
+RoFL, 42.30% for FedAvg, and 33.37% for FedProx. Under α = 0.1, OCT-FedSIR achieved 78.91%, 77.96%,
+77.90%, and 76.67% at 30%, 40%, 50%, and 60% symmetric noise, respectively, and retained 72.99% at 90%.
+RoFL slightly exceeded OCT-FedSIR at 80% noise (72.99% versus 72.15%), whereas OCT-FedSIR achieved
+the higher accuracy at the remaining symmetric noise levels. A clearer separation was observed under the
+one-directional GA-to-NGA asymmetric noise (Table S6; Fig. 4c). The macro-F1 results similarly showed
+stronger separation between OCT-FedSIR and the competing approaches under severe asymmetric noise.
+At α = 2.0, OCT-FedSIR achieved the highest accuracy at all six evaluated noise levels, including 81.92%
+and 80.97% at 80% and 90% noise, respectively. At α = 0.5, several competing methods were comparable
+at intermediate noise levels, but OCT-FedSIR reached 81.98% and 81.53% at 80% and 90% noise. With
+α = 0.1, OCT-FedSIR ranged from 77.29% to 80.36% across the evaluated asymmetric noise levels.
+Retention versus pruning of clients with corrupted annotations
+The pruning experiment evaluated whether clients identiﬁed as having corrupted annotations should be
+excluded from subsequent federated optimization or retained after spectral correction. Across all 117
+evaluated conditions, OCT-FedSIR achieved an overall mean accuracy of 86.73%, compared with 77.43%
+for pruning. On Kermany, OCT-FedSIR achieved mean accuracies of 94.76% and 93.59% under symmet-
+ric and asymmetric noise, respectively, compared with 81.23% and 84.20% for pruning. These results
+correspond to improvements of 13.53 percentage points and 9.39 percentage points, respectively. On UIC,
+OCT-FedSIR achieved 88.39% under symmetric noise and 89.57% under asymmetric noise, compared
+with 83.47% and 79.97% for pruning. The largest difference on UIC was observed under asymmetric noise,
+where OCT-FedSIR exceeded pruning by 9.60 percentage points. On WF, OCT-FedSIR achieved mean ac-
+curacies of 75.79% and 78.47% under symmetric and asymmetric noise, respectively, whereas pruning
+achieved 67.22% and 68.53%. The corresponding differences were 8.57 and 9.94 percentage points.
+Ablation study
+We used a one-component-at-a-time removal analysis to assess the sensitivity of the complete OCT-
+FedSIR framework to relabeling, KD, LA, and DaAgg (Table 4). Removing relabeling produced the largest
+decrease in performance, reducing mean accuracy from 86.73% to 79.47%, a difference of 7.26 percentage
+points. Removing KD, LA, and DaAgg reduced mean accuracy by 1.82, 1.05, and 0.52 percentage points,
+respectively. Thus, performance was most sensitive to removal of the relabeling component, while KD,
+LA, and DaAgg provided additional gains within the complete framework.
+12
+
+
+Table 4: Ablation analysis of OCT-FedSIR. Mean accuracy is averaged across all evaluated experimental
+conditions. ∆denotes the decrease from the complete framework in percentage points.
+Conﬁguration
+Mean accuracy (%)
+∆
+OCT-FedSIR (Full)
+86.73
+–
+w/o DaAgg
+86.21
+−0.52
+w/o LA
+85.68
+−1.05
+w/o KD
+84.91
+−1.82
+w/o relabeling
+79.47
+−7.26
+Discussion
+This study addressed an underexplored challenge for trustworthy ophthalmic FL: whether annotation-
+related disruption can be distinguished from legitimate differences in the clinical data distributions of par-
+ticipating clients. Across 117 dataset-speciﬁc experimental conditions spanning annotation-noise mecha-
+nism, noise severity, and client heterogeneity, OCT-FedSIR achieved an overall mean accuracy of 86.73%.
+This was 6.79 percentage points higher than RoFL and 7.98 percentage points higher than FedCorr, the
+two strongest comparison methods overall, and 5.03 percentage points below the all-clean FedAvg ref-
+erence. Macro-F1 showed broadly similar trends across increasing noise levels. These ﬁndings indicate
+that explicitly modeling annotation reliability can substantially reduce the degradation associated with
+corrupted supervision while preserving heterogeneous client data within federated optimization.
+An important ﬁnding was that the original FedSIR spectral identiﬁcation strategy did not transfer uni-
+formly to the ophthalmic setting. Although FedSIR remained comparatively effective under symmetric
+label-noise, its clean-client F1 decreased substantially under structured asymmetric noise, ranging from
+68.5% to 74.6% across the three datasets. The principal failure mode was the assignment of some label-
+corrupted clients to the clean reference group. In contrast, OCT-FedSIR correctly separated the simulated
+clean and label-corrupted clients across all evaluated datasets, noise mechanisms, noise levels, and het-
+erogeneity settings. The combined identiﬁcation formulation incorporates class-balanced spectral estima-
+tion, Stage-I LA, and the complementary maximum off-diagonal similarity descriptor smax
+k
+. These results
+support the importance of adapting spectral client characterization to the class-distribution heterogeneity
+encountered in ophthalmic data rather than assuming that a spectral identiﬁcation strategy developed on
+general vision benchmarks will transfer unchanged.
+The complete client-identiﬁcation result should nevertheless be interpreted within the controlled ex-
+perimental setting. Client status was deﬁned through simulated corruption of existing reference annota-
+tions, and the resulting clean and noisy populations may exhibit more structured separation than would
+occur across independent clinical institutions. The ﬁnding therefore demonstrates that OCT-FedSIR dis-
+tinguished the corruption patterns evaluated here; it should not be interpreted as evidence that annota-
+tion reliability can be identiﬁed perfectly in prospective multicenter data. Naturally occurring annotation
+disagreement may coexist with scanner shifts, disease-prevalence differences, image-quality variation,
+13
+
+
+referral patterns, and institutional practice differences, all of which may alter feature geometry indepen-
+dently of annotation quality.
+Client identiﬁcation was also only the ﬁrst part of the problem. At the sample level, spectral re-
+labeling recovered a mean of 77.2% of intentionally corrupted annotations across the six dataset–noise
+summaries. Correction precision ranged from 86.7% to 95.0%, while the mean false-correction rate was
+3.5%, corresponding to preservation of approximately 96.5% of annotations that were originally correct.
+This distinction is important because improved classiﬁcation performance alone does not establish that an
+annotation-correction strategy is behaving safely. The observed combination of substantial recovery and
+comparatively infrequent harmful changes is consistent with the agreement rule used by OCT-FedSIR, in
+which a label is modiﬁed only when the representative and residual-subspace criteria support the same
+alternative class.
+The interaction between annotation noise and statistical heterogeneity remained apparent despite the
+strong client-identiﬁcation performance. Under the most concentrated client distributions, particularly
+at α = 0.1, classiﬁcation performance decreased in several severe-noise conditions. This indicates that
+correctly identifying a label-corrupted client does not guarantee that its annotations can subsequently
+be corrected with equal reliability. When local class support becomes sparse or highly concentrated,
+the class-speciﬁc structure required to construct and apply reliable spectral references may itself become
+less stable. This distinction is clinically relevant because a specialized referral center may contain an un-
+usual or highly skewed disease distribution despite having reliable annotations. Such legitimate variation
+should not itself be interpreted as evidence of poor data quality.
+The structured asymmetric experiments provide an additional perspective on this problem. Corrup-
+tion was concentrated between selected diagnostic categories rather than distributed uniformly: between
+choroidal neovascularization (CNV) and diabetic macular edema (DME) and between drusen and nor-
+mal retina for Kermany, between neighboring DR severity categories for UIC, and from GA to NGA
+for WF. These transitions were designed as controlled structured perturbations and should not be inter-
+preted as estimates of real clinical error probabilities. OCT-FedSIR remained particularly robust under
+these asymmetric settings, including severe label-noise on Kermany and UIC and the one-directional WF
+experiment. This is notable because annotation disagreement in clinical practice is unlikely to be uni-
+form across diagnostic categories and may instead concentrate near phenotypically or clinically related
+decision boundaries.
+Differences across the three tasks further suggest that spectral robustness is dependent on the structure
+of the classiﬁcation problem. Kermany and UIC provide multiple class relationships from which cross-
+class spectral structure can be characterized, whereas the binary WF task provides fewer such relation-
+ships. Correspondingly, differences among the stronger methods were smaller in several WF symmetric-
+noise settings, although OCT-FedSIR retained a clearer advantage under severe asymmetric noise. These
+ﬁndings caution against interpreting performance differences among the three datasets as differences in
+dataset difﬁculty alone, particularly because the tasks, cohorts, and network architectures also differed.
+The pruning comparison addressed a complementary question: whether a client identiﬁed as having
+corrupted supervision should be excluded or retained after correction. Across all evaluated conditions,
+OCT-FedSIR exceeded spectral pruning by 9.30 percentage points on average. This result highlights an
+14
+
+
+important distinction between annotation reliability and data value. A client with corrupted annotations
+may still contain correctly labeled samples, uncommon disease manifestations, or other clinically infor-
+mative variation that would be lost if the entire client were excluded. Retaining and correcting such
+clients was therefore generally more effective than discarding them, although this advantage was not
+universal. Under the most heterogeneous Kermany setting with severe asymmetric corruption, pruning
+outperformed correction, suggesting a boundary at which the available spectral evidence may no longer
+support dependable recovery.
+The component ablation provides additional support for this interpretation. Removing spectral re-
+labeling from the complete framework produced the largest decrease in mean accuracy, from 86.73% to
+79.47%, a reduction of 7.26 percentage points. Removing KD, LA, and DaAgg produced smaller de-
+creases of 1.82, 1.05, and 0.52 percentage points, respectively. These comparisons do not isolate inde-
+pendent causal effects because the components operate jointly; rather, they show that relabeling was the
+component whose removal from the complete framework was associated with the largest performance
+loss. KD provided complementary supervision when hard labels remained uncertain, LA addressed local
+class imbalance, and DaAgg reduced the inﬂuence of label-corrupted client models that deviated from the
+clean reference population. OCT-FedSIR therefore acts at multiple levels, combining client identiﬁcation,
+sample-level supervision correction, local optimization, and server aggregation.
+This study has several limitations. OCT-FedSIR depends on sufﬁcient reliable class support for con-
+structing its spectral references, and performance may deteriorate when too few reliable clients remain
+or when diagnostic classes are absent or sparsely represented. Without a sufﬁciently reliable spectral
+reference, however, the framework cannot be expected to distinguish annotation-related deviations con-
+sistently or to support dependable relabeling of corrupted supervision. In addition, robustness to annota-
+tion noise does not by itself establish clinical utility or formal privacy. Client-identiﬁcation outputs should
+be interpreted as signals of potential data-quality concerns, and spectrally corrected labels as training tar-
+gets rather than changes to clinical records. Independent-site validation is therefore needed before clinical
+use, while future work should assess information-leakage risks from model updates and shared spectral
+statistics, including compatibility with secure aggregation and differential privacy.
+In summary, OCT-FedSIR addressed annotation reliability as a distinct challenge in ophthalmic FL by
+coupling spectral client characterization with selective recovery of corrupted supervision. Under the con-
+trolled conditions evaluated here, OCT-FedSIR substantially improved separation of clients with reliable
+and corrupted annotations relative to the original FedSIR procedure, while spectral relabeling recovered
+a large proportion of corrupted annotations with relatively few harmful changes to labels that were al-
+ready correct. Retaining corrected clients was generally more effective than discarding them, further
+demonstrating that annotation reliability and data value should not be treated as equivalent. Together,
+these ﬁndings identify annotation reliability as an important requirement for trustworthy ophthalmic FL
+and motivate validation under naturally occurring annotation disagreement and genuinely multicenter
+clinical data.
+15
+
+
+Methods
+Study design
+We evaluated FL under two forms of heterogeneity that can coexist across clinical sites: differences in local
+disease composition and differences in annotation reliability. For each experimental seed, training data
+were partitioned among simulated clients using a class-aware Dirichlet procedure. A subset of clients
+retained the original labels, whereas labels at the remaining clients were corrupted using controlled sym-
+metric or asymmetric transition rules. All methods within an experimental condition used the same client
+partition, noisy-client assignment, noisy labels, model initialization, and training budget. Three dataset-
+speciﬁc lightweight backbones were used, one for each retinal classiﬁcation task.
+OCT-FedSIR comprised three stages: spectral identiﬁcation of clients with reliable and unreliable la-
+bels (Fig. 1A–E), periodic relabeling of identiﬁed noisy clients using spectral references constructed from
+clean clients (Fig. 1F), and noise-aware federated optimization using LA, KD, and DaAgg (Fig. 1G).
+Datasets
+Experiments used the Kermany OCT dataset, a UIC DR cohort, and a WF GA cohort.
+Kermany
+The Kermany OCT2017 dataset is a publicly available spectral-domain OCT dataset introduced by Ker-
+many et al.2 It contains B-scans acquired with Heidelberg Spectralis OCT systems and labeled into four
+diagnostic categories: CNV, DME, drusen, and normal retina. Duplicate images were removed before
+federated partitioning. The original held-out test set was kept separate from all federated training proce-
+dures.
+UIC
+The UIC cohort contains OCT imaging from patients categorized as control, mild, moderate, or severe
+DR.13 The study received institutional review board approval from the University of Illinois Chicago and
+was conducted in accordance with the Declaration of Helsinki. DR severity was assigned by a retina
+specialist according to the Early Treatment Diabetic Retinopathy Study grading framework. OCT/OCTA
+data were acquired with an ANGIOVUE spectral-domain OCTA system (Optovue, Fremont, CA) oper-
+ating at a 70-kHz A-scan rate, with an axial resolution of approximately 5 µm and a lateral resolution of
+approximately 15 µm. The cohort contained 445 scans from 41 patients that satisﬁed a signal-strength
+threshold of Q ≥5, including 187 3-mm scans and 258 6-mm scans. For the present classiﬁcation exper-
+iments, patient-level separation was maintained between development and held-out evaluation sets so
+that images from the same patient did not occur in more than one split. Individual OCT B-scans were
+used as model inputs for the classiﬁcation task.
+16
+
+
+Wake Forest
+The WF cohort was collected at Wake Forest University School of Medicine between January 1, 2013, and
+January 28, 2023. The study protocol received institutional review board approval and adhered to the
+Declaration of Helsinki. Patients were identiﬁed using ICD-9 codes 362.50 and 362.51 and ICD-10 codes
+H35.30 and H35.31 and were included when longitudinal OCT imaging was available with sufﬁcient
+follow-up to assess GA progression. Exclusion criteria included subfoveal GA at baseline, fewer than
+two available OCT visits, unavailable longitudinal imaging, prior retinal treatment, and ocular condi-
+tions likely to confound OCT interpretation, including neovascular AMD, DR, glaucoma, retinal vascular
+occlusion, retinal detachment, and macular dystrophy. After application of these criteria, 91 patients with
+adequate imaging were retained. A single predeﬁned study eye was used for each patient and remained
+ﬁxed across visits (OD, 48.08%; OS, 51.92%). The cohort contained 455 OCT volumes and 11,513 B-scans:
+258 volumes with central GA (CGA; 6,522 B-scans), 74 with non-central GA (NCGA; 1,874 B-scans), and
+123 with no GA (NGA; 3,117 B-scans). CGA and NCGA were combined into a single GA category for the
+present study. This formulation separates the presence from the absence of GA without introducing the
+additional localization-dependent distinction between central and non-central atrophy. Individual OCT
+B-scans were used as model inputs for the binary classiﬁcation task. All partitions were performed at the
+patient level before extraction of individual B-scans; no B-scan, OCT volume, eye, or visit from a patient
+in the held-out test set appeared in the federated training data.
+The three datasets therefore represented different classiﬁcation settings: multiclass OCT disease clas-
+siﬁcation in Kermany, ordinal DR severity classiﬁcation in UIC, and binary GA classiﬁcation in WF. Each
+sample retained a unique global index so that the original label, simulated corrupted label, and any sub-
+sequent spectral label could be tracked. Ground-truth labels were used only to generate controlled cor-
+ruption and to evaluate identiﬁcation and correction; they were not provided to the FL algorithms.
+Federated client construction
+Let the federated training set at client k be denoted by Dk = {(xi, yi)}Nk
+i=1, where Nk is the total number
+of training samples and yi ∈{1, . . . , C} denotes one of C diagnostic classes. The Kermany, UIC, and WF
+training sets were partitioned among K = 30, K = 20, and K = 5 federated clients, respectively. Only
+training samples were distributed among clients; the held-out test sets remained completely separate from
+the federated partitioning procedure. To simulate statistical heterogeneity across clients, the training data
+were partitioned using a class-wise Dirichlet distribution. For each diagnostic class c, the proportions
+of samples assigned across the K clients were drawn from ρc ∼Dirichlet (α1K) , where ρc represents
+the allocation proportions of class c across the participating clients and its entries sum to one. Samples
+belonging to class c were then distributed among clients according to these proportions.
+The concentration parameter α controlled the degree of statistical class heterogeneity across clients.
+We evaluated α ∈{2.0, 0.5, 0.1}, where smaller values of α produce more heterogeneous non-IID client
+distributions with increasingly uneven local class proportions. For each experimental seed and value of
+α, the client partition was generated once and then held ﬁxed across all evaluated FL methods. Thus,
+competing methods within the same experimental condition were trained using identical client data par-
+17
+
+
+titions.
+Client-dependent label-noise simulation
+After the federated client partitions were generated, clients were randomly assigned as either clean or
+noisy to simulate client-dependent annotation unreliability. Across the evaluated datasets and client
+conﬁgurations, the proportion of label-corrupted clients ranged from 60% to 90%, with the remaining
+10%–40% clean-label clients. The clean/label-corrupted status of each client was unknown a priori. The
+clean/noisy assignment was generated independently for each experimental seed and was independent
+of the subsequent spectral client-identiﬁcation procedure. Let γk ∈{0, 1} denote the simulated annotation
+status of client k, where
+γk =
+
+
+
+0,
+if client k is clean,
+1,
+if client k is noisy.
+(1)
+For a given experimental seed, the clean/noisy client assignment was generated once and then held
+ﬁxed across all competing FL methods. Consequently, methods evaluated within the same experimental
+condition used the same client partition, clean/noisy client assignment, noisy labels, and model initial-
+ization. Ground-truth client status γk was used only to evaluate client-identiﬁcation performance; it was
+not provided to OCT-FedSIR during training or spectral client identiﬁcation.
+Clean clients retained their original annotations. For each client designated as noisy, label-noise was
+applied separately within every locally represented class. This class-conditional procedure ensured that
+differences in local class prevalence did not determine the imposed noise level. Let nk,c denote the number
+of samples belonging to class c at client k before corruption. For a target label-noise ratio η, the number of
+samples selected for corruption within class c was ⌊ηnk,c⌋. The corresponding samples were selected uni-
+formly at random without replacement. Thus, η controlled the fraction of annotations corrupted within
+each locally represented class of a noisy client.
+For symmetric label-noise, each selected annotation from true class c was reassigned uniformly to one
+of the remaining C −1 diagnostic classes (Fig. 5). The resulting transition model was
+P(ey = j | y = c) =
+
+
+
+
+
+1 −η,
+j = c,
+η
+C −1,
+j̸ = c.
+(2)
+where y denotes the original reference label and ey denotes the observed label after simulated corruption.
+Symmetric label-noise ratios were evaluated at ηsym ∈{0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9}. For asymmetric label-
+noise, the same within-class sampling procedure was used, but selected annotations were reassigned ac-
+cording to predeﬁned dataset-speciﬁc class transitions rather than uniformly across all alternative classes
+(Fig. 6). Let g(c) denote the predeﬁned target class associated with source class c. The transition model
+was therefore
+18
+
+
+Figure 5: Simulated symmetric label-noise transitions. For clients designated as noisy, a proportion η of
+annotations within each locally represented class was selected uniformly at random and reassigned uni-
+formly to one of the remaining C −1 diagnostic classes. Clean clients retained their original annotations.
+P(ey = j | y = c) =
+
+
+
+
+
+
+
+
+
+
+
+1 −η,
+j = c,
+η,
+j = g(c),
+0,
+otherwise.
+(3)
+For the Kermany dataset, asymmetric transitions were introduced between clinically related diagnos-
+tic categories, including CNV and DME, and between drusen and normal retina. For UIC, asymmetric
+transitions were restricted to neighboring DR severity categories to preserve the ordinal structure of the
+task. For WF, asymmetric corruption followed a predeﬁned one-directional transition from GA to NGA.
+Asymmetric label-noise ratios were evaluated at ηasym ∈{0.4, 0.5, 0.6, 0.7, 0.8, 0.9}. The symmetric noise
+provided a class-independent stress test, whereas asymmetric noise represented structured annotation
+errors concentrated between selected diagnostic categories.
+Class balancing for spectral estimation
+Because non-IID partitioning and label-noise could produce substantial differences in the number of sam-
+ples associated with individual classes within a client, a class-balanced loader was constructed for the
+spectral client-identiﬁcation stage of OCT-FedSIR and for the corresponding spectral pruning baseline.
+Balancing was performed using the observed, potentially corrupted labels available to each client and
+did not use the underlying ground-truth clean labels. For this balancing procedure, let nk,c denote the
+19
+
+
+Figure 6: Dataset-speciﬁc asymmetric label-noise transitions. For clients designated as noisy, a proportion
+η of annotations within each applicable source class was selected and reassigned according to predeﬁned
+dataset-speciﬁc class transitions. Clean clients retained their original annotations.
+number of samples at client k carrying the observed label c, and let
+Ck = {c : nk,c > 0}
+(4)
+denote the set of classes represented by the observed local annotations. The largest observed class count
+at client k was deﬁned as
+nmax
+k
+= max
+c∈Ck
+nk,c.
+(5)
+Each observed class was oversampled with replacement until its sample count matched nmax
+k
+. Thus, for
+each class c ∈Ck with nk,c < nmax
+k
+,
+nmax
+k
+−nk,c
+(6)
+additional instances were sampled from the existing local examples of that class. Only classes already
+represented at a client were included in the balancing procedure; classes absent from the observed local
+annotations were not introduced. Consequently, balancing equalized the number of samples across the
+classes present at each client without altering its observed class support. No additional augmentation
+speciﬁc to the balancing procedure was applied; class balancing itself was performed solely by randomly
+repeated sampling of existing local examples.
+The balanced loader was used only for feature extraction and spectral estimation after Stage-I local
+training; it was not used to optimize the Stage-I client models. Stage-I local optimization was performed
+using the original client datasets with the LA objective described below. After local training, we used the
+balanced loader to extract class-speciﬁc feature representations from which the spectral descriptors were
+estimated. All subsequent federated local optimization likewise used the original client datasets.
+20
+
+
+FL formulation
+At communication round t, the server distributed the global parameters θ(t) to all clients. Each client
+performed local optimization and returned updated parameters θ(t)
+k . Under conventional FedAvg,8 the
+global model is updated as
+θ(t+1) =
+K
+∑
+k=1
+Nk
+∑K
+j=1 Nj
+θ(t)
+k .
+(7)
+This aggregation does not explicitly account for differences in annotation reliability. OCT-FedSIR instead
+estimates a clean-client subset, uses those clients to generate class-speciﬁc spectral references, and adjusts
+both local supervision and server aggregation according to the estimated client status.
+OCT-FedSIR for noisy-label ophthalmic FL
+Stage-I: spectral client identiﬁcation
+Because the annotation-quality status of each client is unknown a priori, Stage-I aims to distinguish clients
+with reliable annotations from clients with potentially corrupted labels. OCT-FedSIR performs this identi-
+ﬁcation using spectral descriptors derived from locally learned class-wise feature representations, without
+access to ground-truth client status or raw client data. In particular, clients begin the identiﬁcation stage
+from the same ImageNet-pretrained initialization and locally optimize the model using their observed
+local dataset and the LA objective deﬁned below. For client k, the empirical class prior was
+πk,c =
+nk,c
+∑C
+j=1 nk,j
+,
+(8)
+where nk,c denotes the number of local samples carrying observed label c. The class-speciﬁc LA was
+mk,c = β log(πk,c + ǫ),
+(9)
+where β controls the strength of the adjustment and ǫ prevents numerical instability. Let mk = [mk,1, . . . , mk,C]⊤.
+The Stage-I objective was
+LLA = CE ( fθk(xi) + mk, eyi) .
+(10)
+After local identiﬁcation training, latent representations were extracted using deterministic transforms
+from the balanced loader. Let zi = hθk(xi) ∈Rd be the feature vector for sample i. For each locally
+observed class c, the feature matrix was
+Zk,c =
+
+
+z⊤
+1
+z⊤
+2
+...
+z⊤
+nk,c
+
+
+∈Rnk,c×d.
+(11)
+Singular value decomposition (SVD) was applied to each observed class matrix with descending singular
+values: Zk,c = Uk,cΣk,cV⊤
+k,c. The leading right singular vector vk,c represents the dominant direction of
+21
+
+
+class c. Pairwise class similarity was calculated as
+[Sk]c,c′ =
+
+v⊤
+k,cvk,c′
+∥vk,c∥2∥vk,c′∥2 + ǫ
+ .
+(12)
+Under reliable annotations, class-discriminative feature representations are expected to produce distinct
+dominant directions across diagnostic categories. Label corruption mixes samples from different under-
+lying classes within the same observed category and introduces shared class components across category
+speciﬁc feature matrices. Consequently, the dominant directions tend to exhibit greater cross-class align-
+ment. This observation motivates using off-diagonal spectral similarity as an indicator of annotation
+unreliability. Therefore, lower cross-class alignment was taken as evidence of more distinct class-speciﬁc
+feature directions, whereas increased overlap was treated as a marker of label unreliability as shown in
+Fig. 2.
+Each client was summarized by three statistics computed from the off-diagonal entries: the mean
+off-diagonal similarity, mean squared magnitude (energy), and maximum:
+µk =
+1
+|Ωk|
+∑
+(c,c′)∈Ωk
+[Sk]c,c′,
+(13)
+ek =
+1
+|Ωk|
+∑
+(c,c′)∈Ωk
+[Sk]2
+c,c′,
+(14)
+smax
+k
+=
+max
+(c,c′)∈Ωk
+[Sk]c,c′.
+(15)
+where Ωk = {(c, c′) : c̸ = c′, c, c′ ∈Ck}. A two-component GMM was ﬁtted to the client descriptors. The
+component exhibiting lower cross-class similarity was designated as clean, producing the estimated sets
+Kclean and Knoisy. No ground-truth client status was used during this partitioning.
+Class-speciﬁc representative and residual subspaces
+At each relabeling checkpoint, the clean reference model was used to extract features from clients in
+bKclean. For each locally observed class c at client k, SVD was applied to the corresponding class-speciﬁc
+feature matrix, Zk,c = Uk,cΣk,cV⊤
+k,c, where the singular values σ1 ≥σ2 ≥· · · were ordered in descending
+magnitude. An adaptive spectral cutoff qk,c was selected as the smallest integer satisfying
+qk,c
+∑
+j=1
+σj ≥κ
+Rk,c
+∑
+j=qk,c+1
+σj,
+(16)
+where Rk,c denotes the available spectral rank and κ controls the relative spectral mass of the dominant
+and residual portions. Equivalently,
+qk,c
+∑
+j=1
+σj ≥
+κ
+κ + 1
+Rk,c
+∑
+j=1
+σj.
+(17)
+We used κ = 10, corresponding to a cutoff at which the dominant portion contained at least approximately
+90.9% of the total singular-value mass. The leading right singular vector,
+v(r)
+k,c = vk,c,1 ∈Rd,
+(18)
+22
+
+
+deﬁned the local representative direction. The residual portion began after the adaptive spectral cutoff
+qk,c. The ﬁrst L right singular vectors after the cutoff were retained to construct the local residual basis,
+V(n)
+k,c =
+h
+vk,c,qk,c+1, . . . , vk,c,qk,c+L
+i
+.
+(19)
+where L denotes the number of residual directions used for spectral reference construction. We used
+L = 12 in all experiments. When fewer than L residual directions were available for a local class-speciﬁc
+decomposition, all available residual directions were used. Because singular vectors are deﬁned only up
+to sign and their orientations may vary across clients, the class-speciﬁc references were combined through
+weighted projector averaging rather than direct vector averaging. For class c, the representative projector
+was
+P(r)
+c
+= 1
+Wc
+∑
+k∈Kclean
+wk,cv(r)
+k,cv(r)⊤
+k,c ,
+(20)
+and the residual projector was
+P(n)
+c
+= 1
+Wc
+∑
+k∈Kclean
+wk,cV(n)
+k,c V(n)⊤
+k,c
+,
+(21)
+with
+Wc =
+∑
+k∈Kclean
+wk,c,
+(22)
+where wk,c is the number of samples belonging to class c at client k. The principal eigenvector of P(r)
+c
+deﬁned the global representative direction v(r)
+c , whereas the leading L eigenvectors of P(n)
+c
+deﬁned the
+global residual basis V(n)
+c . We used the same L = 12 residual directions to construct the global residual
+reference.
+Spectral relabeling of noisy clients
+The clean reference model was used to extract features from each predicted noisy client (Fig. 7).
+Figure 7: Spectral relabeling of predicted noisy clients using representative and residual spectral refer-
+ences constructed from predicted clean clients. A label change is accepted only when the representative-
+and residual-subspace predictions agree.
+For a feature vector zi, representative alignment with class c was
+SR(i, c) =
+v(r)⊤
+c
+zi
+ .
+(23)
+23
+
+
+where larger values indicate stronger alignment with the representative class direction. Residual-subspace
+projection was
+SN(i, c) =
+1
+√
+L
+V(n)⊤
+c
+zi
+
+2 .
+(24)
+The two spectral predictions were
+by(R)
+i
+= arg max
+c
+SR(i, c),
+(25)
+by(N)
+i
+= arg min
+c
+SN(i, c).
+(26)
+The ﬁnal hard target was deﬁned as
+y⋆
+i =
+
+
+
+by(R)
+i
+,
+by(R)
+i
+= by(N)
+i
+,
+eyi,
+otherwise.
+(27)
+Thus, a candidate correction was accepted only when the representative- and residual-subspace criteria
+agreed; otherwise, the observed annotation was retained. This agreement criterion reduced the risk of
+replacing uncertain clinical labels with unstable pseudo-labels.
+Local optimization
+Predicted clean clients continued to use the LA objective deﬁned above, with class priors estimated from
+their observed local labels. For a predicted noisy client, spectral relabeling produced a corrected hard
+target y⋆
+i . When the representative- and residual-subspace predictions agreed, y⋆
+i was replaced by the
+agreed spectral prediction; otherwise, y⋆
+i = eyi. Thus, every sample retained a valid hard training target,
+while label changes were restricted to samples supported by both spectral criteria. The current global
+model served as the teacher for KD. For temperature τ, the teacher distribution for sample xi was
+p(T)
+i
+= softmax
+ fθ(t)(xi)
+τ
+
+.
+(28)
+For the noisy-client model (k′ ∈Knoisy), the local logits were ﬁrst adjusted using the client-speciﬁc class
+prior,
+ℓk′,i = fθ(t)
+k′ (xi) + mk.
+(29)
+The corresponding student distribution was
+p(S)
+i
+= softmax
+ℓk′,i
+τ
+
+.
+(30)
+The distillation loss was
+LKD = DKL
+
+p(T)
+i
+∥p(S)
+i
+
+(31)
+whereas supervision from the spectrally corrected hard target was
+Lhard = CE (ℓk′,i, y⋆
+i ) .
+(32)
+24
+
+
+The noisy-client objective combines the two sources of supervision:
+L(t)
+noisy = λLKD + (1 −λ) Lhard,
+(33)
+where λ corresponds to the estimated fraction of clean clients in the federation and controls the relative
+contribution of global-model distillation and corrected hard-label supervision:
+λ = |Kclean|
+K
+.
+(34)
+Before the ﬁrst spectral relabeling checkpoint, no corrected labels were yet available; therefore, y⋆
+i = eyi,
+and noisy clients were trained using their observed labels together with KD from the current global model.
+At subsequent relabeling checkpoints, accepted spectral corrections were incorporated into y⋆
+i and used
+during local optimization.
+Distance-aware aggregation (DaAgg)
+After local optimization, all clients remained eligible to contribute to the global model. Let
+ak =
+Nk
+∑j Nj
+(35)
+be the conventional sample-size weight. For each predicted noisy client, its parameter-space distance to
+the nearest predicted clean client was calculated as
+dk = min
+j∈bKclean ∑
+ℓ
+θk,ℓ−θj,ℓ
+
+2 .
+(36)
+where ℓindexes ﬂoating-point parameter tensors. For predicted clean clients, dk = 0. Distances were
+normalized as
+dk =
+dk
+maxj dj + ǫ.
+(37)
+The ﬁnal aggregation weight was
+ωk =
+ak exp(−dk)
+∑j aj exp(−dj)
+,
+(38)
+and the global model was updated by
+θ(t+1) =
+K
+∑
+k=1
+ωkθ(t)
+k .
+(39)
+DaAgg therefore reduced the contribution of noisy-client models that deviated substantially from all
+clean-client models without removing them entirely. In parallel, the predicted clean-client models were
+aggregated using sample-size-weighted averaging to update the clean reference model used at the next
+relabeling checkpoint.
+25
+
+
+Network architectures
+We used lightweight ImageNet-pretrained convolutional neural networks to limit local computation,
+memory use, and communication cost. SqueezeNet1.1 was used for Kermany, ShufﬂeNetV2 for UIC, and
+RegNetY-400MF for WF. Compact architectures are relevant to FL because each participating client repeat-
+edly stores the model, performs local optimization, and transmits model updates.34 SqueezeNet reduces
+parameter count through Fire modules that combine 1 × 1 and 3 × 3 convolutions;35 ShufﬂeNetV2 was de-
+signed for efﬁcient execution with attention to memory-access cost and practical latency;36 and RegNetY-
+400MF provides a regular network design within a low computational budget.37 For each dataset, the
+ImageNet classiﬁer was replaced by a linear layer matching the number of target classes, and the back-
+bone and classiﬁer were ﬁne-tuned jointly. Within each dataset, all FL methods used the same architecture
+and initialization.
+Training protocol and reproducibility
+Models were initialized using ImageNet-pretrained parameters. Random seeds were set consistently for
+NumPy, PyTorch, client partitioning, label corruption, data-loader workers, and batch generators. Within
+a given experimental condition, the initial model state was generated once and shared across FL methods.
+All experiments were repeated using three independent random seeds.
+Local optimization used Adam or the optimizer prescribed by the corresponding baseline. OCT-
+FedSIR used Adam with weight decay 5 × 10−4 during its noise-aware training stage. Training was
+performed for 100 communication rounds. In each round, each client received the current global model,
+performed one local epoch with a batch size of 128, and returned its updated state to the server. Each
+dataset-speciﬁc backbone was evaluated at every symmetric and asymmetric noise ratio and at each
+Dirichlet heterogeneity level.
+For all three ophthalmic datasets, images were resized to 128 × 128 pixels and converted to tensors.
+During training, random horizontal ﬂipping was applied, followed by channel-wise normalization us-
+ing mean 0.5 and standard deviation 0.5. Evaluation used the same resizing and normalization without
+random augmentation.
+Evaluation and statistical analysis
+The global model was evaluated on the held-out test set after each communication round to characterize
+the training trajectory. Unless otherwise stated, all classiﬁcation results reported in the tables, ﬁgures, and
+text correspond to the global model obtained after the ﬁnal communication round. Test-set performance
+was not used for checkpoint selection, client identiﬁcation, spectral relabeling, local optimization, or any
+other aspect of model training. Classiﬁcation performance was summarized using accuracy and macro-F1
+score.
+Client-identiﬁcation performance was evaluated against the known simulated client status γk. We
+reported overall identiﬁcation accuracy, clean-client precision, clean-client recall, clean-client F1 score,
+noisy-client recall, and the numbers of clean clients incorrectly classiﬁed as noisy and noisy clients incor-
+26
+
+
+rectly classiﬁed as clean. Ground-truth client status was used only for retrospective evaluation and was
+not provided to the GMM during client identiﬁcation.
+Sample-level relabeling performance was evaluated by comparing the original reference label yi, the
+simulated corrupted label eyi, and the post-correction label y⋆
+i . Let N denote the number of samples eval-
+uated during the relabeling procedure. The edit rate was deﬁned as
+Edit rate = #{i : y⋆
+i̸ = eyi}
+N
+.
+(40)
+The recovery rate quantiﬁes the proportion of intentionally corrupted annotations that were restored to
+their original reference labels:
+Recovery rate = #{i : eyi̸ = yi ∧y⋆
+i = yi}
+#{i : eyi̸ = yi}
+.
+(41)
+Correction precision quantiﬁes the proportion of accepted label changes that resulted in the original ref-
+erence label:
+Correction precision = #{i : y⋆
+i̸ = eyi ∧y⋆
+i = yi}
+#{i : y⋆
+i̸ = eyi}
+.
+(42)
+The false-correction rate quantiﬁes the proportion of annotations that were originally correct but became
+incorrect after spectral relabeling:
+False-correction rate = #{i : eyi = yi ∧y⋆
+i̸ = yi}
+#{i : eyi = yi}
+.
+(43)
+The residual label-noise rate after spectral relabeling was deﬁned as
+Residual noise rate = #{i : y⋆
+i̸ = yi}
+N
+.
+(44)
+All experimental conditions were repeated using three independent random seeds. For each seed,
+client partitioning, clean/noisy client assignment, label corruption, and model initialization were gener-
+ated independently. Within a given seed and experimental condition, however, the same client partition,
+clean/noisy client assignment, corrupted sample indices, corrupted labels, and initial model state were
+shared across all competing federated learning methods to enable paired and directly comparable evalu-
+ations.
+Classiﬁcation, client-identiﬁcation, and relabeling metrics were computed independently for each
+seed. Unless otherwise stated, numerical results are reported as the mean ± standard deviation across the
+three independent experimental runs. For each run, the evaluation pipeline recorded per-round predic-
+tions, per-sample losses, aggregate and class-wise classiﬁcation metrics, client-identiﬁcation outcomes,
+and sample-level relabeling outcomes.
+Use of generative artiﬁcial intelligence
+ChatGPT (OpenAI) was used solely for language editing, including grammatical correction and rephras-
+ing of manuscript text. It was not used to generate or analyze experimental data, perform statistical
+27
+
+
+analyses, or determine scientiﬁc conclusions. All revised text was reviewed and approved by the au-
+thors.
+References
+[1] C. S. Lee, D. M. Baughman, and A. Y. Lee, “Deep learning is effective for classifying normal versus age-related
+macular degeneration oct images,” Ophthalmology Retina, vol. 1, no. 4, pp. 322–327, 2017.
+[2] D. S. Kermany, M. Goldbaum, W. Cai, C. C. Valentim, H. Liang, S. L. Baxter, A. McKeown, G. Yang, X. Wu,
+F. Yan et al., “Identifying medical diagnoses and treatable diseases by image-based deep learning,” cell, vol.
+172, no. 5, pp. 1122–1131, 2018.
+[3] T. Schlegl, S. M. Waldstein, H. Bogunovic, F. Endstraßer, A. Sadeghipour, A.-M. Philip, D. Podkowinski, B. S.
+Gerendas, G. Langs, and U. Schmidt-Erfurth, “Fully automated detection and quantiﬁcation of macular ﬂuid
+in oct using deep learning,” Ophthalmology, vol. 125, no. 4, pp. 549–558, 2018.
+[4] J. De Fauw, J. R. Ledsam, B. Romera-Paredes, S. Nikolov, N. Tomasev, S. Blackwell, H. Askham, X. Glorot,
+B. O’Donoghue, D. Visentin et al., “Clinically applicable deep learning for diagnosis and referral in retinal
+disease,” Nature medicine, vol. 24, no. 9, pp. 1342–1350, 2018.
+[5] T. Haghighi, S. Gholami, J. T. Sokol, A. Biswas, J. I. Lim, T. Leng, A. C. Thompson, H. Tabkhi, and M. N. Alam,
+“Compact vision language models enable efﬁcient and interpretable optical coherence tomography through
+layer-speciﬁc multimodal learning,” Communications Medicine, vol. 6, no. 1, p. 32, 2025.
+[6] S. Siraz, H. Kamanda, S. Gholami, A. S. Nabil, S. S. Yee Ong, and M. N. Alam, “Multi-class classiﬁcation of
+central and non-central geographic atrophy using optical coherence tomography,” medRxiv, pp. 2025–05, 2025.
+[7] F. E. Jannat, S. Gholami, J. I. Lim, T. Leng, M. N. Alam, and H. Tabkhi, “Multi-oct-selfnet: Integrating self-
+supervised learning with multi-source data fusion for enhanced multi-class retinal disease classiﬁcation,” Fron-
+tiers in Systems Biology, vol. 6, p. 1717398, 2026.
+[8] B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. A. y Arcas, “Communication-efﬁcient learning of
+deep networks from decentralized data,” in Artiﬁcial intelligence and statistics.
+Pmlr, 2017, pp. 1273–1282.
+[9] J. Lo, T. Y. Timothy, D. Ma, P. Zang, J. P. Owen, Q. Zhang, R. K. Wang, M. F. Beg, A. Y. Lee, Y. Jia et al., “Federated
+learning for microvasculature segmentation and diabetic retinopathy classiﬁcation of oct data,” Ophthalmology
+Science, vol. 1, no. 4, p. 100069, 2021.
+[10] C. Lu, A. Hanif, P. Singh, K. Chang, A. S. Coyner, J. M. Brown, S. Ostmo, R. V. P. Chan, D. Rubin, M. F.
+Chiang et al., “Federated learning for multicenter collaboration in ophthalmology: improving classiﬁcation
+performance in retinopathy of prematurity,” Ophthalmology Retina, vol. 6, no. 8, pp. 657–663, 2022.
+[11] S. Gholami, J. I. Lim, T. Leng, S. S. Y. Ong, A. C. Thompson, and M. N. Alam, “Federated learning for diagnosis
+of age-related macular degeneration,” Frontiers in Medicine, vol. 10, p. 1259017, 2023.
+[12] A. R. Ran, X. Wang, P. P. Chan, M. O. Wong, H. Yuen, N. M. Lam, N. C. Chan, W. W. Yip, A. L. Young, H.-
+W. Yung et al., “Developing a privacy-preserving deep learning model for glaucoma detection: a multicentre
+study with federated learning,” British Journal of Ophthalmology, vol. 108, no. 8, pp. 1114–1123, 2024.
+[13] A. S. Nabil, S. Gholami, T. Leng, J. I. Lim, and M. N. Alam, “Federated learning for multi-disease ophthalmic
+diagnostics using optical coherence tomography angiography (octa),” Ophthalmology Science, p. 101030, 2025.
+28
+
+
+[14] W. T. Lau, A. McCarthy, Y. Tian, C. Nielsen, R. Chelliah, S. Gholami, A. Kossler, M. Alam, L. D. Glass, and K. A.
+Thakoor, “Fedted: Federated learning for robust thyroid eye disease detection with masked autoencoders,” in
+2025 IEEE EMBS International Conference on Biomedical and Health Informatics (BHI).
+IEEE, 2025, pp. 1–7.
+[15] S. Gholami, F.-E. Jannat, A. C. Thompson, S. S. Y. Ong, J. I. Lim, T. Leng, H. Tabkhivayghan, and M. N. Alam,
+“Distributed training of foundation models for ophthalmic diagnosis,” Communications Engineering, vol. 4,
+no. 1, p. 6, 2025.
+[16] S. Gholami, A. Ali, H. Kamanda, T. Haghighi, S. S. Y. Ong, J. I. Lim, T. Leng, A. Arafa, and M. N. Alam,
+“Fedsim: foundational federated multi-task learning for ophthalmic diagnostics,” in Ophthalmic Technologies
+XXXVI, vol. 13831.
+SPIE, 2026, pp. 140–149.
+[17] S. Yonamine, C. J. Ma, R. O. Alabi, G. Kaidonis, L. Chan, D. Borkar, J. D. Stein, B. F. Arnold, and C. Q. Sun,
+“Comparison of diagnosis codes to clinical notes in classifying patients with diabetic retinopathy,” Ophthalmol-
+ogy Science, vol. 4, no. 6, p. 100564, 2024.
+[18] L. Ju, X. Wang, L. Wang, D. Mahapatra, X. Zhao, Q. Zhou, T. Liu, and Z. Ge, “Improving medical images
+classiﬁcation with label noise using dual-uncertainty estimation,” IEEE transactions on medical imaging, vol. 41,
+no. 6, pp. 1533–1546, 2022.
+[19] J. P. Campbell, M. F. Chiang, J. S. Chen, D. M. Moshfeghi, E. Nudleman, P. Ruambivoonsuk, H. Cherwek, C. Y.
+Cheung, P. Singh, J. Kalpathy-Cramer et al., “Artiﬁcial intelligence for retinopathy of prematurity: validation
+of a vascular severity scale against international expert diagnosis,” Ophthalmology, vol. 129, no. 7, pp. e69–e76,
+2022.
+[20] D. Karimi, H. Dou, S. K. Warﬁeld, and A. Gholipour, “Deep learning with noisy labels: Exploring techniques
+and remedies in medical image analysis,” Medical image analysis, vol. 65, p. 101759, 2020.
+[21] J. Shi, K. Zhang, C. Guo, Y. Yang, Y. Xu, and J. Wu, “A survey of label-noise deep learning for medical image
+analysis,” Medical image analysis, vol. 95, p. 103166, 2024.
+[22] A. Miladinovi´c, A. Biscontin, M. Ajˇcevi´c, S. Kresevic, A. Accardo, D. Marangoni, D. Tognetto, and L. Inferrera,
+“Evaluating deep learning models for classifying oct images with limited data and noisy labels,” Scientiﬁc
+Reports, vol. 14, no. 1, p. 30321, 2024.
+[23] T. Lin, M. Wang, A. Lin, X. Mai, H. Liang, Y.-C. Tham, and H. Chen, “Efﬁciency and safety of automated label
+cleaning on multimodal retinal images,” npj Digital Medicine, vol. 8, no. 1, p. 10, 2025.
+[24] S. Yang, H. Park, J. Byun, and C. Kim, “Robust federated learning with noisy labels,” IEEE Intelligent Systems,
+vol. 37, no. 2, pp. 35–43, April 2022.
+[25] A. Ali and A. Arafa, “FB-NLL: A feature-based approach to tackle noisy labels in personalized federated learn-
+ing,” available online: arXiv:2604.19729.
+[26] X. Fang and M. Ye, “Robust federated learning with noisy and heterogeneous clients,” in 2022 IEEE/CVF Con-
+ference on Computer Vision and Pattern Recognition (CVPR).
+IEEE, 2022, pp. 10 062–10071.
+[27] J. Xu, Z. Chen, T. Q. Quek, and K. F. E. Chong, “Fedcorr: Multi-stage federated learning for label noise cor-
+rection,” in 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR).
+IEEE, 2022, pp.
+10 174–10183.
+[28] N. Wu, L. Yu, X. Jiang, K.-T. Cheng, and Z. Yan, “Fednoro: Towards noise-robust federated learning by ad-
+dressing class imbalance and label noise heterogeneity,” arXiv preprint arXiv:2305.05230, 2023.
+29
+
+
+[29] Y. Lu, L. Chen, Y. Zhang, Y. Zhang, B. Han, Y.-m. Cheung, and H. Wang, “Federated learning with extremely
+noisy clients via negative distillation,” in Proceedings of the AAAI conference on artiﬁcial intelligence, vol. 38, no. 13,
+2024, pp. 14 184–14192.
+[30] X. Jiang, S. Sun, J. Li, J. Xue, R. Li, Z. Wu, G. Xu, Y. Wang, and M. Liu, “Tackling noisy clients in federated
+learning with end-to-end label correction,” in Proceedings of the 33rd ACM international conference on information
+and knowledge management, 2024, pp. 1015–1026.
+[31] S. Gholami, A. Ali, T. Haghighi, A. Arafa, and M. N. Alam, “Fedsir: Spectral client identiﬁcation and relabeling
+for federated learning with noisy labels,” in Proceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, 2026, pp. 3340–3348.
+[32] T. Li, A. K. Sahu, M. Zaheer, M. Sanjabi, A. Talwalkar, and V. Smith, “Federated optimization in heterogeneous
+networks,” Proc. Mach. Learn. Syst., vol. 2, pp. 429–450, March 2020.
+[33] X. Jiang, S. Sun, Y. Wang, and M. Liu, “Towards federated learning against noisy labels via local self-
+regularization,” in Proc. ACM CIKM, October 2022.
+[34] K. Bonawitz, H. Eichner, W. Grieskamp, D. Huba, A. Ingerman, V. Ivanov, C. Kiddon, J. Koneˇcn`y, S. Mazzocchi,
+B. McMahan et al., “Towards federated learning at scale: System design,” Proceedings of machine learning and
+systems, vol. 1, pp. 374–388, 2019.
+[35] F. N. Iandola, S. Han, M. W. Moskewicz, K. Ashraf, W. J. Dally, and K. Keutzer, “Squeezenet: Alexnet-level
+accuracy with 50x fewer parameters and¡ 0.5 mb model size,” arXiv preprint arXiv:1602.07360, 2016.
+[36] N. Ma, X. Zhang, H.-T. Zheng, and J. Sun, “Shufﬂenet v2: Practical guidelines for efﬁcient cnn architecture
+design,” in Proceedings of the European conference on computer vision (ECCV), 2018, pp. 116–131.
+[37] I. Radosavovic, R. P. Kosaraju, R. Girshick, K. He, and P. Doll´ar, “Designing network design spaces,” arXiv
+preprint arXiv:2003.13678, 2020.
+[38] Q. UNCC, “Toward trustworthy federated ophthalmic learning under annotation noise hosted on github,”
+https://github.com/QIAIUNCC/OCT-FedSIR-Toward-TrustworthyFederated-Ophthalmic-Learning-under-Annotation-
+2026, accessed: 2026-09-05.
+Acknowledgment
+This study is supported by NEI R15EY035804, R21EY035271, 1R01EY037828-01 (MNA), NC Diabetes Re-
+search Center P30DK124723 (SSYO), Research to Prevent Blindness (TL) and NIH Grant P30EY026877
+(TL).
+Author information
+Authors and afﬁliations
+Department of Electrical and Computer Engineering, University of North Carolina at Charlotte, Charlotte,
+NC, USA
+Sina Gholami, Abdulmoneam Ali, Tania Haghighi, Rashadul H. Badhon, Behafarin Emam, Ahmed Arafa,
+& Minhaj Nur Alam
+30
+
+
+Department of Ophthalmology, Wake Forest School of Medicine, Winston-Salem, NC, USA
+Sally S.Y. Ong & Atalie C. Thompson
+Byers Eye Institute at Stanford, Stanford University School of Medicine, Stanford, CA, USA
+Theodore Leng
+Department of Ophthalmology and Visual Sciences, University of Illinois Chicago, Chicago, IL, USA
+Jennifer I. Lim
+Contributions
+Study conception and design: Sina Gholami, Abdulmoneam Ali, Tania Haghighi, Ahmed Arafa and Min-
+haj Nur Alam; Data collection and analysis: Sina Gholami, Rashadul H. Badhon, Sally S. Y. Ong, Atalie C.
+Thompson, Jennifer I. Lim, and Minhaj Nur Alam; Data visualization: Sina Gholami, Rashadul H. Bad-
+hon and Minhaj Nur Alam; Interpretation of results: Sina Gholami, Abdulmoneam Ali, Tania Haghighi,
+Behafarin Emam, Sally S. Y. Ong, Atalie C. Thompson, Theodore Leng, Jennifer I. Lim and Minhaj Nur
+Alam; Manuscript preparation: Sina Gholami, Abdulmoneam Ali, Tania Haghighi, Rashadul H. Badhon,
+Behafarin Emam and Minhaj Nur Alam; Manuscript review: Sina Gholami, Abdulmoneam Ali, Tania
+Haghighi, Rashadul H. Badhon, Behafarin Emam, Sally S. Y. Ong, Atalie C. Thompson, Theodore Leng,
+Ahmed Arafa, Jennifer I. Lim and Minhaj Nur Alam; Supervision: Minhaj Nur Alam; Funding acquisi-
+tion: Minhaj Nur Alam; Project administration: Sina Gholami and Minhaj Nur Alam.
+Corresponding author
+Correspondence to Minhaj Nur Alam.
+Ethics declarations
+The UIC and WF datasets were collected under protocols approved by the respective Institutional Review
+Boards (IRBs) and in accordance with the ethical principles outlined in the Declaration of Helsinki.
+Competing interests
+The authors declare no competing interests.
+Data availability
+The Kermany dataset used in this study is publicly available. The private datasets from the University of
+Illinois at Chicago (UIC) and Wake Forest (WF) can be requested from the corresponding author, subject
+to reasonable conditions.
+Code availability
+The code that supports the ﬁndings of this study is available on GitHub.38
+31
+
+
+Supplementary material
+32
+
+
+Table S1: Classiﬁcation accuracy (%) on Kermany under symmetric label noise. Values are mean ± stan-
+dard deviation across three independent seeds. Bold and underline indicate the best- and second-best-
+performing noisy-label FL methods, respectively. Pruning and all-clean FedAvg are shown as references.
+Symmetric Noise
+α
+# Clean Clients
+Method
+30%
+40%
+50%
+60%
+70%
+80%
+90%
+2.0
+3
+FedAvg8
+95.20±1.25
+94.90±1.35
+92.90±1.60
+89.40±1.80
+77.90±2.65
+22.00±2.50
+20.60±2.55
+FedProx32
+95.70±1.25
+93.40±1.50
+92.80±1.60
+93.20±1.50
+74.00±2.80
+32.40±2.85
+19.70±2.45
+RoFL24
+98.70±0.75
+98.10±0.80
+97.70±0.90
+97.80±0.95
+91.30±1.80
+92.10±1.75
+83.50±2.20
+RHFL26
+78.07±3.88
+76.86±4.06
+69.40±4.30
+60.79±4.16
+41.52±5.37
+30.85±6.16
+28.97±4.81
+FedLSR33
+79.30±2.45
+74.30±2.65
+71.40±2.90
+49.50±3.05
+51.90±3.05
+43.40±3.20
+27.70±2.85
+FedCorr27
+98.80±0.65
+98.60±0.70
+98.00±0.90
+97.80±0.90
+91.40±1.75
+83.90±2.25
+58.50±3.05
+FedNed29
+95.10±1.35
+93.90±1.50
+94.20±1.45
+92.10±1.75
+72.70±2.65
+23.00±2.50
+22.90±2.60
+FedELC30
+76.90±2.50
+70.40±2.70
+62.70±2.90
+50.60±3.35
+49.10±3.30
+27.80±2.70
+21.00±2.40
+FedNoRo28
+97.80±0.85
+97.00±1.05
+96.80±1.10
+78.30±2.55
+29.20±2.90
+35.00±2.85
+25.00±2.70
+OCT-FedSIR (Ours)
+99.40±0.45
+99.40±0.45
+99.50±0.45
+95.60±1.30
+95.10±1.35
+96.00±1.20
+93.60±1.60
+3
+Pruning
+86.40 ± 0.95
+30
+FedAvg
+99.60 ± 0.35
+0.5
+3
+FedAvg8
+95.40±1.30
+96.20±1.15
+94.80±1.35
+94.60±1.45
+85.00±2.25
+24.60±2.70
+22.20±2.55
+FedProx32
+95.50±1.20
+95.90±1.15
+96.30±1.10
+93.90±1.50
+85.20±2.20
+31.30±2.80
+21.00±2.50
+RoFL24
+97.70±0.90
+97.50±0.95
+95.50±1.30
+89.40±1.90
+82.40±2.35
+72.10±2.75
+71.00±2.65
+RHFL26
+62.08±6.35
+60.36±5.93
+54.22±5.58
+48.40±5.31
+33.93±5.08
+28.78±5.45
+27.57±3.82
+FedLSR33
+95.30±1.30
+95.60±1.30
+94.20±1.40
+87.90±2.00
+74.50±2.55
+49.30±3.05
+28.80±2.85
+FedCorr27
+98.60±0.70
+98.10±0.80
+97.20±1.00
+96.70±1.00
+97.10±0.95
+95.70±1.20
+97.50±0.90
+FedNed29
+96.60±1.00
+95.60±1.20
+95.50±1.20
+95.00±1.25
+83.20±2.25
+27.70±2.95
+20.60±2.45
+FedELC30
+83.30±2.40
+78.90±2.55
+68.70±2.80
+61.00±3.15
+56.60±3.15
+49.50±3.20
+51.20±2.90
+FedNoRo28
+97.80±0.85
+97.80±0.95
+98.00±0.80
+96.60±1.10
+30.50±2.75
+29.20±2.75
+32.00±2.75
+OCT-FedSIR (Ours)
+99.50±0.45
+99.70±0.35
+99.00±0.60
+97.90±0.85
+97.30±1.00
+97.70±0.90
+98.00±0.90
+3
+Pruning
+86.90 ± 1.05
+30
+FedAvg
+99.60 ± 0.25
+0.1
+3
+FedAvg8
+77.20±2.50
+77.10±2.65
+79.30±2.40
+74.10±2.70
+79.60±2.40
+51.10±3.05
+28.60±2.90
+FedProx32
+78.00±2.45
+80.50±2.35
+77.60±2.60
+75.50±2.55
+72.70±2.75
+38.40±2.95
+23.90±2.70
+RoFL24
+95.70±1.25
+85.40±2.25
+90.90±1.70
+80.90±2.55
+75.50±2.60
+72.60±2.60
+72.90±2.70
+RHFL26
+39.30±5.46
+37.04±4.75
+35.34±4.73
+35.54±4.64
+30.39±4.04
+27.57±3.46
+28.09±4.43
+FedLSR33
+74.20±2.75
+74.20±2.65
+74.60±2.65
+72.30±2.65
+72.10±2.80
+67.50±2.95
+58.60±3.20
+FedCorr27
+87.30±2.05
+88.90±1.85
+79.50±2.35
+78.40±2.45
+78.90±2.45
+58.20±3.30
+30.90±2.85
+FedNed29
+76.00±2.60
+77.00±2.55
+76.60±2.50
+77.60±2.60
+75.30±2.75
+39.00±3.05
+23.90±2.65
+FedELC30
+72.50±2.80
+71.40±2.70
+72.90±2.80
+74.60±2.70
+70.20±2.80
+60.40±3.00
+30.50±2.90
+FedNoRo28
+75.30±2.65
+75.30±2.65
+73.30±2.60
+78.10±2.55
+26.90±2.65
+40.80±3.15
+38.20±3.15
+OCT-FedSIR (Ours)
+96.80±1.10
+96.50±1.15
+95.30±1.30
+93.10±1.55
+92.30±1.65
+74.10±2.60
+74.20±2.60
+3
+Pruning
+70.40 ± 3.00
+30
+FedAvg
+97.70±2.85
+33
+
+
+Table S2: Classiﬁcation accuracy (%) on Kermany under asymmetric label noise. Values are mean ± stan-
+dard deviation across three independent seeds. Bold and underline indicate the best- and second-best-
+performing noisy-label FL methods, respectively. Pruning and all-clean FedAvg are shown as references.
+Asymmetric Noise
+α
+# Clean Clients
+Method
+40%
+50%
+60%
+70%
+80%
+90%
+2.0
+3
+FedAvg8
+95.30±1.30
+80.80±2.50
+34.30±2.80
+25.40±2.75
+26.40±2.65
+20.70±2.35
+FedProx32
+94.60±1.45
+75.30±2.70
+32.80±2.95
+22.90±2.55
+20.80±2.60
+18.00±2.40
+RoFL24
+97.50±0.95
+93.10±1.65
+94.60±1.35
+95.60±0.95
+86.90±2.05
+71.90±2.80
+RHFL26
+66.64±3.89
+47.49±4.99
+32.27±5.81
+26.68±3.94
+24.97±5.01
+25.99±3.51
+FedLSR33
+93.10±1.65
+79.20±2.35
+53.60±3.05
+26.80±2.85
+29.60±2.85
+29.80±2.90
+FedCorr27
+97.50±0.95
+94.60±1.30
+96.30±1.20
+95.60±1.30
+85.70±2.20
+91.20±1.70
+FedNed29
+94.30±1.40
+76.60±2.65
+27.50±2.75
+31.90±2.70
+24.70±2.65
+16.90±2.35
+FedELC30
+68.50±2.80
+51.10±3.05
+35.90±2.95
+32.20±2.95
+22.90±2.70
+23.20±2.65
+FedNoRo28
+97.90±0.90
+93.20±1.55
+49.20±3.10
+34.80±3.10
+35.50±2.90
+22.40±2.60
+OCT-FedSIR (Ours)
+98.60±0.75
+97.20±0.95
+97.00±1.05
+96.90±0.65
+96.70±1.10
+97.10±1.00
+3
+Pruning
+86.30 ± 0.20
+30
+FedAvg
+99.60 ± 0.35
+0.5
+3
+FedAvg8
+93.70±1.55
+84.10±2.20
+61.80±3.05
+38.70±3.05
+31.10±2.90
+20.10±2.60
+FedProx32
+94.00±1.45
+85.00±2.25
+44.40±3.00
+39.30±3.10
+30.90±2.95
+27.20±2.75
+RoFL24
+95.30±1.25
+87.50±2.00
+95.50±1.30
+73.40±2.60
+72.80±2.85
+70.60±2.80
+RHFL26
+55.84±4.87
+42.41±5.29
+29.08±7.17
+27.07±5.20
+25.69±2.33
+26.07±4.43
+FedLSR33
+94.70±1.35
+83.80±2.15
+80.80±2.45
+50.00±3.10
+41.90±3.15
+29.50±2.90
+FedCorr27
+97.30±1.00
+95.90±1.20
+94.80±1.00
+86.80±1.05
+87.00±1.00
+85.00±1.30
+FedNed29
+94.60±1.40
+84.20±2.35
+52.90±3.05
+28.90±2.90
+35.60±3.05
+25.70±2.85
+FedELC30
+72.40±2.90
+68.10±3.00
+58.50±3.15
+55.50±3.15
+37.00±3.05
+28.80±2.75
+FedNoRo28
+96.90±1.00
+94.90±1.30
+89.10±0.55
+45.10±3.15
+25.00±2.70
+27.90±2.75
+OCT-FedSIR (Ours)
+97.90±0.85
+97.20±1.05
+97.90±0.85
+97.50±1.00
+97.80±0.90
+95.70±2.80
+3
+Pruning
+85.60 ± 0.45
+30
+FedAvg
+99.60 ± 0.25
+0.1
+3
+FedAvg8
+83.00±2.25
+80.90±2.45
+73.00±2.85
+56.80±2.90
+33.80±3.00
+28.30±2.85
+FedProx32
+82.40±2.25
+79.00±2.65
+70.50±2.75
+52.10±3.15
+43.10±3.20
+28.80±2.85
+RoFL24
+82.10±2.20
+73.00±2.70
+74.30±2.65
+71.10±2.75
+73.60±2.65
+71.50±2.70
+RHFL26
+36.26±4.90
+30.21±4.13
+28.30±4.81
+26.35±2.81
+26.24±2.87
+26.04±4.18
+FedLSR33
+74.20±2.70
+77.50±2.55
+77.80±2.00
+75.00±2.55
+64.30±2.95
+60.10±3.05
+FedCorr27
+80.90±2.40
+66.50±2.95
+67.00±2.90
+57.00±3.15
+51.70±3.15
+40.80±3.05
+FedNed29
+84.80±2.15
+80.10±2.45
+75.50±2.70
+55.80±3.25
+44.30±3.10
+41.30±2.95
+FedELC30
+64.20±3.05
+61.30±3.00
+60.80±2.90
+65.80±2.85
+51.70±3.10
+57.30±3.10
+FedNoRo28
+74.80±2.65
+70.70±2.80
+62.60±2.90
+61.90±2.70
+60.70±2.85
+64.10±2.65
+OCT-FedSIR (Ours)
+95.50±1.30
+95.80±1.25
+86.10±2.65
+88.40±1.95
+75.80±2.60
+75.60±1.75
+3
+Pruning
+80.70 ± 2.35
+30
+FedAvg
+97.70±2.85
+34
+
+
+Table S3: Classiﬁcation accuracy (%) on UIC under symmetric label noise. Values are mean ± standard de-
+viation across three independent seeds. Bold and underline indicate the best- and second-best-performing
+noisy-label FL methods, respectively. Pruning and all-clean FedAvg are shown as references.
+Symmetric Noise
+α
+# Clean Clients
+Method
+30%
+40%
+50%
+60%
+70%
+80%
+90%
+2.0
+2
+FedAvg8
+86.40±1.58
+85.70±1.63
+83.10±1.84
+79.80±2.06
+73.40±2.31
+62.10±2.57
+47.30±2.73
+FedProx32
+87.10±1.49
+84.60±1.71
+84.20±1.76
+80.60±1.98
+70.50±2.42
+57.80±2.65
+43.60±2.78
+RoFL24
+92.80±1.12
+91.60±1.23
+90.30±1.35
+88.70±1.49
+85.20±1.77
+80.40±2.04
+72.30±2.31
+RHFL26
+70.15±6.74
+66.83±7.19
+63.42±6.81
+60.71±7.46
+52.38±8.14
+46.27±7.73
+43.91±8.26
+FedLSR33
+85.70±1.73
+83.90±1.88
+79.60±2.09
+77.20±2.19
+72.80±2.43
+66.70±2.62
+55.40±2.86
+FedCorr27
+93.50±1.01
+92.40±1.13
+91.60±1.26
+90.10±1.36
+83.90±1.88
+77.30±2.18
+68.80±2.48
+FedNed29
+86.80±1.52
+85.20±1.69
+82.50±1.90
+78.30±2.13
+69.20±2.46
+56.40±2.71
+42.10±2.82
+FedELC30
+77.60±2.31
+75.10±2.44
+72.80±2.57
+67.90±2.76
+62.20±2.91
+56.30±3.02
+49.70±3.08
+FedNoRo28
+91.90±1.22
+90.80±1.31
+89.40±1.42
+84.10±1.83
+76.80±2.19
+63.50±2.66
+51.20±2.91
+OCT-FedSIR (Ours)
+95.80±0.82
+95.20±0.91
+94.70±0.98
+93.50±1.12
+91.80±1.29
+88.90±1.53
+84.60±1.82
+2
+Pruning
+85.20 ± 1.47
+20
+FedAvg
+96.70 ± 0.92
+0.5
+2
+FedAvg8
+82.60±1.91
+80.10±2.04
+75.30±2.27
+70.80±2.44
+63.60±2.69
+51.40±2.91
+39.20±2.98
+FedProx32
+83.40±1.82
+79.60±2.09
+76.80±2.20
+69.70±2.48
+61.10±2.74
+47.90±2.97
+36.80±3.01
+RoFL24
+89.30±1.39
+87.70±1.51
+86.40±1.62
+82.60±1.90
+79.10±2.08
+73.80±2.39
+68.20±2.61
+RHFL26
+65.74±7.83
+62.20±7.15
+58.91±8.04
+53.66±8.52
+49.20±8.18
+45.83±8.76
+42.15±8.31
+FedLSR33
+80.40±2.03
+78.60±2.15
+74.20±2.31
+71.90±2.46
+67.50±2.66
+61.20±2.85
+54.70±3.01
+FedCorr27
+90.60±1.21
+89.20±1.34
+86.90±1.53
+85.70±1.65
+82.80±1.91
+78.20±2.17
+71.60±2.49
+FedNed29
+82.20±1.95
+79.30±2.09
+75.10±2.32
+68.40±2.57
+60.70±2.79
+49.80±2.98
+38.60±3.05
+FedELC30
+73.80±2.48
+69.20±2.66
+65.90±2.81
+61.70±2.94
+59.80±3.03
+55.40±3.10
+50.90±3.06
+FedNoRo28
+88.40±1.46
+87.20±1.56
+83.90±1.82
+79.40±2.08
+72.30±2.49
+65.90±2.76
+57.10±2.94
+OCT-FedSIR (Ours)
+93.73±1.03
+92.80±1.11
+91.90±1.19
+90.40±1.34
+88.60±1.51
+85.10±1.79
+80.20±2.06
+2
+Pruning
+84.70 ± 1.84
+20
+FedAvg
+94.90 ± 1.31
+0.1
+2
+FedAvg8
+76.80±2.31
+74.60±2.42
+72.10±2.58
+68.90±2.72
+65.70±2.83
+57.80±3.01
+46.30±3.08
+FedProx32
+75.90±2.37
+73.80±2.49
+71.30±2.62
+69.50±2.70
+63.40±2.91
+54.20±3.07
+43.70±3.11
+RoFL24
+84.20±1.83
+82.10±1.97
+83.60±1.88
+78.90±2.20
+76.30±2.36
+72.80±2.58
+69.10±2.76
+RHFL26
+55.61±8.36
+51.87±8.71
+48.25±8.19
+46.70±8.92
+42.16±8.54
+40.83±8.91
+38.94±8.47
+FedLSR33
+74.30±2.51
+76.20±2.40
+73.50±2.57
+74.10±2.52
+69.80±2.77
+65.10±2.94
+59.80±3.07
+FedCorr27
+82.60±1.95
+84.10±1.84
+79.80±2.15
+80.40±2.11
+73.90±2.49
+68.20±2.76
+61.40±2.98
+FedNed29
+77.50±2.27
+75.30±2.43
+72.80±2.56
+70.60±2.68
+64.90±2.87
+55.80±3.02
+45.20±3.11
+FedELC30
+69.40±2.74
+68.20±2.81
+70.10±2.73
+66.80±2.87
+63.60±2.96
+61.20±3.02
+53.90±3.15
+FedNoRo28
+81.30±2.02
+79.60±2.14
+77.20±2.29
+80.10±2.11
+70.40±2.71
+66.80±2.88
+60.20±3.02
+OCT-FedSIR (Ours)
+89.60±1.42
+88.20±1.53
+88.90±1.49
+85.70±1.76
+84.10±1.89
+78.60±2.25
+73.80±2.51
+2
+Pruning
+80.50 ± 2.34
+20
+FedAvg
+91.80±2.17
+35
+
+
+Table S4: Classiﬁcation accuracy (%) on UIC under asymmetric label noise. Values are mean ± stan-
+dard deviation across three independent seeds. Bold and underline indicate the best- and second-best-
+performing noisy-label FL methods, respectively. Pruning and all-clean FedAvg are shown as references.
+Asymmetric Noise
+α
+# Clean Clients
+Method
+40%
+50%
+60%
+70%
+80%
+90%
+2.0
+2
+FedAvg8
+88.40±1.55
+77.20±2.35
+48.60±2.70
+39.10±2.75
+36.80±2.70
+31.50±2.55
+FedProx32
+87.70±1.60
+75.60±2.45
+45.90±2.80
+36.40±2.70
+34.20±2.75
+29.80±2.60
+RoFL24
+91.90±1.20
+88.60±1.45
+89.40±1.40
+90.10±1.30
+88.70±1.45
+72.40±2.45
+RHFL26
+64.80±5.10
+53.20±7.05
+39.70±7.40
+34.60±7.85
+31.20±7.40
+32.10±7.75
+FedLSR33
+86.80±1.70
+76.50±2.20
+58.30±2.75
+44.20±2.80
+41.10±2.80
+37.90±2.75
+FedCorr27
+90.80±1.30
+87.90±1.60
+88.10±1.50
+87.60±1.55
+82.40±1.95
+80.50±2.05
+FedNed29
+86.50±1.70
+74.90±2.40
+41.30±2.75
+39.90±2.70
+31.50±2.75
+27.20±2.60
+FedELC30
+69.40±2.70
+59.80±2.85
+45.20±2.90
+42.70±2.85
+38.40±2.80
+34.90±2.75
+FedNoRo28
+90.40±1.30
+87.30±1.60
+56.70±2.85
+45.60±2.80
+46.20±2.80
+38.10±2.75
+OCT-FedSIR (Ours)
+93.80±1.00
+92.60±1.10
+92.10±1.15
+92.90±1.05
+91.80±1.15
+90.70±1.25
+2
+Pruning
+82.30 ± 1.25
+20
+FedAvg
+96.70 ± 0.92
+0.5
+2
+FedAvg8
+84.30±1.80
+75.90±2.30
+58.60±2.75
+43.80±2.85
+36.20±2.80
+28.40±2.65
+FedProx32
+84.80±1.75
+76.40±2.25
+49.10±2.85
+42.50±2.85
+35.80±2.80
+30.20±2.70
+RoFL24
+88.20±1.45
+83.70±1.80
+87.40±1.50
+74.60±2.30
+72.90±2.35
+70.80±2.40
+RHFL26
+58.20±7.60
+47.50±8.20
+34.40±8.35
+31.90±8.10
+29.80±7.35
+30.40±7.60
+FedLSR33
+86.10±1.65
+78.90±2.10
+77.40±2.20
+57.20±2.75
+49.60±2.85
+38.30±2.80
+FedCorr27
+89.40±1.35
+86.20±1.55
+86.80±1.60
+84.30±1.65
+85.10±1.60
+82.20±1.80
+FedNed29
+85.20±1.75
+76.80±2.25
+53.80±2.80
+35.70±2.80
+38.10±2.80
+31.20±2.70
+FedELC30
+70.80±2.75
+65.30±2.80
+59.90±2.90
+56.40±2.95
+44.30±2.90
+36.20±2.80
+FedNoRo28
+88.90±1.40
+85.50±1.70
+87.10±1.45
+53.90±2.80
+39.70±2.75
+38.40±2.75
+OCT-FedSIR (Ours)
+92.20±1.05
+90.70±1.20
+91.10±1.10
+89.80±1.25
+90.40±1.20
+88.60±1.45
+2
+Pruning
+82.40 ± 1.55
+20
+FedAvg
+94.90 ± 1.31
+0.1
+2
+FedAvg8
+79.30±2.15
+77.20±2.30
+71.40±2.60
+61.70±2.80
+47.10±2.85
+42.30±2.80
+FedProx32
+78.60±2.20
+75.90±2.35
+69.80±2.65
+58.90±2.85
+50.20±2.90
+42.60±2.85
+RoFL24
+84.90±1.70
+80.20±1.95
+81.10±1.85
+78.70±2.00
+76.40±2.15
+74.90±2.20
+RHFL26
+40.20±7.00
+35.80±6.75
+33.10±6.60
+31.40±6.25
+32.20±6.70
+30.60±6.40
+FedLSR33
+74.60±2.40
+77.20±2.35
+78.30±2.20
+74.90±2.40
+68.40±2.70
+64.20±2.80
+FedCorr27
+83.40±1.85
+84.10±1.80
+79.40±2.05
+80.20±2.00
+74.30±2.35
+69.10±2.55
+FedNed29
+79.80±2.10
+77.90±2.25
+74.60±2.45
+62.80±2.80
+54.90±2.85
+49.80±2.85
+FedELC30
+64.30±2.80
+66.10±2.80
+64.90±2.75
+68.20±2.70
+58.10±2.85
+59.40±2.85
+FedNoRo28
+83.70±1.80
+81.40±1.95
+76.20±2.25
+79.10±2.05
+72.90±2.45
+73.60±2.35
+OCT-FedSIR (Ours)
+89.80±1.35
+88.70±1.40
+86.90±1.55
+85.60±1.70
+83.20±1.85
+81.40±1.95
+2
+Pruning
+75.20 ± 1.95
+20
+FedAvg
+91.80±2.17
+36
+
+
+Table S5: Classiﬁcation accuracy (%) on WF under symmetric label noise. Values are mean ± standard de-
+viation across three independent seeds. Bold and underline indicate the best- and second-best-performing
+noisy-label FL methods, respectively. Pruning and all-clean FedAvg are shown as references.
+Symmetric Noise
+α
+# Clean Clients
+Method
+30%
+40%
+50%
+60%
+70%
+80%
+90%
+2.0
+1
+FedAvg8
+74.78±2.01
+74.61±1.98
+73.83±2.01
+75.06±1.95
+73.83±2.06
+74.05±2.01
+75.11±1.95
+FedProx32
+74.55±1.95
+74.39±1.93
+74.44±2.01
+74.00±2.04
+74.16±2.01
+73.83±2.04
+74.83±1.98
+RoFL24
+72.94±2.01
+72.88±2.01
+73.44±2.09
+72.82±1.98
+72.88±2.01
+73.10±1.98
+72.88±1.98
+RHFL26
+48.05±16.90
+51.03±15.61
+54.96±15.49
+57.42±15.02
+59.97±14.50
+61.47±14.56
+59.92±15.67
+FedLSR33
+72.82±1.98
+72.82±1.98
+72.82±1.98
+72.82±1.98
+72.82±1.98
+72.88±2.01
+72.82±1.98
+FedCorr27
+73.16±2.04
+73.21±2.04
+73.16±2.04
+73.21±2.04
+73.10±2.04
+73.10±2.04
+73.16±1.98
+FedNed29
+73.55±2.01
+73.77±2.04
+73.60±2.04
+73.55±2.01
+73.88±2.06
+73.44±2.01
+73.49±2.07
+FedELC30
+56.81±2.29
+67.13±2.15
+67.91±2.18
+68.08±2.12
+68.42±2.09
+72.82±1.98
+66.13±2.15
+FedNoRo28
+72.82±1.98
+73.16±2.04
+72.60±1.98
+73.05±2.04
+73.33±2.04
+72.27±2.04
+72.88±2.06
+OCT-FedSIR (Ours)
+77.96±1.87
+77.57±2.04
+78.46±1.95
+78.07±1.95
+78.52±1.95
+77.85±1.87
+78.74±1.87
+1
+Pruning
+65.11 ± 2.61
+5
+FedAvg
+82.79 ± 1.98
+0.5
+1
+FedAvg8
+69.75±2.15
+65.01±2.18
+57.03±2.26
+52.12±2.29
+45.81±2.26
+39.01±2.29
+42.30±2.29
+FedProx32
+70.42±2.26
+65.46±2.29
+60.27±2.34
+52.57±2.37
+45.54±2.29
+41.18±2.32
+33.37±2.20
+RoFL24
+73.10±2.15
+75.33±2.04
+74.50±1.98
+73.49±2.12
+71.54±2.01
+64.68±2.32
+62.44±2.26
+RHFL26
+66.56±12.22
+71.67±3.33
+63.91±7.38
+57.21±16.67
+60.26±13.00
+58.23±17.47
+62.08±15.59
+FedLSR33
+64.17±2.06
+59.43±2.21
+68.69±2.09
+63.39±2.29
+63.11±2.23
+65.29±2.18
+57.59±2.20
+FedCorr27
+71.76±2.01
+63.23±2.23
+62.44±2.12
+54.91±2.40
+58.76±2.46
+57.98±2.32
+61.27±2.34
+FedNed29
+69.36±2.18
+60.66±2.29
+55.58±2.20
+48.77±2.21
+50.33±2.23
+40.07±2.23
+41.46±2.29
+FedELC30
+61.61±2.15
+50.89±2.26
+57.25±2.32
+51.34±2.26
+52.96±2.34
+53.74±2.21
+54.91±2.29
+FedNoRo28
+72.54±2.04
+73.16±1.95
+72.21±2.04
+63.84±2.12
+62.28±2.26
+64.79±2.29
+52.85±2.29
+OCT-FedSIR (Ours)
+74.11±2.04
+74.44±1.93
+73.05±1.98
+72.88±1.95
+72.27±2.01
+72.82±1.98
+72.82±1.98
+1
+Pruning
+65.91 ± 2.16
+5
+FedAvg
+81.55 ± 2.32
+0.1
+2
+FedAvg8
+76.06±2.01
+76.34±1.95
+71.82±2.01
+68.92±2.15
+68.92±2.01
+65.57±2.15
+62.28±2.18
+FedProx32
+75.28±2.01
+73.88±2.01
+71.04±2.15
+68.58±2.18
+67.69±2.09
+61.27±2.26
+55.86±2.23
+RoFL24
+75.06±2.01
+74.89±2.01
+73.66±1.95
+72.82±1.98
+73.16±2.04
+72.99±2.04
+72.88±2.01
+RHFL26
+74.33±2.08
+72.00±2.00
+67.61±5.11
+51.69±15.55
+57.09±15.03
+47.97±16.21
+48.95±20.31
+FedLSR33
+75.78±1.93
+75.11±1.98
+74.44±2.04
+72.88±1.95
+72.99±2.04
+72.77±2.01
+70.67±1.85
+FedCorr27
+74.50±1.95
+74.00±1.98
+70.26±2.12
+72.82±1.98
+70.70±2.06
+70.81±2.09
+71.04±2.04
+FedNed29
+75.56±1.95
+75.11±2.06
+70.48±1.98
+68.08±2.12
+64.23±2.20
+57.37±2.18
+66.85±2.18
+FedELC30
+73.66±2.04
+73.55±2.04
+62.28±2.20
+60.10±2.32
+52.79±2.32
+62.72±2.29
+57.76±2.32
+FedNoRo28
+77.96±1.98
+76.34±1.95
+76.56±1.93
+74.67±1.98
+73.88±1.95
+64.96±2.18
+58.82±2.26
+OCT-FedSIR (Ours)
+78.91±1.93
+77.96±1.84
+77.90±1.90
+76.67±1.90
+75.50±2.07
+72.15±2.06
+72.99±1.98
+2
+Pruning
+70.65 ± 2.41
+5
+FedAvg
+81.24±2.95
+37
+
+
+Table S6: Classiﬁcation accuracy (%) on WF under asymmetric label noise. Values are mean ± stan-
+dard deviation across three independent seeds. Bold and underline indicate the best- and second-best-
+performing noisy-label FL methods, respectively. Pruning and all-clean FedAvg are shown as references.
+Asymmetric Noise
+α
+# Clean Clients
+Method
+40%
+50%
+60%
+70%
+80%
+90%
+2.0
+1
+FedAvg8
+77.62±1.84
+75.28±1.98
+76.06±2.01
+73.33±1.98
+72.10±2.20
+64.51±2.12
+FedProx32
+76.40±2.01
+74.72±1.95
+73.10±1.98
+70.37±2.09
+69.48±2.18
+69.70±2.09
+RoFL24
+77.34±1.93
+76.23±2.01
+75.22±2.01
+78.96±1.90
+74.11±1.98
+73.27±2.04
+RHFL26
+68.23±7.03
+59.17±14.30
+49.26±13.46
+47.75±16.85
+39.78±16.09
+45.51±19.58
+FedLSR33
+77.57±1.90
+76.51±1.93
+75.56±2.04
+77.34±1.98
+70.93±2.09
+61.50±2.21
+FedCorr27
+76.51±1.90
+75.11±2.09
+74.39±1.98
+77.23±1.81
+75.50±2.04
+74.78±2.04
+FedNed29
+74.22±2.09
+69.42±2.12
+60.71±2.26
+62.44±2.20
+39.56±2.26
+37.39±2.18
+FedELC30
+58.59±2.20
+72.60±2.01
+57.92±2.18
+63.50±2.23
+70.87±2.09
+59.65±2.32
+FedNoRo28
+69.87±2.12
+67.91±2.26
+68.14±2.26
+65.23±2.20
+64.90±2.18
+67.97±2.15
+OCT-FedSIR (Ours)
+79.41±1.84
+78.96±1.84
+78.07±1.98
+81.31±1.76
+81.92±1.81
+80.97±1.79
+1
+Pruning
+67.83 ± 1.20
+5
+FedAvg
+82.79 ± 1.98
+0.5
+1
+FedAvg8
+67.13±2.15
+60.38±2.29
+53.74±2.26
+46.76±2.48
+41.13±2.37
+39.68±2.32
+FedProx32
+65.01±2.15
+60.27±2.18
+54.97±2.32
+47.94±2.32
+51.95±2.23
+35.16±2.18
+RoFL24
+73.27±2.01
+72.94±2.04
+70.03±2.12
+70.65±2.07
+69.42±2.09
+73.27±2.04
+RHFL26
+58.40±16.65
+51.00±17.29
+41.14±15.70
+40.73±16.52
+37.54±15.42
+37.63±15.69
+FedLSR33
+73.27±1.93
+72.99±2.01
+72.38±1.98
+72.38±2.01
+72.99±2.01
+53.18±2.40
+FedCorr27
+65.18±2.12
+63.95±2.12
+62.83±2.29
+63.73±2.29
+61.27±2.20
+60.94±2.23
+FedNed29
+65.74±2.07
+55.80±2.29
+49.89±2.29
+41.91±2.29
+34.15±2.23
+38.95±2.29
+FedELC30
+60.83±2.29
+52.46±2.34
+58.43±2.34
+53.52±2.23
+55.64±2.29
+52.57±2.34
+FedNoRo28
+72.82±1.98
+71.09±2.12
+69.25±2.12
+69.59±2.07
+66.56±1.78
+61.31±1.15
+OCT-FedSIR (Ours)
+77.90±1.95
+72.82±1.98
+71.67±1.98
+71.88±2.01
+81.98±1.81
+81.53±1.76
+1
+Pruning
+67.40 ± 1.73
+5
+FedAvg
+81.55 ± 2.32
+0.1
+2
+FedAvg8
+75.73±1.90
+74.27±1.98
+74.67±2.01
+74.83±1.95
+73.88±1.98
+74.78±2.01
+FedProx32
+74.22±2.01
+73.72±2.04
+74.16±2.01
+74.61±1.95
+73.60±1.98
+74.33±1.95
+RoFL24
+72.88±1.95
+73.10±1.98
+72.82±1.98
+73.27±1.98
+72.82±1.98
+73.16±2.01
+RHFL26
+43.07±17.43
+42.31±16.95
+39.17±15.35
+37.30±14.76
+42.60±17.13
+37.06±14.83
+FedLSR33
+72.82±1.98
+72.82±1.98
+72.82±1.98
+72.82±1.98
+72.82±1.98
+72.82±1.98
+FedCorr27
+73.27±2.07
+73.33±1.98
+73.16±2.04
+73.21±1.98
+73.21±1.98
+73.49±2.04
+FedNed29
+73.55±2.04
+73.49±2.01
+73.72±1.98
+73.38±1.98
+73.55±2.01
+73.55±2.01
+FedELC30
+57.70±2.26
+71.09±2.12
+69.14±2.01
+72.82±1.98
+70.65±2.15
+64.56±2.26
+FedNoRo28
+72.99±2.04
+72.99±2.06
+73.27±1.95
+73.55±2.01
+72.82±1.98
+72.82±2.06
+OCT-FedSIR (Ours)
+79.30±1.84
+80.36±1.84
+78.85±1.90
+79.41±1.90
+78.91±1.90
+77.29±1.98
+2
+Pruning
+70.35 ± 1.18
+5
+FedAvg
+81.24±2.95
+38

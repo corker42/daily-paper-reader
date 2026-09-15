@@ -1,0 +1,1111 @@
+1 
+ 
+A visual large language foundational model for medical image 
+recognition using clinician-oriented social media  
+Author Information 
+Lingxuan Hou1,2, Yuhua Xie1, Yue Hu3,Yan Zhuang1,*, Junqi Li5, Chengzhi Xia1, Binh Phu Nguyen4, 
+Abubakar Siddique2, Minh Nguyen2, Yao Hou1, Yanju Bao3, Kexin Liu3, Ke Chen1, Jianjun Sun1, Zeqi 
+Li5, Trung Nguyen2,*, Jiangli Lin1,* 
+Affiliations 
+1 College of Biomedical Engineering, Sichuan University, Chengdu, Sichuan, China 
+2 School of Engineering, Computer & Mathematical Sciences, Auckland University of Technology, 
+Auckland, New Zealand 
+3 Guang’anmen Hospital, China Academy of Chinese Medical Sciences, Beijing, China 
+4 School of Mathematics and Statistics, Victoria University of Wellington, Wellington, New Zealand 
+5 Jincheng General Hospital, Jincheng, Shanxi, China 
+*Corresponding author: trung.nguyen@aut.ac.nz (T.N.), zhuangy@scu.edu.cn (Y.Z.), 
+linjiangli@scu.edu.cn (J.L.) 
+Author Contributions 
+L.H., Y.X., Y.Z. and J.L. conceived the study. L.H. and T.N. conducted data collection, data analysis, 
+model development and model validation. L.H., T.N., Y.Z. and J.L. drafted the manuscript and 
+supplementary materials. K.C. and T.N. provided computational resources and hardware support. Y.H., 
+J.L., Y.B., K.L. and J.S. provided clinical expertise and contributed to clinical evaluation. T.N., Y.Z. and 
+J.L. supervised the study. All authors critically reviewed the manuscript and approved the final version. 
+Corresponding author 
+Correspondence to: Trung Nguyen, Yan Zhuang and Jiangli Lin 
+
+
+2 
+ 
+Abstract 
+Large language models (LLMs) have demonstrated strong capabilities across diverse domains, showing 
+considerable potential in medicine. However, their application in medical settings remain limited by the 
+scarcity of visual-question-answering (VQA) datasets that capture clinical reasoning and explicit image–
+text alignment. Here we leverage de-identified medical images and expert commentaries shared on 
+clinician oriented social media. By combining advanced LLM with clinician-in-the-loop verification, we 
+have established a rigorous pipeline to construct a long-form medical VQA dataset with over one million 
+VQA pairs, named ThoughtMed-1M, designed to capture structured clinical logic and medical image-text 
+alignment. To demonstrate its utility, we developed a FOundational LLM Trained on ThoughtMed-1M 
+(FOLTMed). FOLTMed achieved state-of-the-art performance on 42 medical VQA benchmark datasets 
+(macro accuracy 85.4%) and generated more clinically coherent responses in ThoughtMed-1M testset, 
+outperforming state-of-the-art models by 3%-5% across factuality and similarity metrics, highlighting a 
+scalable paradigm for advancing research on clinically grounded multimodal LLMs. 
+Main 
+Artificial intelligence (AI) has achieved remarkable advances across a broad range of perceptual and 
+reasoning tasks, driven not only by innovations in model architecture but also by the availability of large-
+scale, high-quality datasets. Among these foundational resources, ImageNet transformed computer vision 
+by enabling standardized benchmarking and supervised pretraining at scale, thereby catalysing the 
+development of modern deep learning models1. More recently, multimodal large language models 
+(LLMs) have emerged as a powerful AI paradigm that integrates visual and textual information to support 
+image interpretation, cross-modal reasoning, and question answering2,3. Their adaptation to medicine 
+could extend clinical AI support beyond isolated image classification4,5. By integrating imaging findings 
+with patient histories and medical knowledge, these models could support diagnostic reasoning, report 
+generation, case triage, longitudinal assessment, and clinically meaningful communication6-9, while 
+
+
+3 
+ 
+helping clinicians identify subtle findings or clinically relevant information that might otherwise be 
+overlooked10,11.  
+Developing these capabilities, however, requires extensive, high-quality training data that explicitly 
+connect visual content with medical domain knowledge and reasoning processes. Unlike conventional 
+vision models trained primarily with category-level annotations, adapting multimodal LLMs to medicine 
+requires large-scale, high-quality paired image–text data and visual question answer (VQA) supervision 
+that encode clinical knowledge, structured reasoning, and explicit image–text alignment. Yet, to the best 
+of our knowledge, the medical multimodal LLM field still lacks an ImageNet-scale resource designed to 
+provide such supervision across diverse medical domains. Several high-quality medical VQA datasets, 
+such as PMC-VQA12, SLAKE 13, and VQA-RAD14, have been proposed to adapt LLMs to domain-
+specific tasks or to supplement medical visual knowledge. However, most existing resources remain 
+dominated by closed-ended questions, such as yes/no responses or modality recognition, and short-answer 
+formats12-14. As a result, they provide limited supervision for learning clinically meaningful image–text 
+alignment, spatially grounded interpretation, and structured diagnostic reasoning. Moreover, the majority 
+of existing datasets are restricted to a single imaging modality, organ system, or narrowly defined task, 
+which limits the generalizability of medical multimodal LLMs across diverse clinical scenarios15-17.  
+Clinical scenarios continue to grow in complexity, driven by expanding recognition of disease subtypes, 
+rare conditions, and phenotypic heterogeneity18, alongside a growing understanding of shared and 
+interacting pathophysiological mechanisms across diseases19. This increasing complexity places greater 
+demands on causal reasoning and further exposes limitations in the availability and representation of 
+clinical data. While task-specific data collection and small-sample fine-tuning can partially mitigate these 
+issues, such datasets are often access-restricted, limited in scale, and insufficient to provide the breadth 
+and diversity required for training and evaluating general-purpose medical multimodal LLMs across 
+diverse downstream tasks.8,9,20. These data limitations constrain effective multimodal pretraining, cross-
+domain generalization, reproducible benchmarking, and efficient adaptation to specific biomedical 
+
+
+4 
+ 
+problems. They also substantially raise the technical and resource barriers to developing and 
+systematically investigating medical multimodal LLMs, thereby slowing methodological innovation and 
+broader progress across the field. Consequently, there remains a critical need for a unified, large-scale, 
+reasoning-oriented medical VQA resource that spans diverse imaging modalities, disease categories, and 
+clinical tasks. Such a resource could serve as an ImageNet-like foundation for medical LLMs, 
+accelerating the development and evaluation of clinically grounded multimodal AI. 
+Online medical platforms have emerged as valuable sources of large-scale, real-world biomedical data, 
+with continuously expanding repositories of de-identified medical images and expert-authored clinical 
+descriptions that can support the training and evaluation of medical AI models and the adaptation of 
+LLM-based systems to specific clinical applications. These resources position such platforms as a 
+promising yet underexplored foundation for developing medical multimodal LLMs. A substantial volume 
+of such image–text pairs has begun to be selectively explored in specific research domains, demonstrating 
+encouraging performance in downstream tasks. For example, Huang et al.21 curated approximately 
+200,000 pathology image–text pairs from social media platforms such as Twitter to construct the 
+OpenPath dataset. Using this dataset, Pathology Language-Image Pretraining model was trained and 
+achieved state-of-the-art (SOTA) performance across multiple pathology benchmarks. Publicly available 
+clinician-authored resources, such as Radiopaedia and figure1.com, contain large collections of real-world 
+medical images accompanied by expert descriptions and clinical discussions that span diverse diseases 
+and imaging modalities22,23. These resources provide medically grounded supervision that closely reflects 
+authentic diagnostic reasoning, however, they have not been systematically leveraged as scalable sources 
+of image-specific medical knowledge for training medical LLMs, partly because of their heterogeneous 
+and unstructured formats and the substantial effort required for data curation, standardization, and 
+validation24-26. This shows that there is a lacks of large-scale, clinically grounded resources capable of 
+supporting medical multimodal LLMs in image understanding, visual grounding, and clinical reasoning, 
+which collectively limits progress.  
+
+
+5 
+ 
+To address this gap, we introduce ThoughtMed-1M, a large-scale medical VQA dataset that 
+systematically transforms clinician-authored cases from clinician oriented social media into structured 
+training resources for medical multimodal LLM (Fig. 1a). ThoughtMed-1M is among the largest publicly 
+available medical VQA resources, covering diverse diseases and imaging modalities and including 
+clinically grounded reasoning and anatomical localization information (Fig. 1b and 1c). Unlike existing 
+medical VQA datasets, ThoughtMed-1M explicitly embeds anatomical bounding boxes and stepwise 
+clinical reasoning within its answers, providing structured supervision for image–text alignment, spatial 
+grounding, and medical reasoning. 
+Building on this dataset, we developed a medical multimodal LLM, named FOLTMed, designed for 
+medical image understanding and clinical reasoning (Fig. 1e). The proposed model is evaluated using 
+diverse benchmark datasets, automated assessments, and clinician evaluations. FOLTMed demonstrated 
+strong performance in medical image interpretation and reasoning, supporting the value of ThoughtMed-
+1M as a scalable resource for clinically grounded multimodal AI research. FOLTMed is intended as a 
+research model for further methodological development and validation and, together with ThoughtMed-
+1M, it may help accelerate research in clinically grounded multimodal medical AI. Its potential clinical 
+utility and workflow benefits remain to be established through further investigation by the research 
+community, including blinded comparative reader studies and prospective clinical evaluations. 
+Taken together, this study principally contributes by (1) introducing ThoughtMed-1M, a large-scale, 
+clinically grounded medical VQA dataset that provides structured supervision for medical image 
+understanding, spatial grounding, image–text alignment, and clinical reasoning; (2) presenting FOLTMed, 
+a medical multimodal LLM developed to demonstrate the utility of ThoughtMed-1M for model training 
+and evaluated across diverse benchmark datasets and through clinician assessments; and (3) establishing a 
+scalable end-to-end paradigm for transforming heterogeneous clinician-authored online cases into 
+structured multimodal training data and subsequently leveraging these data for model development and 
+evaluation. This paradigm provides a methodological foundation for future medical multimodal dataset 
+
+
+6 
+ 
+construction and model development, while ThoughtMed-1M may facilitate the adaptation and systematic 
+evaluation of clinically grounded medical multimodal LLM models. 
+ 
+a, Pipeline for data curation from online clinician-discussion platforms, VQA pair generation, and quality 
+control. During quality control process, generated VQA pairs are categorized as correct, incorrect, or 
+needing modification. For cases requiring modification, revisions are made by incorporating feedback 
+from the highest-agreement preliminary model outputs, followed by a second round of LLM-based 
+voting. 
+
+
+7 
+ 
+b, Distribution of VQA pairs across anatomical regions and organs in ThoughtMed-1M. c, Distribution of 
+VQA pairs across different medical imaging modalities. d, Density plot comparing the answer length 
+distributions of public medical VQA datasets used in this study (PMC-VQA, SLAKE, and VQA-RAD) 
+and ThoughtMed-1M (VQA pairs generated from Radiopaedia and figure1.com cases), highlighting the 
+substantially longer and more informative responses in the proposed dataset. e, Schematic illustration of 
+the training process and example outputs of the FOLTMed model. 
+Fig. 1: Overview of dataset construction, characteristics, and model training. 
+Results  
+Case curation from social media and VQA pairs generation for ThoughtMed-1M 
+ThoughtMed-1M is derived from clinician-authored cases obtained from Radiopaedia and figure1.com, 
+two large publicly accessible platforms for medical education and professional case discussion. The 
+combined resulting corpus comprises 64,493 Radiopaedia cases containing 219,558 medical images and 
+associated clinician-authored descriptions, together with 4,453 figure1.com discussion posts containing 
+7,671 images and accompanying clinical narratives. In total, the corpus included 227,229 publicly 
+available medical images across 68,946 clinical cases. 
+By combining advanced LLMs to generate rigorous VQA pairs, followed by multiple rounds of quality 
+control and filtering (details in Methods), the final ThoughtMed-1M dataset consists of 1,018,472 high-
+quality VQA pairs (the detailed generation workflow and sample counts at each stage are presented in 
+Extended Data Fig. 1) that collectively cover the full human anatomy (Fig. 1b) and the broad spectrum of 
+clinical imaging modalities (Fig. 1c). Each VQA pair incorporates image-specific clinical reasoning and 
+anatomical grounding through embedded bounding-box annotations. Based on this dataset, we fine-tuned 
+the SOTA model Gemma4-31B-PT as the base to obtain the FOLTMed model (Fig. 1e, as detailed in 
+Methods). 
+
+
+8 
+ 
+Representative examples of curated clinical cases and generated VQA pairs are provided in Extended 
+Data Fig. 2. Compared with existing corpora such as PMC-VQA, ThoughtMed-1M provides substantially 
+richer clinical reasoning and more rigorous image-text alignment through bounding-box supervision (Fig. 
+1d). 
+Evaluation and Selection of LLMs for VQA Generation 
+To identify the optimal model for large-scale VQA generation, we compared four SOTA LLMs, ChatGPT 
+5.2, Claude Sonnet 4.5, Qwen3-VL-Max, and DeepSeek-V4, using clinician assessment, with all models 
+accessed through their official APIs (as detailed in Methods). ChatGPT 5.2 achieved the highest overall 
+mean score of 8.05 (95% CI: 7.95-8.15) (Fig. 2a). Claude Sonnet 4.5 scored slightly lower than ChatGPT 
+5.2, with an overall mean of 7.64 (95% CI: 7.53–7.75). In contrast, Qwen3-VL-Max and DeepSeek-V4 
+achieved lower overall mean scores of 6.87 and 6.41, respectively, suggesting comparatively weaker 
+performance in our VQA generation setting. Based on these results, ChatGPT 5.2 was selected as the 
+primary model for subsequent large-scale VQA generation. 
+To obtain finer-grained insights into model capabilities, we computed per-question and per-dimension 
+mean scores. ChatGPT 5.2 consistently outperformed the other models across all metrics, with mean 
+question-level scores ranging from 8.51 to 7.71 (Fig. 2b) and dimension-level means ranging from 8.34 to 
+7.75 (Fig. 2c). 
+
+
+9 
+ 
+ 
+a–c, Overall and dimension-specific evaluations by clinical experts of VQA pairs generated from 20 
+clinical cases using ChatGPT 5.2 (n = 194), Claude Sonnet 4.5 (n = 200), Qwen3-VL-Max (n = 211) and 
+DeepSeek-V4 (n=200). Here, n denotes the number of generated VQA pairs included in the evaluation; 
+the numbers differed across models because each model generated a different number of valid VQA pairs 
+for the selected cases. Individual VQA pairs were treated as the statistical unit, with clinician ratings 
+aggregated at the VQA-pair level. Bars represent mean scores, and error bars indicate 95% confidence 
+intervals. The overall mean scores aggregated across all evaluation questions are shown in a. b presents 
+the mean scores for each of the eight individual questions, and c summarizes the mean scores across the 
+four evaluation dimensions (overall quality, answer quality, clinical utility, and relevance & accuracy). d, 
+Stacked bar chart illustrating the distribution of ChatGPT 5.2’s scores across the four dimensions. 
+Fig. 2: Performance comparison of four LLMs in generating VQA pairs from curated cases. 
+In addition, the distribution of ChatGPT 5.2’s ratings across the four evaluation dimensions is shown in 
+Fig. 2d. Compared with the other LLMs (Extended Data Fig. 3), ChatGPT 5.2 exhibited a markedly 
+b
+d
+Relevant & Accuracy
+Clinical Utility
+Answer Quality
+Overall Quality
+Overall Performance
+c
+a
+Performance Comparison by Question
+Relevant & Accuracy
+Clinical Utility
+Answer Quality
+Overall Quality
+GPT Score Distribution
+Overall Quality
+Answer Quality
+Clinical Utility
+Relevant & Accuracy
+GPT
+Claude
+Qwen
+DeepSeek
+GPT
+Claude
+Qwen
+DeepSeek
+GPT
+Claude
+Qwen
+DeepSeek
+GPT
+Claude
+Qwen
+DeepSeek
+GPT
+Claude
+Qwen
+DeepSeek
+Relevance
+Diagnostic
+Accuracy
+Bounding Box
+Accuracy
+Clinical
+Relevance
+Diagnostic
+Utility
+Informativeness
+Reasoning
+Validity
+Overall
+Quality
+
+
+10 
+ 
+higher concentration of ratings in the Excellent (9–10) and Good (7–8) categories across all dimensions, 
+underscoring its consistently superior performance. Although a small proportion of generated VQA pairs 
+received lower ratings in Clinical Utility and Relevance & Accuracy, most samples across all four 
+dimensions received scores between 7 and 10. This distribution shows that ChatGPT 5.2-generated VQA 
+pairs were generally rated favourably by clinicians across the four evaluation dimensions, providing 
+additional support for its suitability as the initial model for large-scale VQA generation.  Based on this 
+clinician-led preliminary evaluation, ChatGPT 5.2 was identified as the most reliable model for 
+generating high-quality VQA pairs, accordingly, it was selected as the LLM used to construct the 
+ThoughtMed-1M dataset from curated clinical cases. 
+Evaluation of clinical accuracy across diverse medical multiple-choice VQA tasks 
+For evaluation of medical image understanding and clinical decision-making, We benchmarked 
+FOLTMed against leading open-source (Gemma4-31B-IT, LLaMA3-70B, LLaVA-Med, and 
+MedGemma-27B) and proprietary (Claude Sonnet 4.5 and ChatGPT 5.2) LLMs on the OmniMedVQA 
+benchmark, which comprises 42 medical VQA datasets (Methods). As shown in Fig. 3a, FOLTMed 
+achieved the best overall performance across all datasets (detailed dataset-level accuracies are provided in 
+Supplementary Table 5), with a macro accuracy of 0.854 (median, 0.870; interquartile range (IQR), 
+0.129), representing an improvement of over 4% relative to the baseline Gemma4-31B-IT. FOLTMed 
+also surpassed the strongest domain-specific model, MedGemma-27B (macro accuracy, 0.807; median, 
+0.844; IQR, 0.210), and demonstrated competitive performance compared with the leading proprietary 
+model, ChatGPT-5.2 (macro accuracy, 0.824, median, 0.828; IQR, 0.165). Consistent trends were 
+observed for micro accuracy (Fig. 3b), where FOLTMed achieved the highest performance (0.848), 
+exceeding the second-best model, MedGemma-27B, by 2.6%. Further analysis across imaging modalities 
+and question types showed that FOLTMed maintained consistently strong performance (Fig. 3c; 
+Supplementary Tables 6 and 7). Across imaging modalities, FOLTMed achieved the highest micro 
+accuracy in all categories except dermoscopy, where it was slightly lower than MedGemma-27B by 
+
+
+11 
+ 
+approximately 2%. This difference may partly reflect the limited number of dermoscopy cases in 
+ThoughtMed-1M (3,945 cases), highlighting data imbalance as a potential limitation and an important 
+direction for future dataset expansion. Across question types, FOLTMed achieved the highest micro 
+accuracy among all comparison models. Benefiting from the richer image descriptions and explicit 
+bounding-box grounding provided by ThoughtMed-1M, FOLTMed showed a substantial advantage in 
+anatomy identification, achieving an accuracy of 84.93%, which was 5.78% higher than the second-best 
+model.These results highlight the robustness and generalizability of FOLTMed across heterogeneous 
+clinical scenarios. 
+ 
+a,b, Overall performance comparison across 42 datasets using macro- and micro-accuracy, respectively, 
+among FOLTMed and six SOTA models (Claude-Sonnet-4.5, Gemma31-IT, ChatGPT-5.2, LLaMA-70B, 
+LLaVA-Med, and MedGemma-27B). c, Radar plot illustrating model performance across diverse medical 
+imaging modalities and question types, highlighting differences in capability profiles between FOLTMed 
+
+
+12 
+ 
+and competing approaches. d, Stacked bar chart showing the distribution of Top-7 model rankings across 
+all datasets, reflecting the consistency and dominance of each model. 
+Fig. 3: Comprehensive evaluation of large language model performance across 42 medical datasets. 
+We further evaluated the consistency of model performance by analyzing the distribution of Top-7 
+rankings across all 42 datasets. FOLTMed demonstrates the best performance profile, achieving 17 first-
+place rankings and maintaining consistent representation across mid-tier (rank 2-3: 21 datasets) and lower 
+top-tier positions (rank 4-5: 4 datasets) . This represents a substantial improvement over the baseline 
+Gemma4-31B-IT, which ranked first in only one dataset. MedGemma-27B achieved the second-highest 
+number of first-place rankings (12 datasets); however, its performance was less consistently dominant, 
+ranking only within positions 4-7 in 21 datasets. These results demonstrate that FOLTMed achieves 
+consistently strong performance across diverse imaging modalities and question types, exhibiting superior 
+robustness, the best ranking distribution, and improved generalizability across heterogeneous clinical 
+scenarios compared with existing SOTA models. 
+Evaluation of reasoning ability and clinical utility of LLMs 
+We evaluated the open-ended response generation performance of FOLTMed on the ThoughtMed-1M 
+test set using BERTScore, FActScore, and AlignScore (as detailed in Method). Compared with the same 
+baseline models evaluated in the previous section, FOLTMed demonstrated superior factual reliability 
+and logical consistency in clinical response generation (Fig. 4a). It achieved the highest performance 
+across all three metrics, with BERTScore, FActScore, and AlignScore values of 0.66, 0.68, and 0.65, 
+respectively. Among the comparison models, MedGemma-27B and ChatGPT-5.2 showed relatively 
+competitive performance; however, their scores remained consistently lower than those of FOLTMed 
+across all metrics, with gaps of approximately 0.03-0.05. These results indicate that FOLTMed more 
+effectively generates responses that are semantically aligned with reference answers, factually supported 
+by clinical evidence, and contextually consistent with the underlying case information. Further analysis 
+
+
+13 
+ 
+across imaging modalities and question types showed that FOLTMed maintained strong performance in 
+most evaluation categories (Fig. 4b; results for other models are shown in Extended Data Fig. 4). Across 
+the majority of modalities and task types, its three metric scores were generally exceeded 0.65, suggesting 
+stable open-ended reasoning performance across heterogeneous clinical scenarios. Notably, for diagnosis-
+related questions, FOLTMed achieved BERTScore, FActScore, and AlignScore values of 0.68, 0.77, and 
+0.74, respectively, highlighting its ability to generate clinically reliable diagnostic responses supported by 
+relevant visual and contextual evidence. However, performance was relatively lower for the fluoroscopy 
+modality and abnormality detection tasks, where FActScore and AlignScore decreased to below 0.60. 
+This reduction reflect data imbalance and the relative scarcity of these categories in ThoughtMed-1M, 
+suggesting that additional data curation and targeted training may be needed to further improve 
+performance in underrepresented modalities and task types.  
+ 
+a, Overall performance comparison of semantic, factual, and contextual consistency across LLMs using 
+BERTScore, FActScore, and AlignScore. b, Heatmap showing FOLTMed performance across diverse 
+medical imaging modalities and question types. c, Clinician-based questionnaire ratings across multiple 
+evaluation dimensions on 120 clinical cases, illustrating the quality and stability of FOLTMed responses. 
+
+
+14 
+ 
+d, Representative case example showing the correspondence between ground-truth clinical concepts and 
+model-generated reasoning, with matched concepts highlighted. 
+Fig. 4: Evaluation of large language model performance on ThoughtMed-1M test set. 
+Clinician evaluation confirmed the strong clinical performance and practical utility of FOLTMed (as 
+detailed in Methods). Across all assessed dimensions, FOLTMed received consistently high ratings, 
+including for diagnostic accuracy, imaging finding recognition, reasoning consistency, response 
+completeness, visual–textual grounding, and perceived clinical usefulness (Fig. 4c). These results suggest 
+that FOLTMed’s responses were not only factually reliable but also clinically interpretable and useful 
+from the perspective of medical experts. A representative model output is shown in Fig. 4d (more 
+example model output are provided in Supplementary Fig. 1), where FOLTMed correctly identified an 
+expansile osteolytic lesion related to primary hyperparathyroidism and brown tumour formation, while 
+explicitly grounding its answer in relevant image findings and clinical concepts. Overall, these findings 
+demonstrate that FOLTMed provides semantically faithful, factually reliable, and contextually aligned 
+clinical responses across diverse medical imaging tasks, while clinician-based evaluation further supports 
+its potential as a clinically grounded auxiliary tool for medical image interpretation and reasoning. 
+Discussion  
+Large-scale annotated datasets have driven the rapid progress of computer vision, with ImageNet1 playing 
+a pivotal role in shaping modern vision research. In the LLM era, the dependence on high-quality data has 
+become even more pronounced—particularly in medicine, where VQA data for training generative 
+medical LLMs remain scarce because their construction requires substantial domain expertise and years 
+of clinical training. Medical LLMs have yet fully exploited publicly available clinician-oriented 
+educational platforms and medical social media, which host extensive de-identified clinical cases and 
+authentic discussions among clinicians. By leveraging these public resources together with advanced 
+LLM-assisted generation and quality control, we constructed ThoughtMed-1M, a large-scale medical 
+
+
+15 
+ 
+VQA dataset comprising 1,018,472 high-quality VQA pairs with detailed clinical reasoning and 
+anatomical annotations. ThoughtMed-1M was designed to support models in learning medical 
+knowledge, structured reasoning processes, and explicit image–text alignment.  
+Based on this dataset, we fine-tuned the SOTA LLM Gemma4-31B-PT to develop FOLTMed. Unlike 
+mainstream LLM research developed for narrow medical domains, FOLTMed is designed as a general 
+medical LLM applicable to diverse imaging modalities and clinical question types. Across 42 datasets 
+spanning multiple modalities and task categories, FOLTMed achieved superior performance compared 
+with SOTA models, demonstrating strong generalizability in medical image understanding and clinical 
+decision-making. Its substantial advantage in medical anatomy identification further suggests that 
+ThoughtMed-1M effectively enhances image–text alignment and anatomically grounded visual reasoning. 
+We further evaluated FOLTMed using the ThoughtMed-1M test set and clinician-based assessment to 
+examine its medical reasoning ability, semantic completeness, and clinical applicability. Compared with 
+SOTA models, FOLTMed demonstrated stronger semantic fidelity, factual precision, and contextual 
+alignment across BERTScore, FActScore, and AlignScore (improvements of 3%–5%). Clinician 
+questionnaire-based evaluation further confirmed its clinical accuracy and practical utility, highlighting 
+FOLTMed’s potential as a broadly applicable foundation model for future medical AI research and 
+clinically grounded deployment. 
+Despite these promising results, this study has several limitations. First, datasets curated from online 
+resources may inevitably contain noise or errors, as reflected in the clinician-based evaluation of 
+generated VQA pairs, where a small proportion of samples received relatively low scores (Fig. 2d). 
+Although we applied rigorous filtering and multi-round quality control, such issues cannot be completely 
+eliminated. Second, the collected data remain imbalanced across imaging modalities and disease 
+categories, which may affect performance in underrepresented domains. For example, FOLTMed showed 
+relatively weaker performance in dermoscopy, likely due to the limited number of dermoscopy VQA 
+pairs in ThoughtMed-1M (3,945 VQA pairs from 741 cases), where its micro-accuracy was 
+
+
+16 
+ 
+approximately 2% lower than that of MedGemma-27B.  Nevertheless, its performance in this modality 
+still exceeded that of most SOTA models, suggesting both practical potential and a clear direction for 
+future dataset expansion. Third, although FOLTMed achieved strong promising performance across most 
+modalities and question types, it did not reach perfect accuracy. Most task-level accuracies remained 
+within the range of 80–90%, which is insufficient for use as an independent clinical diagnostic standard. 
+Therefore, the proposed dataset and model should currently be viewed as a foundation for future research 
+rather than a directly deployable clinical decision-making system. Fourth, the performance advantage of 
+FOLTMed was mainly demonstrated against general medical LLMs and broadly applicable multimodal 
+models. Task-specific models optimized for particular clinical domains may still outperform general-
+purpose models in their respective areas, such as SkinGPT-48 in dermatology. This suggests that further 
+domain-specific fine-tuning may be necessary when applying FOLTMed to specialized clinical scenarios.  
+Overall, the performance gains achieved by FOLTMed across diverse medical domains can be largely 
+attributed to the carefully constructed ThoughtMed-1M dataset. Derived from publicly available clinician-
+authored clinical cases and discussions, ThoughtMed-1M provides high-quality VQA pairs that 
+incorporate structured medical reasoning, diagnostic decision-making processes, and explicit image–text 
+alignment through bounding-box grounding. To the best of our knowledge, ThoughtMed-1M represents 
+the largest publicly available medical VQA dataset to date. We anticipate that the full open-source release 
+of ThoughtMed-1M and FOLTMed will support the development of foundational medical LLMs and 
+provide a scalable paradigm for future medical VQA dataset construction, and serve as a standardized 
+benchmark to accelerate clinically grounded multimodal AI research. 
+Methods  
+ThoughtMed-1M dataset 
+Release policy 
+
+
+17 
+ 
+In accordance with the terms of use and licensing policies of Radiopaedia and figure1.com, all case 
+information included in our dataset is referenced through persistent URLs directing users to the original 
+case webpages. Because image URLs on these platforms are dynamically generated, we do not 
+redistribute or directly provide the original image URLs. Instead, to ensure correct alignment between 
+cases and VQA pairs, we supply code that programmatically retrieves the image URLs from the 
+corresponding case webpages. Users who wish to access or download the original images must visit the 
+source platforms and ensure that their intended use complies with the respective terms of use, licensing 
+restrictions, and institutional or regulatory requirements. Our dataset includes the full set of generated 
+question–answer pairs; details regarding these pairs and the associated case-level URLs are provided in 
+the Data Availability section. 
+Radiopaedia cases collection 
+We collected all publicly accessible cases available on Radiopaedia from its launch in 2005 through 26 
+December 2025. Each case contains clinician-verified annotations including patient information, clinical 
+presentation, imaging findings, and expert case discussions. These components were used as the factual 
+grounding to support the generation of reliable VQA pairs based on clinically validated information. For 
+image acquisition, although many radiology uploads on Radiopaedia originate from three-dimensional 
+imaging studies, the first frame of each image series is consistently displayed using a clinically 
+standardized plane selected by the contributing radiologist. In this study, because our dataset and model 
+development focus on two-dimensional medical images, we extracted only the first frame from each 
+image series and used it as the representative image for VQA pair generation. 
+figure1.com posts collection 
+To enable the model to capture authentic and diverse clinical reasoning signals that reflect real-world 
+diagnostic workflows, we additionally collected clinician-generated posts from figure1.com, one of the 
+largest global communities for healthcare professionals. Posts on this platform often contain multi-
+perspective clinical discussions and rare presentations, providing valuable context for training models to 
+
+
+18 
+ 
+reason across complex and heterogeneous clinical scenarios. Under the guidance of clinical experts, we 
+designed a set of 12 keywords covering a broad range of medical imaging modalities to retrieve relevant 
+posts and maximize modality diversity (definitions in Supplementary Table 1). The complete set of 
+keywords and their definitions is provided in Supplementary Table 1. Consistent with the Radiopaedia 
+collection procedure, relevant posts and their associated discussions were collected between 2013 and 26 
+December 2025 using a predefined search strategy. The first 20 comments associated with each post were 
+additionally retrieved to capture clinician discussions and diagnostic reasoning. 
+VQA pairs generation from clinical cases. 
+To generate high-quality VQA pairs with strict image–text correspondence, clinical reliability, and 
+educational value from the curated medical foundational corpus, we collaborated with clinical experts to 
+design a comprehensive prompting framework and systematically evaluated several advanced LLMs to 
+identify the most suitable model for VQA generation. 
+In designing the prompts, we required all the comparative LLMs to ground all generated questions and 
+answers in factual case information, image-specific visual features, and clinically valid reasoning. The 
+model was instructed to use only the clinical presentation, imaging report, and expert discussion provided 
+for each case, together with the visible findings in the provided image. Because each case may contain 
+multiple images, the LLM was strictly prohibited from referencing textual descriptions that did not 
+correspond to the provided image or from fabricating any clinical or imaging details. When image–text 
+correspondence was limited, the LLM was required to rely on purely image-based observations and 
+generate simpler questions such as anatomical identification, basic structural analysis, or abnormality 
+screening, thereby avoiding cross-image contamination. To further encourage clinically meaningful 
+reasoning, the answer-generation prompt required the LLMs to emulate expert radiologist reasoning 
+grounded in clinician-verified case information. This included step-wise diagnostic logic, integration of 
+image findings with clinical context and medical knowledge, and multi-source verification of key 
+observations. The LLM was also required to provide precise spatial descriptions and selective bounding-
+
+
+19 
+ 
+box annotations to explicitly link textual explanations to specific visual evidence. All outputs were 
+mandated to be fully traceable, image-specific, and free of hallucinated content. To ensure diversity and 
+pedagogical richness, the LLM was instructed to generate multiple types of questions, including 
+observational, analytical, diagnostic, symptom-imaging correlation, and multi-step chain-of-reasoning 
+questions. A structured radiological report could be generated only when the case information and visible 
+findings were sufficiently complete. This prompting framework ensured that the resulting ThoughtMed-
+1M VQA pairs exhibit high factual fidelity, strong image–text alignment, and clinically meaningful 
+reasoning depth. Full prompts for all LLM-based generation, refinement, and evaluation stages are 
+provided in Supplementary Table 2 and Note 1. 
+To identify the most suitable LLM for generating high-quality VQA pairs from collected medical cases, 
+we collaborated with clinical experts to design a set of multi-perspective prompts. Four SOTA LLMs, 
+ChatGPT 5.2, Claude Sonnet 4.5, Qwen3-VL-Max and DeepSeek-V4 were evaluated using their official 
+APIs and provided with the same system instruction, case-level clinical information, imaging report, 
+clinical discussion, and individual medical image. Generation settings were harmonized across models, 
+using a temperature of 0.7, a maximum output length of 8,192 tokens, and a shared prompt requiring 
+image-specific, clinically grounded VQA pairs with structured answers, reasoning, and anatomical 
+localization information. All subsequent commercial LLM calls in this study were conducted using these 
+same parameter settings. These models represent leading commercially available LLMs with extensive 
+medical knowledge and strong clinical-reasoning capabilities27. From the curated corpus, we selected 20 
+representative cases spanning multiple radiological imaging modalities. Each of the four LLMs was 
+prompted using the same case information and standardized prompt framework, generating approximately 
+200 VQA pairs per model for evaluation. Ten radiology clinicians from Guang’anmen Hospital 
+independently assessed the generated outputs using an eight-item evaluation instrument mapped to four 
+key dimensions: overall quality, answer quality, clinical utility, and relevance and accuracy 
+(Supplementary Table 3). For each generated VQA pair, clinicians assigned scores on a 10-point scale 
+
+
+20 
+ 
+across all eight items. This process enabled a multi-dimensional comparison of the models’ capability to 
+generate clinically coherent and image-faithful VQA pairs, allowing us to identify the most suitable 
+model for subsequent large-scale data generation. 
+Using the selected LLM and the clinician-designed prompting framework, we then generated the large-
+scale VQA corpus that constitutes the foundation of ThoughtMed-1M, based on the medical cases 
+collected from Radiopaedia and figure1.com. 
+Quality control of the ThoughtMed-1M dataset 
+To ensure the factual reliability and clinical validity of all generated VQA pairs, we implemented a multi-
+stage quality control pipeline combining medically specialized LLM refinement and cross-model 
+verification. First, every VQA pair was reviewed using the medically specialised LLM MedGemma-27B-
+VL, which refined the questions and answers based on the clinician-verified case information to enhance 
+factual grounding, clinical coherence, and diagnostic accuracy. The prompts used for MedGemma-27B-
+VL and the three voting models are provided in Supplementary Table 2. 
+Following refinement, we applied a consensus-based quality voting procedure using three advanced 
+LLMs: Claude Sonnet 4.5, ChatGPT 5.2, and DeepSeek V4. Each model independently evaluated 
+whether a VQA pair met the required standards of factual correctness, clinical reasoning validity, and 
+diagnostic appropriateness. A VQA pair was retained only if all three models unanimously judged it to be 
+acceptable across these criteria. Meantime, pairs failing to achieve full consensus were discarded.  
+Through this rigorous refinement and selection pipeline, only high-quality VQA pairs with stable factual 
+grounding and clinically reliable reasoning were preserved in the final ThoughtMed-1M dataset. 
+Model construction and training strategy 
+We developed FOLTMed based on the MiniGPT-4 LLM training framework described by Chen et al.28, 
+adopting Gemma4-31B-PT as the foundational multimodal backbone. In contrast to instruction-tuned(IT) 
+Gemma4 variants, we initialize FOLTMed from the pretrained (PT) model to enable domain-specific 
+
+
+21 
+ 
+adaptation through subsequent medical training. For fair comparison, the instruction-tuned counterpart, 
+Gemma4-31B-IT, is used as the baseline model in all experiments. Model training was conducted using 
+full-parameter fine-tuning, in which all trainable parameters of the multimodal backbone were updated 
+during medical domain adaptation. This strategy was used to maximize the model’s capacity to absorb 
+large-scale medical vision–language knowledge from ThoughtMed-1M and to better adapt to complex 
+medical VQA tasks involving clinical reasoning, image–text alignment and spatial grounding. The 
+workflow of FOLTMed model construction and training process is shown in Extended Data Fig. 5. 
+Domain-Adaptive Pre-training for basic medical knowledge learning 
+To enhance the model’s foundational biomedical knowledge, clinical language competence, and medical 
+reasoning capability, we performed Domain-Adaptive Pre-training (DAPT) on two large-scale textual 
+corpora in a sequentially: the Medical Domain Corpus29 and the MIMIC-III Clinical Database30. 
+Specifically, Medical Domain Corpus is a comprehensive biomedical text collection containing medical 
+encyclopedic entries, disease overviews, treatment descriptions, explanations of biomedical concepts, and 
+clinically oriented narratives. Its broad terminology coverage, structured writing style, and clear factual 
+descriptions make it well suited for establishing the model’s initial medical conceptual framework, 
+enabling early adaptation from general-domain linguistic distributions to biomedical discourse. 
+Accordingly, this corpus was used for the first stage of DAPT. We then conducted a second-stage DAPT 
+using the MIMIC-III Clinical Database, a large repository of real intensive-care clinical notes that 
+includes discharge summaries, progress notes, nursing documentation, diagnostic reports, and physician 
+orders. MIMIC-III remains one of the most widely adopted corpora for clinical language modeling and 
+domain-adaptive pretraining of medical LLMs, and has been used by numerous recent foundation medical 
+models. Compared with MIMIC-IV, the linguistic characteristics relevant to DAPT, including discharge 
+summaries, progress notes, and clinician-authored documentation, are largely preserved, making MIMIC-
+III a suitable resource for learning clinical language patterns and reasoning processes. Given that the 
+
+
+22 
+ 
+objective of this stage was to acquire general clinical language and reasoning knowledge rather than 
+perform temporal or structured EHR prediction tasks, MIMIC-III provided sufficient coverage for domain 
+adaptation. Unlike the more structured biomedical corpus, these texts more closely resemble real-world 
+clinical communication, characterized by unstructured formats, dense clinical abbreviations, and context-
+dependent reasoning. Training on this dataset further exposes the model to authentic clinical language 
+patterns, information organization, and multi-step diagnostic logic, thereby strengthening its ability to 
+perform context-aware medical reasoning. 
+During DAPT, the model was trained using the causal language modeling (CLM) objective31. Given a 
+corpus 𝐷= {𝑥!} where each biomedical or clinical document is represented as a token sequence 𝑥! =
+(𝑤", 𝑤#, … , 𝑤$!), the model learns to predict each token based on its preceding context, minimizing the 
+negative log-likelihood 
+𝐿%&' = −∑
+∑
+log 𝑝(𝑤𝑗|𝑤", 𝑤#, … , 𝑤()")
+$!
+(*"
+|,|
+!*"
+. 
+This training objective enables the model to learning domain-specific linguistic structures, clinical 
+terminology, and reasoning conventions, thereby aligning its representation space with biomedical and 
+real-world clinical text. 
+Two-stage Supervised Fine-tuning (SFT) for medical VQA task 
+To equip the model with task-aware reasoning and medical question-answering capabilities, we 
+performed Supervised Fine-tuning (SFT) in two stages. In the first stage, FOLTMed was trained on the 
+training subsets of three widely used medical VQA datasets: PMC-VQA 12, SLAKE13, and VQA-RAD14. 
+These datasets contain well-structured, short-answer VQA samples that cover essential tasks such as 
+anatomical identification, radiological description, and lesion recognition. Training on these datasets 
+enables the model to acquire fundamental medical VQA patterns, including common question 
+
+
+23 
+ 
+formulations, domain-specific terminologies, and basic image-text correspondences, thereby establishing 
+a solid foundation for higher-level clinical reasoning. 
+In the second stage, we further refined the model using the proposed ThoughtMed-1M dataset to 
+strengthen its advanced reasoning capabilities in clinically realistic environments. ThoughtMed-1M 
+encompasses a broad spectrum of imaging modalities, complex clinical narratives, and a large number of 
+expert-guided VQA pairs. Its content extends beyond basic disease identification, capturing symptom-
+imaging associations, multi-step diagnostic reasoning, spatial localization, and clinically grounded 
+integrative judgments. Compared with existing public medical VQA datasets, ThoughtMed-1M provides 
+substantially higher factual density, deeper reasoning structure, and more rigorous image–text alignment. 
+SFT on this dataset enables the model to internalize reasoning patterns that are more closely aligned with 
+real clinical practice, markedly enhancing its applicability to authentic diagnostic scenarios. 
+Although SFT also adopts the CLM objective, its training formulation fundamentally differs from the 
+text-only DAPT stage. Whereas DAPT applies autoregressive modeling to continuous text sequences, 
+SFT constructs multimodal VQA training instances in which the model generates answers conditioned 
+jointly on the instruction prompt, structured clinical information, and image embeddings produced by the 
+visual encoder. Each target answer sequence is appended with an explicit end-of-sequence symbol 𝐸𝑂𝑆 to 
+standardize output structure, formally denoted as 𝑦= [𝑦", 𝑦#, … , 𝑦-, 𝐸𝑂𝑆] where 𝑇 is the sequence length. 
+Padding tokens are masked by setting their target values to -100 (i.e.,𝑡! = 100 for padding positions, 
+where 𝑡! represents the target token at position 𝑖) to restrict optimization to semantically meaningful 
+regions. Through this task-aligned multimodal SFT strategy, FOLTMed learns task-specific reasoning 
+patterns, image–text alignment mechanisms, and clinically oriented decision logic, thereby achieving 
+substantially improved performance on real-world medical VQA tasks. 
+Reinforcement fine-tuning (RFT) for VQA output enhancement 
+
+
+24 
+ 
+Although SFT substantially improves the model’s medical reasoning ability, the complexity of the 
+ThoughtMed-1M cases and their multi-step diagnostic chains revealed persistent limitations: the model 
+trained on DAPT and SFT often failed to cover all essential clinical concepts and frequently produced 
+inaccurate or incomplete bounding boxes. To further enhance clinical reasoning consistency and spatial 
+localization accuracy, we introduced a RFT stage following SFT. 
+RFT was implemented using Group Relative Policy Optimization (GRPO)32. For each input query 𝑥, the 
+current policy 𝜋. generates a group of 𝐾 candidate responses 𝒢= {𝑎", 𝑎#, … , 𝑎/}, and a reward 𝑟0 is 
+computed for each response. GRPO constructs a group-wise relative advantage 𝐴0 = 𝑟0 −𝑟¯, 𝑟¯ =
+"
+/ G
+𝑟(
+/
+(*"
+, where 𝐴0 measures the quality of response 𝑎0 relative to its peers. Model parameters are 
+updated by minimizing the following loss: 
+ℒGRPO = −
+"
+/ ∑
+𝐴0
+/
+0*"
+log 𝜋.(𝑎0 ∣𝑥). 
+Responses with 𝐴0 > 0 increase their likelihood under the policy, whereas lower-quality responses are 
+suppressed. This group-relative formulation avoids scale-sensitivity issues in reward magnitudes and 
+enables stable convergence toward clinically coherent reasoning behaviors. 
+To translate the essential requirements of medical VQA into optimizable objectives, we designed three 
+complementary reward components targeting spatial localization accuracy, medical-concept 
+completeness, and output quality. (1) Bounding-box reward. This component evaluates the Intersection-
+over-Union (IoU) between predicted and reference bounding boxes. A soft linear mapping converts IoU 
+values to a reward in [−1, 1] via 𝑟= 1.5 × IoU −0.5, so that IoU = 0 yields −0.5, IoU ≈ 0.33 yields 0, 
+and IoU = 1 yields +1.0. When the reference contains no annotated lesion, extra predicted boxes are 
+penalized with a sublinear coefficient (proportional to √𝑁) to suppress hallucinated detections without 
+driving reward saturation. When the reference contains lesions but the model predicts none, a mild fixed 
+penalty of −0.2 is applied. (2) Alignment reward. To ensure comprehensive and accurate medical-concept 
+
+
+25 
+ 
+expression, we measure the coverage of key clinical concepts (e.g., symptoms, imaging findings, 
+diagnostic cues) provided in the dataset. A concept is considered covered if at least 70% of its constituent 
+tokens appear in the generated answer. Coverage score is mapped to a reward in [−1, 1], where missing 
+concepts are penalized proportionally. A repetition penalty (weight 0.3) discourages token and bigram 
+redundancy, preventing inflated coverage through trivial repetition. (3) Format reward. Since the training 
+data do not employ explicit uncertainty tags, the calibration component was replaced by a format and 
+quality reward that promotes well-structured, clinically informative responses. It penalizes near-empty 
+outputs (fewer than 5 words, −0.6) and overly short responses (fewer than 20 words, −0.2), rewards 
+answers in the appropriate length range of 20–300 words (+0.3), and penalizes excessively long or 
+repetitive outputs. Pathological repetition is detected through trigram loop analysis and consecutive 
+duplicate sentence detection. Additionally, a small bonus or penalty is applied based on whether the 
+model's bounding-box predictions are consistent with the reference (+0.1 if both include a box, −0.15 if 
+the model omits a box when the reference contains one). The three rewards are combined with weights of 
+0.3, 0.5, and 0.2, respectively. 
+The final reward is obtained by a weighted combination of the three components. Optimizing the model 
+with GRPO under this composite reward enables FOLTMed to improve spatial localization accuracy and 
+enhance completeness and correctness of clinical reasoning, ultimately reducing hallucination and 
+substantially strengthening model robustness in complex medical VQA scenarios. 
+Model validation 
+For the evaluation of FOLTMed and baseline LLMs in terms of clinical decision accuracy and assistant 
+utility, we conducted a comprehensive assessment combining accuracy-based evaluation, automated 
+semantic and factual consistency evaluation, and clinician judgment-based evaluation to comprehensively 
+assess model performance from objective and practical perspectives. The accuracy-based evaluation 
+focuses on the model’s ability to produce correct clinical answers under standardized benchmarks, while 
+
+
+26 
+ 
+the clinician-based evaluation assesses the usefulness, reliability, and reasoning quality of model 
+responses in clinical scenarios. 
+For accuracy-based evaluation, we benchmarked FOLTMed on the open-access subset of 
+OmniMedVQA33, currently the largest closed-ended medical multiple-choice VQA benchmark. 
+OmniMedVQA comprises 42 sub-datasets spanning diverse imaging modalities, disease categories, and 
+question types, providing a comprehensive testbed for evaluating multimodal medical reasoning.We 
+compared FOLTMed against representative SOTA LLMs, including open-source models (Gemma4-31B-
+IT34, LLaMA3-70B35, LLaVA-Med36, and MedGemma-27B6) and proprietary models (Claude-Sonnet-
+4.537 and ChatGPT-5.238). These models collectively represent leading approaches across domain-specific 
+medical LLMs (MedGemma-27B, LLaVA-Med), general-purpose open-source LLMs (Gemma4-31B-IT, 
+LLaMA3-70B), and commercial systems (Claude-Sonnet-4.5, ChatGPT-5.2) (LLM information as 
+detailed in Supplementary Table 4). Gemma4-31B-IT was used as the baseline model for direct 
+comparison. Open-source models were evaluated using their official pretrained weights, whereas 
+proprietary models were accessed via their respective APIs in accordance with official documentation. All 
+models were assessed using multiple-choice accuracy as the primary evaluation metric. 
+ 
+For the automated semantic and factual consistency evaluation, we used both standardized public medical 
+VQA benchmarks and newly curated clinical cases. In addition to public benchmark datasets, model-
+generated responses were evaluated on 120 multimodal clinical cases curated from Radiopaedia from 1 
+March 2026 to 1 May 2026. These cases were selected to ensure broad coverage of imaging modalities, 
+anatomical regions, and clinical conditions. To ensure methodological consistency with the construction 
+of ThoughtMed-1M, questions for these Radiopaedia cases were generated using the same VQA 
+generation protocol as described for the main dataset. This process yielded a total of 2,158 VQA pairs 
+from the 120 cases. For each VQA pair, the evaluated models generated responses based on the 
+corresponding medical image and question. The generated responses were then assessed against the 
+
+
+27 
+ 
+reference answers and associated clinical evidence using BERTScore, FActScore, and AlignScore, which 
+were used to quantify semantic similarity, factual precision, and contextual alignment, respectively. 
+For clinician judgment-based evaluation, the same 120 Radiopaedia clinical cases were used to assess 
+model performance in realistic clinical decision-making scenarios. A total of 10 experienced clinicians 
+from Guang’anmen Hospital participated in a questionnaire-based evaluation. For each case, clinicians 
+engaged in multi-round question-answering with each model to simulate real-world clinical interactions 
+and assess the quality of model responses in a clinically meaningful context. Clinicians rated the model 
+outputs across multiple dimensions, including clinical accuracy, relevance, reasoning quality, 
+completeness, and practical utility (definitions provided in Supplementary Table 8). Together, the 
+automated and clinician-based evaluations provided a comprehensive assessment of model performance 
+across both standardized benchmark settings and real-world clinical scenarios. 
+Statistical information  
+Macro- and micro-accuracy were used to evaluate model performance in closed-ended clinical decision-
+making tasks on OmniMedVQA dataset. For the automated evaluation of semantic and factual 
+consistency, we computed BERTScore, FActScore, and AlignScore to assess model-generated responses 
+against reference answers and the corresponding clinical evidence extracted from the curated Radiopaedia 
+cases. BERTScore was calculated using the bert-base-uncased model to quantify semantic similarity. 
+FActScore and AlignScore were used to assess factual precision and contextual alignment, respectively, 
+with ChatGPT-5.2 serving as the evaluator model. For clinician judgment-based evaluation, model 
+responses were rated on a 0–10 scale across multiple dimensions, including clinical accuracy, relevance, 
+reasoning quality, completeness, and practical utility. Mean scores and standard errors were reported for 
+each evaluation dimension. To estimate rating uncertainty and distributional variability, 95% confidence 
+intervals and interquartile ranges were calculated using bootstrap resampling. 
+
+
+28 
+ 
+Data Availability 
+During peer review, the generated QA pairs are available to editors and reviewers through a private 
+Figshare link. To comply with the terms of use and licensing policies of Radiopaedia and figure1.com, the 
+original medical images and cases\posts content are not redistributed. Upon acceptance, the complete 
+ThoughtMed-1M dataset, including the generated VQA pairs and corresponding source-case URLs, will 
+be released through Figshare platform. The repository is currently private and will be made publicly 
+accessible upon publication. Users are responsible for ensuring that their use of the original images 
+complies with the terms of use, licensing restrictions, and applicable institutional or regulatory 
+requirements of Radiopaedia and figure1.com. 
+All other datasets used in this study are publicly available and can be accessed from the following 
+sources: PMC-VQA, https://huggingface.co/datasets/RadGenome/PMC-VQA; SLAKE, 
+https://www.med-vqa.com/slake/; VQA-RAD, https://huggingface.co/datasets/flaviagiammarino/vqa-rad; 
+Medical Domain Corpus, https://www.kaggle.com/datasets/aunanya875/medical-domain-corpus; MIMIC-
+III Clinical Database, https://physionet.org/content/mimiciii/1.4/; and OmniMedVQA, 
+https://huggingface.co/datasets/foreverbeliever/OmniMedVQA. The open-access subset of 
+OmniMedVQA used in this study includes all 42 validation datasets evaluated in our experiments. 
+Code Availability 
+The source code and model weights for FOLTMed can be accessed at 
+https://github.com/2739794696/ThoughtMed. The code is currently maintained in a private repository but 
+will be made available to editors and reviewers upon request during peer review and publicly released 
+upon acceptance. 
+References 
+1. 
+Deng, J., Dong, W., Socher, R., Li, L.-J., Li, K. & Fei-Fei, L. Imagenet: A large-scale 
+hierarchical image database. in 2009 IEEE conference on computer vision and pattern 
+recognition 248–255 (Ieee, 2009). 
+2. 
+Li, J., Yang, Y., Bai, Y., Zhou, X., Li, Y., Sun, H., Liu, Y., Si, X., Ye, Y. & Wu, Y. 
+Fundamental capabilities of large language models and their applications in domain 
+
+
+29 
+ 
+scenarios: A survey. in Proceedings of the 62nd Annual Meeting of the Association for 
+Computational Linguistics (Volume 1: Long Papers) 11116–11141 (2024). 
+3. 
+Lin, H., Wang, X., Yan, R., Huang, B., Ye, H., Zhu, J., Wang, Z., Zou, J., Ma, J. & 
+Liang, Y. Generative evaluation of complex reasoning in large language models. arXiv 
+preprint arXiv:2504.02810 (2025). 
+4. 
+Deepak, G.D. & Bhat, S.K. A multi-stage deep learning approach for comprehensive lung 
+disease classification from x-ray images. Expert Systems with Applications 277, 127220 
+(2025). 
+5. 
+Lu, M.Y., Chen, B., Williamson, D.F., Chen, R.J., Liang, I., Ding, T., Jaume, G., 
+Odintsov, I., Le, L.P. & Gerber, G. A visual-language foundation model for 
+computational pathology. Nature medicine 30, 863–874 (2024). 
+6. 
+Sellergren, A., Kazemzadeh, S., Jaroensri, T., Kiraly, A., Traverse, M., Kohlberger, T., 
+Xu, S., Jamil, F., Hughes, C. & Lau, C. Medgemma technical report. arXiv preprint 
+arXiv:2507.05201 (2025). 
+7. 
+Dong, W., Ge, J., Dong, W. & Motani, M. LLaMA32-Med: Parameter-Efficient 
+Adaptation of Multimodal LLMs for Medical Visual Question Answering. in Medical 
+Imaging with Deep Learning (2026). 
+8. 
+Zhou, J., He, X., Sun, L., Xu, J., Chen, X., Chu, Y., Zhou, L., Liao, X., Zhang, B. & 
+Afvari, S. Pre-trained multimodal large language model enhances dermatological 
+diagnosis using SkinGPT-4. Nature Communications 15, 5649 (2024). 
+9. 
+Shmatko, A., Jung, A.W., Gaurav, K., Brunak, S., Mortensen, L.H., Birney, E., 
+Fitzgerald, T. & Gerstung, M. Learning the natural history of human disease with 
+generative transformers. Nature, 1–9 (2025). 
+10. 
+Andersson, H., Hansen, B. & Wassélius, J. Commercial AI Model Diagnostic Accuracy 
+for Intracranial Large-and Medium-Vessel Occlusion at Emergency CT Angiography. 
+Radiology: Artificial Intelligence 8, e250749 (2026). 
+11. 
+Bentegeac, R., Le Guellec, B., Maanaoui, M., Gerard, E., Amouyel, P., Cheungpasitporn, 
+W., Florens, N. & Hamroun, A. Randomized Controlled Trial of LLM-Assisted 
+Diagnostic Accuracy in Nephrology. Kidney International Reports, 106673 (2026). 
+12. 
+Zhang, X., Wu, C., Zhao, Z., Lin, W., Zhang, Y., Wang, Y. & Xie, W. Pmc-vqa: Visual 
+instruction tuning for medical visual question answering. arXiv preprint 
+arXiv:2305.10415 (2023). 
+13. 
+Liu, B., Zhan, L.-M., Xu, L., Ma, L., Yang, Y. & Wu, X.-M. Slake: A semantically-
+labeled knowledge-enhanced dataset for medical visual question answering. in 2021 
+IEEE 18th international symposium on biomedical imaging (ISBI) 1650–1654 (IEEE, 
+2021). 
+14. 
+Lau, J.J., Gayen, S., Ben Abacha, A. & Demner-Fushman, D. A dataset of clinically 
+generated visual questions and answers about radiology images. Scientific data 5, 1–10 
+(2018). 
+15. 
+Hu, X., Gu, L., Kobayashi, K., Liu, L., Zhang, M., Harada, T., Summers, R.M. & Zhu, Y. 
+Interpretable medical image visual question answering via multi-modal relationship 
+graph learning. Medical Image Analysis 97, 103279 (2024). 
+16. 
+Hu, X., Gu, L., An, Q., Zhang, M., Liu, L., Kobayashi, K., Harada, T., Summers, R. & 
+Zhu, Y. Medicaldiff-vqa: a large-scale medical dataset for difference visual question 
+answering on chest x-ray images. PhysioNet 12, 13 (2023). 
+
+
+30 
+ 
+17. 
+Seenivasan, L., Islam, M., Krishna, A.K. & Ren, H. Surgical-vqa: Visual question 
+answering in surgical scenes using transformer. in International Conference on Medical 
+Image Computing and Computer-Assisted Intervention 33–43 (Springer, 2022). 
+18. 
+Laurie, S., Steyaert, W., De Boer, E., Polavarapu, K., Schuermans, N., Sommer, A.K., 
+Demidov, G., Ellwanger, K., Paramonov, I. & Thomas, C. Genomic reanalysis of a pan-
+European rare-disease resource yields new diagnoses. Nature medicine 31, 478–489 
+(2025). 
+19. 
+Svinin, G., Loo, R.T.J., Soudy, M., Nasta, F., Le Bars, S. & Glaab, E. Computational 
+Systems Biology Methods for Cross‐Disease Comparison of Omics Data. Wiley 
+Interdisciplinary Reviews: Computational Molecular Science 15, e70042 (2025). 
+20. 
+Dai, D., Zhang, Y., Xu, L., Yang, Q., Shen, X., Xia, S. & Wang, G. Pa-llava: A large 
+language-vision assistant for human pathology image understanding. in 2024 IEEE 
+International Conference on Bioinformatics and Biomedicine (BIBM) 3138–3143 (IEEE, 
+2024). 
+21. 
+Huang, Z., Bianchi, F., Yuksekgonul, M., Montine, T.J. & Zou, J. A visual–language 
+foundation model for pathology image analysis using medical twitter. Nature medicine 
+29, 2307–2316 (2023). 
+22. 
+Anderson, T., Gillman, J. & Pantel, A. Radiopaedia. org case playlists to increase trainee 
+access to teaching file cases.  (Society of Nuclear Medicine, 2020). 
+23. 
+Gaillard, F. Radiopaedia: building an online radiology resource.  (European Congress of 
+Radiology-RANZCR ASM 2011, 2011). 
+24. 
+Liu, R., Gupta, S. & Patel, P. The application of the principles of responsible AI on social 
+media marketing for digital health. Information Systems Frontiers 25, 2275–2299 (2023). 
+25. 
+Singhal, A., Neveditsin, N., Tanveer, H. & Mago, V. Toward fairness, accountability, 
+transparency, and ethics in AI for social media and health care: scoping review. JMIR 
+Medical Informatics 12, e50048 (2024). 
+26. 
+Owen, D., Lynham, A.J., Smart, S.E., Pardiñas, A.F. & Camacho Collados, J. Ai for 
+analyzing mental health disorders among social media users: Quarter-century narrative 
+review of progress and challenges. Journal of Medical Internet Research 26, e59225 
+(2024). 
+27. 
+Wang, Q., Zou, H., Zhang, H., Huang, Y., Tian, J. & Cheng, W. A Survey on Medical 
+Competence Evaluation Benchmarks for Large Language Models. Health Care Science 
+(2026). 
+28. 
+Chen, J., Zhu, D., Shen, X., Li, X., Liu, Z., Zhang, P., Krishnamoorthi, R., Chandra, V., 
+Xiong, Y. & Elhoseiny, M. Minigpt-v2: large language model as a unified interface for 
+vision-language multi-task learning. arXiv preprint arXiv:2310.09478 (2023). 
+29. 
+Mahmud, S.A. Medical Domain Corpus, (Kaggle, 2025). 
+30. 
+Johnson, A., Pollard, T. & Mark, R. MIMIC-III Clinical Database, (PhysioNet, 2016). 
+31. 
+Radford, A., Narasimhan, K., Salimans, T. & Sutskever, I. Improving language 
+understanding by generative pre-training. (2018). 
+32. 
+Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y. & Wu, 
+Y. Deepseekmath: Pushing the limits of mathematical reasoning in open language 
+models. arXiv preprint arXiv:2402.03300 (2024). 
+33. 
+Hu, Y., Li, T., Lu, Q., Shao, W., He, J., Qiao, Y. & Luo, P. Omnimedvqa: A new large-
+scale comprehensive evaluation benchmark for medical lvlm. in Proceedings of the 
+
+
+31 
+ 
+IEEE/CVF Conference on Computer Vision and Pattern Recognition 22170–22183 
+(2024). 
+34. 
+Team, G., Mesnard, T., Hardin, C., Dadashi, R., Bhupatiraju, S., Pathak, S., Sifre, L., 
+Rivière, M., Kale, M.S. & Love, J. Gemma: Open models based on gemini research and 
+technology. arXiv preprint arXiv:2403.08295 (2024). 
+35. 
+Grattafiori, A., Dubey, A., Jauhri, A., Pandey, A., Kadian, A., Al-Dahle, A., Letman, A., 
+Mathur, A., Schelten, A. & Vaughan, A. The llama 3 herd of models. arXiv preprint 
+arXiv:2407.21783 (2024). 
+36. 
+Li, C., Wong, C., Zhang, S., Usuyama, N., Liu, H., Yang, J., Naumann, T., Poon, H. & 
+Gao, J. Llava-med: Training a large language-and-vision assistant for biomedicine in one 
+day. Advances in Neural Information Processing Systems 36, 28541–28564 (2023). 
+37. 
+Bai, Y., Kadavath, S., Kundu, S., Askell, A., Kernion, J., Jones, A., Chen, A., Goldie, A., 
+Mirhoseini, A. & McKinnon, C. Constitutional ai: Harmlessness from ai feedback. arXiv 
+preprint arXiv:2212.08073 (2022). 
+38. 
+Singh, A., Fry, A., Perelman, A., Tart, A., Ganesh, A., El-Kishky, A., McLaughlin, A., 
+Low, A., Ostrow, A. & Ananthram, A. Openai gpt-5 system card. arXiv preprint 
+arXiv:2601.03267 (2025). 
+ 
+Acknowledgements 
+This work was supported in part by the National Natural Science Foundation of China (No.62406211), 
+the Natural Science Foundation of Sichuan Province (No.2024NSFSC0654). We gratefully acknowledge 
+the Sichuan University Biomedical Engineering Experimental Teaching Center (Chengdu, China) and the 
+New Zealand eScience Infrastructure for their invaluable support and access to advanced research 
+facilities. We also gratefully acknowledge Radiopaedia and figure1.com for providing valuable clinical 
+and educational resources for the non-commercial academic research conducted in this study. We are 
+particularly grateful to Professor Colin Simpson (University of Auckland) for his thoughtful review of the 
+manuscript and for the insightful and constructive feedback that helped strengthen both the scientific 
+presentation and interpretation of this work.  
+Ethics declarations 
+This study used de-identified clinical data obtained from publicly available online sources and involved 
+clinicians as anonymous participants in the evaluation of the dataset and model-generated outputs. The 
+
+
+32 
+ 
+study protocol was approved by the Institutional Review Board of Guang’anmen Hospital, China 
+Academy of Chinese Medical Sciences (approval no. 2026-031-KY). 
+Competing interests 
+The authors declare no competing interests. 
+Extended data 
+ 
+a, Flowchart of data curation, VQA pair generation, refinement, and voting-based selection for the 
+ThoughtMed-1M training set using Radiopaedia cases and figure1.com discussion posts collected up to 
+26 December 2025. b, Flowchart of Radiopaedia case curation and VQA pair generation for the 
+ThoughtMed-1M test set, based on cases collected from 1 March to 1 May 2026. 
+Extended Data Fig. 1. Data curation and VQA pair generation flow for the ThoughtMed-1M training and 
+test sets. 
+
+
+33 
+ 
+ 
+Representative clinician-authored case from Radiopaedia illustrating the construction of ThoughtMed-
+1M. The original presentation, imaging report and expert discussion were used as clinical grounding to 
+generate VQA pairs that capture image findings, diagnostic reasoning and symptom–imaging 
+associations. Generated answers include bounding-box annotations that explicitly link textual reasoning to 
+relevant image regions, demonstrating the image-grounded and clinically structured nature of the 
+proposed VQA dataset. 
+Extended Data Fig. 2 Example of curated clinical cases and generated VQA pairs. 
+
+
+34 
+ 
+ 
+Stacked bar charts showing clinician-assigned rating distributions for VQA pairs generated by a, Claude-
+Sonnet-4.5, b, Qwen3-VL-Max and c, DeepSeek-V4 across four evaluation dimensions: overall quality, 
+answer quality, clinical utility, and relevance and accuracy, providing complementary evidence for the 
+selection of the final LLM used to construct ThoughtMed-1M. 
+Extended Data Fig. 3. Distribution of clinician ratings for VQA pairs generated by Claude-Sonnet-4.5, 
+Qwen3-VL-Max and DeepSeek-V4. 
+
+
+35 
+ 
+ 
+Heatmaps showing the performance of six comparison models across medical imaging modalities and 
+clinical question types using BERTScore, FActScore and AlignScore. a–f, Results for MedGemma-27B, 
+ChatGPT-5.2, Claude-Sonnet-4.5, Gemma4-31B-IT, LLaMA3-70B and LLaVA-Med, respectively. For 
+each model, the left heatmap summarizes performance across imaging modalities, and the right heatmap 
+summarizes performance across question types. 
+Extended Data Fig. 4. Modality- and task-specific semantic, factual and contextual consistency of 
+baseline LLMs. 
+
+
+36 
+ 
+ 
+The workflow illustrates the construction of FOLTMed from the Gemma4-31B-PT multimodal backbone, 
+followed by sequential DAPT, two-stage SFT and GRPO. DAPT was performed using biomedical and 
+clinical text corpora to establish domain-specific language and reasoning capabilities. SFT was conducted 
+first on public medical VQA datasets and then on ThoughtMed-1M to enhance multimodal question 
+answering, image–text alignment and clinically grounded reasoning. Finally, GRPO-based reinforcement 
+fine-tuning was applied with bounding-box, alignment and format rewards to improve spatial grounding, 
+concept coverage and response quality. 
+Extended Data Fig. 5. Workflow of FOLTMed model construction and multimodal medical training 
+strategy. 
+Supplementary Information 
+Supplementary Discussion, Tables 1-8, Fig. 1 and Note 1. 
+ 
+Reinforcement 
+fine-tune (RFT)
+Supervised 
+fine-tune (SFT)
+Domain-adaptive 
+pre-training (DAPT)
+Base Model Initialization
+Initial with Gemma4-31B-PT
+Visual encoder
+❄
+Large language model
+Multi-head self-attention
+Feed forward block
+Multi-head self-attention
+Feed forward block
+…
+🔥
+Two dataset DAPT
+Medical Domain Corpus
+MIMIC-III
+Clinical notes
+Medical corpus
+Two stage SFT
+Stage 1: public medical 
+VQA datasets
+PMC-VQA
+SLAKE
+VQA-RAD
+Basic medical VQA patterns, 
+terminology image-text correspondence
+Stage 1: ThoughtMed-1M
+Multi-modal images
+Expert-guided VQA pairs
+Q: What is abnormality
+A: Right lower lobe pneumonia
+Spatial bounding box
+pericolic oval-shaped fat atte-
+nuation lesion [289,171,389,241]
+Multi-step clinical reasoning
+Identify – localize – explain -- 
+diagnose -- management
+Three award-based RFT
+Input 
+query x
+𝑎1
+𝑎2
+𝑎𝐾
+…
+K candidates
+responses
+Reward
+module
+Bounding-box reward
+LoU-based spatial 
+localization accuracy
+Alignment reward
+Clinical concept cover 
+& repetition penalty
+Format reward
+Response length, 
+structure and quality
+𝐴𝑘= 𝑟𝑘−𝑟
+𝐿𝐺𝑅𝑃𝑂= −1
+𝑘
+𝐴𝑘𝑙𝑜𝑔𝜋𝜃(𝑎𝑘|𝑥)
+𝐾
+𝑘=1

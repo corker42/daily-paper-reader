@@ -1,0 +1,1320 @@
+Preprint
+Same Patient, Different Order: Action-Level Reliability of
+Clinical LLM Agents Under Repeated Runs
+Rohith Reddy Bellibatlu
+*,1, Manpreet Singh
+2, Zhoutian Han3, and Wenbin Zhang
+1
+1Florida International University, Miami, FL, USA
+2Boston University, Boston, MA, USA
+3Stevens Institute of Technology, Hoboken, NJ, USA
+*Corresponding author: rohithreddybc@gmail.com
+Abstract
+A clinical agent benchmark can report the same
+verdict on identical inputs while the agent files
+a materially different order on each run. Such
+agents order tests, request medications and
+place referrals, yet benchmarks typically score
+one run per task and rarely ask whether iden-
+tical inputs produce identical actions; MedA-
+gentBench, the benchmark we use, scores a sin-
+gle attempt and says so. To measure this gap
+we introduce same-input rerun, which replays a
+task with every input held fixed and compares
+the orders rather than the score, with six re-
+liability metrics, and apply it to 1000 MedA-
+gentBench runs across 50 tasks from its five
+write-capable families, two open-weight mod-
+els below ten billion parameters quantised to
+four bits, and two temperatures. The study es-
+tablishes that action-level divergence exists and
+can pass unrecorded by the score, not that any
+rate generalises. Under the 8B model at tem-
+perature 0.7, all 43 ordering groups emit a dif-
+ferent set of orders across five identical runs, 26
+emit the order on some runs and not others, and
+28 record a different coded value, dose or ana-
+lyte. In 22 of those 43 the benchmark reports
+the same failing verdict for materially different
+behaviour, as it does for all 10 divergent groups
+of the 4B model at 0.7. Orders also reach dif-
+ferent endpoints across runs, one of which the
+record server rejects while the agent is told it
+succeeded.
+These findings motivate repeated-
+run evaluation, action-level stability reporting
+and execution-faithful environment feedback in
+clinical-agent benchmarks.
+Keywords: clinical agents, evaluation reliabil-
+ity, benchmark design, run-to-run variability,
+electronic health records, reproducibility
+Data
+and
+Code
+Availability.
+The
+harness,
+the analysis code, the environment reproduction
+script and all 1250 run records,
+the grid and
+the eight-bit arm alike, are at https://github.com/
+rohithreddybc/clinical-agent-action-reliability.
+An
+anonymised read-only mirror of the same com-
+mit is served at https://anonymous.4open.science/r/
+clinical-agent-action-reliability; it carries the identi-
+cal file tree, so either address reaches the artefact
+if the other becomes unavailable.
+The records in-
+clude full transcripts, so every number here is recom-
+putable by the supplied scripts. The patient records
+are MedAgentBench’s own, described by its authors
+as real cases de-identified at source, timestamps jit-
+tered and identifiers regenerated (Jiang et al., 2025).
+We republish neither the record store nor any patient
+data beyond what the environment returned into a
+transcript, which a run record must keep if the agent’s
+behaviour is to be audited at all.
+Institutional Review Board (IRB).
+We col-
+lected no data.
+The records are those distributed
+with MedAgentBench, which its authors report as
+de-identified at source, timestamps jittered and iden-
+tifiers regenerated (Jiang et al., 2025). We received
+them in that form, attempted no re-identification and
+computed locally, so the work is secondary analysis of
+an existing de-identified dataset rather than human
+subjects research, and no IRB review was sought.
+Use of AI Tools.
+The research question, the study
+design, the six metric definitions of Section 4 and ev-
+ery claim made here are the authors’, who take full
+responsibility for the content. Working to those spec-
+ifications, an AI assistant implemented much of the
+harness and the analysis code.
+That work is veri-
+fied rather than trusted: every number is regener-
+© Bellibatlu, Singh, Han and Zhang.
+arXiv:2609.13582v1  [cs.CL]  11 Sep 2026
+
+
+Action-Level Reliability of Clinical LLM Agents
+one task, one patient, inputs held fixed
+run 3
+run 2
+run 1
+run 4
+run 5
+•
+•
+◦
+•
+–
+• order to the typed endpoint
+◦same order, other endpoint
+– no order at all
+compare the five runs against each other
+orders: same payload, same endpoint, emitted at all?
+trajectory: at which turn do the runs first differ?
+verdict: does the benchmark’s pass/fail change?
+Figure 1. The rerun protocol, with an illustrative out-
+come. Inputs are held fixed, so any difference between
+runs belongs to the agent, and the three comparison lay-
+ers come apart in practice.
+ated from the run records by the released scripts,
+an automated gate re-derives each table and fails if
+the manuscript disagrees, and the authors re-derived
+the metric definitions against the FHIR payloads and
+confirmed each discordance count and p by hand.
+1. Introduction
+Clinical language-model agents no longer only answer
+questions.
+They retrieve patient data, order tests,
+draft prescriptions, and issue write requests against
+the record system (Jiang et al., 2025; Ferber et al.,
+2026; Liu et al., 2026), and benchmarks have followed
+them into interactive environments (Schmidgall et al.,
+2024).
+The reporting convention has not followed:
+these benchmarks report accuracy, and mostly from a
+single run per task. For question answering the cost is
+precision, and it is documented, since repeated evalu-
+ation of the same model on the same items produces
+different scores and rankings built from single runs
+invert under replication (Atil et al., 2024; Madaan
+et al., 2024; Alvarado Gonzalez et al., 2025).
+For an agent that writes orders, something else goes
+missing.
+Accuracy records whether the agent was
+right, not whether it was consistent, and only one
+of those is reported. The same objection has been
+raised for static clinical decision support, cleared on
+one aggregate figure that says nothing about relia-
+bility under shift (Bellibatlu et al., 2026b). Agents
+inherit that problem and add one of their own, be-
+cause what they produce is an action.
+This paper measures consistency. We take MedA-
+gentBench (Jiang et al., 2025), a clinical agent bench-
+mark built on a FHIR-compliant record environment,
+and replay each task five times with every input held
+fixed. Instead of asking whether the verdict changed,
+we compare what the agent did: which resource it
+posted, where, and whether it posted at all. What
+we propose follows directly: that clinical agent bench-
+marks rerun each task and report how often the ac-
+tion changes, that they report an action-level stabil-
+ity measure beside accuracy, and that their environ-
+ments answer as the record server would rather than
+confirming whatever parses.
+Doing this is harder than rerunning a benchmark
+more times, and three difficulties shape everything
+that follows. (i) Deciding when two orders are
+the same order. Runs that differ textually can be
+clinically identical, since timestamps, a workflow sta-
+tus field and the order of query parameters all vary
+without the order varying.
+Comparing raw tran-
+scripts inflates divergence and comparing only the
+verdict erases it, so what is needed is a rule for
+when two requests are the same order, and every
+choice inside that rule moves the number. (ii) Judg-
+ing an action the environment never carries
+out.
+MedAgentBench parses the agent’s write re-
+quest, replies that it succeeded, and does not write,
+so nothing inside a run separates an order the record
+server would have created from one it would have
+refused; settling that means leaving the benchmark
+loop and putting the requests to the server itself.
+(iii) Reporting a rate that still means some-
+thing outside the study that produced it. A
+rate measured over five reruns is not the rate over
+three, groups that never order have to stay out of
+the denominator, and the groups that remain are not
+independent. Sections 4, 6 and 7 take these in turn.
+Three findings follow. Action-level divergence ap-
+pears in every arm we measured, and order-set diver-
+gence and omission both rise with decoding tempera-
+ture in the two models we tested. The mechanism is
+often mechanical: an order is routed to an endpoint
+that would reject it, or is lost after a malformed pay-
+load and a broken retry. Not always, though. In the
+sampling arm of the larger model 28 of 43 ordering
+groups record a different coded value, dose or analyte
+across identical runs, which no routing or parsing ac-
+count explains. And among the tasks that order, the
+verdict changes less often than the orders do in every
+arm.
+Taken together these amount to a way of designing
+and reporting clinical agent benchmarks, not only the
+code that implements it here. A protocol. Same-
+input rerun makes the unit of evaluation a task group
+of identical reruns rather than one attempt, with the
+2
+
+
+Action-Level Reliability of Clinical LLM Agents
+ordering groups as the denominator any action-level
+rate is quoted over (Section 4). A measurement
+layer beneath the verdict.
+Six reliability met-
+rics, four reading the order itself and two the run
+that produced it, each computable from transcripts
+a benchmark already keeps, and one reported in a
+form that does not depend on how many reruns were
+bought.
+Evidence to match.
+Interval estimates
+and exact paired tests on matched groups, a cluster
+bootstrap over families (Section 7), and one metric
+checked against the record server rather than against
+our own transcripts (Section 6).
+2. Background
+Variance in language model evaluation.
+Atil
+et al. (2024) report accuracy variation across runs of
+models configured to be deterministic, which Yuan
+et al. (2025) trace partly to floating-point non-
+associativity under changing batch sizes.
+Madaan
+et al. (2024) say when a difference is meaningful, Al-
+varado Gonzalez et al. (2025) find single-run leader-
+boards invert pairwise rankings often enough to jus-
+tify repetition, and Potamitis et al. (2025) charac-
+terise the variance structure of reasoning systems,
+while Mustahsan et al. (2025) apply intraclass cor-
+relation to agentic evaluation on general-purpose
+benchmarks.
+Repeatability in medicine.
+Clinical work on this
+question is more developed than the agent litera-
+ture.
+Repeatability has been measured on board-
+style examinations (Krishna et al., 2024), on unstruc-
+tured clinical notes (Shah, 2024), and on licensing
+and rare-disease items, where Shyr et al. (2025) sep-
+arate repeatability from reproducibility and G¨urses
+et al. (2026) report that single-trial accuracy hides
+both volatility and stable systematic error. Closest
+to a decision with consequences, Franc et al. (2024)
+measure both for a commercial model assigning emer-
+gency triage levels.
+What is missing.
+Every one of those medical stud-
+ies scores a single-turn output: an examination an-
+swer, a triage level, a summary of a note. The gap
+is not merely that none reruns an agent benchmark;
+it is that agreement rates and intraclass correlations
+describe a scalar or a string, not an order that went
+to the wrong endpoint or one that was never issued
+at all. Several lines of work come closer. passk, the
+probability that all k trials of a task succeed (Yao
+et al., 2024), scores end states; Gupta (2026) pairs it
+with fault injection, and Liu et al. (2026) applies that
+verdict-level idea to a clinical agent. Yagubyan (2026)
+does reach the calls, asking whether an agent selects
+the same tools with the same arguments across iden-
+tical invocations, but outside medicine. Closest of all,
+Mokssit et al. (2026) rerun a clinical FHIR sandbox
+three times per task and execute its writes against
+a resettable server, but their run-to-run variance is
+over task success: the payloads and field values are
+never compared. What none compares is the order it-
+self across identical runs: its payload, its destination,
+and the verdict returned for it. Section 4 defines four
+action-level quantities that do, and Section 7 mea-
+sures them.
+The same shift, from grading what an agent says
+to grading what it does, has been argued for fairness
+(Morla et al., 2026); reliability has not had the equiv-
+alent treatment. Automated judges also move under
+rephrased prompts (Bellibatlu et al., 2026a), though
+our grader is a fixed reference implementation rather
+than a model, and adjacent work finds clinical agents
+acting without noticing patient-identity errors (Klang
+et al., 2026) and benchmark scores diverging from de-
+ployment behaviour (Agrawal et al., 2025; Mehandru
+et al., 2024).
+3. Environment
+MedAgentBench.
+MedAgentBench (Jiang et al.,
+2025) provides 300 clinically derived tasks in ten fam-
+ilies, a FHIR-compliant record server holding records
+its authors describe as covering about one hundred
+patients, and a text protocol in which the agent is-
+sues GET and POST requests and ends with FINISH.
+Five families can involve a write: one records an ob-
+servation, one places a service request, and three are
+conditional on a laboratory value or its age, one of
+those three pairing a medication with a service re-
+quest. In the conditional families ordering nothing is
+sometimes correct, so a group there can pass without
+writing, though inputs are fixed within a group and
+the right answer is the same across its five runs. We
+use all five, since only there does an action exist to
+diverge.
+A second version (Chen et al., 2026) revises the
+agent scaffold and leaves the environment alone: a
+new system prompt, few-shot examples, memory, and
+tools that let the agent act without constructing
+HTTP requests by hand, reaching 91% success with
+GPT-4.1. Our measurements use the original scaf-
+fold, and Section 9 states what that does and does
+3
+
+
+Action-Level Reliability of Clinical LLM Agents
+not imply. The record server ships as a container im-
+age; lacking a container runtime we pulled the layers
+from the registry and ran the extracted HAPI FHIR
+server locally, releasing the script and the store’s re-
+source counts (Appendix B).
+How
+the
+benchmark
+handles
+writes.
+The
+benchmark never forwards an agent’s write to its
+record server, and says so: its authors “decide to only
+send GET requests to the environment” because it
+“takes around 90 seconds to start”, and on a POST
+they “conduct a simple sanity check to make sure the
+payload data is JSON-loadable, and indicate success
+of execution to the agent system” (Jiang et al., 2025).
+The grader then scores from the transcript. No state
+reset is needed between runs, which we confirmed:
+agents emitted 189 ServiceRequest payloads across
+the 1000 runs, and the store still held zero afterwards.
+Two departures from the reference implementation
+remain: agent turns keep their message roles, and
+GET responses are truncated at 6000 characters. Nei-
+ther touches the task set, the prompt or the grader
+(Appendix B).
+4. Protocol and metrics
+The request is what stays comparable across runs,
+and comparing requests is the whole of the protocol,
+which we call same-input rerun. Figure 1 shows its
+shape: for a fixed task, model and decoding config-
+uration the benchmark’s agent loop runs five times
+with every input identical, and the five runs are com-
+pared at three layers. The task is its own control,
+so a difference cannot be attributed to the case, the
+prompt or the environment, none of which changed.
+Six quantities are reported.
+A task that never orders cannot diverge in its or-
+ders, so the four action-level quantities are computed
+only over groups that emit at least one order in at
+least one run, the ordering groups. The runs deter-
+mine that set, so it differs by arm: Llama orders in 21
+groups at 0.05 and 43 under sampling. Every action-
+level rate carries its own arm’s denominator, and the
+paired tests below handle the problem differently.
+Order-set divergence.
+For each task group we
+count the distinct canonical order sets across its five
+runs, the canonical form being the destination end-
+point together with the whole payload, compared as
+a set. Nothing is discarded, the clock and workflow
+fields included, and no group in any arm diverges
+on those alone (Appendix B). A run that emitted
+nothing contributes the empty set, so an omitted or-
+der counts as a difference here, where endpoint and
+clinical-content divergence exclude it. A group is di-
+vergent if that count exceeds one. Section 6 shows
+why the endpoint is part of the action rather than a
+detail of how it was written.
+Omission split.
+A group is split if at least one run
+emitted an order and at least one emitted none; we
+report the proportion of ordering groups that are.
+This is the sharpest of the six: the failure it names is
+silent, nothing in the transcript announcing a missing
+order. In the conditional families a split can equally
+be an order placed where none was called for; we do
+not separate the two.
+Endpoint divergence.
+For each run that emitted
+we take the set of endpoints its orders reached, the
+endpoint being the final path segment of the request
+URL, and a group diverges if two such runs disagree.
+Runs that emitted nothing are excluded rather than
+entered as empty sets, so dropping an order cannot
+by itself make a group divergent and this measure is
+not determined by the omission split, though a group
+may do both and omission censors it, since a group
+left with one emitting run can never be counted diver-
+gent (Appendix B). It is reported separately because
+a destination error and a payload error need different
+fixes.
+Trajectory first-divergence.
+The index of the
+first agent turn at which runs stop agreeing, re-
+ported as a distribution over diverging groups and,
+in Table 1, as the proportion of groups that di-
+verge at all.
+Query parameters are sorted first,
+since ?patient=X&code=Y and ?code=Y&patient=X
+are the same request; that correction changes at most
+one group per arm (Appendix B).
+Clinical-content
+divergence.
+Two
+runs
+may
+emit the same number of orders to the same end-
+point and still order different things. For every pair of
+runs that both emitted we compare the fields carrying
+clinical content: the resource code and the resource’s
+own text element, the recorded value, the medication
+code and its text, and the dose value, unit, rate and
+route. A group diverges if any of those differs, and
+we report the proportion of ordering groups that do.
+Timestamps and workflow status are excluded, since
+they record when a payload was written and in what
+state rather than what was ordered, as are runs that
+emitted nothing, so the omission split cannot account
+for this measure. The human-readable label a cod-
+4
+
+
+Action-Level Reliability of Clinical LLM Agents
+Table 1. Divergence across five identical reruns of each task. Action quantities are computed over the task groups
+that emitted at least one order, since a task that never orders cannot diverge in its orders; trajectory and verdict
+quantities are over all groups, apart from the last row, which repeats verdict instability over the ordering groups; the
+mean pass rate is over the arm’s 250 runs. The columns are not a ranking. Each arm carries its own denominator,
+and we ran no cross-model test.
+Qwen 0.05
+Qwen 0.7
+Llama 0.05
+Llama 0.7
+Task groups
+50
+50
+50
+50
+Groups emitting any order
+20
+20
+21
+43
+Mean pass rate
+0.31
+0.30
+0.22
+0.18
+Action level
+Order-set divergence
+3/20 [0.05, 0.36]
+10/20 [0.30, 0.70]
+11/21 [0.32, 0.72]
+43/43 [0.92, 1.00]
+as pairwise disagreement
+0.08
+0.29
+0.33
+0.78
+Omission split
+0/20 [0.00, 0.16]
+4/20 [0.08, 0.42]
+1/21 [0.01, 0.23]
+26/43 [0.46, 0.74]
+Endpoint divergence
+3/20 [0.05, 0.36]
+8/20 [0.22, 0.61]
+8/21 [0.21, 0.59]
+12/43 [0.17, 0.43]
+Clinical-content divergence
+0/20 [0.00, 0.16]
+0/20 [0.00, 0.16]
+0/21 [0.00, 0.15]
+28/43 [0.50, 0.78]
+Trajectory and verdict
+Trajectory divergence
+28/50 [0.42, 0.69]
+49/50 [0.90, 1.00]
+35/50 [0.56, 0.81]
+50/50 [0.93, 1.00]
+Verdict instability
+5/50 [0.04, 0.21]
+12/50 [0.14, 0.37]
+11/50 [0.13, 0.35]
+21/50 [0.29, 0.56]
+Verdict instability, ordering
+0/20 [0.00, 0.16]
+0/20 [0.00, 0.16]
+8/21 [0.21, 0.59]
+21/43 [0.35, 0.63]
+ing carries alongside its code is also excluded, since it
+names the code rather than changing it. That exclu-
+sion is load-bearing, and Appendix B gives its cost:
+counting the label would put this measure above zero
+in three arms rather than one.
+The comparison is
+otherwise syntactic, so two clinically equivalent cod-
+ings would count as divergent, which can only inflate
+this rate.
+Verdict instability.
+A group is unstable if the
+benchmark’s own pass/fail judgement is not identi-
+cal across its five runs; we report the proportion over
+all groups and, separately, over ordering groups, so
+it can be compared with the action-level rates on a
+matched denominator.
+This is what a leaderboard
+reports, included so it can be measured against the
+other five rather than assumed to stand for them. It
+is also, with trajectory, a quantity a group can move
+without ordering anything, by changing the answer it
+reports.
+A rate that survives a change of budget.
+Each
+of the four action-level quantities asks whether a
+group diverged at least once in five runs, and that
+question is monotone in the rerun budget: run the
+same agent ten times and the rate can only rise, so
+a figure measured at five runs cannot be set beside
+one measured at three. We therefore report order-set
+divergence a second way, as pairwise disagreement:
+the share of run pairs within a group whose order
+sets differ, averaged over the ordering groups.
+For
+exchangeable runs it estimates the same quantity at
+any budget of two or more, though which groups en-
+ter the average still depends on that budget. The at-
+least-once form says whether a task ever went wrong;
+the pairwise form is the one another study can be
+read against.
+Proportions carry Wilson 95% intervals, which re-
+main defined at these denominators and at zero or
+one. Between the two temperatures of a model we
+use an exact paired McNemar test and state the dis-
+cordant counts, since at these sizes a non-significant
+result is not evidence of similarity. The tests run over
+all 50 task groups rather than the ordering groups,
+because a group that orders in one arm and not
+the other is informative about the temperature ef-
+fect and dropping it would condition on an outcome.
+A group that never orders in either arm is concor-
+dant by construction on order-set divergence, though
+not on trajectory or verdict, where it can still move
+(Section 7). Appendix A gives each test’s discordant
+counts and denominator. The corrected family is one
+quantity per comparison layer per model, six in all;
+the other three action rows decompose order-set di-
+vergence rather than standing beside it, so they are
+read descriptively and carry no corrected p.
+Task
+groups cluster into families rather than being inde-
+pendent, so we bootstrap over the families that con-
+tain ordering groups: five for Llama under sampling,
+three at its near-greedy setting, and two in each Qwen
+arm. With two or three clusters the interval is little
+more than the range of the family rates, and should
+be read as a robustness check rather than an estimate.
+5
+
+
+Action-Level Reliability of Clinical LLM Agents
+5. Experimental setup
+The grid is small and fully crossed:
+two models,
+two decoding temperatures, and the same 50 tasks
+throughout, so that a difference between the two tem-
+peratures of a model cannot come from the task sam-
+ple. Differences between models are a separate mat-
+ter, and Table 1 says why we do not read them.
+Models.
+Two open-weight instruction-tuned mod-
+els, Qwen3-4B and Llama-3.1-8B, served locally and
+quantised to four bits (Appendix B). The panel is re-
+stricted to models an institution could run on its own
+hardware, the deployment mode available where pa-
+tient data cannot be sent to a hosted API. It is not a
+frontier panel (Section 9).
+Decoding.
+MedAgentBench evaluates at tempera-
+ture 0 and scores a single attempt per task, stating
+that it adopts pass@1 because a single incorrect ac-
+tion can have significant consequences (Jiang et al.,
+2025). We run each model at 0.05, a near-greedy set-
+ting, and at 0.7 with nucleus sampling. Neither is the
+benchmark’s own value, and the choice is deliberate:
+the noise floor below shows greedy decoding on this
+stack to be exactly reproducible, so a study run at 0
+would measure nothing here.
+That reproducibility belongs to the stack, and it
+does not survive a shared server. We serve one re-
+quest at a time on one local GPU; a deployment
+serving many clinicians batches them, and batch com-
+position changes which floating-point reductions run
+(Atil et al., 2024; Yuan et al., 2025). Reissuing the
+noise floor with other traffic in flight breaks deter-
+minism at temperature zero in both models: four of
+twelve greedy cells return more than one completion
+of 20, where every matched serial cell returned one
+(Appendix B). What moves is completion text rather
+than an order, but the benchmark’s own setting guar-
+antees no run-to-run identity where a clinical agent
+would run, and a fixed seed does not close the gap,
+since seeding makes five runs one draw repeated.
+Tasks.
+Each family holds 30 tasks; we take the first
+ten of each in the benchmark’s own identifier order,
+a deterministic prefix rather than a random sample,
+and run each five times, giving 250 runs per arm and
+1000 in total.
+The round limit of eight is the ref-
+erence implementation’s, and the identifiers are re-
+leased with the harness.
+Controls.
+Nothing is trained here, so there is no
+baseline and no data split; the controls are on the in-
+strument instead, the record-server check of Section 6
+and a noise floor. Before attributing anything to the
+agent we measured what the serving stack contributes
+when nothing should vary: twenty identical calls per
+cell over eighteen cells (Appendix B). Greedy decod-
+ing here is exactly reproducible, seeded or not, so
+downstream variation belongs to the decoding con-
+figuration and not to infrastructure. This replicates
+Atil et al. (2024), who report the same determinism
+running a model on their own hardware without op-
+timisations.
+6. Is endpoint divergence cosmetic?
+Endpoint divergence counts as an action difference
+only if the two destinations behave differently, and it
+is reasonable to ask whether posting to /fhir/ with
+resourceType in the body is equivalent to posting to
+/fhir/ServiceRequest, since some servers resolve
+the type from the payload. The question is decidable
+against the same HAPI FHIR server the benchmark
+ships, so we decided it. An identical ServiceRequest
+payload sent to the typed endpoint returned 201
+Created and the resource was created, which we then
+deleted; sent to the collection root it returned 400
+Bad Request with HAPI-0450:
+Failed to parse
+request body as JSON resource.
+The two are therefore not interchangeable:
+one
+places the order and the other does not. The bench-
+mark’s paper tells its human readers that writes are
+not executed, but the agent reads only the runtime
+reply, which reports success for any payload the san-
+ity check parses, whatever the destination. The gap
+is not the absent write, which is disclosed and delib-
+erate, but that the surface the agent acts on carries
+no trace of it.
+7. Results
+Order-set divergence and the omission split rise with
+temperature in both models, and clinical-content di-
+vergence appears in one arm only. Endpoint diver-
+gence is the exception: for Llama it falls as a rate
+because the base grows faster than the count. Fig-
+ure 2 plots three of those rows as the move from near-
+greedy to sampling.
+A group whose orders differ has always taken a dif-
+ferent path to them, so trajectory divergence is the
+weaker condition: over the ordering groups it exceeds
+order-set divergence in both Qwen arms and coincides
+6
+
+
+Action-Level Reliability of Clinical LLM Agents
+0
+.5
+1
+proportion of ordering groups (Wilson 95% CI)
+Order-set divergence
+Omission split
+Endpoint divergence
+Order-set divergence
+Omission split
+Endpoint divergence
+Qwen3-4B
+Llama-3.1-8B
+T=0.05 (near-greedy)
+T=0.7
+Figure 2. Three of the four action-level rows of Table 1;
+clinical-content divergence is zero in every arm but one.
+Drawn as the movement from T=0.05 (open mark) to
+T=0.7 (solid), with Wilson intervals. Each arm’s denom-
+inator is its own ordering groups: 20 and 20 for Qwen, 21
+and 43 for Llama. Only Llama’s grows under sampling,
+which is why its endpoint arrow points left as the count
+rises from 8 to 12.
+with it in both Llama arms (Appendix B). Diver-
+gence is immediate rather than cumulative, the me-
+dian first-divergence index being zero in three arms
+of four and never exceeding four (Appendix B).
+What
+the
+tests
+do
+and
+do
+not
+establish.
+Paired exact McNemar tests over all 50 task groups
+find the rise with temperature significant for both
+models on trajectory, order-set and verdict diver-
+gence, with 96 of the 100 discordant pairs running
+toward more divergence and Holm leaving all six sig-
+nificant at 0.047. Two of the six need care. Llama’s
+ordering base grows from 21 groups to 43, so most of
+the 33 groups divergent only at 0.7 began ordering at
+all rather than became inconsistent; restricted to the
+20 that order at both temperatures the effect holds,
+10 discordant to none the other way (p = 0.002).
+And all seven discordant groups in Qwen’s verdict
+test never order in either arm, so what moves there
+is the answer the agent reports, not an order. The
+tests also treat task groups as independent, which
+Section 4 says they are not. Taking each family as
+one signed observation instead, no family in any test
+moves back, but only one to four move at all, and
+an exact sign test on that many cannot fall below
+p = 0.125. The direction is consistent at both units;
+the significance is not, and we rest nothing on it. The
+pairwise row of Table 1 carries the same rise in the
+form that does not grow with the rerun budget, 0.08
+to 0.29 for Qwen and 0.33 to 0.78 for Llama.
+A number belongs to a model and a configu-
+ration.
+Llama-3.1-8B shows more order-set diver-
+gence and more omission than Qwen3-4B at both
+temperatures, which we do not read as a model dif-
+ference: the rates overlap once clustered, and we ran
+no cross-model test (Appendix B).
+Two mechanisms are mechanical, and a third
+is not.
+Orders are misrouted, reaching the typed
+endpoint on some runs and the collection root on oth-
+ers, which Section 6 shows is the difference between a
+created order and a rejected one. Orders are also lost:
+in three service-request groups under Qwen sampling
+the referral is placed on four runs of five, while on the
+fifth the payload fails to parse and the retry repeats
+the same malformed construction, a protocol failure
+rather than a change of mind.
+Nor is the loss the
+agent running out of turns: of 72 non-emitting runs
+in Llama’s 26 split groups, 61 ended with the agent
+declaring itself finished, 7 on a malformed action and
+4 at the round limit.
+The third is not. In the Llama sampling arm 28 of
+the 43 ordering groups post a different value across
+identical runs: 23 differ on the resource code, 18 on
+a recorded value, 5 on the medication and 3 on the
+dose, categories that overlap. The count covers only
+runs that emitted, so omission cannot explain it, and
+only fields carrying clinical content. No other arm of
+the grid shows any, and Appendix B gives two worked
+instances.
+This measure is the one our design can least well
+attribute, appearing in one arm only, where four-bit
+quantisation and sampling compound. The eight-bit
+Qwen rerun complicates a simple quantisation ac-
+count, since content divergence appears there at eight
+bits and not at four, though in Qwen rather than the
+Llama arm that shows it here. What we stand behind
+is that divergence reaches the content of an order, not
+only its envelope.
+Orders move without the verdict moving.
+Re-
+stricting both to the ordering groups, what matters
+is the gap: groups whose orders differ across identical
+runs while the verdict holds. In the Llama sampling
+arm 22 of the 43 divergent groups are of that kind,
+spanning all five write families; at the near-greedy
+setting it is 3 of 11, and for Qwen under sampling
+10 of 10. That verdict is almost always a failure: of
+the 38 such groups across the four arms, 36 fail on
+all five runs, and the 2 that pass differ only in the
+label attached to an identical procedure code. What
+the score conceals is therefore not success but that
+7
+
+
+Action-Level Reliability of Clinical LLM Agents
+the agent failed differently each time; none of the 251
+passing runs across the grid posted to a destination
+the server would refuse.
+The converse, that no verdict moves while the or-
+ders hold, is a property of the grader: in three of the
+five families it decides from the emitted request alone,
+so a verdict cannot move there unless the order set
+does, and 25 of the 29 ordering-group verdict flips fall
+there. We draw no conclusion in that direction.
+A natural objection is that this only measures
+agents too weak to do the task. Llama at the near-
+greedy setting diverges in all 10 ordering groups it
+ever passes against 1 of the 11 it never passes, but
+eight of those ten pass only on some runs, and in a
+family whose grader reads only the request a change
+of verdict and a change of order are one event rather
+than two pieces of evidence. Two groups pass on all
+five runs and diverge anyway, but in the label rather
+than the code, so what reaches a task the agent com-
+pletes every time is instability of form. No group in
+this study both passes every run and changes what
+it ordered.
+The objection therefore stands to this
+extent: we show that agents fail inconsistently, and
+showing that they succeed inconsistently would need
+a stronger panel.
+Order-set divergence is not independent of the rows
+below it in Table 1: a group counts as divergent if it
+omitted the order, sent it elsewhere or changed the
+payload, so the 43 of 43 is their union rather than a
+third finding, and Appendix B gives the decomposi-
+tion.
+The effect is not spread evenly, and thins un-
+der clustering.
+Table 3 breaks the ordering groups
+down by family. Qwen’s entire action-level tempera-
+ture effect sits in one family, its service requests going
+from 3 of 10 divergent to 10 of 10, while its obser-
+vation tasks never diverge and its other three never
+order at all; Llama under sampling diverges in ev-
+ery family that orders, so concentration belongs to
+the quieter arms rather than to the measure.
+Re-
+sampling families rather than groups then widens the
+intervals sharply: two arms collapse to [0.00, 1.00],
+Qwen at 0.7 and Llama at 0.05, Qwen at 0.05 reaches
+[0.00, 0.30], and only the Llama sampling arm holds,
+at [1.00, 1.00], every one of its five ordering families
+diverging. The study establishes that action diver-
+gence occurs and can pass unrecorded by the score,
+not that any rate generalises: a benchmark can re-
+port a stable number while the behaviour under it
+moves.
+8. What this suggests for benchmark
+design
+Three changes would make clinical agent benchmarks
+report what readers take them to report. None is a
+research programme; each can be adopted on its own.
+R1. Rerun, and say so.
+MedAgentBench states
+its protocol: a single attempt per task, reasoning that
+one wrong action can matter clinically (Jiang et al.,
+2025).
+That argues for reruns, since one attempt
+cannot show whether the wrong action recurs, and
+guidance for single-turn evaluation already suggests
+at least two (Alvarado Gonzalez et al., 2025).
+R2. Report an action-level stability measure.
+No clinical agent benchmark we read in detail reports
+one: Jiang et al. (2025) scores a single attempt, while
+Liu et al. (2026) and Mokssit et al. (2026) rerun but
+score the outcome rather than the order. Order-set
+divergence and the omission split can be computed
+from transcripts a benchmark already stores, and we
+would report the first in its pairwise form, so that
+studies bought at different rerun budgets stay com-
+parable.
+R3.
+Let the environment answer as the real
+system would.
+A request the FHIR server would
+reject is reported to the agent as executed, removing
+the signal it would need to recover. The stated reason
+for not executing writes is the cost of re-initialising
+the environment, which covers an accepted write; a
+refused one leaves nothing to reset, and the refusal
+would make misrouting visible to the agent and the
+score. One clinical sandbox already executes writes
+against a resettable server (Mokssit et al., 2026).
+9. Limitations
+Emitted, not executed.
+We do not claim clinical
+agents are unsafe to deploy: the benchmark forwards
+no writes, so every statement here concerns the order
+issued, not the order received.
+Scaffold, model panel and scope.
+The bench-
+mark’s second version removes hand-constructed
+HTTP requests as error-prone (Chen et al., 2026),
+the mechanism behind many failures here, so our
+rates describe the original scaffold, though a higher
+success rate need not imply action stability.
+The
+panel is two open-weight models below ten billion pa-
+rameters, quantised to four bits, on one benchmark
+and one serving stack, and a prefix of each family
+8
+
+
+Action-Level Reliability of Clinical LLM Agents
+rather than a random sample, which under-represents
+harder tasks if difficulty rises with identifier order.
+An eight-bit rerun of the Qwen sampling arm sepa-
+rates part of this: the ten groups carrying its diver-
+gence diverge at eight bits too, and only the mode of
+failure changes (Appendix B). A frontier model might
+show none of it, though reaching one means a hosted
+API, while this panel is the deployment where records
+stay inside the institution.
+The protocol transfers;
+the rates do not.
+10. Conclusion
+One run says whether the agent was right, not
+whether it is consistent.
+A benchmark for clinical
+actions must rerun, measure the order as well as the
+verdict, and answer as the record system would.
+References
+Monica Agrawal et al. The evaluation illusion of large
+language models in medicine. npj Digital Medicine,
+2025. doi: 10.1038/s41746-025-01963-x.
+Miguel Angel Alvarado Gonzalez et al. Do repetitions
+matter? strengthening reliability in LLM evalua-
+tions. arXiv preprint arXiv:2509.24086, 2025. doi:
+10.48550/arxiv.2509.24086.
+Berk Atil et al. Non-determinism of “deterministic”
+LLM settings.
+arXiv preprint arXiv:2408.04667,
+2024. doi: 10.48550/arxiv.2408.04667.
+Rohith Reddy Bellibatlu, Edward Raff, and Wenbin
+Zhang. JudgeSense: A benchmark for prompt sen-
+sitivity in LLM-as-a-Judge systems. arXiv preprint
+arXiv:2604.23478, 2026a.
+doi:
+10.48550/arXiv.
+2604.23478.
+Rohith Reddy Bellibatlu, Manpreet Singh, Yash
+Jajoo,
+Shyamal Lakhanpal,
+and Abhishek Is-
+rani. RISED: A pre-deployment evaluation frame-
+work for high-stakes AI decision-support systems,
+with application to healthcare.
+arXiv preprint
+arXiv:2605.12895, 2026b.
+doi:
+10.48550/arXiv.
+2605.12895.
+Eric Chen et al.
+MedAgentBench v2:
+Improving
+medical LLM agent design.
+In Pacific Sympo-
+sium on Biocomputing, volume 31, 2026.
+doi:
+10.1142/9789819824755 0025.
+Dyke Ferber et al.
+Towards autonomous medical
+artificial intelligence agents.
+Nature, 2026.
+doi:
+10.1038/s41586-026-10675-5.
+Jeffrey Michael Franc, Lenard Cheng, Alexander
+Hart, Ryan Hata, and Attila Hertelendy.
+Re-
+peatability, reproducibility, and diagnostic accu-
+racy of a commercial large language model (Chat-
+GPT) to perform emergency department triage us-
+ing the Canadian triage and acuity scale. Canadian
+Journal of Emergency Medicine, 26(1), 2024. doi:
+10.1007/s43678-023-00616-w.
+Aayush Gupta. ReliabilityBench: Evaluating LLM
+agent reliability under production-like stress condi-
+tions. arXiv preprint arXiv:2601.06112, 2026. doi:
+10.48550/arXiv.2601.06112.
+¨Omer Alperen G¨urses et al.
+Consistency over
+accuracy:
+Run-to-run stability of contemporary
+large language models on turkish curriculum-
+aligned theoretical anatomy multiple-choice ques-
+tions.
+BMC Medical Education, 2026.
+doi: 10.
+1186/s12909-026-08656-3.
+Yixing Jiang et al. MedAgentBench: A realistic vir-
+tual EHR environment to benchmark medical LLM
+agents.
+arXiv preprint arXiv:2501.14654, 2025.
+doi: 10.48550/arxiv.2501.14654.
+Eyal Klang et al.
+Clinical agents fail silently on
+patient identity.
+International Journal of Medi-
+cal Informatics, 218:106514, 2026. doi: 10.1016/
+j.ijmedinf.2026.106514.
+Satheesh
+Krishna,
+Nishaant
+Bhambra,
+Robert
+Bleakney, and Rajesh Bhayana. Evaluation of re-
+liability, repeatability, robustness, and confidence
+of GPT-3.5 and GPT-4 on a radiology board-
+style examination. Radiology, 311(2), 2024. doi:
+10.1148/radiol.232715.
+Ruoqi Liu et al. PhysicianBench: Evaluating LLM
+agents in real-world EHR environments.
+arXiv
+preprint arXiv:2605.02240, 2026. doi: 10.48550/
+arxiv.2605.02240.
+Lovish
+Madaan
+et
+al.
+Quantifying
+variance
+in
+evaluation
+benchmarks.
+arXiv
+preprint
+arXiv:2406.10229, 2024. doi: 10.48550/arxiv.2406.
+10229.
+Nikita Mehandru et al.
+Evaluating large language
+models as agents in the clinic. npj Digital Medicine,
+2024. doi: 10.1038/s41746-024-01083-y.
+9
+
+
+Action-Level Reliability of Clinical LLM Agents
+Y. Mokssit, K. Ravi, M. Nie, J. Kim, and C. Liu.
+FHIR-AgentEval: A modular sandbox for bench-
+marking clinical LLM agents with an evaluation
+of memory-augmented configurations.
+Research
+Square, 2026.
+doi: 10.21203/rs.3.rs-8746188/v1.
+Preprint.
+Triveni Morla, Rohith Reddy Bellibatlu, Manpreet
+Singh, and Manmeet Singh Kapoor.
+AgentFair-
+Bench: Do LLM agents discriminate when they
+act? arXiv preprint arXiv:2606.16723, 2026. doi:
+10.48550/arXiv.2606.16723.
+Zairah Mustahsan et al.
+Stochasticity in agentic
+evaluations: Quantifying inconsistency with intra-
+class correlation. arXiv preprint arXiv:2512.06710,
+2025. doi: 10.48550/arxiv.2512.06710.
+Nearchos Potamitis et al.
+ReasonBENCH: Bench-
+marking the (in)stability of LLM reasoning. arXiv
+preprint arXiv:2512.07795, 2025. doi: 10.48550/
+arxiv.2512.07795.
+Samuel Schmidgall et al.
+AgentClinic:
+A multi-
+modal agent benchmark to evaluate AI in sim-
+ulated clinical environments.
+arXiv preprint
+arXiv:2405.07960, 2024. doi: 10.48550/arxiv.2405.
+07960.
+Savyasachi V. Shah. Accuracy, consistency, and hal-
+lucination of large language models when analyz-
+ing unstructured clinical notes in electronic medi-
+cal records. JAMA Network Open, 7(8), 2024. doi:
+10.1001/jamanetworkopen.2024.25953.
+Cathy Shyr et al. A statistical framework for evalu-
+ating the repeatability and reproducibility of large
+language models. medRxiv, 2025. doi: 10.1101/
+2025.08.06.25333170.
+Abel Yagubyan.
+How consistent are LLM agents?
+measuring behavioral reproducibility in multi-
+step
+tool-calling
+pipelines.
+arXiv
+preprint
+arXiv:2605.28840, 2026.
+doi:
+10.48550/arXiv.
+2605.28840.
+Shunyu Yao, Noah Shinn, Pedram Razavi, and
+Karthik Narasimhan. τ-bench: A benchmark for
+tool-agent-user interaction in real-world domains.
+arXiv preprint arXiv:2406.12045, 2024.
+doi: 10.
+48550/arxiv.2406.12045.
+Jiayi Yuan et al. Understanding and mitigating nu-
+merical sources of nondeterminism in LLM infer-
+ence. In Advances in Neural Information Process-
+ing Systems, 2025. doi: 10.52202/085713-5653.
+10
+
+
+Action-Level Reliability of Clinical LLM Agents
+Appendix A. Paired-test discordance tables
+Table 2.
+The six paired tests, with the discordance behind each. b counts groups showing the measure only at
+T=0.7 and c only at T=0.05; the exact two-sided McNemar p uses b and c alone. All six run over the 50 task groups.
+A group that never orders in either arm is concordant by construction on order-set divergence, but not on the other
+two.
+Model
+Measure
+n
+b
+c
+disc.
+p
+Qwen3-4B
+Trajectory divergence
+50
+21
+0
+21
+<0.0001
+Qwen3-4B
+Order-set divergence
+50
+7
+0
+7
+0.0156
+Qwen3-4B
+Verdict instability
+50
+7
+0
+7
+0.0156
+Llama-3.1-8B
+Trajectory divergence
+50
+15
+0
+15
+<0.0001
+Llama-3.1-8B
+Order-set divergence
+50
+33
+1
+34
+<0.0001
+Llama-3.1-8B
+Verdict instability
+50
+13
+3
+16
+0.0213
+Appendix B. Implementation details
+Serving stack.
+Both models are served through Ollama at four-bit quantisation (q4 K M) on a single
+consumer GPU with an 8192-token context window. The exact tags are qwen3:4b-instruct-2507-q4 K M
+and llama3.1:8b-instruct-q4 K M; the quantisation suffix is part of the tag, and pulling either name
+without it gives a different build. Sampling runs use nucleus p = 0.9. The round limit of eight turns is that
+of the reference implementation.
+Why the harness departs from the reference implementation.
+Agent turns are sent as multi-turn
+messages with roles preserved. An earlier version flattened the dialogue into a single prompt, under which
+nearly every task failed on output formatting before reaching the reasoning it was meant to test, which would
+have measured the harness rather than the agent. GET responses are truncated to 6000 characters because
+unbounded FHIR bundles exhaust the context window of a locally served model; truncation fired on 18 and
+11 of 250 runs in the Qwen arms and 26 and 10 of 250 in the Llama arms, and is recorded in every run
+record. Truncation bounds rather than explains the omissions of Section 7: of the 72 non-emitting runs in
+the 26 omission-split groups under Llama sampling, 7 saw a truncated response, against 2 of the 58 runs in
+those groups that did emit. Truncation is thus about three times as frequent where the order went missing,
+and could at most account for 7 of the 72; the remaining 65 non-emitting runs saw the response in full.
+Those seven are among the runs that finished, not the seven that ended on a malformed action.
+What order-set divergence is made of.
+In the Llama sampling arm 26 of the 43 divergent groups
+diverge through omission and 12 through misrouting, overlapping on 5, so those two cover 33; the remaining
+10 differ in payload alone, every one on an observation code or a recorded value. The five in the overlap
+drop the order on some run and split the destination across the runs that remain.
+The coding label.
+Clinical-content divergence compares the code a resource carries, not the display string
+beside it: two runs that both post SNOMED 306181000000106, one labelling it Orthopaedic surgical referral
+and the other Orthopedic surgery referral, have ordered the same procedure. Counting the label as content
+would raise the measure from none to 10 of 21 in the Llama near-greedy arm, from 28 to 33 of 43 under
+sampling, and from none to 1 of 20 for Qwen at 0.7. The finding that content divergence is confined to one
+arm is therefore a finding about what was ordered, not about how it was labelled, and the two groups of
+Section 7 that pass every run while their orders differ are label differences of exactly this kind.
+The eight-bit arm.
+To separate the agent’s contribution from the four-bit quantisation, the Qwen sam-
+pling arm was rerun as qwen3:4b-instruct-2507-q8 0 with everything else held fixed: the same 50 task
+groups, the same temperature and nucleus setting, the same 8192-token context and the same five reruns.
+Its records are released alongside the grid. Across all 50 task groups the eight-bit arm orders in 22 against
+11
+
+
+Action-Level Reliability of Clinical LLM Agents
+the four-bit arm’s 20 and diverges in 12 of those against 10, while endpoint divergence falls from 8 of 20 to
+none of 22 and omission rises from 4 of 20 to 12 of 22. Over the ten groups that carry the four-bit arm’s
+divergence, all ten diverge at both precisions, endpoint divergence falls from 8 of 10 to none, omission rises
+from 4 of 10 to all ten, and clinical-content divergence appears in 3 of 10 where four bits shows none. Higher
+precision therefore decides which failure occurs rather than whether one occurs.
+Endpoint divergence and single-emitter groups.
+Endpoint divergence compares the endpoint sets
+of runs that emitted, so a group left with one emitting run cannot be counted divergent. Seven of the 43
+ordering groups in the Llama sampling arm are in that position, one of 21 at the near-greedy setting, and
+none in either Qwen arm. Table 1 keeps the ordering groups as the denominator so that all four action rows
+are read against the same population; over the groups that could show it, the Llama sampling rates are 12
+of 36 for endpoint divergence and 28 of 36 for clinical content, and 8 of 20 and 0 of 20 at the near-greedy
+setting.
+Noise floor cells.
+Twenty identical calls were issued per cell across two models, three decoding configura-
+tions and three clinical prompts, giving 18 cells. The prompts ask for a treatment choice, for the most urgent
+action in a deteriorating patient, and for one laboratory value read out of a note; the first two are referred to
+below as the treatment and triage prompts. All twelve greedy cells returned twenty identical completions,
+with and without a fixed seed. Under sampling the two open-ended prompts produced between 14 and 20
+distinct completions of 20, while the prompt asking only for a numeric value extracted from a note produced
+1 for one model and 3 for the other: sampling does not perturb an output that has essentially one form.
+The noise floor under batching.
+The cells above serve one request at a time. A deployment does not,
+so we reissued them with other traffic in flight: each trial sends the target request together with one to three
+filler requests of differing length, so the batch it joins differs from trial to trial, and every other input is held
+fixed. The server is configured to decode four sequences at once, and four concurrent requests complete in 8.3
+seconds against 21.9 if run one after another, so the requests share batches rather than queueing. Over 240
+such trials, four of the twelve greedy cells stop being reproducible, two in each model, against one distinct
+completion in all twelve matched serial cells. Which cell moves depends on the model: the 4B model diverges
+on the open-ended triage prompt, three completions of 20 both with the seed fixed and without it, while
+the 8B model diverges on the treatment prompt, two of 20 seeded and three unseeded. The prompt asking
+only for a number extracted from a note never moves in either. Divergence here is textual: the three triage
+completions name the same action and differ in wording and in the shock they attribute it to. This is a
+property of the serving stack rather than of the agent, and it is why a benchmark evaluating at temperature
+zero cannot infer from that setting alone that its runs repeat in deployment.
+Record store.
+The store holds 695 Patient resources, of which the 300 benchmark tasks name 98, so
+most of the cohort is background a query has to search, plus 563,426 observations and 124,969 procedures.
+Clinical-content divergence, two instances.
+In one observation task under Llama sampling, the same
+blood pressure is recorded under LOINC 8480-6 with value ‘118/77’ on one run, under 8462-4 with value
+118 on a second, and under 8462-4 with value 77 on a third.
+In a magnesium task, one run posts a
+MedicationRequest for one gram and another posts an Observation. Writing the systolic value under a
+diastolic code is not a difference of clinical judgement, though what produces it is what Section 7 says we
+cannot settle.
+The two models side by side.
+Llama diverges in 11 of its 21 ordering groups at the near-greedy setting
+against Qwen’s 3 of 20, but that Llama rate carries a family-level interval of [0.00, 1.00] and overlaps almost
+entirely with Qwen’s at 0.7, 10 of 20. We ran no cross-model test and read no model difference from the
+pair.
+Trajectory against orders.
+Restricted to each arm’s ordering groups, Qwen diverges in trajectory in 8
+of 20 groups against 3 in their orders at 0.05, and 19 against 10 under sampling, while in both Llama arms
+the two coincide exactly, 11 of 21 and 43 of 43.
+12
+
+
+Action-Level Reliability of Clinical LLM Agents
+First-divergence index.
+Of the groups that diverge at all, 12 of 28, 40 of 49, 27 of 35 and 50 of 50 part
+company on the very first agent turn, in the column order of Table 1. The median index is 1, 0, 0 and 0 in
+that same order, the largest anywhere being four, in the Qwen near-greedy arm. Runs separate immediately
+far more often than they drift apart.
+Clock and workflow fields.
+Order-set divergence compares whole payloads, so a differing authoredOn,
+effectiveDateTime or status would count. In practice the benchmark hands the agent a fixed clock: those
+fields vary within 11 of the 43 divergent groups in the Llama sampling arm and in none elsewhere, and no
+group in any arm is divergent on them alone, so the reported counts do not rest on a timestamp.
+Query-parameter normalisation.
+Across the four arms, raw comparison finds 29, 49, 36 and 50 diver-
+gent groups of 50, against 28, 49, 35 and 50 after sorting query parameters, so at most one group per arm
+diverges only in the order of its query string.
+Appendix C. Divergence by task family
+The pooled rates in Table 1 average over five task families that behave very differently: F3 records an
+observation and F8 places a service request, both unconditionally, while F5 orders magnesium replacement
+if the last level is recent and low, F9 orders potassium and a follow-up draw if the last level is low, and F10
+orders a repeat test if the last result is over a year old. In the latter three, a run that orders nothing can
+be correct, and none of the three ever orders in either Qwen arm: F9’s pass rates of 0.46 and 0.40 there are
+runs that correctly withheld the order. This breakdown is what that averaging hides, and it is the evidence
+for the claim in Section 7 that the pooled figures summarise this task mixture rather than a general rate.
+Table 3. Divergent order sets out of ordering groups, with each family’s mean pass rate in parentheses. Ten task
+groups per family per arm; a dash marks a family that never ordered in that arm.
+Family
+Qwen .05
+Qwen .7
+Llama .05
+Llama .7
+F3
+0/10 (1.00)
+0/10 (1.00)
+0/10 (0.00)
+10/10 (0.28)
+F5
+– (0.08)
+– (0.10)
+1/1 (0.50)
+8/8 (0.18)
+F8
+3/10 (0.00)
+10/10 (0.00)
+10/10 (0.58)
+10/10 (0.44)
+F9
+– (0.46)
+– (0.40)
+– (0.00)
+7/7 (0.00)
+F10
+– (0.00)
+– (0.00)
+– (0.00)
+8/8 (0.00)
+13

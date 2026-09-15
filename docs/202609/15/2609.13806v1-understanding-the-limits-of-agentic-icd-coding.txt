@@ -1,0 +1,1443 @@
+Understanding the Limits of Agentic ICD Coding
+Eng Chong Yock1,2
+Yushi Cao2
+Yiming Chen2
+Kezhi Mao1
+Hongchao Jiang2∗
+1Nanyang Technological University, Singapore
+2ASUS Intelligent Cloud Services (AICS), Singapore
+Abstract
+ICD-10-CM codes are alphanumeric codes
+used in the US to classify diagnoses and
+injuries for medical billing and epidemio-
+logical reporting.
+Standard ICD-10-CM
+benchmarks report aggregate metrics that
+obscure performance on complex coding
+scenarios. We evaluate neural, workflow,
+and agentic systems on a rarity-stratified
+set of MIMIC-IV discharge summaries and
+identify two orthogonal failure modes. Neu-
+ral classifiers exhibit a 0.43 micro-F1 gap
+between rare and common codes. Work-
+flow systems handle rare codes well but
+score near zero on injury and external cause
+codes that require multi-step guideline fol-
+lowing. A tool-augmented agentic config-
+uration with structured access to official
+ICD-10-CM reference materials recovers up
+to 0.34 micro-F1 on this subset. No single
+system dominates across all conditions.
+1
+Introduction
+Accurate ICD-10-CM coding is essential for hos-
+pital reimbursement, epidemiological tracking,
+and clinical research.
+The task requires as-
+signing codes from a vocabulary of over 70,000
+labels to a free-text discharge summary, subject
+to official sequencing rules and chapter-specific
+conventions (Centers for Medicare and Medi-
+caid Services and National Center for Health
+Statistics, 2020). However, systematic analy-
+ses of failure modes in automated ICD coding
+remain limited (Edin et al., 2023; Gan et al.,
+2025).
+Neural ICD coding is framed as extreme
+multi-label classification (Mullenbach et al.,
+2018; Vu et al., 2020; Huang et al., 2022). These
+models perform well on frequent codes but de-
+grade substantially on rare ones (Edin et al.,
+2023). The ICD-10-CM label space is severely
+∗Supervising author.
+long-tailed (Johnson et al., 2024), and stan-
+dard benchmarks oversample high-frequency
+codes (Gan et al., 2025), masking this degrada-
+tion in aggregate metrics.
+Recent work on ICD coding (Motzfeldt et al.,
+2025; Akkhawatthanakun et al., 2025) has
+shifted toward agentic (Yao et al., 2022; Shinn
+et al., 2023; Yang et al., 2024; Belcak et al.,
+2025) approaches that leverage large language
+models (LLMs) to reason, act, and use external
+tools during the clinical coding process. How-
+ever, existing agentic systems use fixed work-
+flows where each stage has a predetermined
+role. This limits performance on codes requir-
+ing multi-step guideline-following, where the
+order of index lookup, tabular verification, and
+guideline consultation depends on intermediate
+findings. These static architectures struggle to
+mimic the reasoning paths of clinical coders.
+To evaluate the performance of both neu-
+ral and agentic systems on ICD-10-CM coding,
+we curated evaluation sets of MIMIC-IV dis-
+charge summaries (Johnson et al., 2024) span-
+ning codes of varying rarity and multi-step com-
+plexity. To probe whether the multi-step fail-
+ure mode is structural or addressable through
+design, we construct a controlled agentic frame-
+work that provides an LLM with structured
+access to official ICD-10-CM reference materi-
+als via dedicated tools.
+Our contributions are threefold: (1) We intro-
+duce a controlled multi-turn agentic evaluation
+framework with structured tool access to offi-
+cial ICD-10-CM reference materials. (2) Com-
+prehensive evaluations identifying multi-step
+guideline-following failure mode orthogonal to
+rarity bias. (3) An in-depth analysis identifying
+complementary strengths and remaining gaps
+in current systems.1
+1Related Work is presented in Appendix A
+arXiv:2609.13806v1  [cs.CL]  12 Sep 2026
+
+
+Figure 1: Comparison of three AI paradigms for automated clinical coding
+2
+Evaluation Setup
+2.1
+Task Formulation
+Given a discharge summary d, the task is to
+predict a set ˆY ⊆C of ICD-10-CM diagnosis
+codes, evaluated against a ground-truth set Y
+assigned by professional coders. Correct assign-
+ment requires navigating the Alphabetical In-
+dex, verifying codes in the Tabular List, apply-
+ing chapter-specific conventions, and restricting
+codes to conditions that actively affected pa-
+tient care (Centers for Medicare and Medicaid
+Services and National Center for Health Statis-
+tics, 2020).
+Per-bin micro-F1.
+We compute micro-F1
+independently within each rarity bin.
+True
+positives and false negatives are binned by
+the ground-truth code’s minimum training fre-
+quency; false positives by the predicted code’s.
+Notes can contribute to multiple bins. Confi-
+dence intervals are 95% percentile bootstrap
+with 10,000 resamples over notes.
+2.2
+Dataset and Tasks
+We evaluate on MIMIC-IV discharge sum-
+maries (Johnson et al., 2023). Uniform sam-
+pling yields evaluation sets dominated by com-
+mon codes, masking performance on rare la-
+bels (Edin et al., 2023; Gan et al., 2025), so
+we stratify 150 notes from the PLM-ICD test
+split (Huang et al., 2022) by the minimum train-
+ing frequency of their codes, drawing 50 notes
+from each of three strata: rare (0–100), un-
+common (101–1,000), and common (>1,000).
+Training frequency gives a consistent rarity axis
+across systems; for LLM-based systems not
+trained on MIMIC-IV, pre-training frequency
+may differ and is not measured here.
+We additionally curate a multi-step naviga-
+tion subset of notes with at least one ground-
+truth code from Chapter 19 (Injury and Poi-
+soning; S/T codes) or Chapter 20 (External
+Causes; V/W/X/Y codes), yielding 153 notes
+and 480 instances from these chapters. Chap-
+ter 19/20 was selected as the ICD-10-CM guide-
+lines require multiple distinct but consistent
+codes, making multi-step navigation an objec-
+tive property of the gold annotation rather than
+a subjective judgment. The subset includes 117
+notes spanning both chapters, 123 with a Y92
+place-of-occurrence code, and 142 with a 7th-
+character extension.
+2.3
+Evaluated ICD Systems
+We evaluate three coding systems (Figure 1):
+Discriminative.
+PLM-ICD (Huang et al.,
+2022) is the current neural state of the art,
+framing ICD coding as multi-label classifica-
+tion with label-wise attention over a RoBERTa
+encoder pre-trained on biomedical text. We
+train the model on MIMIC-IV and evaluate it
+at its best-micro-F1 threshold (τ=0.45).
+Workflow-Driven Agentic.
+CodeSeeker is
+an agentic workflow with a fixed Analyze-
+Locate-Assign-Verify pipeline incorporating
+official coding guidelines (Motzfeldt et al.,
+2025). The fixed structure limits dynamic re-
+consultation of guidelines or the index when
+assigning interdependent codes.
+
+
+All Codes (n=150)
+Multi-Step Codes (n=153)
+Model
+Rare
+Unc.
+Common
+Rare
+Unc.
+Common
+PLM-ICD
+.227 [.17,.28]
+.471 [.44,.51]
+.656 [.63,.68]
+.256 [.20,.31]
+.375 [.30,.45]
+.435 [.36,.51]
+CodeSeeker (Opus 4.6)
+.560 [.50,.61]
+.483 [.45,.52]
+.607 [.58,.63]
+.010 [.00,.03]
+.027 [.00,.07]
+.013 [.00,.04]
+CodeSeeker (GPT-5.2)
+.341 [.26,.42]
+.353 [.31,.39]
+.436 [.40,.47]
+.021 [.00,.05]
+.028 [.00,.07]
+.000 [.00,.00]
+Claude Opus 4.6
+.354 [.30,.41]
+.425 [.39,.46]
+.577 [.55,.60]
+.276 [.22,.33]
+.363 [.28,.45]
+.280 [.21,.35]
+GPT-5.2
+.329 [.27,.39]
+.368 [.33,.40]
+.538 [.51,.57]
+.190 [.13,.25]
+.250 [.17,.33]
+.265 [.19,.34]
+GLM-5 Turbo
+.304 [.26,.35]
+.357 [.32,.39]
+.554 [.53,.58]
+.154 [.11,.20]
+.296 [.21,.38]
+.183 [.11,.25]
+Qwen 3.5 Plus
+.281 [.23,.33]
+.364 [.33,.40]
+.546 [.52,.58]
+.220 [.16,.29]
+.291 [.20,.38]
+.249 [.18,.32]
+Kimi K2.5
+.217 [.18,.26]
+.314 [.28,.35]
+.493 [.47,.52]
+.160 [.10,.22]
+.218 [.14,.30]
+.178 [.12,.24]
+Mistral Large 3
+.209 [.17,.25]
+.275 [.24,.31]
+.485 [.45,.52]
+.156 [.11,.20]
+.209 [.14,.28]
+.186 [.13,.25]
+Table 1: Micro-F1 across rarity bins for all codes (150 notes, 50 per bin) and the multi-step navigation
+subset (153 notes; 193/142/145 code instances in the rare/uncommon/common bins). Unc.: uncommon
+(101–1,000 training occurrences); Common: >1,000. Point estimate with 95% bootstrap CI in brackets.
+Best point estimate per column in bold.
+Free-Form Agentic.
+To isolate the contribu-
+tion of dynamic tool-use orchestration, we con-
+struct a controlled agentic configuration with
+structured access to official ICD-10-CM refer-
+ences through nine tools across four categories.
+Search covers Alphabetical Index lookup with
+drill navigation, the Drug, Neoplasm, and Ex-
+ternal Cause tables, and child-code browsing.
+Verification retrieves the full Tabular List
+entry for a candidate code, including coding
+rules, and accepts only codes previously seen
+via search. Reference retrieves the Official
+Coding Guidelines by section. Submission
+tracks all codes encountered during the ses-
+sion and rejects any not previously discovered,
+blocking hallucinated outputs. The framework
+enforces discovery grounding at the tool layer:
+a code cannot be submitted unless returned by
+an earlier search or browse. Companion-code
+sequencing requirements are communicated via
+the system prompt rather than enforced by the
+tools.
+3
+Results
+3.1
+All Codes Performance
+The left half of Table 1 reports micro-F1 across
+label frequency bins for all codes.
+On rare
+codes, the strongest LLM-based systems outper-
+form PLM-ICD. PLM-ICD scores 0.227 on rare
+codes versus 0.656 on common, consistent with
+training-distribution bias.
+CodeSeeker with
+Claude Opus 4.6 achieves the highest rare-code
+score (0.560). On common codes, PLM-ICD
+leads all systems.
+3.2
+Multi-Step Codes Performance
+The right half of Table 1 reports performance
+on the multi-step navigation subset.
+Code-
+Seeker performs near zero across all bins
+(0.010/0.027/0.013 with Claude Opus 4.6), con-
+sistent with its fixed retrieval set being unable
+to surface paired external-cause and place-of-
+occurrence codes. The agentic framework with
+Claude Opus 4.6 achieves the highest point es-
+timates on rare and uncommon bins (0.276 and
+0.363), though confidence intervals are wide
+given the subset size. PLM-ICD outperforms
+both despite performing no navigation, indi-
+cating that index traversal without sequential
+enforcement is insufficient.
+4
+Discussion
+Correct codes are discovered early.
+Cor-
+rect codes are discovered earlier than incorrect
+ones across models when discovery turn is nor-
+malised by session length (Figure 2). The gap
+is robust (Mann–Whitney U, p < 10−13 for all
+models; Cliff’s δ ∈[0.20, 0.30]; Appendix E),
+suggesting discovery order is a reliable signal
+for post-hoc precision improvement.
+Selection
+is
+harder
+than
+verification.
+Models verify 63K–178K candidate codes per
+run but submit less than 4%, of which 36–56%
+are correct (Table 2).
+Verification provides
+no filtering signal. The bottleneck is selection.
+More tool calls do not translate into higher
+precision.
+
+
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+Claude
+Opus 4.6
+GPT-5.2
+GLM-5
+Mistral
+Large 3
+Qwen 3.5
+Plus
+Kimi K2.5
+Median relative discovery position
+Correct (TP)
+Wrong (FP)
+Figure 2: Distribution of median relative discovery
+position for correct vs. incorrect codes. Statistical
+test in Table 11.
+Model
+Disc.
+Sub%
+Prec%
+Calls/TP
+Claude Opus 4.6
+67K
+2.8
+56
+8.7
+GPT-5.2
+63K
+3.1
+50
+8.4
+GLM-5 Turbo
+124K
+1.7
+49
+11.4
+Mistral Large 3
+72K
+3.6
+36
+12.0
+Qwen 3.5 Plus
+117K
+1.7
+49
+10.9
+Kimi K2.5
+178K
+1.6
+36
+13.5
+Table 2: Coding funnel. Sub% = submitted / dis-
+covered. Prec% = TP / submitted. Calls/TP =
+tool calls per correct code.
+Per-stage failure decomposition on multi-
+step codes.
+To localise where the framework
+breaks down on multi-step codes, we trace
+each missed code through the four pipeline
+stages (discovery →verification →submission
+→specificity), broken down by chapter (Table
+3).
+Chapter
+Disc.
+Verif.
+Sub./Spec.
+Ch. 19 S/T (injury)
+66%
+9%
+3%
+Ch. 20 V/W/X (mechanism)
+86%
+0%
+0%
+Ch. 20 Y92 (place)
+83%
+6%
+0.3%
+Ch. 20 Y-other
+79%
+14%
+0%
+Table 3: Per-stage failure decomposition for missed
+multi-step codes, by chapter.
+Three findings localise the bottleneck. Dis-
+covery dominates: 66–86% of missed multi-
+step codes were never returned by any search or
+browse tool, concentrated in Chapter 20 where
+the External Cause Index is underutilised and
+Y92 place-of-occurrence codes are rarely re-
+trieved (guideline-mandated rather than cued
+by the note). Verification is not the bot-
+tleneck: only 0–3% of misses are wrong-7th-
+character errors; once the base code is retrieved,
+tabular verification suffices to assign the correct
+extension. False positives are judgment
+errors, not leakage: 74–95% are codes the
+agent verified and submitted anyway, indicating
+the discovery gate holds and residual error is
+post-verification clinical judgment. The multi-
+step gain over CodeSeeker is attributable to
+tool-layer access to the External Cause Index
+and prompt-layer guidance on companion-code
+sequencing, both targeting the discovery stage.
+PLM-ICD
+as
+a
+tool.
+We
+investigate
+whether adding PLM-ICD as a tool improves
+agentic performance. Using PLM-ICD hurts
+Claude Opus 4.6 on rare codes but helps GPT-
+5.2 (Figure 3). Claude Opus 4.6 already discov-
+ers 59% of rare codes autonomously via 34.6 in-
+dex searches per sample; PLM-ICD reduces this
+by 31%, shifting tool budget to candidate veri-
+fication instead. GPT-5.2 under-explores with-
+out PLM-ICD (49% rare discovery) and relies
+on PLM-ICD candidates to guide its search. On
+multi-step codes, PLM-ICD hurts both models
+on rare and uncommon codes and gives no gain
+on common codes.
+Rare
+Unc.
+Com.
+0.2
+0.4
+0.6
+Micro-F1
+(a) All Codes
+Rare
+Unc.
+Com.
+0
+0.1
+0.2
+0.3
+0.4
+(b) Multi-Step
+Opus 4.6 + PLM
+Opus 4.6
+GPT-5.2 + PLM
+GPT-5.2
+Figure 3: Performance of PLM-ICD as a tool.
+5
+Ablation Studies
+Prompt-level Sequencing Instructions.
+We ablated prompt-level sequencing by remov-
+ing only the mandatory external-cause sequenc-
+ing instruction while holding the tool pipeline,
+discovery gating, budgets, and all other set-
+tings fixed. Opus 4.6 was essentially unchanged
+across all frequency bins, with overlapping con-
+fidence intervals and F1 differences of at most
+.03 (Rare: .267→.241, Uncommon: .357→.385,
+Common: .318→.316). GPT-5.2 showed the
+same pattern on rare and uncommon codes, but
+common-code F1 fell sharply from .322 to .091,
+suggesting that explicit sequencing guidance is
+primarily beneficial for common cases.
+
+
+Model
+Config
+Rare
+Unc.
+Com.
+Opus 4.6
+full prompt
+.267
+.357
+.318
+[.10,.46]
+[.21,.50]
+[.19,.44]
+seq. removed
+.241
+.385
+.316
+[.08,.44]
+[.24,.53]
+[.18,.44]
+GPT-5.2
+full prompt
+.151
+.243
+.322
+[.00,.30]
+[.11,.37]
+[.19,.44]
+seq. removed
+.143
+.274
+.091
+[.00,.31]
+[.13,.41]
+[.00,.20]
+Table 4: Prompt-level sequencing ablation.
+External Tool Access.
+We ablate the tool
+environment across three models, requiring the
+model to assign codes from parametric knowl-
+edge alone while holding the note set, prompt,
+and scoring protocol fixed (Table 5). Tool ac-
+cess helps in both settings, but the gain falls
+in different places. On all codes, the largest
+benefit is on rare codes, where F1 roughly dou-
+bles for every model. On multi-step codes the
+pattern inverts and the largest benefit is on
+common codes, where Opus 4.6 improves from
+.050 to .280.
+Recall explains the difference:
+without tool access, recall on common multi-
+step codes falls to .021–.028 across all three
+models, indicating that companion external-
+cause and place-of-occurrence codes are rarely
+produced from memory. Precision, recall, and
+support are in Appendix C.
+All Codes
+Multi-Step
+Model
+Band
+Tools
+None
+Tools
+None
+Opus 4.6
+Rare
+.354
+.182
+.276
+.142
+Unc.
+.425
+.285
+.363
+.249
+Com.
+.577
+.498
+.280
+.050
+Qwen 3.5 Plus
+Rare
+.281
+.153
+.220
+.110
+Unc.
+.364
+.314
+.291
+.130
+Com.
+.546
+.566
+.249
+.038
+GLM-5 Turbo
+Rare
+.304
+.134
+.154
+.069
+Unc.
+.357
+.288
+.296
+.144
+Com.
+.554
+.513
+.183
+.050
+Table 5: Tool-access ablation, micro-F1. Tools:
+full nine-tool environment. None: no tool access.
+Precision, recall, support, and confidence intervals
+in Appendix C.
+Discovery Grounding.
+Discovery gating
+was not ablated because removing it changes
+precision by re-admitting hallucinated codes
+rather than testing multi-step navigation; in-
+stead, its role is characterised by the false-
+positive analysis, where 74–95% of false pos-
+itives are verified-then-submitted, consistent
+with a hallucination filter rather than the source
+of the performance gains.
+6
+Conclusion
+We evaluate ICD coding systems on a rarity-
+stratified set with multi-step navigation cases
+and identify two orthogonal failure modes. Neu-
+ral classifiers degrade on rare codes due to train-
+ing distribution bias, while workflow systems
+score near zero on injury and external cause
+codes despite strong rare-code performance. A
+tool-augmented agentic framework with struc-
+tured access to coding guidelines and explicit
+prompt-level sequencing instructions partially
+recovers performance on this subset, suggest-
+ing the failure is partially addressable through
+combining tool-layer discovery grounding and
+prompt-level guidance.
+7
+Limitations
+Our evaluation uses MIMIC-IV discharge sum-
+maries from a single institution.
+ICD-10-
+CM code distributions vary across hospitals.
+MIMIC-IV labels also contain annotation noise,
+including coded conditions absent from the clin-
+ical note (Searle et al., 2020), introducing un-
+certainty into absolute F1 values. We evaluate
+fixed model versions, and newer releases may
+change performance, particularly for agentic
+systems.
+Our multi-step diagnostic evaluation is re-
+stricted to Chapters 19 and 20, capturing
+only one class of guideline-intensive coding.
+We therefore do not establish whether the
+same patterns hold across other ICD cate-
+gories. The subset contains 153 notes and 480
+code instances (193/142/145 across rare, un-
+common, and common bins). The workflow-
+versus-agentic gap is large relative to this sam-
+ple: CodeSeeker scores .010–.027 with Opus 4.6
+versus .276–.363 for the agentic framework on
+the same backbone, with non-overlapping con-
+fidence intervals. Confidence intervals overlap
+across adjacent agentic systems, so their rank-
+ings are not statistically distinguishable.
+Finally, we ablate tool access and prompt-
+level sequencing, but do not isolate discovery
+grounding or individual tools. The tool ablation
+removes the entire environment rather than
+components such as the External Cause Index,
+leaving fine-grained attribution for future work.
+
+
+8
+Ethics Statement
+All clinical notes are drawn from MIMIC-IV
+under its established data use agreement. No
+new patient data was collected. Model out-
+puts are not intended for direct clinical use; all
+code assignments require human expert review
+before deployment.
+Acknowledgements
+This research was supported by the Singa-
+pore Economic Development Board (EDB) and
+ASUS Intelligent Cloud Services (AICS) under
+the Industrial Postgraduate Programme (IPP).
+The authors would also like to acknowledge
+the research facilities and academic support
+provided by Nanyang Technological University
+(NTU).
+References
+Kitti Akkhawatthanakun,
+Lalita Narupiyakul,
+Konlakorn Wongpatikaseree, Narit Hnoohom,
+Chakkrit Termritthikun, and Paisarn Munee-
+sawang. 2025. Integrating agentic ai to automate
+icd-10 medical coding.
+Peter Belcak, Greg Heinrich, Shizhe Diao, Yonggan
+Fu, Xin Dong, Saurav Muralidharan, Yingyan Ce-
+line Lin, and Pavlo Molchanov. 2025. Small lan-
+guage models are the future of agentic ai. arXiv
+preprint arXiv: 2506.02153.
+Centers for Medicare and Medicaid Services and
+National Center for Health Statistics. 2020. ICD-
+10-CM official guidelines for coding and reporting,
+fiscal year 2020. Accessed: 2025-01-15.
+Joakim Edin, Alexander Junge, Jakob D Havtorn,
+Lasse Borgholt, Maria Maistro, Tuukka Ruot-
+salo, and Lars Maaløe. 2023. Automated medical
+coding on MIMIC-III and MIMIC-IV: A critical
+review and replicability study. In Proceedings of
+the 46th International ACM SIGIR Conference
+on Research and Development in Information
+Retrieval, pages 2572–2582, New York, NY, USA.
+ACM.
+Yidong Gan, Maciej Rybinski, Ben Hachey, and
+Jonathan K. Kummerfeld. 2025. Aligning AI
+research with the needs of clinical coding work-
+flows: Eight recommendations based on US data
+analysis and critical review. In Proceedings of the
+63rd Annual Meeting of the Association for Com-
+putational Linguistics (Volume 1: Long Papers),
+pages 909–922. Association for Computational
+Linguistics.
+Chao-Wei Huang, Shang-Chi Tsai, and Yun-Nung
+Chen. 2022. PLM-ICD: Automatic ICD coding
+with pretrained language models. In Proceedings
+of the 4th Clinical Natural Language Processing
+Workshop, pages 10–20. Association for Compu-
+tational Linguistics.
+Alistair Johnson, Lucas Bulgarelli, Tom Pollard,
+Brian Gow, Benjamin Moody, Steven Horng,
+Leo Anthony Celi, and Roger Mark. 2024.
+MIMIC-IV. PhysioNet. Version 3.1.
+Alistair EW Johnson, Lucas Bulgarelli, Lu Shen,
+Alvin Gayles, Ayad Shammout, Steven Horng,
+Tom J Pollard, Sicheng Hao, Benjamin Moody,
+Brian Gow, and 1 others. 2023.
+Mimic-iv, a
+freely accessible electronic health record dataset.
+Scientific data, 10(1):1.
+Andreas Motzfeldt, Joakim Edin, Casper L. Chris-
+tensen, Christian Hardmeier, Lars Maaløe, and
+Anna Rogers. 2025.
+Code like humans:
+A
+multi-agent solution for medical coding. arXiv
+preprint.
+James Mullenbach, Sarah Wiegreffe, Jon Duke, Ji-
+meng Sun, and Jacob Eisenstein. 2018. Explain-
+able prediction of medical codes from clinical
+text. In Proceedings of the 2018 Conference of
+the North American Chapter of the Association
+for Computational Linguistics: Human Language
+Technologies, Volume 1 (Long Papers), pages
+1101–1111. Association for Computational Lin-
+guistics.
+Jeanine Romano and Jeffrey Kromrey. 2006. Ap-
+propriate statistics for ordinal level data: Should
+we really be using t-test and cohen’s d for eval-
+uating group differences on the nsse and other
+surveys?
+Thomas Searle, Zina Ibrahim, and Richard Dobson.
+2020. Experimental evaluation and development
+of a silver-standard for the MIMIC-III clinical
+coding dataset. In Proceedings of the 19th SIG-
+BioMed Workshop on Biomedical Language Pro-
+cessing, Stroudsburg, PA, USA. Association for
+Computational Linguistics.
+Noah Shinn, Federico Cassano, Ashwin Gopinath,
+Karthik Narasimhan, and Shunyu Yao. 2023. Re-
+flexion: Language agents with verbal reinforce-
+ment learning. Advances in Neural Information
+Processing Systems, 36:8634–8652.
+Ali Soroush, Benjamin S. Glicksberg, Eyal Zimlich-
+man, Yiftach Barash, Robert Freeman, Alexan-
+der W. Charney, Girish N Nadkarni, and Eyal
+Klang. 2024. Large language models are poor
+medical coders—benchmarking of medical code
+querying. NEJM AI, 1(5).
+Thanh Vu, Dat Quoc Nguyen, and Anthony Nguyen.
+2020. A label attention model for ICD coding
+from clinical text. In Proceedings of the Twenty-
+Ninth International Joint Conference on Artifi-
+cial Intelligence, pages 3335–3341. International
+Joint Conferences on Artificial Intelligence Orga-
+nization.
+
+
+John Yang, Carlos E. Jimenez, Alexander Wettig,
+Kilian Lieret, Shunyu Yao, Karthik Narasimhan,
+and Ofir Press. 2024.
+Swe-agent:
+Agent-
+computer interfaces enable automated software
+engineering. arXiv preprint arXiv: 2405.15793.
+Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak
+Shafran, Karthik Narasimhan, and Yuan Cao.
+2022. React: Synergizing reasoning and acting
+in language models. International Conference on
+Learning Representations.
+A
+Related Work
+Neural classifiers.
+The dominant approach
+to automated ICD coding frames the task as
+extreme multi-label classification (Mullenbach
+et al., 2018; Vu et al., 2020). Mullenbach et al.
+(2018) introduce label-wise attention over clini-
+cal notes, establishing the foundation for sub-
+sequent work. Huang et al. (2022) extend this
+with pre-trained biomedical encoders, achieving
+the current neural state of the art on MIMIC-
+III. Edin et al. (2023) and Gan et al. (2025)
+document that performance on these bench-
+marks is driven by frequent codes, with rare-
+code performance substantially lower. These
+models fail to generalise beyond the training
+set distribution.
+LLM-based systems.
+Recent work has ex-
+plored LLMs for ICD coding without fine-
+tuning (Soroush et al., 2024), and retrieval-
+augmented approaches that constrain outputs
+to a candidate set (Akkhawatthanakun et al.,
+2025). Motzfeldt et al. (2025) introduce CLH,
+an agentic workflow with a fixed Analyze-
+Locate-Assign-Verify pipeline that incorporates
+official coding guidelines. Following the estab-
+lished distinction between workflows (fixed or-
+chestration of LLM calls) and agents (dynamic
+control flow determined at runtime), CLH falls
+on the workflow side: the order of analysis,
+location, assignment, and verification is pre-
+determined, which constrains re-consultation
+of guidelines or the Alphabetical Index when
+assigning interdependent codes.
+B
+Experimental Setup
+B.1
+Hyperparameters
+All configurations share identical agentic loop
+parameters: maximum 200 turns, maximum
+200 tool calls, and a 600-second timeout per
+sample. A status message is injected every 10
+turns summarising verified codes and remaining
+Model
+Context
+PLM
+Reason.
+With PLM-ICD tool
+Claude Opus 4.6 + PLM
+200K
+•
+◦
+Claude Opus 4.6
+200K
+◦
+◦
+GPT-5.2 + PLM
+1M
+•
+•
+GPT-5.2
+1M
+◦
+•
+No PLM-ICD tool
+GLM-5 Turbo
+128K
+◦
+•
+Mistral Large 3
+262K
+◦
+◦
+Qwen 3.5 Plus
+131K
+◦
+◦
+Kimi K2.5
+262K
+◦
+•
+Table 6: Model configurations. •/◦= enabled/disabled. PLM:
+PLM-ICD neural primer. Reason.: chain-of-thought reasoning.
+All models share the same tool environment (200 turns, 200 tool
+calls, 600s timeout, max_tokens=16,384).
+budget. Context compression triggers at 80%
+utilisation: the system prompt and first user
+message are preserved; the last 5 tool results
+are kept in full; older results are compressed to
+one-line summaries.
+B.2
+Treatment of Failed Sessions
+On timeout, model error, or stuck-loop detec-
+tion, the harness auto-submits the codes accu-
+mulated up to that point. The partial submis-
+sion is scored under the identical protocol.
+B.3
+Tool Environment
+The agent has access to 9 tools in four cate-
+gories (Table 7). The ICD-10-CM backend is
+built from CMS 2020 XML files: Tabular List
+(45,907 codes), Alphabetical Index, Drug Table,
+Neoplasm Table, External Cause Index, and
+Official Coding Guidelines.
+Tool
+Function
+Navigation (discovery-gated)
+suggest_candidate_codes
+PLM-ICD Tool; disabled in no-
+PLM runs
+search_alphabetical_index
+Index search and hierarchical
+drill
+search_drug_table
+Substance-to-code lookup
+search_neoplasm_table
+Anatomical site-to-code lookup
+search_external_cause_index
+Cause, place, and activity codes
+browse_code_children
+Subcategory drill-down
+Verification (gated to discovered codes)
+verify_code_in_tabular
+Full Tabular List entry
+Reference
+lookup_coding_guidelines
+Guidelines by section
+Submission
+submit_codes
+Final submission; rejects undis-
+covered codes
+Table 7: Tool environment. Navigation tools popu-
+late the discovery set; verification and submission
+are gated to that set.
+
+
+C
+Full Tool-Access Ablation
+Precision, recall, and micro-F1 for the tool-
+access ablation. Sup denotes the number of
+ground-truth code instances per band; all con-
+fidence intervals are 95% bootstrap CIs.
+D
+Resource Usage
+Mean wall-clock latency (Lat.), estimated
+tokens
+per
+session
+in
+thousands
+(Tok.;
+characters/4), tool calls (Calls), voluntary sub-
+mission rate (Sub.), and failure rate (Fail.).
+Failures combine timeouts, API errors, and
+stuck detection. No session reached the 200-
+turn or 200-tool-call limit.
+Model
+Lat.
+Tok.
+Calls
+Sub.
+Fail
+(s)
+(K)
+(%)
+(%)
+No PLM-ICD tool
+Claude Opus 4.6
+204
+25.6
+64
+100
+0
+GPT-5.2
+91
+19.4
+59
+100
+0
+GLM-5 Turbo
+224
+26.3
+78
+88
+12
+Qwen 3.5 Plus
+363
+26.2
+71
+92
+8
+Kimi K2.5
+358
+35.4
+87
+82
+18
+Mistral Large 3
+265
+27.4
+73
+94
+6
+With PLM-ICD tool
+Opus 4.6 + PLM
+176
+24.5
+57
+100
+0
+GPT-5.2 + PLM
+65
+23.9
+79
+100
+0
+Table 10: Per-model resource usage.
+E
+Discovery-Position Statistical
+Test
+Statistical comparison of true-positive (TP)
+and false-positive (FP) discovery positions
+across models. The table reports TP/FP sam-
+ple counts (n), the median position difference
+(∆Med.; FP minus TP), Cliff’s δ, and one-
+sided Mann–Whitney U p values (H1: TP <
+FP). Positive ∆Med. indicates that TP codes
+are discovered earlier. Effect sizes follow Ro-
+mano and Kromrey (2006).
+Model
+n (TP/FP)
+∆Med.
+δ
+p
+Claude Opus 4.6
+1,026 / 770
++0.079
+0.233
+<10−16
+GPT-5.2
+972 / 955
++0.106
+0.200
+<10−13
+GLM-5 Turbo
+991 / 1,007
++0.062
+0.239
+<10−19
+Mistral Large 3
+904 / 1,544
++0.163
+0.261
+<10−26
+Qwen 3.5 Plus
+971 / 981
++0.140
+0.216
+<10−15
+Kimi K2.5
+993 / 1,753
++0.095
+0.301
+<10−38
+Table 11: Statistical test of the TP–FP discovery-
+position gap.
+F
+Case Study: End-to-End Agentic
+Coding
+Sample 11087585-DS-10 was coded by Claude
+Opus 4.6. The note describes a patient with
+right lower quadrant pain. CT showed a 7mm
+appendix with fat stranding and concurrent in-
+flammation of the terminal ileum, cecum, and
+ascending colon. Discharge diagnosis: colitis
+vs. acute uncomplicated appendicitis. Past med-
+ical history: OSA. Ground truth: {K35.80,
+K52.9}. The agent’s trajectory on this sample
+is summarised below. The framework does not
+prescribe a fixed order; the steps reflect the
+agent’s actual reasoning path.
+Step 1: Index navigation and tabular ver-
+ification.
+The agent searches the Alphabeti-
+cal Index for Colitis, Appendicitis > acute, and
+Apnea > sleep > obstructive. Browsing the K35
+hierarchy confirms K35.80 over K35.2/K35.3,
+as no peritonitis is documented.
+Step 2:
+Guideline consultation.
+The
+agent retrieves Section III.C (Uncertain Diagno-
+sis), which instructs that conditions connected
+by vs should be coded as confirmed for inpa-
+tient encounters. Both conditions are assigned.
+Step 3: Exclusion decisions.
+R59.0 (reac-
+tive lymph nodes) and D72.829 (elevated WBC)
+are excluded as findings integral to the inflam-
+matory process per Guideline I.B.5. Z87.891
+(nicotine history) is excluded as undocumented.
+G47.33 (OSA) is included as a chronic PMH
+condition.
+Code
+Decision
+Rationale
+K52.9
+Include
+Discharge dx; Section III.C applies
+K35.80
+Include
+Discharge dx; CT confirms; no peritoni-
+tis
+G47.33
+Include
+Chronic PMH condition; inpatient con-
+vention
+R59.0
+Exclude
+Integral finding; Guideline I.B.5
+D72.829
+Exclude
+Lab finding; integral to process
+Z87.891
+Exclude
+Not documented in note
+Table 12: Inclusion and exclusion decisions for sam-
+ple 11087585-DS-10.
+Outcome.
+Submitted:
+{K52.9,
+K35.80,
+G47.33}. Precision = 0.667, Recall = 1.000,
+F1 = 0.800. Both ground-truth codes correctly
+identified in 14 tool calls across 10 turns in
+80 seconds. The false positive G47.33 reflects
+genuine ambiguity: the agent’s reasoning is
+defensible under inpatient coding conventions,
+but annotators excluded PMH-only conditions
+not actively managed during the encounter.
+
+
+Full-tools
+No-tools
+Model
+Band
+Sup
+Precision
+Recall
+F1
+Precision
+Recall
+F1
+Opus 4.6
+Rare
+233
+.317 [.26,.38]
+.399 [.33,.47]
+.354 [.30,.41]
+.127 [.10,.15]
+.322 [.27,.38]
+.182 [.15,.21]
+Uncommon
+660
+.467 [.43,.51]
+.391 [.35,.43]
+.425 [.39,.46]
+.245 [.21,.27]
+.341 [.30,.38]
+.285 [.25,.32]
+Common
+1403
+.674 [.65,.70]
+.505 [.47,.54]
+.577 [.55,.60]
+.543 [.51,.57]
+.460 [.43,.49]
+.498 [.47,.52]
+Qwen 3.5 Plus
+Rare
+233
+.230 [.19,.27]
+.360 [.30,.42]
+.281 [.23,.33]
+.107 [.08,.13]
+.266 [.21,.33]
+.153 [.12,.19]
+Uncommon
+660
+.389 [.35,.43]
+.342 [.31,.38]
+.364 [.33,.40]
+.302 [.27,.34]
+.326 [.29,.36]
+.314 [.28,.35]
+Common
+1403
+.633 [.60,.67]
+.480 [.44,.52]
+.546 [.51,.58]
+.632 [.60,.66]
+.512 [.48,.55]
+.566 [.54,.59]
+GLM-5 Turbo
+Rare
+233
+.249 [.20,.30]
+.391 [.33,.46]
+.304 [.26,.35]
+.099 [.07,.13]
+.206 [.15,.26]
+.134 [.10,.17]
+Uncommon
+660
+.362 [.32,.40]
+.351 [.31,.39]
+.357 [.32,.39]
+.291 [.25,.33]
+.285 [.25,.32]
+.288 [.25,.32]
+Common
+1403
+.641 [.61,.67]
+.488 [.46,.52]
+.554 [.53,.58]
+.581 [.55,.61]
+.458 [.43,.49]
+.513 [.48,.54]
+Table 8: Tool-access ablation across all codes.
+Full-tools
+No-tools
+Model
+Band
+Sup
+Precision
+Recall
+F1
+Precision
+Recall
+F1
+Opus 4.6
+Rare
+193
+.283 [.22,.34]
+.269 [.20,.34]
+.276 [.22,.33]
+.127 [.09,.17]
+.161 [.11,.21]
+.142 [.10,.19]
+Uncommon
+142
+.488 [.39,.60]
+.289 [.21,.37]
+.363 [.28,.45]
+.388 [.27,.51]
+.183 [.12,.25]
+.249 [.17,.33]
+Common
+145
+.333 [.25,.42]
+.241 [.18,.31]
+.280 [.21,.35]
+.267 [.06,.50]
+.028 [.01,.06]
+.050 [.01,.10]
+Qwen 3.5 Plus
+Rare
+193
+.234 [.16,.32]
+.207 [.15,.27]
+.220 [.16,.29]
+.102 [.06,.14]
+.119 [.07,.17]
+.110 [.06,.15]
+Uncommon
+142
+.437 [.31,.57]
+.218 [.15,.30]
+.291 [.20,.38]
+.279 [.15,.42]
+.085 [.04,.13]
+.130 [.07,.20]
+Common
+145
+.286 [.20,.37]
+.221 [.15,.29]
+.249 [.18,.32]
+.214 [.00,.46]
+.021 [.00,.05]
+.038 [.00,.08]
+GLM-5 Turbo
+Rare
+193
+.164 [.11,.22]
+.145 [.10,.19]
+.154 [.11,.20]
+.077 [.04,.13]
+.062 [.03,.10]
+.069 [.03,.11]
+Uncommon
+142
+.537 [.41,.68]
+.204 [.14,.27]
+.296 [.21,.38]
+.342 [.19,.50]
+.092 [.05,.15]
+.144 [.07,.22]
+Common
+145
+.250 [.15,.35]
+.145 [.09,.21]
+.183 [.11,.25]
+.250 [.06,.50]
+.028 [.01,.06]
+.050 [.01,.10]
+Table 9: Tool-access ablation across multi-step codes.
+G
+System Prompt
+The following is the complete system prompt
+used for all agentic evaluation runs.
+The
+prompt is rendered at runtime with a sin-
+gle boolean variable controlling whether the
+PLM-ICD priming step is included.
+For
+no-PLM configurations, Steps 1–2 and the
+suggest_candidate_codes tool reference are
+omitted; all coding rules remain identical.
+You are an expert ICD-10-CM medical coder. Read a clinical
+note and assign ALL applicable ICD-10-CM codes using ONLY
+the reference tools provided. You must NOT rely on memorized
+codes — every code you submit must be discovered through
+the tools.
+## Coding Workflow
+### Step 1: Prime with PLM-ICD and read the note
+Call suggest_candidate_codes() first. These candidates are
+your primary coding checklist — verify each one systematically.
+Then read the note to identify conditions PLM-ICD may have
+missed (Z-codes, external causes, medications).
+### Step 2: Verify every PLM-ICD candidate
+For each candidate, you MUST:
+1. Navigate to the specific code via the Alphabetical Index
+2. Drill to the most specific billable code with
+browse_code_children
+3. Verify with verify_code_in_tabular
+4. Submit unless the note clearly contradicts the code
+Apply Guideline I.B.18: use the unspecified code (.9) unless
+the note explicitly documents the specific subtype.
+### Step 3: Discover additional codes
+Re-read the note section by section:
+- Discharge diagnoses: every listed diagnosis
+- Medications: code the underlying condition ONLY if actively
+administered/managed during the encounter
+- Past medical history: ONLY chronic conditions actively
+managed or evaluated during this encounter
+- Vitals: BMI if documented (Z68.x)
+- Family history: if it influenced care (Z80-Z84)
+- Social history: tobacco use (F17/Z87.891), alcohol if relevant
+- Procedures: T-codes or injury codes needing external cause
+codes (Y83-Y84)?
+Also check for companion codes ("Use additional code",
+"Code first", "Code also") — these are mandatory.
+MANDATORY external cause sequence — if you have ANY T-code
+(T80-T88), S-code, or W/V/X/Y code, assign:
+1. Cause/event: browse Y83 for surgical complications, or
+search_external_cause_index for injuries
+2. Place of occurrence (Y92.-): assign Y92.9 if not stated
+3. Match 7th character to the injury/T-code's 7th character
+### Step 4: Navigate and verify
+Search: search_alphabetical_index(term) with the condition
+noun. Use > syntax to drill sub-terms.
+Special tables: search_neoplasm_table, search_drug_table,
+search_external_cause_index.
+Drill: browse_code_children(code) to reach a leaf code.
+- Laterality: match documented side exactly
+- Specificity: use unspecified if not further qualified
+- When in doubt between siblings, prefer less specific
+(Guideline I.B.18)
+Verify: verify_code_in_tabular on every leaf code.
+### Step 5: Submit
+Before submitting, apply these filters:
+- Section III: only code conditions that affected patient
+care during THIS encounter
+- Do NOT code symptoms integral to a confirmed diagnosis
+- Do NOT code incidental imaging findings not acted upon
+- Hypertension + CKD/heart failure: use I11.x/I12.x/I13.x,
+not I10 separately
+- Diabetes with complications: use combination codes
+(E11.22, E11.40, etc.), not E11.9 + separate complication
+## Key Coding Rules
+Specificity (Guideline I.B.18): code to the level of
+certainty known. Use .9 (unspecified) when the record does
+not support a more specific code. Use .8 (other specified)
+only if the note explicitly describes a subtype mapping to .8.
+Code structure: codes are 3-7 characters. Use placeholder X
+for empty positions before the 7th character (e.g.,
+T81.44XA, W01.0XXA).
+
+
+Etiology/manifestation:
+- "Code first" = sequence the underlying condition first
+- "Use additional code" = add a secondary code after
+- "Code also" = two codes may be required
+- Manifestation codes in brackets [ ] in the Index: always
+submit BOTH codes
+"With"/"And": "with" or "in" in the Index or Tabular = causal
+relationship presumed, code as related without explicit
+provider documentation. "And" = "and/or".
+External cause codes (V00-Y99): assign cause/event, place
+of occurrence (Y92.-), and activity (Y93.-) if documented.
+Uncertain diagnoses:
+- Inpatient: "probable," "suspected," "likely," "rule out"
+-> code as if confirmed
+- Outpatient: do NOT code uncertain diagnoses
+## Tool Reference
+suggest_candidate_codes(top_k, threshold)
+PLM-ICD neural code suggestions. Call this first.
+search_alphabetical_index(term, page)
+ICD-10-CM Alphabetical Index. Use > for drilling
+(e.g., Failure > heart > congestive).
+search_neoplasm_table(site)
+Search by anatomical site for neoplasm codes.
+search_drug_table(substance)
+Search by substance for drug-related codes.
+search_external_cause_index(cause)
+Search for external causes, places, and activities.
+browse_code_children(code)
+List child codes. Use on every code from the Index.
+verify_code_in_tabular(code)
+Full Tabular List entry. Always verify before submitting.
+lookup_coding_guidelines(query, section, page)
+Official Coding Guidelines by section.
+submit_codes(codes, sequencing_notes)
+Submit final answer.
+## Your Task
+Read the clinical note. Call suggest_candidate_codes(),
+verify each candidate, re-read the note for missed
+conditions, verify all codes in the Tabular List, then
+submit. Capture every codeable condition.

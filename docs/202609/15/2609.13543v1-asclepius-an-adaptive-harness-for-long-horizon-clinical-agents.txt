@@ -1,0 +1,2032 @@
+Asclepius: An Adaptive Harness for Long-Horizon Clinical Agents
+Grace Chang Yuan1, Xiaoman Zhang2, Sung Eun Kim2, Luyang Luo2, Pranav Rajpurkar2
+1Massachusetts Institute of Technology, Cambridge, MA
+2Department of Biomedical Informatics, Harvard Medical School, Boston, MA
+Correspondence: yuangc@mit.edu, pranav_rajpurkar@hms.harvard.edu
+Abstract
+LLM agents are predominantly benchmarked
+on short, single-task trajectories, yet real de-
+ployments run for hours under contention, sur-
+facing a different class of failures. We use
+the Clinical Environment Simulator (CES), in
+which an agent manages an entire emergency-
+department shift under continuous time and
+resource pressure, as a testbed: long-horizon
+execution failures manifest measurably in a sin-
+gle rollout under structured, multi-dimensional
+grading. On CES, current agents reach the
+correct diagnosis in most cases yet fail to
+deliver complete and timely critical actions,
+revealing an execution gap.
+We attribute
+this gap to three long-horizon failure modes,
+each operationalized as a per-trace counter:
+instruction-adherence drift, treatment incom-
+pleteness, and a severity-equity gap in time-
+liness.
+We then introduce ASCLEPIUS, an
+adaptive agent scaffolding with a self-evolving
+harness that rewrites the operating manual be-
+tween shifts from trace-level feedback, an ex-
+ternalized clinical skills library for high-stakes
+regimen knowledge, and three isolated sub-
+agents that partition per-turn decisions across
+the patient queue. On held-out batches never
+observed during harness evolution, ASCLE-
+PIUS improves critical-action correctness by
+22% (p = 0.024) over a strong baseline agent
+framework while preserving diagnostic accu-
+racy, with consistent gains across five LLM
+judges from three model families; on the full
+ten-batch set, improvements reach 25% on crit-
+ical actions and 13% on timeliness. The three
+failure modes form a coupled bottleneck: de-
+cisive reductions appear only when all three
+components act together.
+1
+Introduction
+From Short-Horizon to Long-Horizon Agent De-
+ployment. Progress in LLM agents has been driven
+largely by short-horizon, single-task benchmarks
+where success is scored at the end of a brief trajec-
+tory. Yet real deployments demand sustained com-
+petent execution across hours of interleaved tasks
+under contention, where a different class of failures
+emerges that is invisible to per-task accuracy but
+dominates end-of-shift performance. We use the
+Clinical Environment Simulator (CES) (Luo et al.,
+2026) as our testbed: a long-horizon emergency-
+department shift in which patients arrive on stag-
+gered schedules with hidden deterioration thresh-
+olds, vitals evolve continuously, and the agent must
+interleave diagnosis with time-sensitive interven-
+tions under contention for limited beds and staff.
+Performance is graded along four dimensions: diag-
+nosis, critical actions, timeliness, and disposition.
+Gaps in Current Agents. We evaluate four config-
+urations representative of current agent practice on
+CES: three raw frontier-model agents (Codex (Ope-
+nAI, 2025a), Gemini (Google, 2025), and Claude
+Code (Anthropic, 2025a)) and a stronger baseline
+that wraps Claude Code in an MCP-based clin-
+ical tool interface with a hand-crafted operating
+manual. The tool-using configuration substantially
+outperforms the raw agents, yet a striking asymme-
+try persists across all four: diagnostic accuracy is
+high (4.39/5) while critical-action scores remain be-
+low 3.0/5 (2.94/5) and timeliness while higher, still
+trails at 3.34/5. We call this the execution gap: the
+failure to translate correct diagnosis into complete
+and timely action under multi-patient load.
+Failure Modes. We identify three failure modes
+that underlie this execution gap, each operational-
+ized with one per-trace counter (Section 6.3, Fig-
+ure 3). (i) Instruction-adherence drift: a hand-
+crafted operating manual that works at hour zero
+decays in adherence as the shift lengthens and clin-
+ical trajectories diversify, a runtime problem that
+hand-tuning cannot scale to address; measured
+by the Drift counter (early→late rise in naked-
+disposition rate). (ii) Treatment incompleteness:
+even with a correct diagnosis, the agent frequently
+arXiv:2609.13543v1  [cs.AI]  11 Sep 2026
+
+
+Figure 1: Overview of Asclepius. Two coupled loops wrap a baseline agent. Within a shift (inner loop), the Main
+Agent uses an MCP tool interface, a clinical skills library, and three isolated subagents. Across shifts (outer loop), a
+proposer agent reads the shift trace and rewrites the operating manual for the next shift.
+orders zero disease-specific treatment, partial multi-
+drug regimens, or familiar defaults instead of
+guideline-specified drugs; measured by the Incom-
+plete counter (zero-treatment rate). (iii) Severity-
+equity gap: as the queue widens, the agent’s atten-
+tion collapses onto recent and easier cases, leaving
+harder and severe patients with systematically de-
+layed care; measured by the Neglect counter (time-
+liness gap between non-severe and severe patients).
+Asclepius. We propose ASCLEPIUS, an adaptive
+agent scaffolding with three components, each
+targeting one of the failure modes above. (i) A
+self-evolving harness treats the operating man-
+ual as a learnable natural-language artifact: a pro-
+poser agent reads trace-level feedback (scores, ac-
+tions, missed treatments) from completed shifts and
+rewrites the manual between iterations. (ii) A cu-
+rated clinical skills library externalizes procedural
+treatment-selection knowledge (regimen templates,
+dosage tables, condition-to-action mappings) as
+an on-demand reference. (iii) Three isolated sub-
+agents (triage prioritization, diagnosis formation,
+treatment completion) partition per-turn decisions
+into focused context windows.
+Results. We evaluate Asclepius on ten patient
+batches in CES (six search and four held out
+from manual evolution).
+Pooled across all ten
+batches, Asclepius delivers gains on critical ac-
+tions (+25%, p < 0.001) and timeliness (+13%,
+p < 0.01) while preserving diagnostic accuracy.
+On the four held-out batches alone (n = 48 pa-
+tients), the critical-action gain remains significant
+(+0.63, p = 0.024); overall (+0.19) and timeli-
+ness (+0.31) remain positive but not significant.
+Five judges from three model families reproduce
+the same pattern, so the improvement is not an ar-
+tifact of the original grader. Component ablations
+show that no single component closes the execution
+gap on its own. The three failures behave as a cou-
+pled bottleneck: no single component reduces all
+three per-trace counters, and the largest joint reduc-
+tion appears only when the self-evolving manual,
+the skills library, and the isolated subagents act
+together.
+2
+Related Work
+2.1
+Clinical LLM Agents and Evaluation
+Evaluation of LLMs in medicine has progressed
+through three regimes. Early work used static,
+single-question benchmarks drawn from licensing
+exams and curated vignettes, where models answer
+one case in isolation. A second wave introduced
+multi-turn diagnostic agents that interview a single
+patient or reason over a single case across multi-
+ple steps: AMIE conducts conversational history-
+taking (Tu et al., 2025; McDuff et al., 2025), MAI-
+DxO operationalizes diagnosis as sequential test or-
+dering (Nori et al., 2025), and benchmarks such as
+
+
+AgentClinic and MedAgentBench evaluate agents
+in simulated clinical environments (Schmidgall
+et al., 2024; Jiang et al., 2025). Multi-agent variants
+extend this paradigm by simulating entire hospi-
+tals (Li et al., 2024; Fan et al., 2025) or expanding
+tool use into therapeutic and rare-disease reason-
+ing (Gao et al., 2025; Zhao et al., 2026). These
+systems remain single-patient and untimed, with
+evaluation dominated by the diagnosis dimension.
+Recent work argues that clinical AI evaluation must
+move toward continuous, multi-patient simulators
+that grade time-sensitive treatment actions along-
+side diagnosis (Luo et al., 2026). Our work targets
+the resulting long-horizon execution gap in such
+environments.
+2.2
+Agent Harnesses
+We use harness to refer to the non-parametric scaf-
+folding around an LLM, including prompts, tools,
+control flow, and inter-agent coordination, that de-
+termines how a fixed model executes a task. The
+dominant pattern equips agents with external tools
+and skill libraries: ReAct interleaves tool calls
+with chain-of-thought reasoning (Yao et al., 2023),
+Toolformer fine-tunes the model to invoke APIs
+autonomously (Schick et al., 2023), and Voyager
+introduces a learned, growable skill library for
+embodied agents (Wang et al., 2024). These ap-
+proaches treat skills as task-level procedures dis-
+covered or invoked during execution, and rely on
+the underlying model’s parametric memory for do-
+main knowledge. Our skills component takes a
+different design point: rather than learning skills
+end-to-end or growing them online, we curate a
+small, condition-indexed library of high-stakes clin-
+ical knowledge (regimen templates, dosage tables,
+and condition-to-action mappings) explicitly tar-
+geted at the incomplete-treatment-selection failure
+mode identified in rollout traces.
+2.3
+Prompt Optimization and Self-Evolving
+Harnesses
+A growing line of work treats the prompt as a learn-
+able artifact. APE searches over instructions with
+an LLM as the search operator (Zhou et al., 2023);
+OPRO frames the LLM as a black-box optimizer
+over textual prompts (Yang et al., 2024); DSPy
+jointly optimizes prompts and program structure
+against task metrics (Khattab et al., 2024). These
+methods operate on single-prompt input/output
+pairs and optimize against a scalar metric. A re-
+cent survey of agent externalization identifies self-
+evolving harnesses, in which the orchestration logic
+itself is rewritten between rollouts, as an emerging
+direction (Zhou et al., 2026). Its closest concrete re-
+alization is Meta-Harness (Lee et al., 2026), which
+runs an agentic proposer with filesystem access to
+the code, scores, and execution traces of all prior
+candidates. Asclepius shares this proposer-over-
+traces design, but evolves a natural-language oper-
+ating manual rather than harness code, over multi-
+hour, multi-patient clinical rollouts with structured
+per-dimension feedback (diagnosis, critical actions,
+timeliness, disposition) rather than a scalar reward.
+In the clinical domain, EvoClinician (He et al.,
+2026) performs test-time evolutionary learning to
+adapt diagnostic strategy within a multi-turn en-
+counter with a single patient. Asclepius is com-
+plementary along both axes: the unit of adaptation
+is the cross-shift operating manual rather than the
+within-encounter policy, and the target is execution
+under multi-patient load rather than diagnostic ac-
+curacy, with the underlying model and diagnosis
+pipeline held fixed. HORIZON (Wang et al., 2026)
+characterizes long-horizon agent failure across four
+domains by assigning each failed trajectory a sin-
+gle primary label from a seven-category taxon-
+omy; our characterization targets a complementary
+regime, operationalizing three failure modes as con-
+tinuous per-trace counters under multi-objective,
+continuously-graded execution and finding them
+coupled rather than orthogonal.
+3
+Preliminaries
+3.1
+Clinical Environment Simulator
+We evaluate on the Clinical Environment Sim-
+ulator (CES) (Luo et al., 2026), a turn-based
+discrete-event simulator of a multi-hour, multi-
+patient emergency-department shift. Patients ar-
+rive on staggered schedules with hidden deteriora-
+tion thresholds; vitals evolve continuously, ordered
+tests return on simulated delays, and complications
+develop over time. The agent interacts with the
+simulator through an EHR-style interface and is
+graded by an LLM judge along four dimensions on
+a 1–5 scale: diagnosis, critical actions, timeliness,
+and disposition. Full platform mechanics are in
+Appendix A; rubric details are in Appendix D.
+3.2
+Baseline Agents
+We compare against two baseline configurations.
+Single-LLM agent. A frontier LLM is given a
+minimal task description and direct access to the
+
+
+simulator interface, with no hand-crafted operating
+manual, no skill resources, and no subagents. We
+report this configuration with three frontier models:
+Codex, Gemini, and Claude Code. Claude Code
+appears in both baselines: as a raw model here, and
+as the underlying model of the framework below.
+Baseline agent framework. A stronger baseline
+wraps Claude Code in an MCP-based clinical tool
+interface and a hand-crafted operating manual. The
+interface exposes observation tools (EHR content),
+action tools (orders, examinations, dispositions),
+and control tools (simulator lifecycle); natural-
+language order strings are resolved to catalog en-
+tries through a three-stage matching pipeline. The
+operating manual instructs the agent on triage, par-
+allel workup, and disposition. The agent maintains
+the full multi-patient state in a single context win-
+dow and has no specialized knowledge resources
+beyond parametric memory. This configuration
+serves as the starting point for Asclepius; tool-by-
+tool details are in Appendix B.
+4
+Asclepius
+Figure 1 shows the architecture as two coupled
+loops: an outer loop that rewrites the operating
+manual between shifts, and an inner loop that runs
+within each shift and consists of a skills library and
+three subagents.
+4.1
+Outer Loop: Self-Evolving Harness
+Let Mt denote the operating manual at iteration
+t ∈{0, 1, 2, . . .} and P a proposer agent (a sep-
+arate agent with no access to the simulator, the
+underlying patient scenario definitions, or the held-
+out batches). At iteration t, P receives a filesystem
+Ft containing the full artifacts of all candidates pro-
+duced so far {M0, . . . , Mt}: each candidate’s man-
+ual, aggregate, and per-batch scores, per-patient
+judge rows, per-turn action records, and LLM call
+audit logs. P navigates Ft to inspect prior manu-
+als and traces, identifies the current best-scoring
+manual as the editing base, and outputs a revised
+manual Mt+1. We evaluate Mt+1 on the search
+batches, append its scores to the candidate record,
+and after N iterations select the best-scoring man-
+ual on the search batches as M∗.
+The proposer’s system prompt requires it to:
+(i) base each edit on a failure pattern observed in
+≥3 patients across multiple batches, (ii) avoid
+patient- or batch-specific hard-coded knowledge,
+and (iii) produce substantive behavioral edits rather
+than cosmetic rewording. Constraints (i)–(ii) guard
+against overfitting to the search batches; (iii) pre-
+vent wasted iterations.
+Search and held-out validation. We partition
+the patient batches into six search batches (vis-
+ible to the proposer) and four held-out batches
+(never observed during iteration). The held-out
+split tests whether evolved manuals generalize be-
+yond the search trajectories. We use Claude Code
+with Claude Opus 4.6 (Anthropic, 2026a) as P and
+run N = 10 iterations, selecting the manual with
+the best search-batch overall score as M∗(M7, de-
+noted v7 in Section 6).
+4.2
+Inner Loop: Skills Library
+The skills library provides on-demand reference
+modules that the Main Agent retrieves during treat-
+ment selection. The clinical decision guide con-
+tains a presentation-to-management table specify-
+ing disease-specific drugs, doses, routes, and non-
+pharmacologic interventions, together with a seven-
+category treatment-completeness framework. The
+clinical reasoning module contains the treatment-
+first principle, the “no naked diagnosis” rule, a
+pre-disposition verification checklist, and a catalog
+of common failure patterns. A separate simulation
+mechanics module covers turn structure, action life-
+cycle, and resource constraints. Skills are loaded
+automatically when their description matches the
+current context and appended to the working con-
+text as structured reference.
+4.3
+Inner Loop: Subagents
+We externalize three recurring per-turn decisions to
+subagents that run as separate LLM calls with iso-
+lated contexts: (i) triage prioritization selects the
+next patient to attend to; (ii) diagnosis formation
+synthesizes test results into a working diagnosis
+and disposition recommendation; (iii) treatment
+completion identifies missing tests, medications,
+and procedures for a diagnosed patient and ensures
+they are ordered.
+Subagent prompts contain only content extracted
+from the hand-crafted operating manual M0 and
+are held fixed across all configurations; no addi-
+tional medical knowledge is introduced. Gains
+from subagent decomposition therefore come from
+focused context per decision, structured-output en-
+forcement, and inter-subagent coordination, rather
+than from added knowledge.
+Advisory vs. acting variants. We evaluate two
+
+
+variants. In the advisory variant, subagents have no
+MCP tool access; they receive a structured snapshot
+of simulator state and return a textual recommen-
+dation that the Main Agent parses and executes. In
+the acting variant, subagents have direct MCP ac-
+cess within their scope (the triage subagent rooms
+patients, the diagnosis subagent commits disposi-
+tions and consults, the treatment subagent places
+missing orders); the Main Agent serves as a coordi-
+nator that selects which subagent to invoke at each
+turn. We use the acting variant as the default in
+Section 6 and report the other as an ablation.
+5
+Experimental Setup
+5.1
+The Clinical Simulator
+We evaluate on the Clinical Environment Simula-
+tor (CES) (Luo et al., 2026), a long-horizon multi-
+patient emergency-department simulator in which
+an LLM agent manages a multi-hour shift: new
+patients arrive throughout the shift following a
+stochastic arrival process, existing patients evolve
+continuously (vitals shifting, ordered tests return-
+ing on simulated delays, complications developing
+over time), and the agent issues actions from a fixed
+set (laboratory or imaging orders, medications, con-
+sults, dispositions) through an EHR tool interface.
+Each shift is graded by an LLM judge with ac-
+cess to the gold patient trajectory along four di-
+mensions on a 1 to 5 scale: diagnosis, critical
+actions, timeliness, and disposition (Luo et al.,
+2026). Higher scores reflect closer correspondence
+to expert-graded reference trajectories.
+We re-
+port per-dimension means and the overall mean
+across all dimensions. Our primary judge is GPT-
+4.1 (OpenAI, 2025b), held fixed across all con-
+figurations and used for every table unless stated
+otherwise.
+To test whether results depend on the choice of
+grader, we additionally re-grade every patient un-
+der the baseline and full Asclepius configurations
+(120 patients per configuration) with four further
+judges spanning three model families: Claude Son-
+net 4.5 (Anthropic, 2025b), Claude Sonnet 5 (An-
+thropic, 2026b), Gemini 3.1 Pro (Google, 2026),
+and GPT-5 (OpenAI, 2025c). Each validation judge
+receives the identical rubric, answer keys, and tra-
+jectory records as the primary judge; only the grad-
+ing model changes. The component ablations are
+graded by the primary judge alone. Results are
+reported in Table 3.
+Full simulator mechanics, baseline agent config-
+uration details, and evaluation rubrics are provided
+in Appendices A, B, and D, respectively.
+5.2
+Patient Batches and Evaluation Protocol
+Each patient batch contains twelve patients with
+varying acuities, arrival times, and underlying diag-
+noses. We use ten batches in total, partitioned into
+six search batches used during harness evolution
+and four held-out validation batches reserved for fi-
+nal evaluation. The validation batches are sampled
+from the same distribution as the search batches
+but are never observed by the proposer agent. Each
+configuration is run once on every search and val-
+idation batch, and per-dimension scores are aver-
+aged across batches.
+5.3
+Configurations
+We compare two primary configurations and sev-
+eral ablations:
+• Raw single-agent: a frontier model invoked
+with only the simulator tool interface and
+a minimal task description, with no hand-
+crafted operating manual, no skills, no sub-
+agents, and no harness evolution. We report
+three frontier-model variants under this con-
+figuration: Codex, Gemini, and Claude Code.
+• Baseline agent configuration: the strongest
+agent baseline we have on CES, comprising
+a single frontier LLM, the simulator tool in-
+terface, and a hand-crafted operating manual
+(Appendix B). We re-implement this configu-
+ration as our starting point and report it under
+identical conditions to Asclepius.
+• Asclepius: our full system (Section 4), wrap-
+ping the baseline configuration with the self-
+evolving harness, skills, and subagents.
+For component ablations we evaluate Asclepius
+variants that add the three components one at a
+time on top of the baseline configuration.
+5.4
+Implementation Details
+We use Claude Code, with Claude Opus 4.6 (An-
+thropic, 2026a) as the underlying model, for both
+the main agent and the proposer agent. The har-
+ness is evolved for ten iterations over the six search
+batches; we report the results on both search and
+validation.
+
+
+Table 1: Main results across all ten patient batches. Mean scores (out of 5) for the three raw single-agent variants,
+the baseline agent framework, and Asclepius (harness + skills + acting subagents). Scores pool the six search
+batches, over which the operating manual was evolved, with the four held-out batches. Significance for the ∆row is
+from a patient-level mixed-effects model, BH-FDR corrected across all 20 system-by-dimension tests (*: p < 0.05,
+**: p < 0.01, ***: p < 0.001, ns: not significant). Bold marks the best score in each column.
+Configuration
+Overall
+Diagnosis
+Critical Actions
+Timeliness
+Disposition
+Codex (raw)
+2.74
+3.74
+1.59
+1.58
+4.03
+Gemini (raw)
+2.06
+2.47
+1.43
+1.42
+2.93
+Claude Code (raw)
+3.52
+4.22
+2.69
+2.65
+4.53
+Baseline framework
+3.80
+4.39
+2.94
+3.34
+4.52
+Asclepius
+4.10
+4.38
+3.67
+3.79
+4.54
+∆vs. baseline
++0.30 **
+−0.02 ns
++0.73 ***
++0.45 **
++0.03 ns
+Figure 2: Component ablation across all ten patient batches. Per-dimension scores for the baseline framework,
+baseline + skills, baseline + subagents, baseline + harness, and Asclepius (Full). The baseline, +S, and +SA use
+the hand-crafted manual M0; +H and full Asclepius use the evolved manual M ∗.
+Table 2: Held-out significance (batches 7–10, n = 48).
+Mixed-effects mean differences of Asclepius vs. the
+baseline framework, fit on the held-out batches alone.
+Diagnosis and disposition are unchanged (both ns).
+Dimension
+∆
+p
+Critical Actions
++0.625
+0.024 *
+Timeliness
++0.312
+ns
+Overall
++0.193
+ns
+6
+Results
+We report aggregate scores across all ten patient
+batches (120 patients total). Significance for each
+comparison against the baseline framework comes
+from a patient-level mixed-effects model with ran-
+dom effects for patient and batch, with p-values
+BH-FDR (Benjamini and Hochberg, 1995) cor-
+rected across the 20 system-by-dimension tests.
+Search-vs-held-out generalization, per-batch break-
+downs, and the full significance table are in Ap-
+pendix E.
+6.1
+Main Results
+Table 1 compares Asclepius against three raw
+single-agent variants and the baseline agent frame-
+work. The raw single-agents span a wide range
+(Gemini 2.06 to Claude Code 3.52 overall), and
+even the strongest raw variant trails the baseline
+framework by 0.28 overall, attributing substantial
+value to the MCP tool interface and hand-crafted
+operating manual alone. The execution-gap asym-
+metry highlighted in Section 1 appears already on
+the raw Claude Code variant (Dx 4.22, Disp 4.53
+vs. CA 2.69, Timeliness 2.65) and persists on the
+baseline framework (Dx 4.39, Disp 4.52 vs. CA
+2.94, Timeliness 3.34), so the gap is a property of
+how current agents handle multi-patient execution
+rather than an artifact of the framework. Asclepius
+closes this asymmetry on top of the baseline, rais-
+ing overall by +0.30 (p < 0.01), critical actions
+by +0.73 (+25%, p < 0.001), and timeliness by
++0.45 (+13%, p < 0.01); diagnosis and disposi-
+tion stay within ±0.03 of the baseline (p > 0.8),
+confirming that the gains come from execution
+rather than from changes in clinical judgment.
+
+
+Table 3: Multi-judge validation. ∆= Asclepius −Baseline under each of the five judges. (*: p < 0.05, **:
+p < 0.01, ***: p < 0.001, ns: not significant).
+Judge
+∆Overall
+∆Critical Actions
+∆Timeliness
+∆Diagnosis
+∆Disposition
+GPT-4.1 (primary)
++0.30 **
++0.73 ***
++0.45 **
+−0.02 ns
++0.03 ns
+Claude Sonnet 4.5
++0.30 *
++0.65 ***
++0.52 **
+−0.04 ns
++0.09 ns
+Claude Sonnet 5
++0.36 **
++0.76 ***
++0.72 ***
+−0.02 ns
+−0.03 ns
+Gemini 3.1 Pro
++0.30 *
++0.67 ***
++0.67 ***
+−0.02 ns
+−0.12 ns
+GPT-5
++0.31 **
++0.65 ***
++0.71 ***
+−0.05 ns
+−0.09 ns
+These aggregates pool the six search batches,
+over which the operating manual was evolved, with
+the four held-out batches. Refitting the model on
+the held-out batches alone (n = 48) leaves critical
+actions significant (+0.625, +22%, p = 0.024),
+with timeliness (+0.312) and overall (+0.193) pos-
+itive but not significant (Table 2); we treat the held-
+out critical-actions result as our primary quantita-
+tive claim. Re-grading under the four validation
+judges reproduces the same pattern on every judge
+(Table 3), including one that shares a model fam-
+ily with neither the evaluated agent nor the Patient
+Engine, and three of the four report a larger timeli-
+ness gain than the primary judge, so the reported
+improvement is not specific to GPT-4.1.
+6.2
+Component Ablations
+Figure 2 adds the three components (harness, skills,
+acting subagents) one at a time on top of the base-
+line framework (mixed-effects differences and BH-
+FDR-corrected significance markers in Table 8, Ap-
+pendix E.3). Each component yields a positive
+mean shift, but with different magnitudes. Pooled
+across all ten batches, the self-evolving harness
+shows the largest single-component gain (+0.18
+overall, +0.38 critical actions, +0.34 timeliness),
+and is the only single-component variant whose
+gains on critical actions and timeliness clear the
+BH-FDR-corrected significance threshold. Skills
+contributes the second-largest gain (+0.12 overall,
++0.22 on critical actions and timeliness), and sub-
+agents alone the smallest (+0.04 overall); neither
+clears the significance threshold on any individual
+dimension. This ordering reverses on the held-out
+batches, where +H reaches 3.82 against a base-
+line of 3.78 and +SA becomes the strongest single
+component at 3.97 (Table 5).
+The three components compose: the full stack
+reaches 4.10 overall, with critical actions and time-
+liness exceeding any single-component variant by
+≥0.10 points, indicating the components are not
+substitutable for one another. Holding skills and
+subagents fixed and varying only the operating
+manual, the evolved manual adds +0.12 overall
+over S+SA on all batches (p = 0.36) and +0.02 on
+held-out (p = 0.88; Appendix E.4), so its marginal
+contribution on top of the architectural components
+is not statistically separable. Diagnosis and dispo-
+sition remain within ±0.11 of the baseline across
+all variants and never reach significance, consis-
+tent with the components being designed to repair
+execution rather than knowledge.
+6.3
+Failure-Mode Analysis
+Figure 3 reports the three per-trace failure-mode
+counters introduced in Section 1, giving a per-trace
+view of where each component intervenes and com-
+plementing the aggregate scores; Table 10 in Ap-
+pendix E.5 lists the exact per-configuration values.
+Each failure mode is operationalized with one con-
+crete per-trace counter. Instruction adherence can
+lapse in many ways and admits no single objec-
+tive measure, so Drift tracks one frequent, unam-
+biguous violation: the naked disposition, a patient
+dispositioned with ≤1 prior treatment order, in
+violation of the manual’s treatment-first rule. We
+report its rate early (hours 0–2) versus late (hours
+4–6), so the rise captures decay over the shift. The
+comparison is within-subject: both configurations
+see the same twelve patients in the same arrival or-
+der on every batch, so any difference in case mix or
+queue depth between early and late hours applies
+equally to both, and a rise in one system but not the
+other cannot be attributed to shifting task difficulty.
+Incomplete is the zero-treatment rate: the fraction
+of correctly-diagnosed patients given no disease-
+specific treatment. Neglect is the timeliness equity
+gap: the mean-timeliness difference between non-
+severe and severe patients, where severe is defined
+by the judge’s holistic encounter rating on the base-
+line trace (≤2, n = 20; Appendix E.5).
+Each component reduces the counter for the fail-
+ure mode it targets: the harness slows instruction-
+adherence drift, cutting the early→late rise in
+
+
+Figure 3: Per-component reduction of targeted failure modes. Three panels: (left) naked-disposition rate
+early (hours 0–2) versus late (hours 4–6); (middle) zero-treatment rate among correctly-diagnosed patients; (right)
+timeliness gap between non-severe and severe patients. Each compares the baseline, single-component variants
+(+S, +SA, +H), and full Asclepius. Lower is better.
+naked dispositions from +41pp to +32pp; the
+skills library lowers the zero-treatment rate from
+19% to 14%; and the subagents narrow the timeli-
+ness equity gap from 1.13 to 0.98. The effects do
+not decompose cleanly across components, how-
+ever: empirically, the skills library and the sub-
+agents reduce drift even further than the harness
+does (to +18 and +16pp, versus +32pp), and the
+harness in turn attains the lowest zero-treatment
+rate of any single component (7%). This pattern
+is consistent with the three failure modes acting as
+a coupled bottleneck: each component spills onto
+multiple counters, and no single component closes
+the execution gap on its own.
+The decisive reductions on all three coun-
+ters appear only when the components are com-
+bined. Full Asclepius nearly eliminates the drift
+(a +2pp early→late rise, far below any single-
+component variant; 16%→57% for the baseline ver-
+sus 10%→12% for Asclepius on the same patients),
+collapses the timeliness equity gap from 1.13 to
+0.23, and roughly halves the zero-treatment rate
+(19% to 9%). Taken together, the per-trace coun-
+ters corroborate the aggregate ablation: the three
+components are individually partial and jointly suf-
+ficient, and the coupled bottleneck only releases
+when the self-evolving harness, the skills library,
+and the isolated subagents act together.
+6.4
+Harness Search Trajectory
+Figure 4 shows the best-so-far search-batch scores
+across the 10 proposer iterations, and Table 11 in
+Appendix E.6 reports the raw per-iteration num-
+bers.
+The trajectory is non-monotone: critical
+actions and timeliness rise quickly from v0 to
+Figure 4: Self-evolving harness search trajectory.
+Best-so-far mean scores on the six search batches across
+10 proposer iterations, one line per CES dimension. v7
+is selected on overall search-batch score and used in
+Asclepius; v6–v8 form a high-performing plateau.
+v2, plateau through v4–v5, and reach a high-
+performing plateau at v6–v8. We select v7 as the
+final manual on the basis of overall search-batch
+score. Iterations v9–v10 regress on diagnosis or dis-
+position. Inspecting the diff from v0 to v7 reveals
+two classes of edit: (i) a procedural edit adding a
+pre-disposition treatment-enumeration routine tied
+to the seven treatment categories, and (ii) knowl-
+edge edits to the clinical content of the manual,
+with 13 new presentation rows (e.g., pulmonary
+embolism) and roughly 7 enriched management
+entries, such as correcting prophylactic to ther-
+apeutic anticoagulation dosing. These additions
+are presentation-level decision rules, not scenario-
+specific answers. To reduce overfitting to the search
+batches, the proposer is instructed to add only guid-
+ance that generalizes across cases and to act only
+
+
+Table 4: Subagent advisory vs. acting variants. Mean
+scores under the full Asclepius configuration.
+The
+acting variant gives each subagent direct MCP access
+within its scope; the advisory variant returns structured
+recommendations parsed by the Main Agent. We use
+the acting variant as the default.
+Variant
+Overall
+Dx
+CA
+Time
+Disp
+Advisory
+4.00
+4.39
+3.41
+3.69
+4.49
+Acting (default)
+4.10
+4.38
+3.67
+3.79
+4.54
+on failure patterns recurring across multiple pa-
+tients and batches. The full configuration retains a
++0.19 overall gain over the baseline on the held-out
+batches the proposer never observes (Table 5).
+At inference time, full Asclepius requires 1.21×
+the LLM calls of the baseline (433 vs. 359 per
+batch) and 1.52× the wall-clock (118 vs. 78 min-
+utes per batch), so the gains do not come from a
+large increase in inference compute. Harness evolu-
+tion is a separate, one-time development cost of 10
+iterations, each a proposer step (≈10 minutes) fol-
+lowed by an evaluation rollout over the six search
+batches, producing a frozen manual that is reused
+unchanged at inference.
+6.5
+Subagent Variants
+Table 4 compares the advisory and acting variants
+of the subagent decomposition (Section 4.3) un-
+der the full Asclepius configuration. The acting
+variant outperforms the advisory variant by +0.10
+overall, +0.26 on critical actions, and +0.10 on
+timeliness, with no degradation on diagnosis or dis-
+position. The gap is driven by tool-call efficiency:
+when subagents place their own orders, the Main
+Agent avoids paraphrasing and re-resolving long
+structured recommendations, removing a class of
+vocabulary-resolution failures observed in the advi-
+sory traces. We use the acting variant as the default
+elsewhere in the paper.
+6.6
+Qualitative Analysis
+We walk through a representative Asclepius roll-
+out in which the inner-loop subagents intercept a
+failure that the baseline framework commits on
+the same patient. Patient B1-P10 presents in atrial
+flutter with rapid ventricular response (RVR); both
+systems reach the correct diagnosis. On the base-
+line trace, the Main Agent orders heparin and flu-
+ids but fails to initiate a rate-control strategy or
+a durable oral anticoagulation plan before dispo-
+sition. The patient remains in rapid atrial flutter
+and worsens over subsequent turns, with escalating
+tachycardia and hypoxemia (heart rate 135→153,
+SpO2 95%→86%; critical-actions score 1/5), con-
+sistent with persistent RVR in the setting of car-
+diopulmonary vulnerability and empiric fluid ad-
+ministration. On the Asclepius trace, the treatment-
+completion subagent flags the missing rate-control
+strategy and post-ED anticoagulation plan. The
+Main Agent adds diltiazem, after excluding hy-
+potension, pre-excitation, and decompensated sys-
+tolic heart failure, and starts apixaban for indicated
+stroke prevention. The patient’s ventricular rate
+improves, oxygenation stabilizes, and the patient
+is admitted to cardiology with a complete regimen
+(critical-actions score 1→5). More traces with anal-
+ogous interceptions are reported in Appendix F.
+7
+Conclusion
+We studied the execution gap in long-horizon,
+multi-task agentic settings, using the Clinical En-
+vironment Simulator as a testbed in which the
+phenomenon is measurable: current agents reach
+the correct diagnosis in most cases yet fail to de-
+liver complete and timely critical actions under
+sustained shift-long load. We operationalized this
+gap with three per-trace counters that target long-
+horizon failure modes (instruction-adherence drift,
+treatment incompleteness, severity-equity gap),
+and instantiated an adaptive agent scaffolding, As-
+clepius, with a component for each: a self-evolving
+harness that rewrites the operating manual between
+shifts, an externalized clinical skills library, and
+three isolated subagents that partition per-turn deci-
+sions across the patient queue. On held-out batches
+never observed during harness evolution, Ascle-
+pius improves critical-action correctness by 22%
+over a strong baseline framework while preserving
+diagnostic accuracy, with consistent gains across
+five LLM judges from three model families; on
+the full ten-batch set, improvements reach 25%
+on critical actions and 13% on timeliness. The
+strongest empirical finding is structural: the three
+failure modes form a coupled bottleneck, in that no
+single component closes the execution gap on its
+own, and the decisive reductions on all three coun-
+ters appear only when the self-evolving harness,
+the skills library, and the isolated subagents act to-
+gether. For clinical AI evaluation, the result argues
+for benchmarks that measure sustained, complete,
+and equitable execution across a patient queue, not
+diagnostic accuracy on isolated cases.
+
+
+8
+Limitations
+LLM-based grading.
+All four CES dimensions
+are scored by LLM judges. Our primary judge
+(GPT-4.1; Appendix D) shares a model family with
+the simulator’s Patient Engine, so correlated errors
+between generated physiology and its grading are
+a structural concern. Re-grading under four further
+judges across three model families reproduces the
+gains (Table 3), indicating the improvement is not
+specific to one grader. Absolute scores nonetheless
+inherit any miscalibration or ceiling effects shared
+across LLM graders, and we did not run an expert-
+agreement study on Asclepius traces. Gains should
+be read as improvements under automated grading,
+not as validated clinical outcomes.
+Single rollout per configuration and batch.
+Each configuration is run once on each batch, so
+every reported cell rests on one trajectory of a
+stochastic agent in a stochastic simulator. Our
+mixed-effects model treats patient and batch as ran-
+dom effects and therefore quantifies patient- and
+batch-level heterogeneity, not run-to-run execution
+variance. Two observations bound how much this
+drives the results: full Asclepius improves critical
+actions on all ten batches individually (smallest
+margin +0.17; Appendix E), and the same direc-
+tion and approximate magnitude are reproduced
+by four independent judges. Neither substitutes
+for repeated execution, and per-batch overall dif-
+ferences range from −0.12 to +0.71, so individual
+per-batch values and the ranking within the v6–v8
+plateau should not be over-read.
+Simulation-to-reality gap.
+CES is a simulator:
+patient cards are derived from de-identified records
+and physiology is LLM-generated. Performance
+on CES is a proxy for, not evidence of, real clini-
+cal competence. We evaluate a single default ED
+configuration (four beds, six nurses, one physi-
+cian, six-hour shift); robustness to other shift
+lengths, staffing ratios, and acuity mixes is untested,
+as is generalization beyond the English-language,
+guideline-dosing regime encoded in the skills li-
+brary. All results use a single backbone (Claude
+Opus 4.6) in a single environment; whether the
+components help weaker base models, or transfer
+to other long-horizon multi-objective environments,
+is untested.
+Cost and scalability of harness evolution.
+The
+self-evolving outer loop requires repeated multi-
+hour rollouts across six search batches per itera-
+tion plus a separate proposer agent, making it com-
+putationally expensive relative to a hand-written
+manual. Selection uses only six search batches;
+although the held-out batches confirm generaliza-
+tion, the overall gain compresses from +0.36 on
+search to +0.19 on held-out, indicating some adap-
+tation to the search trajectories. The skills library
+is hand-curated rather than learned, so its coverage
+is bounded by manual effort and may omit rare
+presentations.
+References
+Anthropic. 2025a.
+Claude code.
+https://www.
+anthropic.com/claude-code.
+Anthropic. 2025b.
+Introducing Claude Sonnet
+4.5.
+https://www.anthropic.com/news/
+claude-sonnet-4-5.
+Released
+September
+29, 2025.
+Anthropic.
+2026a.
+Claude
+opus
+4.6
+sys-
+tem
+card.
+https://www.anthropic.com/
+claude-opus-4-6-system-card.
+Released
+February 5, 2026.
+Anthropic.
+2026b.
+Introducing
+Claude
+Son-
+net
+5.
+https://www.anthropic.com/news/
+claude-sonnet-5. Released June 30, 2026.
+Yoav Benjamini and Yosef Hochberg. 1995. Control-
+ling the false discovery rate: A practical and pow-
+erful approach to multiple testing. Journal of the
+Royal Statistical Society: Series B (Methodological),
+57(1):289–300.
+Zhihao Fan, Lai Wei, Jialong Tang, Wei Chen, Wang
+Siyuan, Zhongyu Wei, and Fei Huang. 2025. AI
+hospital: Benchmarking large language models in a
+multi-agent medical interaction simulator. In Pro-
+ceedings of the 31st International Conference on
+Computational Linguistics, pages 10183–10213, Abu
+Dhabi, UAE. Association for Computational Linguis-
+tics.
+Shanghua Gao, Richard Zhu, Zhenglun Kong, Ayush
+Noori,
+Xiaorui Su,
+Curtis Ginder,
+Theodoros
+Tsiligkaridis, and Marinka Zitnik. 2025. TxAgent:
+An AI agent for therapeutic reasoning across a uni-
+verse of tools. Preprint, arXiv:2503.10970.
+Google. 2025.
+Gemini 3.
+https://blog.google/
+products/gemini/gemini-3/. Released Novem-
+ber 18, 2025.
+Google. 2026. Gemini 3.1 Pro: A smarter model for
+your most complex tasks. https://blog.google/
+innovation-and-ai/models-and-research/
+gemini-models/gemini-3-1-pro/.
+Released
+February 19, 2026.
+
+
+Yufei He, Juncheng Liu, Zhiyuan Hu, Yulin Chen, Yue
+Liu, Yuan Sui, Yibo Li, Nuo Chen, Jun Hu, Bryan
+Hooi, Xinxing Xu, and Jiang Bian. 2026. EvoClin-
+ician: A self-evolving agent for multi-turn medical
+diagnosis via test-time evolutionary learning. arXiv
+preprint arXiv:2601.22964.
+Yixing Jiang, Kameron C. Black, Gloria Geng, Danny
+Park, James Zou, Andrew Y. Ng, and Jonathan H.
+Chen. 2025. MedAgentBench: A virtual EHR envi-
+ronment to benchmark medical LLM agents. NEJM
+AI, 2(9):AIdbp2500144.
+Omar Khattab, Arnav Singhvi, Paridhi Maheshwari,
+Zhiyuan Zhang, Keshav Santhanam, Sri Vard-
+hamanan, Saiful Haq, Ashutosh Sharma, Thomas T.
+Joshi, Hanna Moazam, Heather Miller, Matei Zaharia,
+and Christopher Potts. 2024.
+DSPy: Compiling
+declarative language model calls into self-improving
+pipelines. In International Conference on Learning
+Representations (ICLR).
+Yoonho Lee, Roshen Nair, Qizheng Zhang, Kangwook
+Lee, Omar Khattab, and Chelsea Finn. 2026. Meta-
+harness: End-to-end optimization of model harnesses.
+Preprint, arXiv:2603.28052.
+Junkai Li, Yunghwei Lai, Weitao Li, Jingyi Ren, Meng
+Zhang, Xinhui Kang, Siyu Wang, Peng Li, Ya-Qin
+Zhang, Weizhi Ma, and Yang Liu. 2024. Agent hospi-
+tal: A simulacrum of hospital with evolvable medical
+agents. Preprint, arXiv:2405.02957.
+Luyang Luo, Sung Eun Kim, Xiaoman Zhang, Julius M.
+Kernbach, Roshan Kenia, Julian N. Acosta, Larry A.
+Nathanson, Adrian D. Haimovich, Adam Rod-
+man, Ethan Goh, Jonathan H. Chen, Nigam H.
+Shah, David A. Kim, James Zou, Faisal Mahmood,
+Jakob Nikolas Kather, Matthew Lungren, Vivek
+Natarajan, Eric J. Topol, and Pranav Rajpurkar. 2026.
+A clinical environment simulator for dynamic AI
+evaluation. Nature Medicine, 32(3):820–827. Per-
+spective.
+Daniel McDuff, Mike Schaekermann, Tao Tu, Anil
+Palepu, Amy Wang, Jake Garrison, Karan Singhal,
+Yash Sharma, Shekoofeh Azizi, Kavita Kulkarni,
+Le Hou, Yong Cheng, Yun Liu, S. Sara Mahdavi,
+Sushant Prakash, Anupam Pathak, Christopher Sem-
+turs, Shwetak Patel, Dale R. Webster, and 9 others.
+2025. Towards accurate differential diagnosis with
+large language models. Nature, 642(8067):451–457.
+Harsha Nori, Mayank Daswani, Christopher Kelly, Scott
+Lundberg, Marco Tulio Ribeiro, Marc Wilson, Xi-
+aoxuan Liu, Viknesh Sounderajah, Jonathan Carl-
+son, Matthew P. Lungren, Bay Gross, Peter Hames,
+Mustafa Suleyman, Dominic King, and Eric Horvitz.
+2025. Sequential diagnosis with language models.
+Preprint, arXiv:2506.22405.
+OpenAI. 2025a. Introducing Codex. https://openai.
+com/index/introducing-codex/.
+OpenAI. 2025b.
+Introducing GPT-4.1 in the
+API. https://openai.com/index/gpt-4-1/. Re-
+leased April 14, 2025.
+OpenAI. 2025c. Introducing GPT-5. https://openai.
+com/index/introducing-gpt-5/.
+Released Au-
+gust 7, 2025.
+Timo Schick, Jane Dwivedi-Yu, Roberto Dessì, Roberta
+Raileanu, Maria Lomeli, Eric Hambro, Luke Zettle-
+moyer, Nicola Cancedda, and Thomas Scialom. 2023.
+Toolformer: Language models can teach themselves
+to use tools. In Advances in Neural Information Pro-
+cessing Systems (NeurIPS).
+Samuel Schmidgall, Rojin Ziaei, Carl Harris, Eduardo
+Reis, Jeffrey Jopling, and Michael Moor. 2024.
+AgentClinic: A multimodal agent benchmark to eval-
+uate AI in simulated clinical environments. Preprint,
+arXiv:2405.07960.
+Tao Tu, Mike Schaekermann, Anil Palepu, Khaled Saab,
+Jan Freyberg, Ryutaro Tanno, Amy Wang, Brenna Li,
+Mohamed Amin, Yong Cheng, Elahe Vedadi, Nenad
+Tomašev, Shekoofeh Azizi, Karan Singhal, Le Hou,
+Albert Webson, Kavita Kulkarni, S. Sara Mahdavi,
+Christopher Semturs, and 7 others. 2025. Towards
+conversational diagnostic artificial intelligence. Na-
+ture, 642(8067):442–450.
+Guanzhi Wang, Yuqi Xie, Yunfan Jiang, Ajay Man-
+dlekar, Chaowei Xiao, Yuke Zhu, Linxi Fan, and
+Anima Anandkumar. 2024. Voyager: An open-ended
+embodied agent with large language models. Trans-
+actions on Machine Learning Research (TMLR).
+Xinyu Jessica Wang, Haoyue Bai, Yiyou Sun, Haorui
+Wang, Shuibai Zhang, Wenjie Hu, Mya Schroder,
+Bilge Mutlu, Dawn Song, and Robert D. Nowak.
+2026. The long-horizon task mirage? diagnosing
+where and why agentic systems break. arXiv preprint
+arXiv:2604.11978.
+Chengrun Yang, Xuezhi Wang, Yifeng Lu, Hanxiao
+Liu, Quoc V. Le, Denny Zhou, and Xinyun Chen.
+2024. Large language models as optimizers. In In-
+ternational Conference on Learning Representations
+(ICLR).
+Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak
+Shafran, Karthik Narasimhan, and Yuan Cao. 2023.
+ReAct: Synergizing reasoning and acting in language
+models. In International Conference on Learning
+Representations (ICLR).
+Weike Zhao, Chaoyi Wu, Yanjie Fan, Pengcheng Qiu,
+Xiaoman Zhang, Yuze Sun, Xiao Zhou, Shuju Zhang,
+Yu Peng, Yanfeng Wang, Xin Sun, Ya Zhang, Yong-
+guo Yu, Kun Sun, and Weidi Xie. 2026. An agentic
+system for rare disease diagnosis with traceable rea-
+soning. Nature, 651(8106):775–784.
+Chenyu Zhou, Huacan Chai, Wenteng Chen, Zihan Guo,
+Rong Shan, Yuanyi Song, Tianyi Xu, Yingxuan Yang,
+Aofan Yu, Weiming Zhang, Congming Zheng, Ji-
+achen Zhu, Zeyu Zheng, Zhuosheng Zhang, Xingyu
+Lou, Changwang Zhang, Zhihui Fu, Jun Wang, Wei-
+wen Liu, and 2 others. 2026.
+Externalization in
+LLM agents: A unified review of memory, skills,
+protocols and harness engineering. arXiv preprint
+arXiv:2604.08224.
+
+
+Yongchao Zhou, Andrei Ioan Muresanu, Ziwen Han,
+Keiran Paster, Silviu Pitis, Harris Chan, and Jimmy
+Ba. 2023. Large language models are human-level
+prompt engineers. In International Conference on
+Learning Representations (ICLR).
+
+
+A
+CES Platform Details
+This appendix expands on the brief description of
+the Clinical Environment Simulator (CES) (Luo
+et al., 2026) in Section 5.1 and supplies the simula-
+tor mechanics that our results in Section 6 depend
+on.
+A.1
+Temporal Model and Shift Structure
+CES is a turn-based discrete-event simulator in
+which one turn corresponds to five simulated
+minutes.
+A default scenario spans a six-hour
+emergency-department shift, that is, 72 turns. At
+each turn the engine executes a fixed-order pipeline:
+check for scheduled patient arrivals, auto-assign
+beds from the queue, process all pending actions,
+and update patient vital signs. Clinical actions
+submitted during a turn are queued as pending ac-
+tions and resolved in batch at the corresponding
+turn boundary, ensuring deterministic ordering and
+preventing within-turn causal inconsistencies.
+A scenario comprises twelve patients with stag-
+gered arrival times across the shift, simulating re-
+alistic emergency-department patient flow. The
+staggered arrivals force the agent to manage time
+across concurrent encounters: excessive time spent
+on a single patient causes other patients to de-
+teriorate past their hidden thresholds.
+Patient
+cards are derived from de-identified emergency-
+department visit records and converted into struc-
+tured YAML scenarios containing demographics, a
+triage-categorized presentation, a patient summary
+with separated subjective history and objective ex-
+amination findings, clinical background, initial vi-
+tal signs, a ground-truth diagnosis, the list of re-
+quired critical actions, the acceptable disposition
+options, and a hidden deterioration threshold.
+A.2
+Patient Severity and Deterioration
+Each patient is assigned one of three severity
+classes that govern temporal dynamics: mundane
+patients carry no physiological risk and do not de-
+teriorate; dynamic moderate patients (e.g., sepsis
+without shock, community pneumonia) face grad-
+ual deterioration risk with a hidden threshold ran-
+domly sampled in 90–120 minutes; dynamic severe
+patients (e.g., hemorrhagic shock, intracranial hem-
+orrhage) face rapid deterioration risk with a hidden
+threshold in 30–60 minutes. Prior to the thresh-
+old, vital signs oscillate around the patient’s initial
+set-point with severity-scaled corridors and a mean-
+reversion factor; after the threshold elapses without
+the required critical actions, pathological drift be-
+gins through three severity phases (early, moderate,
+severe). When the required critical actions are com-
+pleted, drift ceases and vital signs recover along
+pharmacokinetic time courses appropriate to the
+administered interventions. Only dynamic severe
+patients can trigger a code-blue event when vitals
+breach boundary values; code blue consumes 20–
+30 minutes of physician time and forces immediate
+transfer to the intensive care unit with reduced en-
+counter scores.
+A.3
+Action Costs and Resource Constraints
+Action durations are calibrated against expert physi-
+cian consensus.
+A comprehensive history-and-
+physical examination consumes 10 minutes (2
+turns) of physician time; a follow-up or targeted
+H&P requires 5 minutes (1 turn). Triage assess-
+ment is auto-generated on arrival. Medication ad-
+ministration requires 5 minutes (1 turn) of nurse
+time for standard medications; transfusions and
+large-volume infusions require 20 minutes (4 turns).
+Diagnostic test latencies vary by modality: labo-
+ratory studies require 15–125 minutes (e.g., basic
+metabolic panel 30 min, coagulation studies 45 min,
+PCR panels 125 min), with culture results requiring
+approximately 24 hours; imaging studies require
+5–75 minutes depending on modality (bedside ul-
+trasound 5 min, plain radiography 10–15 min, mag-
+netic resonance imaging 40 min). Procedural du-
+rations vary similarly (arterial line 15 min; chest
+tube 20 min; central venous catheter 25 min).
+The default emergency-department configura-
+tion comprises 4 beds, 6 nurses, 1 physician (the
+agent under evaluation), 14 specialist consultants
+spanning 9 medical and 5 surgical specialties, one
+unit each of CT/MRI/X-ray/ultrasound/ECG, and
+1 laboratory analyzer. Beds, staff, imaging equip-
+ment, and laboratory throughput are managed as
+capacitated queues with priority-based allocation
+by clinical acuity (HIGH before MEDIUM before
+LOW). Certain actions (e.g., oxygen administra-
+tion, intravenous medications) require a bed assign-
+ment, and the finite bed supply creates realistic
+bottlenecks. Specialist consults have stochastic
+response latency (2–4 turns) and consultation du-
+ration (2–12 turns); consultants receive only the
+information available to the agent at the time of
+request and never the ground-truth diagnosis.
+
+
+A.4
+Medication and Treatment Effects
+To prevent unrealistic vital-sign discontinuities,
+treatment effects are categorized by onset profile.
+Immediate-onset interventions (5–10 min) include
+intravenous fluid resuscitation and supplemental
+oxygen. Delayed-effect medications (15–30 min)
+include antibiotics (halting physiological deterio-
+ration) and bronchodilators. Gradual-effect agents
+(≥30 min) include antipyretics. This temporal
+fidelity penalizes delayed treatment initiation and
+rewards early, appropriate intervention.
+A.5
+Engine Architecture
+CES is organized around two decoupled engines
+that communicate through a typed message bus.
+The Patient Engine maintains each patient’s clin-
+ical state (vital signs, active diagnoses, medica-
+tion effects, deterioration trajectory) and delegates
+physiological reasoning to a fixed Patient LLM
+(GPT-4.1 (OpenAI, 2025b)) that generates vital-
+sign updates, history-and-physical narratives, and
+diagnostic results at each turn. The Hospital En-
+gine manages capacitated resources, tracking allo-
+cation, queuing, and release through priority-based
+scheduling. A turn-based orchestrator coordinates
+the two engines: at turn start it broadcasts a turn-
+start signal; the Hospital Engine processes resource
+allocations and order completions and notifies the
+Patient Engine of newly available results; the Pa-
+tient Engine incorporates results, processes arrivals,
+and advances physiological trajectories; at turn end
+the orchestrator emits a turn-end signal with all
+generated events. Agents interact with the simula-
+tor through a browser-based interface served by a
+session-based REST API, with a patient tracking
+board, individual patient charts, an order catalog of
+6,888 items, and real-time event notifications.
+B
+Baseline Agent Configuration Details
+Our baseline configuration wraps the underly-
+ing LLM with a CES-customized harness expos-
+ing 17 clinically meaningful tools organized in
+an Observe–Act–Control trichotomy through the
+Model Context Protocol (MCP). The same harness
+is the starting point for Asclepius; the components
+in Section 4 are added on top.
+B.1
+Tool Categories
+Observation tools (5).
+Return structured repre-
+sentations of the simulator state to the agent rather
+than requiring it to interpret raw rendered content:
+the patient tracking board, individual patient sum-
+maries (chief complaint, vitals, key findings), order
+histories, complete patient records, and event logs.
+The agent receives organized vital signs, pending
+orders, and diagnostic results directly, mirroring
+the information a physician extracts at a glance
+from an electronic-health-record display.
+Action tools (8).
+Encapsulate multi-step clinical
+workflows as single tool calls: order tests, order
+medications, order procedures, order consultation,
+discharge, admit, transfer, and perform history-
+and-physical examination. Each action tool ac-
+cepts natural clinical language (e.g., “CBC”, “mor-
+phine”, “CT head”) and resolves it to exact catalog
+entries through the vocabulary resolution pipeline
+described below.
+Control tools (4).
+Manage simulator lifecycle:
+session initialization (automatic login and sce-
+nario loading), single-step turn advancement, run-
+until-event turn advancement, and blocking-state
+handling for code blue, rapid-response-team, and
+physician-busy states.
+B.2
+Medical Vocabulary Resolution
+Free-text order strings are resolved to catalog
+entries through a three-stage pipeline.
+Stage 1
+performs deterministic lookup against 464 hand-
+curated abbreviation mappings (e.g., “CBC” →
+“complete blood count”). Stage 2, invoked when
+Stage 1 fails, embeds the query with a sentence-
+transformer model and searches a vector database
+containing 5,823 medications, 943 diagnostic tests,
+and 122 procedures, accepting the best semantic
+match above a cosine-similarity threshold of 0.3.
+Stage 3 performs interface-level verification: the
+resolved name is entered into the simulator’s search
+interface, and fuzzy string matching (weighted-
+ratio scorer, cutoff 60) is applied against the dis-
+played options to confirm that the ordered item
+exists in the current simulator state. This pipeline
+handles the vocabulary mismatch between clini-
+cal shorthand and the simulator’s catalog of 6,888
+orderable items.
+B.3
+Pre-Action Guards and the Operating
+Manual
+Tool descriptions and pre-action guards encode
+workflow knowledge directly into the interface: pa-
+tients must be assigned a bed before medications
+can be ordered, intravenous formulations are rec-
+ommended over oral for acute presentations, triage
+
+
+is enforced by acuity (HIGH before MEDIUM be-
+fore LOW), and disposition tools automatically sur-
+face the current order set so the agent can audit care
+delivered before submission. The operating man-
+ual instructs the agent on triage, parallel workup,
+treatment, and disposition, including completeness
+rules (“treatment-first principle”, “no naked diag-
+nosis”, a seven-category treatment-completeness
+sweep, and a pre-disposition verification check-
+list). In our experiments the manual is the starting
+point M0 from which the self-evolving harness
+(Section 4.1) iterates.
+C
+Asclepius Component Artifacts
+The complete prompts, skill modules, and sub-
+agent definitions for every configuration we
+evaluate are released at https://github.com/
+rajpurkarlab/Asclepius. The repository is or-
+ganized by configuration, mirroring the ablations
+in Section 5.3: the baseline framework, each single-
+component variant, and full Asclepius in both act-
+ing and advisory forms. Each configuration di-
+rectory contains the main agent prompt (the hand-
+crafted operating manual M0 for the baseline, or
+the evolved manual M∗for the harness and full
+configurations); where applicable, the skills library,
+the acting or advisory subagent definitions (triage
+prioritizer, diagnostician, and treatment checker),
+and the proposer prompt that evolves the operating
+manual (Section 4.1).
+D
+Evaluation Design
+Each shift is graded by a fixed LLM judge (GPT-
+4.1 (OpenAI, 2025b)) configured with structured
+prompts, with the four-dimension rubric described
+below (Luo et al., 2026). The judge receives a
+ground-truth answer key derived from the patient
+card (ground-truth diagnosis, severity class, re-
+quired critical actions, tests required for diagno-
+sis, acceptable disposition options, hidden deteri-
+oration threshold) together with a comprehensive
+record of the agent’s actions (submitted diagnosis,
+medications administered with timestamps, proce-
+dures performed, diagnostic tests ordered, disposi-
+tion decision and discharge instructions, and any
+code-blue or rapid-response-team activations). For
+clinical context the judge also receives the patient’s
+initial presentation, the full vital-sign trajectory, a
+chronological log of clinical events, returned test
+results, and any specialist consultations requested.
+The judge never receives the Patient Engine’s inter-
+nal prompts. Performance is scored on a 1–5 scale
+along four dimensions.
+Diagnosis.
+Evaluated
+under
+a
+clinical-
+equivalence matching framework.
+A score
+of 5 denotes an exact or clinically equivalent
+match to the ground truth; 4 reflects a clinically
+defensible alternative diagnosis (e.g., pericarditis
+for a ground truth of myocarditis); 3 indicates cor-
+rect organ-system identification without sufficient
+specificity, or a multi-part diagnosis containing
+incorrect extra information; 2 corresponds to
+an incorrect but non-dangerous diagnosis; 1 is
+reserved for cases in which a life-threatening
+diagnosis is missed and the proposed management
+would cause harm. A non-specific diagnosis when
+specificity is clinically required is a scoring failure
+(e.g., “chest pain” for ST-elevation myocardial
+infarction).
+Critical Actions.
+Scored on the fraction of re-
+quired actions completed.
+The judge applies
+clinical-equivalence matching for synonymous ter-
+minology (e.g., acetaminophen ≡paracetamol; nor-
+mal saline bolus ≡0.9% NaCl infusion). Medica-
+tion dosing is evaluated against standard-of-care
+ranges rather than requiring exact values.
+Timeliness.
+Assesses whether critical actions are
+completed before the hidden deterioration thresh-
+old. If required critical actions remain incomplete,
+the maximum achievable timeliness score is capped
+at 3 regardless of speed. Activation of a rapid re-
+sponse team with a correct working diagnosis for
+a deteriorating patient may earn a 2; a code-blue
+event in the absence of any prior critical actions
+receives a 1.
+Disposition.
+Assesses whether the final place-
+ment (discharge, admission to a specific service, or
+transfer, e.g., to the operating room or catheteriza-
+tion laboratory) matches the acceptable disposition
+options for the case.
+For every encounter we report an overall score,
+defined as the unweighted mean of the four per-
+dimension scores above; this is the overall score
+used in every table and figure. The LLM judge
+additionally produces a single holistic encounter
+rating. We use it for identifying the severe subset
+in the failure-mode analysis (Appendix E.5). En-
+counters are scored independently per patient and
+then aggregated to per-batch and per-configuration
+means; we use these aggregates throughout Sec-
+tion 6.
+
+
+D.1
+Judge Reliability
+The CES judge carries prior validation reported by
+Luo et al. (2026). On the simulator’s plausibility
+checks, an internal-medicine physician blinded to
+the automated results, patient cards, and Patient
+Engine prompts reviewed 2,802 matched items
+across 78 scenarios, agreeing with the automated
+checker at 92.5% raw agreement (Gwet’s AC1 =
+0.92, 95% CI 0.91–0.93). On the four-dimension
+scoring rubric we use, a blinded rater scored 48
+encounters drawn from both physician and agent
+sessions, yielding Gwet’s AC2 of 0.93 (diagnosis),
+0.86 (critical actions), and 0.86 (timeliness), with
+an overall AC2 of 0.88. This indicates that the
+judge’s scores on the dimensions central to our
+claims track expert judgment closely, and that the
+checker carries a conservative bias toward flagging
+implausible outputs rather than rewarding them.
+Two points remain specific to our setting. First,
+these agreement studies validate the judge on CES
+trajectories broadly, not on the Asclepius config-
+urations evaluated here; we did not run an expert-
+agreement study on our own traces. Second, the
+primary judge and the simulator’s Patient Engine
+are the same model family (GPT-4.1). We address
+this directly in Section 6.1 by re-grading all 120
+patients under the baseline and full configurations
+with four further judges spanning three model fami-
+lies; all five reproduce the reported gains (Table 3).
+D.2
+Patient Batches
+Each patient batch comprises twelve patients with
+varying acuities, arrival times, and underlying di-
+agnoses, sampled to span the acuity and patho-
+physiology spectrum. We use ten batches in to-
+tal. Batches 1–6 are search batches, used by the
+self-evolving harness as the substrate over which
+the proposer iterates. Batches 7–10 are held-out
+validation batches, never seen by the proposer at
+any iteration. Each configuration is run once per
+batch, with per-dimension scores averaged across
+the batches in each split.
+E
+Per-Batch, Search-Split, and
+Significance Results
+This appendix expands the aggregate results in Sec-
+tion 6 by reporting (i) the search-batch (1–6) and
+held-out (7–10) subsets, (ii) the full per-batch over-
+all scores, and (iii) the full BH-FDR-corrected sig-
+nificance table from the mixed-effects model.
+E.1
+Search-Batch and Held-Out Means
+Table 5 reports the means for the five real config-
+urations on the search batches (1–6) and on the
+held-out batches (7–10) separately. Full Asclepius
+is the best configuration on both splits, with held-
+out overall 3.97 vs. baseline 3.78 (∆= +0.19).
+The overall gain compresses from +0.36 on search
+to +0.19 on held-out, a roughly 47% compres-
+sion. We read this compression as informative
+rather than as a failure of generalization: the pro-
+poser adapts in part to recurring patterns of the
+search batches, and the persistent +0.19 on never-
+observed batches gives a lower bound on the com-
+ponent of the gain that is generalizable. Within
+the single-component variants, the harness ranks
+first on the search subset but loses that lead on the
+held-out subset (where +SA ranks highest among
+single components), consistent with the same pic-
+ture: the self-evolving harness carries some search-
+set-specific signal that does not fully transfer, while
+the architectural components (+SA, skills) carry
+gains that transfer more uniformly.
+E.2
+Per-Batch Overall Scores
+Table 6 reports the overall score for the baseline
+framework and full Asclepius on each of the ten
+batches individually, so per-batch variance can be
+inspected. Full Asclepius beats the baseline on
+overall in 8 of 10 batches; the two exceptions, B3
+and B6, are small (−0.12 and −0.06). On critical
+actions, full Asclepius beats the baseline on every
+batch (smallest per-batch margin +0.17).
+E.3
+Component Ablation Means and
+Significance Tests
+Table 7 reports the absolute per-dimension means
+for each ablation configuration; Table 8 gives the
+corresponding mixed-effects mean differences and
+BH-FDR-corrected p-values.
+We fit a patient-level mixed-effects model y ∼
+system + (1 | patient) + (1 | batch) with the base-
+line framework as the reference, Satterthwaite de-
+grees of freedom, and BH-FDR correction across
+all 20 system-by-dimension comparisons. Table 8
+reports the corrected results. Three patterns stand
+out. First, full Asclepius is significant on every
+execution-related dimension (overall, critical ac-
+tions, timeliness) at p < 0.01 or stricter. Second,
+among single-component variants, the harness is
+the only one to reach the corrected threshold on any
+dimension (critical actions and timeliness); skills
+
+
+Table 5: Search-batch and held-out means. Mean overall and per-dimension scores on batches 1–6 (search) and
+7–10 (held-out) for the five ablation configurations. Overall is the unweighted mean of the four sub-dimension
+scores. Bold marks the best score in each column.
+Overall
+Diagnosis
+Critical Actions
+Timeliness
+Disposition
+Configuration
+1–6
+7–10
+1–6
+7–10
+1–6
+7–10
+1–6
+7–10
+1–6
+7–10
+Baseline
+3.81
+3.78
+4.36
+4.44
+2.97
+2.90
+3.32
+3.38
+4.58
+4.42
++ S
+3.93
+3.91
+4.50
+4.42
+3.18
+3.13
+3.54
+3.58
+4.51
+4.50
++ SA
+3.76
+3.97
+4.39
+4.50
+2.94
+3.35
+3.28
+3.63
+4.42
+4.40
++ H
+4.08
+3.82
+4.51
+4.38
+3.50
+3.04
+3.86
+3.42
+4.43
+4.46
+Full Asclepius
+4.17
+3.97
+4.39
+4.33
+3.76
+3.54
+3.86
+3.69
+4.68
+4.33
+Table 6: Per-batch overall scores. Overall (mean across the four dimensions) for the baseline framework and full
+Asclepius on each of the ten batches.
+Configuration
+B1
+B2
+B3
+B4
+B5
+B6
+B7
+B8
+B9
+B10
+Baseline
+3.54
+3.85
+4.06
+3.58
+3.73
+4.08
+3.56
+3.79
+3.94
+3.83
+Full Asclepius
+4.25
+4.35
+3.94
+4.23
+4.25
+4.02
+3.88
+3.92
+4.21
+3.90
+∆
++0.71
++0.50
+−0.12
++0.65
++0.52
+−0.06
++0.31
++0.12
++0.27
++0.06
+and subagents alone reach significance on none.
+Third, diagnosis and disposition do not significantly
+change for any configuration, consistent with all
+systems near the judge’s ceiling.
+Table 7: Component ablation across all ten patient
+batches. Per-dimension mean scores when adding the
+harness (H), skills (S), and acting subagents (SA) on
+top of the baseline framework. Significance markers
+(vs. baseline, BH-FDR corrected) follow the overall and
+execution columns. Bold marks the best score in each
+column.
+Configuration
+Overall
+Dx
+CA
+Time
+Disp
+Baseline
+3.80
+4.39
+2.94
+3.34
+4.52
++ S
+3.92ns
+4.47
+3.16
+3.56
+4.51
++ SA
+3.84ns
+4.43
+3.11
+3.42
+4.41
++ H
+3.98ns
+4.46
+3.32 *
+3.68 *
+4.44
+Full Asclepius
+4.10**
+4.38
+3.67 ***
+3.79 **
+4.54
+E.4
+Marginal Contribution of the Evolved
+Manual
+The ablation configurations in Figure 2 vary both
+the manual version and the set of architectural com-
+ponents. To isolate the manual, we compare S+SA
+(skills and acting subagents on M0) against full
+Asclepius (the same components on M∗); this con-
+trast holds skills and subagents fixed and varies
+only the operating manual. Table 9 reports the
+mixed-effects mean differences. On all batches the
+evolved manual adds +0.12 overall, +0.23 on crit-
+ical actions, and +0.08 on timeliness; on the held-
+out batches the overall difference falls to +0.02.
+Neither split is statistically separable from zero, so
+we scope our claims to the system level rather than
+attributing an independently significant effect to
+the harness.
+E.5
+Per-Trace Failure-Mode Counters
+Table 10 gives the per-configuration values of the
+three per-trace failure-mode counters visualized in
+Figure 3; see Section 6.3 for the analysis.
+E.6
+Harness Search Trajectory (Per-Iteration
+Scores)
+Table 11 gives the per-iteration search-batch scores
+visualized in Figure 4; see Section 6.4 for the anal-
+ysis.
+F
+Additional Qualitative Traces
+We report three additional rollouts in which the
+inner-loop components intercept a baseline failure
+on the same patient. The first two illustrate the
+treatment-completion subagent; the third illustrates
+the diagnosis-formation subagent, whose broader
+differential prevents an anchoring error from cas-
+cading into a missed treatment. The trauma case
+is drawn from a held-out batch, giving a concrete
+instance of the same interception on a patient the
+proposer never observed during harness search.
+Trauma resuscitation completion.
+Patient B10-
+P07 arrives with an open leg fracture that has also
+damaged a major artery, and is in shock from
+blood loss. Both systems correctly identify the
+fracture and the arterial injury and route the pa-
+tient to the operating room, so the two traces differ
+
+
+Table 8: Significance versus baseline (mixed-effects model, BH-FDR corrected). For each outcome and
+configuration, we report the estimated mean difference vs. the baseline framework on the 1–5 scale and the BH-FDR-
+corrected significance (*: p < 0.05, **: p < 0.01, ***: p < 0.001, ns: not significant). Overall is the unweighted
+mean of the four sub-dimension scores.
++ Skills
++ Subagents
++ Harness
+Full
+Outcome
+∆
+sig.
+∆
+sig.
+∆
+sig.
+∆
+sig.
+Overall
++0.12
+ns
++0.04
+ns
++0.18
+ns
++0.30
+**
+Diagnosis
++0.08
+ns
++0.04
+ns
++0.07
+ns
+−0.02
+ns
+Critical Actions
++0.22
+ns
++0.17
+ns
++0.38
+*
++0.73
+***
+Timeliness
++0.22
+ns
++0.08
+ns
++0.34
+*
++0.45
+**
+Disposition
+−0.01
+ns
+−0.11
+ns
+−0.08
+ns
++0.03
+ns
+Table 9: Marginal contribution of the evolved manual.
+Mixed-effects mean differences of full Asclepius (M ∗)
+versus S+SA (M0), holding skills and acting subagents
+fixed.
+Split
+∆Overall
+p
+All batches
++0.12
+0.364
+Held-out (7–10)
++0.02
+0.883
+Table 10: Per-trace failure-mode counters across all
+ten patient batches. Lower is better for all three coun-
+ters. Drift: decay in the agent’s adherence to the operat-
+ing manual over the shift, measured as the early (hours
+0–2)→late (hours 4–6) rise in naked dispositions (dispo-
+sitions placed with ≤1 prior treatment order, violating
+the manual’s treatment-first rule). Incomplete: frac-
+tion of correctly-diagnosed patients given no disease-
+specific treatment at all. Neglect: timeliness equity gap,
+the mean-timeliness difference between non-severe and
+severe patients (severe = baseline holistic encounter
+rating ≤2, n=20).
+Config.
+Drift (early→late)
+Incomplete
+Neglect
+Baseline
+16→57%
+19%
+1.13
++ S
+10→28%
+14%
+1.10
++ SA
+13→29%
+20%
+0.98
++ H
+7→39%
+7%
+0.94
+Full
+10→12%
+9%
+0.23
+only in how completely the resuscitation is car-
+ried out. On the baseline trace, the Main Agent
+gives antibiotics, pain control, and splinting but
+omits tetanus prophylaxis, early TXA, and hemo-
+static resuscitation despite hemorrhagic shock. As
+a result, the arterial-injury blood loss remains un-
+dertreated and the patient’s blood pressure contin-
+ues to fall before operative transfer. On the As-
+clepius trace, the treatment-completion subagent
+cross-references the open-fracture trauma regimen
+in the skills library and flags the three gaps, which
+the Main Agent then closes, completing five of
+the six required interventions before transfer to the
+operating room.
+Sepsis antibiotic completion.
+Patient B6-P04
+presents with abdominal pain, fever, tachycardia,
+marked leukocytosis, pyuria, and acute kidney in-
+jury on a background of advanced bladder can-
+cer, consistent with probable complicated urinary-
+source sepsis. On the baseline trace, the Main
+Agent treats the malignancy and metabolic abnor-
+malities but admits the patient without antimicro-
+bial therapy. On the Asclepius trace, the treatment-
+completion subagent flags the absent empiric antibi-
+otic, and the Main Agent initiates broad-spectrum
+coverage before admission.
+Atypical NSTEMI recognition.
+Patient B4-P03
+presents with altered mental status, abnormal kid-
+ney labs, and a history of cardiovascular disease.
+On the baseline trace, the Main Agent anchored
+on the abnormal kidney values, attributed the al-
+tered mental status to renal/metabolic encephalopa-
+thy, and admitted the patient to a general medical
+ward without ordering an ECG or troponin. Be-
+cause a cardiac cause was never considered, the
+NSTEMI remained undetected. On the Asclepius
+trace, the diagnosis-formation subagent kept ACS
+in the differential despite the atypical presentation.
+The Main Agent ordered an ECG and serial tro-
+ponins, which showed ischemic ECG changes and
+elevated/dynamic troponin, supporting NSTEMI.
+The patient then received cardiology-directed ACS
+treatment and was admitted to a monitored cardiol-
+ogy unit.
+
+
+Table 11: Harness search trajectory on search batches (1–6). Mean scores across the six search batches (out of 5)
+for each harness iteration. Overall is the unweighted mean of the four sub-dimension scores. v7 is selected as the
+final manual based on overall search-batch performance. Bold marks the best score in each column.
+Iteration
+Overall
+Diagnosis
+Critical Actions
+Timeliness
+Disposition
+v0 (baseline)
+3.81
+4.36
+2.97
+3.32
+4.58
+v1
+3.95
+4.51
+3.20
+3.50
+4.60
+v2
+3.97
+4.40
+3.36
+3.58
+4.52
+v3
+3.98
+4.45
+3.29
+3.64
+4.53
+v4
+3.89
+4.49
+3.18
+3.46
+4.43
+v5
+3.91
+4.43
+3.10
+3.57
+4.53
+v6
+4.00
+4.56
+3.28
+3.53
+4.64
+v7 (selected)
+4.08
+4.51
+3.50
+3.88
+4.43
+v8
+4.07
+4.46
+3.46
+3.76
+4.58
+v9
+3.95
+4.50
+3.26
+3.53
+4.51
+v10
+3.92
+4.21
+3.56
+3.70
+4.24
+∆(v7 – v0)
++0.27
++0.15
++0.53
++0.56
+−0.15
