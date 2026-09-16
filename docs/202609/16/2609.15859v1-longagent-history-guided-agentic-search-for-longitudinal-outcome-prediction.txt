@@ -1,0 +1,381 @@
+Title: LongAgent: History-Guided Agentic Search for Longitudinal Outcome Prediction
+
+URL Source: https://arxiv.org/pdf/2609.15859v1
+
+Published Time: Tue, 15 Sep 2026 02:51:43 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# LongAgent: History-Guided Agentic Search for Longitudinal Outcome Prediction 
+
+Siyao Wang 1,2⋆, Florian Guitton 1, Shuojie Fu 1, Guanyu Tao 1, Kai Sun 1, and Wenjia Bai 1,2,3 
+
+> 1
+
+Data Science Institute, Imperial College London, London, UK  
+
+> 2
+
+Department of Computing, Imperial College London, London, UK  
+
+> 3
+
+Department of Brain Sciences, Imperial College London, London, UK 
+
+s.wang18@imperial.ac.uk 
+
+Abstract. Extracting informative representations from longitudinal data that can predict future outcomes remains a critical challenge in medicine. Medical datasets are inherently heterogeneous, consisting of a large num-ber of variables collected from different sources, sampled with different temporal spacings, and representing different aspects of human health status. This requires identifying those variables with predictive value, processing longitudinal information, and integrating multiple variables for outcome prediction. Here, we propose a novel agent-based approach, LongAgent, that can autonomously search over combinations of vari-able sets, temporal windows and longitudinal aggregation functions, and identify candidates with promising predictive performance. LongAgent utilises a history memory of previous searches and numerical evidence to guide subsequent exploration. On synthetic data, LongAgent achieves a mean prediction RMSE of 1.7376 and improves over the strongest non-agent baseline by 0.0151 (95% CI: [0 .0045 , 0.0260] ; p = 0 .0273 ). On a real clinical dataset, it performs comparably to the best baseline. 
+
+Keywords: Agentic search · Predictive modelling · Longitudinal data · Longitudinal outcome prediction 
+
+1 Introduction 
+
+In medical research, longitudinal outcome prediction involves collecting multi-modal measurements of an individual, monitoring their longitudinal changes, and developing a predictive model that can learn multimodal features from the data for predicting future outcomes [2]. Typically, features, also known as pre-dictors, are extracted by selecting a subset of recorded variables, followed by choosing an empirical time window and an aggregation function that can be applied to longitudinal measurements. Given the complexity of clinical longitu-dinal datasets and the exploratory nature of medical research, feature extraction is often performed in a hand-crafted manner and is time-consuming.  
+
+> ⋆
+
+Corresponding author. arXiv:2609.15859v1 [cs.AI] 14 Sep 2026 2 S. Wang et al. 
+
+Repeated monitoring of outcomes adds another layer of complexity. In lon-gitudinal studies, the outcome may be recorded at multiple time points for each participant. Predictors must therefore be constructed only from measurements preceding each observed outcome to avoid information leakage [2]. However, the appropriate duration of this preceding time window is often unknown. Dunn et al. found that the performance of predictive models using wearable device measurements varied with the monitoring time window and its proximity to the outcome date [6]. FIDDLE and flexible-window electronic health record (EHR) methods explore different ways to define the time window [8, 18]. Based on the time window, different aggregation functions have been explored to integrate longitudinal measurements to form predictive features [3, 7, 13]. Recently, AI agents, implemented as large language models (LLMs), have demonstrated great potential to either perform predefined workflows or discover new knowledge [4,12,19]. For longitudinal medical data analysis, PHIA has been proposed, which combines code generation and information retrieval to answer questions about wearable device data [15]. FeatEHR-LLM utilises an agent to generate executable feature extraction code for analysing irregular time series EHR data [10]. CoDaS coordinates hypothesis generation, analysis, grounding, and validation for discovering wearable device biomarkers [11]. LLM-FE proposes validation-guided evolution to search over a space of feature transformation pro-grams to process tabular data [1]. These studies demonstrate the potential of LLM agents but primarily focus on generating code for feature transformation and data analysis. The proposed method, LongAgent, focuses on search for longitudinal outcome predictors. It uses accumulated evidence to guide the search for a combination of variable subset, time window and aggregation function that leads to predictive features for future outcomes. Our main contributions are: 1. We formulate the discovery of predictive features as a budgeted search prob-lem, over a search space of variable subsets, time windows, and aggregation functions. 2. We introduce a history-guided search agent that combines search status, candidate history, coverage summary, and transition evidence, and uses a two-stage decision process to decide the next move. 3. We evaluate LongAgent against three non-agent search policies on a large number of synthetic datasets constructed with diverse settings and a real longitudinal cohort, and demonstrate LongAgent outperforms or on par with other search policies. 
+
+2 Methods 
+
+Problem formulation. Consider a longitudinal medical dataset containing re-peated measurements and outcomes from a cohort of participants. The objective is to extract predictive features from these measurements and fit a model onto the features to predict each participant’s outcome. History-Guided Agentic Search for Longitudinal Outcome Prediction 3
+
+Denote the number of subjects as N , the number of recorded variables as M ,and the dataset of all variables as X = {xi,j |1 ≤ i ≤ N, 1 ≤ j ≤ M }, where i
+
+denotes the subject index and j denotes the variable index. Each variable xi,j 
+
+is measured multiple times in the longitudinal study with xi,j [t] denoting the measurement at time t. Note that the time interval between measurements can be irregular for different subjects and for different variables. For each subject, the outcome is monitored longitudinally. Denote the set of outcomes as Y =
+
+{yi | 1 ≤ i ≤ N }, where yi denotes a sequence of outcomes for subject i, and 
+
+yi[τ ] ∈ R denotes the outcome observed at time τ .The proposed AI agent searches over a space of candidates, defined by a variable subset, an outcome-relative time window, and an aggregation function. Each candidate c is formulated as c = ( S, w, f ), where S ⊆ { 1, . . . , M } denotes the indices of the selected variables, w denotes the time window preceding an outcome, and f denotes an aggregation function applied to measurements within that window. Applying candidate c to the longitudinal measurements of subject 
+
+i yields a feature vector or predictor zi for the selected variables S:
+
+zi,j = f ({xi,j [t] | τ − w < t ≤ τ }) , j ∈ S, zi = ( zi,j )j∈S
+
+(1) Let Z = {zi | 1 ≤ i ≤ N } denote the set of features or predictors. The per-formance of candidate c can be evaluated by fitting a model onto {Z, Y } and computing the prediction error l(c). The objective is to find the optimal candi-date c that minimises l(c).
+
+Iterative search. Figure 1 illustrates the procedure. The agent starts the search from an initial candidate c(0) = ( S(0) , w (0) , f (0) ), where w(0) and f (0) are pre-defined initial choices for the time window and aggregation function. Applying 
+
+w(0) and f (0) to each recorded variable constructs one feature per variable. The variables are ranked by the absolute Pearson correlation between these features and the outcome, and S(0) is initialised with the highest-ranked variable. After initialisation, the agent performs iterative search under an evaluation budget B, i.e. the maximum number of search steps. At iteration n, it sets either the current candidate or the previously best performing candidate to be the base candidate b(n) = ( S(n) 
+
+> b
+
+, w (n) 
+
+> b
+
+, f (n) 
+
+> b
+
+), and proposes an action a(n) ∈ { add , drop ,
+
+replace , update , stop } to modify the base candidate. For the non-stop actions, applying a(n) to the base candidate b(n) produces the next candidate: 
+
+c(n) =
+
+
+
+(S(n) 
+
+> b
+
+∪ { k}, w (n) 
+
+> b
+
+, f (n) 
+
+> b
+
+), a(n) = add( k),
+
+(S(n) 
+
+> b
+
+\ { k}, w (n) 
+
+> b
+
+, f (n) 
+
+> b
+
+), a(n) = drop( k),
+
+(( S(n) 
+
+> b
+
+\ { k}) ∪ { k′}, w (n) 
+
+> b
+
+, f (n) 
+
+> b
+
+), a(n) = replace( k, k ′),
+
+(S(n) 
+
+> b
+
+, w ′, f ′), a(n) = update( w′, f ′).
+
+(2) The first three actions add, drop, or replace a recorded variable in S. The update action changes the time window w, the aggregation function f , or both. 4 S. Wang et al. Stop 
+
+Update 
+
+Candidate 
+
+> ✓
+> ✓
+> V1
+> V2
+> V3
+> ⋮
+> Outcome
+
+Aggregation 
+
+> f
+> f
+> Derived
+> predictors
+
+Window 
+
+Candidate construction 
+
+Evaluator 
+
+> Fit prediction
+> model
+> Ground truth
+> Prediction
+> Loss
+
+Candidate history                                
+
+> Iteration Base Action Variables Temporal
+> setting Loss
+> 1—Initialize {V1} 4 h · mean 0.86
+> 2Current Add V3 {V1, V3} 4 h · mean 0.81
+> 3Best Update {V1, V3} 8 h · median 0.79
+> ⋮
+> 12 Current Add V4 {V1, V4} 4 h · mean 0.82
+> Search status Candidate history
+> Coverage summary Transition evidence
+> 18 / 30
+> Current
+> Best
+> ✓
+> ✓
+> ✓
+> 1Loss 1.24
+> 2Loss 1.08
+> 3Loss 1.01
+> Variables
+> Windows
+> Aggregations
+> Add V3
+> Loss 0.86 → 0.81
+> ↓ 0.05
+> LongAgent
+> input
+
+Evidence synthesis      
+
+> LongAgent
+> Stage 1 Select base and action type
+> Base
+> Current Best
+> Action type
+> +
+> Add
+> −
+> Drop
+> ↻
+> Replace
+> ✎
+> Update
+> ×
+> Stop
+> Stage 2 Select action arguments
+> 8 h · mean 16 h · median 24 h · p95
+
+LongAgent 
+
+Selected 
+
+Candidate 
+
+Variable set 
+
+Fig. 1. History-guided agentic search. A candidate c = ( S, w, f ) specifies a variable subset, an outcome-relative window, and an aggregation function. The evaluator fits a prediction model onto features extracted using c, and records the loss in the search history. The agent integrates four sources of evidence: search status, candidate history, coverage summary, and transition evidence, and then selects a base candidate and the next move. The agent either continues the search or stops when the budget is exhausted. 
+
+Previously evaluated candidates are excluded from the space of search, ensuring that c(n) has not been evaluated before. The stop action terminates the search without generating the next candidate. 
+
+History-guided search agent. At iteration n, the agent receives history infor-mation p(n) coming from four sources p(n) = [ s(n), h (n−1) , g (n−1) , e (n−1) ], where: 1. Search status and constraints s(n): the current candidate, remaining budget, permitted variables, windows and aggregation functions, and legal candidate updates. It also includes the variable ranking used in initialisation. 2. Candidate history h(n−1) : an ordered sequence {c(m), l (c(m))}n−1
+
+m=0 of previ-ously evaluated candidates and their prediction errors. 3. Coverage summary g(n−1) : the variables, window and aggregation combina-tions that have already been evaluated, which helps the agent define the unexplored space. 4. Transition evidence e(n−1) : the previous transitions from base candidates to modified candidates, along with the change of prediction performance as evidence. LongAgent is implemented as an LLM, queried in two stages using different prompt templates. In the first stage, LongAgent selects a base candidate b(n) and an action type a(n) based on the evidence p(n). In the second stage, LongAgent is provided with the same evidence, including p(n), and the selected pair (b(n), a (n))History-Guided Agentic Search for Longitudinal Outcome Prediction 5
+
+from the first stage and a list of parameters for action a(n). It then selects the parameter for a(n) from the list. The selected action, equipped with the selected parameter, is applied to modify b(n) and generate the next candidate 
+
+c(n), which is evaluated and added to the search history. When the LLM selects the stop action or the evaluation budget is exhausted, the method returns ˆc =arg min c∈E B l(c), where EB denotes the set of all candidates evaluated within budget B.
+
+3 Experiments 
+
+Synthetic longitudinal datasets. Synthetic data are generated in two stages: longitudinal measurements followed by outcome generation. 
+
+Stage 1: Longitudinal measurement generation. For subject i and variable j, the measurement at time t is simulated as: 
+
+xi,j [t] = λj · ui + di,j · t + ci,j · sin 
+
+ 2πh (t)24 
+
+
+
++ ϵi,j [t]. (3) Here, ui denotes a subject-level effect shared across variables, λj denotes the variable-level loading, di,j · t models linear temporal drift at time t, and ci,j ·
+
+sin(2 πh (t)/24) models the daily cycle with amplitude ci,j . h(t) denotes the hour of day, and ϵi,j [t] ∼ N (0 , σ 2 
+
+> X
+
+) denotes Gaussian measurement noise. 
+
+Stage 2: Outcome generation. For subject i and variable j, let ri,j [τ ] denote the aggregated measurement within the outcome-relative window: 
+
+ri,j [τ ] = f ⋆({xi,j [t] | τ − w⋆ < t ≤ τ }) . (4) Here, w⋆ denotes the temporal window and f ⋆ denotes the aggregation func-tion. The outcome y(s) 
+
+> i
+
+[τ ] is generated from the combined effects of ri,j [τ ],
+
+j = 1 , . . . , M , as follows: 
+
+y(s) 
+
+> i
+
+[τ ] = X
+
+> j∈S(s)lin
+
+βj · ri,j [τ ] + X
+
+> j∈S(s)non
+
+γj · | ri,j [τ ]| + X
+
+> (j,k )∈P (s)int
+
+θjk · ri,j [τ ] · ri,k [τ ]+ δ(s) 
+
+> u
+
+· ui + δ(s) 
+
+> b
+
+· bi + ξ(s) 
+
+> i
+
+[τ ].
+
+(5) Here, the superscript s ∈ { 1, . . . , 6} identifies one of the six outcome generation settings (Table 1), each defined by a different combination of terms. S(s)lin and 
+
+S(s)non denote the sets of variables with linear and absolute value effects, with coefficients βj and γj . P(s)int denotes the set of interacting variable pairs, and θjk 
+
+denotes the corresponding interaction coefficient for pair (j, k ). ui and bi denote shared and independent subject-level effects, and δ(s) 
+
+> u
+
+and δ(s) 
+
+> b
+
+denote their co-efficients. Finally, ξ(s) 
+
+> i
+
+[τ ] ∼ N (0 , σ 2 
+
+> Y
+
+) denotes the Gaussian outcome noise. 6 S. Wang et al.                                       
+
+> Table 1. Six synthetic outcome generation settings, using different combinations of linear terms, absolute value terms, interaction pairs, and subject-level effect coefficients in Eq. 5. | · | denotes the cardinality of a set, i.e. the number of variables. Setting |S(s)lin | | S(s)non | |P (s)int |δ(s)
+> uδ(s)
+> b
+> Linear 60000Nonlinear 24000Interaction 20200Shared factor 600κ0Independent subject 6000κ
+> Combined 2210κ
+
+Clinical longitudinal dataset. We use digital home monitoring data from IDEA-FAST, a prospective multinational study that followed over 1,000 partic-ipants for up to 24 weeks [14]. All data were pseudonymised and collected with ethical approval and written consent. Longitudinal measurements were recorded using a chest-worn VitalPatch and a lower-back Axivity AX6 inertial sensor, with 62 variables in total, consisting of 44 heart-rate variability, 4 VitalPatch summary, 7 activity, and 7 sit-to-stand or stand-to-sit variables. In terms of out-comes, 32,128 fatigue scores were recorded for 1,084 participants, which were normalised to z-scores. 
+
+Implementation. Each synthetic dataset contains 500 subjects, 100 variables measured every 30 minutes for 15 days, and one daily outcome per subject. We independently sample ui and bi from N (0 , 1) , and λj , di,j , ci,j , and ϵi,j [t] from 
+
+N (0 , 1) . The magnitude of the active coefficient is set to κ ∈ { 1, 0.5, 0.25 }, and 
+
+|βj | = |γj | = |θjk | = κ. For each term, the coefficient is assigned randomly to either +κ or −κ. σX is set to 1 and σY ∈ { 0.5, 1}. We consider six outcome generation settings, 3 coefficient magnitudes for κ and 2 outcome noise levels for 
+
+σY . For each combination, we generate 10 datasets using different random seeds, yielding 360 synthetic datasets in total. For synthetic data, the search space of time windows is {8, 12 , 16 , 20 , 24 , 32 ,
+
+48 } hours and the space of aggregation functions is {mean , median , p95 , p05 },
+
+p denoting percentile. For IDEA-FAST, the space of windows is {4, 8, 12 , 16 ,
+
+20 , 24 , 32 , 48 } hours and the same space of aggregation functions is used. Syn-thetic and IDEA-FAST searches are initialised with (w(0) , f (0) ) = (12 h, mean) 
+
+and (8 h, mean) , respectively. In both experiments, candidates contain at most ten variables, with a budget of B = 30 evaluations. Synthetic experiments use DeepSeek-V4-Flash [5] at temperature 0.01 with a 1,024-token limit and think-ing disabled. For privacy reasons, IDEA-FAST experiments use gpt-oss-120b [16] at temperature 0.01. 
+
+Evaluation protocol and baseline methods. For both synthetic and real datasets, data is split subject-wise into 80% for training and 20% for test. The loss l(c) is computed using five-fold cross-validation on the training set. The History-Guided Agentic Search for Longitudinal Outcome Prediction 7
+
+evaluator fits an elastic net model ( α = 0 .1 and equal ℓ1 and ℓ2 mixing, with ℓ1
+
+ratio = 0 .5) and assesses the prediction performance in terms of the root mean squared error (RMSE). After the final candidate ˆc is selected, the evaluator fits the model to the full training set and evaluates the prediction performance on the test set, in terms of the RMSE, mean absolute error (MAE), and the coefficient of determination ( R2). The prediction target is the simulated outcome for synthetic datasets, and fatigue z-scores for IDEA-FAST. We compare LongAgent with three baselines. Greedy variable selection re-tains fixed time window and aggregation function, and adds variables in de-creasing order of absolute Pearson correlation [9, 17]. Random candidate search 
+
+randomly samples a legal, previously unevaluated one-step neighbour of the cur-rent candidate. Rule-based candidate search follows the correlation ranking be-fore exploring time window and aggregation function that reduce validation loss of the evaluator. Confidence intervals are computed by resampling the ten seed blocks. Statistical comparison of two methods is performed using the two-sided Wilcoxon test on seed-level mean RMSE differences. 
+
+4 Results                                                  
+
+> Table 2. Comparison of LongAgent with baseline methods on 360 synthetic datasets. Values are mean ±standard deviation across datasets; p-values compare RMSE be-tween LongAgent and each baseline. Method RMSE ↓MAE ↓R2↑p
+> Greedy variable selection 1.7871 ±1.0060 1.3357 ±0.6857 0.3163 ±0.1756 0.0020 Random candidate search 1.8094 ±1.0139 1.3556 ±0.6957 0.2999 ±0.1743 0.0020 Rule-based search 1.7527 ±1.0024 1.3091 ±0.6817 0.3364 ±0.1916 0.0273
+> LongAgent 1.7376 ±1.0003 1 .2984 ±0.6802 0 .3482 ±0.1943 –
+
+Results on synthetic data. Table 2 compares LongAgent with the three base-line methods, averaged across 360 synthetic datasets. LongAgent achieves the lowest RMSE ( 1.7376 ) and MAE ( 1.2984 ), and the highest R2 (0.3482 ) among all methods. Rule-based search is the second strongest method, which explores the same candidate space as LongAgent with a deterministic search policy. How-ever, it follows the correlation ranking in search, while LongAgent leverages a rich history of evidence to guide the next move. Using two-sided Wilcoxon test, LongAgent outperforms rule-based search with statistical significance ( p < 0.05 ). 
+
+Ablation study. Table 3 investigates the effects of different evidence sources in the agent history. The basic history configuration contains search status and can-didate history. By adding coverage summary to history, RMSE decreases from 1.2982 to 1.2918, and MAE decreases from 0.9773 to 0.9730, with R2 increas-ing, all indicating better prediction performance. By further adding transition 8 S. Wang et al.                                        
+
+> Table 3. Performance of LongAgent under three history configurations on 30 synthetic datasets. Values are mean ±standard deviation across datasets; “+” denotes evidence added cumulatively across rows, and p-values compare each augmented configuration with the basic history configuration. History configuration RMSE ↓MAE ↓R2↑p
+> Basic history 1.2982 ±0.4525 0.9773 ±0.3184 0.3993 ±0.2029 –+ Coverage summary 1.2918 ±0.4558 0.9730 ±0.3207 0.4059 ±0.2043 0.3223 + Transition evidence 1.2841 ±0.4596 0 .9670 ±0.3234 0 .4145 ±0.2036 0.0488
+
+evidence to history, LongAgent achieves the lowest RMSE ( 1.2841 ± 0.4596 ) and MAE ( 0.9670 ± 0.3234 ), and the highest R2 (0.4145 ± 0.2036 ). Its RMSE is sig-nificantly lower than that obtained with basic history ( p < 0.05 ), suggesting that transition evidence, such as past loss changes, provides informative signals for LongAgent to plan subsequent candidate updates.                    
+
+> Table 4. Comparison of LongAgent with baseline methods on a real clinical dataset, IDEA-FAST. Values report test performance on the subject-held-out split. Method RMSE ↓MAE ↓R2↑
+> Greedy variable selection 0.9957 0.8197 0.0173 Random candidate search 1.0012 0.8256 0.0063 Rule-based search 0.9939 0.8186 0.0208
+> LongAgent 0.9937 0.8187 0.0212
+
+Results on IDEA-FAST. The real longitudinal data experiment compares LongAgent with the same three baseline methods on the IDEA-FAST dataset, with results reported in Table 4. LongAgent achieves the lowest RMSE (0.9937) and highest R2 (0.0212), outperforming the other methods. In terms of MAE, LongAgent only underperforms rule-based search by 0.0001. In terms of RMSE, LongAgent outperforms rule-based search by 0.0002, indicating comparable per-formance between the two methods on IDEA-FAST. 
+
+5 Discussion and Conclusions 
+
+We present a novel agent-based method, LongAgent, that can perform auto-mated analysis for longitudinal medical data and discover predictive features for outcomes. LongAgent performs history-guided search over variable subsets, outcome-relative time windows, and aggregation functions. It constructs a rich history consisting of four sources of evidence to guide the search of the agent. Across 360 synthetic datasets, LongAgent achieved the lowest mean RMSE com-pared to three baseline methods. The ablation study demonstrates the usefulness History-Guided Agentic Search for Longitudinal Outcome Prediction 9
+
+of history guidance. On a real clinical dataset, the performance of LongAgent was slightly better or comparable to the strongest baseline. Current limitations include the use of a single shared time window and aggregation function for ex-tracting features from selected variables. Future work will investigate variable-specific temporal representation learning and extend the method to additional longitudinal datasets with heterogeneous and missing data. 
+
+Acknowledgements The IDEA-FAST project has received funding from the Innovative Medicines Initiative 2 Joint Undertaking under grant agreement No. 853981. This Joint Undertaking receives support from the European Union’s Horizon 2020 research and innovation programme and EFPIA and associated partners. This communication reflects the view of the authors and neither IMI nor the European Union and EFPIA are liable for any use that may be made of the information contained herein. W.B. acknowledges the support of EPSRC CVD-Net Programme Grant (EP/Z531297/1) and BHF New Horizons Grant (NH/F/23/70013). 
+
+References 
+
+1. Abhyankar, N., Shojaee, P., Reddy, C.K.: LLM-FE: Automated feature engineering for tabular data with LLMs as evolutionary optimizers. Transactions on Machine Learning Research (2026) 2. Cascarano, A., Mur-Petit, J., Hernández-González, J., Camacho, M., et al.: Ma-chine and deep learning for longitudinal biomedical data: A review of methods and applications. Artificial Intelligence Review 56 (2023) 3. Christ, M., Braun, N., Neuffer, J., Kempa-Liehr, A.W.: Time series FeatuRe ex-traction on basis of scalable hypothesis tests (tsfresh - a Python package). Neuro-computing 307 (2018) 4. Collaco, B.G., Haider, S.A., Prabha, S., Gomez-Cabello, C.A., Genovese, A., et al.: The role of agentic artificial intelligence in healthcare: a scoping review. npj Digital Medicine 9(1) (2026) 5. DeepSeek-AI: DeepSeek-V4 preview release. DeepSeek API Documentation (2026) 6. Dunn, J., Kidzinski, L., Runge, R., Witt, D., Hicks, J.L., et al.: Wearable sen-sors enable personalized predictions of clinical laboratory measurements. Nature Medicine 27 (6) (2021) 7. Fulcher, B.D., Jones, N.S.: hctsa: A computational framework for automated time-series phenotyping using massive feature extraction. Cell Systems 5(5), 527–531 (2017) 8. Gupta, M., Poulain, R., Phan, T.L.T., Bunnell, H.T., Beheshti, R.: Flexible-window predictions on electronic health records. AAAI Conference on Artificial Intelligence 36 (11) (2022) 9. Guyon, I., Elisseeff, A.: An introduction to variable and feature selection. Journal of Machine Learning Research 3 (2003) 10. Karami, H., Atienza, D., Thiran, J.P., Ionescu, A.: FeatEHR-LLM: Leveraging large language models for feature engineering in electronic health records. arXiv preprint arXiv:2604.22534 (2026) 10 S. Wang et al. 11. Kim, Y., Rahman, S., Schmidgall, S., Park, C., Heydari, A.A., et al.: CoDaS: AI co-data-scientist for biomarker discovery via wearable sensors. arXiv preprint arXiv:2604.14615 (2026) 12. Lu, C., Lu, C., Lange, R.T., Yamada, Y., Hu, S., et al.: Towards end-to-end au-tomation of AI research. Nature 651 (2026) 13. Lubba, C.H., Sethi, S.S., Knaute, P., Schultz, S.R., Fulcher, B.D., Jones, N.S.: catch22: CAnonical time-series CHaracteristics. Data Mining and Knowledge Dis-covery 33 (2019) 14. Maetzler, W., Avey, S., Pilotto, A., et al.: IDEA-FAST clinical study protocol: Identifying digital end-points of fatigue, sleep quality and daytime sleepiness in 
+
+N = 2000 . Digital Health 12 (2026) 15. Merrill, M.A., Paruchuri, A., Rezaei, N., Kovacs, G., Perez, J., et al.: Transforming wearable data into personal health insights using large language model agents. Nature Communications 17 (2026) 16. OpenAI: gpt-oss-120b and gpt-oss-20b model card. arXiv preprint arXiv:2508.10925 (2025) 17. Saeys, Y., Inza, I., Larrañaga, P.: A review of feature selection techniques in bioin-formatics. Bioinformatics 23 (2007) 18. Tang, S., Davarmanesh, P., Song, Y., Koutra, D., Sjoding, M.W., Wiens, J.: Democ-ratizing EHR analyses with FIDDLE: A flexible data-driven preprocessing pipeline for structured clinical data. Journal of the American Medical Informatics Associ-ation 27 (2020) 19. Wang, Z., Cai, L., Low, C.H., Liu, H., Wu, J., et al.: 3DMedAgent: Unified perception-to-understanding for 3d medical analysis. In: International Conference on Machine Learning (2026)
