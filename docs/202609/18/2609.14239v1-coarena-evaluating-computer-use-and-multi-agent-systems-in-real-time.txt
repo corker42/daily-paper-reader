@@ -1,0 +1,1083 @@
+Title: CoArena: Evaluating Computer-Use and Multi-Agent Systems in Real Time
+
+URL Source: https://arxiv.org/pdf/2609.14239v1
+
+Published Time: Tue, 15 Sep 2026 01:04:57 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+# CoArena: Evaluating Computer-Use and Multi-Agent Systems in Real Time 
+
+Nitish Kovuru Coasty Research Lab, makers of CoArena.ai 
+
+nitish@coasty.ai 
+
+Prateek Jannu Coasty Research Lab, makers of CoArena.ai 
+
+prateek@coasty.ai 
+
+Preprint, September 2026 
+
+Abstract 
+
+Static benchmarks for computer-use agents fix a task set at release and score every system against it once. That makes them reproducible, and it lets them drift from what they should measure: a fixed task set ages, leaks into training corpora, and cannot follow how people actually use agents from week to week. CoArena measures use directly. Real users submit tasks; two systems, each a single model or a multi-agent pipeline behind the same tool interface, execute the same task concurrently in identical sandboxed desktops; users judge the two outcomes without knowing which system produced them; and a public leaderboard is refit from those judgments. The central contribution is a formal account of what makes such an evaluation real-time. We define real-time as five measurable properties, each with an equation and a worked example: continuous task arrival, live concurrent execution, online rating updates, freshness with contamination resistance, and bounded feedback latency from a failed run to a reusable training environment. The rating methodology follows in full: the Bradley-Terry pairwise model, its likelihood with weighted observations and ties, the penalized maximum-likelihood estimator, and the streaming update applied when a single vote arrives (a stochastic-gradient step on the same likelihood, recovering Elo). It gives confidence intervals from the observed information and a cluster-robust sandwich, rank bands from a parametric bootstrap, the rule by which a new system enters the board, and the convergence rate of the estimate. Vote quality is treated with inter-judge agreement statistics, redundant judging, and explicit handling of ties and abstentions. A five-system example with 211 votes is carried from the vote matrix to ratings, intervals, and rank bands. Every number is derived from stated inputs or labeled illustrative; none is a measurement of a deployed system. 
+
+# 1 Introduction 
+
+A computer-use agent receives an instruction in natural language and operates a desktop or a browser on a person’s behalf: it reads the screen, moves a pointer, types, and delivers a result. The agent may be a single model behind a fixed scaffold, or a multi-agent system that plans, delegates and verifies internally before it acts. From the outside the two look the same, an instruction goes in and actions on a screen come out, and they can be evaluated the same way. So far that evaluation has followed the pattern set for language models: a benchmark author writes a fixed set of tasks, each with a programmatic or rubric-based checker, and every system is scored against that set [6, 18, 30, 33]. The pattern has one clear virtue, reproducibility, and three structural weaknesses when the object of study is a system people actually use. 1arXiv:2609.14239v1 [cs.LG] 13 Sep 2026 First, a fixed task set does not track use. The distribution of tasks people ask agents to do shifts with the software they use, the sites they visit, and the agents’ own growing capabilities. A benchmark frozen in one year measures the workload of that year. Second, a fixed task set ages into the training data of the models it is meant to measure. The concern is documented for language benchmarks [14, 27] and has motivated benchmarks that refresh their questions on a schedule [15, 29]. A scheduled refresh reduces the problem; it does not remove the interval during which a released task set is both public and in use. Third, a fixed task set is scored by a checker written in advance, and the checker encodes the author’s notion of success. For open-ended computer work, whether an outcome is acceptable often depends on the person who asked. Human preference between two attempts at the same task is a different measurement, one that pairwise arenas for chatbots have collected at scale [3, 32]. This paper describes an arena for computer-use agents built around those three observations, and it makes one claim precise: that the arena is a real-time evaluation. The word is used loosely across evaluation platforms. We define it as a set of five measurable properties (Section 4), each with notation, an equation where one applies, and a worked example. The properties are continuous task arrival, live concurrent execution, online rating updates, freshness with contamination resistance, and bounded feedback latency from a failed run to a reusable training environment. Continuous arrival means the evaluation has no release epochs. Live concurrent execution means that both agents run the same task at the same time in identical environments, and that execution is contemporaneous with submission. Online rating updates means that the published rating is a bounded-latency function of every admissible judgment. Freshness means that a task is executed within minutes of being written, before any training pipeline can have observed it. Bounded feedback latency means that a failure becomes something a developer can train against within a stated horizon. The rest of the paper supplies the machinery those properties rest on. Section 3 describes the arena concretely. Section 5 presents the rating methodology: the pairwise model, its likelihood, the batch and streaming estimators, intervals, rank bands, entry of new agents, and convergence. Section 6 carries a small example through the whole pipeline and treats vote quality. Sections 7 and 8 discuss limitations and conclude. Appendix A collects the notation (Table 3), Appendix B lists the algorithms (Algorithms 1 to 4), and Appendix C walks one battle through the interfaces. A note on numbers. Every number in this paper is either derived from stated inputs in the text, produced by a simulation whose generative model and seed are stated, or labeled as illustrative. None is a measurement of a deployed system, and the reader should not interpret any figure here as an empirical result about a particular product. 
+
+# 2 Related Work 
+
+Paired-comparison models. The model we use for ratings originates with Zermelo’s treat-ment of chess tournament results [31] and was developed independently by Bradley and Terry [2]. Ford gave the condition under which the maximum-likelihood estimate exists: the comparison graph must be strongly connected in the sense that every agent has both a win and a loss path to every other [10]. Hunter analyzed minorization-maximization algorithms for the model and its generalizations [13]; Newman gave an accelerated iteration [24]. Ties were incorporated by Rao and Kupper through a threshold parameter [25] and by Davidson through a separate tie propensity [5]. The Elo rating system [8] is the sequential update familiar from chess rating; Glickman’s Glicko [11] and the TrueSkill system [12] add a per-player uncertainty that widens with inactivity. 
+
+Arenas for language models. Chatbot Arena collected human pairwise preferences between anonymized chatbots and fit a Bradley-Terry model to them, with bootstrap confidence intervals 2[3, 32]. Its authors and others have examined the robustness of Elo-style ratings to vote order and sample size [1] and the influence of response style on human preference [20]. Our setting differs in what is compared (a trajectory of screen actions ending in a delivered result, rather than a text response) and in the cost of a comparison (minutes of sandboxed execution rather than a single generation), which shapes the concurrency and queueing analysis of Section 4. 
+
+Benchmarks for computer-use agents. OSWorld [30], WebArena [33], VisualWebArena [18], Mind2Web [6], and Android in the Wild [26] established executable environments with fixed task sets and programmatic checkers. They remain the appropriate instrument when reproducibility of a specific task is the goal. Our arena is complementary: its tasks are whatever users submit, its judgments are human, and its purpose is to track use rather than to fix a target. 
+
+Contamination and refreshed benchmarks. The leakage of evaluation data into training corpora has been measured for language benchmarks [27], and mitigations range from withholding test data from plain-text distribution [14] to periodic refresh [15, 29] to adversarial, human-in-the-loop data collection [16]. We treat contamination resistance as a consequence of the arrival process: a task that is written and executed within minutes cannot have been in any training set that closed before it was written (Property 4). 
+
+Uncertainty in evaluation. Cluster-robust variance estimation [21, 28] and the bootstrap [7] are the tools we use for intervals, following the argument that evaluation results should carry error bars that account for the dependence structure of the data [23]. 
+
+# 3 System Design 
+
+This section describes the arena concretely. Figure 1 shows the components; Figure 2 shows one task’s passage through them. 
+
+3.1 Participants and objects 
+
+The arena has a roster of agents A, |A| = m. An agent is whatever sits behind the arena’s fixed tool interface and turns an instruction into actions on the desktop: a single model under the arena’s own scaffold (tool set, system prompt, step budget), or a multi-agent system with its own planner, workers and verifier that the arena drives through the same interface and treats as one entrant. The arena sees only the actions and the delivered result, so a single model and a multi-agent system are rated by the same rule and can be compared on the same board. Users submit tasks . A task τ is a natural-language instruction, optional file attachments, and an optional starting URL. A battle b pairs one task with two distinct agents a, a ′ ∈ A and produces two runs , one per agent. A judgment is a user’s blind choice between the two runs of a battle. 
+
+3.2 Intake 
+
+Every task enters through one endpoint. The endpoint authenticates the submitter, checks that the submitter’s consent to publication is current, classifies the message as a task (which will boot two sandboxes) or as conversational text that should not, applies a near-duplicate guard against the submitter’s recent tasks, and admits the task to a bounded queue. Admission is deliberately wider than execution so that a burst of submissions becomes waiting time rather than an error. 
+
+3.3 Matchmaking 
+
+The two agents for a battle are drawn by a sampler that depends only on the roster, the count of rated battles each agent has accumulated, and the current ratings. It depends on nothing the 3submitter supplies. Three properties are enforced by construction and are stated here because they matter for the rating analysis. Every eligible agent has a strictly positive probability in every draw, so no agent can be starved. Agents with fewer rated battles are sampled more often, with weight proportional to ( na + κ)−1/2 for a pseudo-count κ > 0, so that measurement converges toward equal exposure. Among opponents, pairs whose outcome is uncertain under the current ratings are preferred, because those comparisons carry more information about the parameters (Section 5.8). 
+
+3.4 Execution 
+
+Each run executes in its own sandboxed desktop environment: an isolated virtual machine with a display, a browser, and a shell, provisioned fresh for the run. The two runs of a battle are provisioned and started together, receive byte-identical inputs (instruction, attachments, tool schemas, step budget, wall-clock budget), and execute concurrently. An agent acts through a fixed tool set (pointer, keyboard, navigation, a screenshot on every step, and a bounded shell where the environment permits it) and may end its run by delivering files and a final message. Every step’s screenshot and action are recorded. Network egress from a sandbox is restricted to public destinations; private address ranges are blocked at the resolver and at the proxy. 
+
+3.5 Judging 
+
+When both runs have ended, the battle becomes available for judging. A judge sees the task, both trajectories as replays, and both final results, with the agents’ identities withheld by the server until the judge has voted. The judge chooses one side, declares a tie, declares both unacceptable, or abstains. A random fraction of battles, drawn at creation time, is assigned a redundancy target of three judges rather than one; this sample is what agreement statistics are computed from (Section 6.4). The submitter of a task may judge their own battle, blind like anyone else; the treatment of that vote is specified in Section 5.5. 
+
+3.6 Rating and leaderboard 
+
+Two estimators run. A streaming update adjusts the two agents’ ratings the moment a judgment resolves a battle (Algorithm 1). A batch estimator refits the pairwise model from every admissible judgment on a fixed period and is what the public leaderboard displays, together with confidence intervals and rank bands (Algorithms 2 and 3). Figure 3 shows, in a simulation, how the refit’s interval narrows as judgments accumulate, and Figure 4 shows a simulated day of arrivals and completed runs under the capacity model of Section 4.3. The leaderboard lists the roster only; an agent removed from the roster keeps its historical battles in the corpus, and they continue to inform the ratings of the agents it played, but it takes no position. 
+
+3.7 Failure to environment 
+
+A run that ends in failure (the agent gives up, the step or time budget is exhausted, or a checker judges the delivered result wrong) is a candidate for conversion into a training environment: a reproducible initial state, the instruction, and a grader derived from what went wrong (Figure 5). The conversion runs as a pipeline with a stated latency target (Property 5). 
+
+# 4 Formal Model of Real-Time Evaluation 
+
+This section is the paper’s central contribution. We give a formal setting, then define real-time as five properties. Each property has notation, a measurable quantity, an equation where one applies, and a worked numerical example with clearly labeled illustrative inputs. We close with a composite definition and a table of time-horizon tiers. 4Users Intake router, consent, duplicate guard Matchmaker exposure-weighted pair draw Orchestrator admission queue, lane parity Sandbox A isolated desktop Sandbox B isolated desktop Rating engine stream and refit Judges blind vote Judging queue redundancy target Frame and trajectory store Failure to environment pipeline Leaderboard rating, CI, rank band Environment registry  
+
+> public to agent developers
+
+Figure 1: System architecture. A task flows left to right along the top: intake, matchmaking, and an orchestrator that provisions two isolated desktop sandboxes and starts both runs together with identical inputs. Recorded trajectories feed two consumers: the blind judging queue, whose votes drive a streaming update and a periodic refit that the leaderboard displays with intervals and rank bands; and the failure-to-environment pipeline, which converts failed runs into reproducible environments in a registry. What the figure shows is that the leaderboard and the training environments are downstream of the same recorded runs, and that nothing the submitter supplies reaches the matchmaker. 
+
+4.1 Setting and events 
+
+Let time be t ∈ R≥0. Tasks arrive as a sequence τ1, τ 2, . . . with submission times s1 < s 2 < · · · .The arrival counting process is 
+
+N (t) = # { i : si ≤ t }. (1) Each task becomes one battle b with agents ( ab, a ′
+
+> b
+
+). For a battle we record the event times shown in Figure 2: submission sb; dequeue qb, when the orchestrator admits the battle to execution; lane start qb + δb, where δb ≥ 0 is provisioning time; execution end eb, when both runs have ended; first admissible judgment hb; rating incorporation rb, the first time a published rating is a function of that judgment; and service ℓb, the first time a client is served a leaderboard that reflects it. The corresponding latencies are 
+
+Lq 
+
+> b
+
+= qb − sb, Lp 
+
+> b
+
+= δb, Le 
+
+> b
+
+= eb − (qb + δb), Jb = hb − eb, Lr 
+
+> b
+
+= rb − hb, Ls 
+
+> b
+
+= ℓb − rb. (2) The end-to-end latency is their sum, ℓb − sb. We separate the machine latency 
+
+Mb = Lq 
+
+> b
+
++ Lp 
+
+> b
+
++ Le 
+
+> b
+
++ Lr 
+
+> b
+
++ Ls 
+
+> b
+
+(3) from the human latency Jb, because the system can bound the former and can only observe, sample, and prioritize the latter. For a set of battles S and a latency Xb, we write ¯X(S) for the mean and Xp(S) for the p-th percentile over S. Real-time properties are stated as bounds on percentiles, because a mean hides the tail that a user experiences. 5time                                     
+
+> submit
+> sb
+> dequeue
+> qb
+> lanes start
+> qb+δb
+> lanes end
+> eb
+> judged
+> hb
+> rating updated
+> rb
+> served
+> ℓb
+> Lq
+> bLp
+> bLe
+> bJb(human) Lr
+> bLs
+> b
+> end-to-end latency ℓb−sb: the machine stages Lq
+> b+Lp
+> b+Le
+> b+Lr
+> b+Ls
+> bare bounded by the system; the human stage Jbis observed, sampled, and prioritized Illustrative values, not measurements:
+> Lq= 5 s, Lp= 40 s, Le= 6 min, J= 3 h, Lr≤31 s, Ls≤10 s
+
+Figure 2: Timeline of one battle from submission to a served leaderboard, schematic and not to scale. The machine-controlled stages (queue wait, provisioning, execution, rating update, serving) are each bounded and add up to minutes; the human stage, waiting for a blind judge, is not under the system’s control and dominates the end-to-end latency at the illustrative values shown. The point of the figure is that a real-time claim must separate the two kinds of stage: the system can guarantee bounds on its own stages and can only report, sample, and prioritize the human one. 
+
+4.2 Property 1: continuous task arrival 
+
+Property 1 (Continuous arrival) The evaluation has no release epochs. Formally, the ar-rival process N (t) has a strictly positive long-run rate 
+
+λ = lim 
+
+> t→∞
+
+N (t)
+
+t > 0, (4) 
+
+and over any observation horizon [0 , T ] the largest gap between consecutive arrivals, 
+
+Gmax (T ) = max   
+
+> i:si+1 ≤T
+
+(si+1 − si), (5) 
+
+is small relative to T . A batch benchmark violates the property in the strongest way: its N (t) is a step function with one jump per release, so Gmax (T ) equals the release interval. 
+
+The natural model for user submissions is a Poisson process [17], possibly with a time-varying rate λ(t) to capture diurnal patterns. If submissions follow a homogeneous Poisson process at rate λ, the gap between consecutive tasks has an exponential distribution with mean 1 /λ , and a window of length w stays empty with probability 
+
+P{no arrival in w} = e−λw . (6) 
+
+Worked example (illustrative inputs). Take λ = 12 tasks per hour. The mean gap is 1/λ = 5 minutes. The probability that a 30-minute window contains no task is e−12 ·0.5 = e−6 ≈
+
+0.0025. Over a 24-hour horizon the expected count is λT = 288. Figure 4 shows one simulated day at this rate (280 arrivals in that draw). 
+
+4.3 Property 2: live concurrent execution 
+
+Property 2 (Live concurrent execution) Both runs of a battle execute at the same time, in isolated environments, on identical inputs, and execution is contemporaneous with submission. Formally: (i) parity : the resolved input tuple I(b) (instruction, attachments, tool schemas, step budget K, wall-clock budget W , environment image) is identical for both lanes; (ii) co-start : the two lane start times differ by at most a skew bound ∆start ; (iii) isolation : the two environments share no mutable state during [qb, e b]; and (iv) contemporaneity : the machine latency to execution end is bounded at a stated percentile, 
+
+(Lq + Lp + Le)p ≤ Hexec . (7) 6Parity is what makes a judgment a comparison of agents rather than of conditions. It is enforced by resolving every mutable input once per battle and handing the same objects to both lanes, and it is checked by a test suite rather than by review. Condition (iv) is the one that distinguishes a live arena from an evaluation that records tasks now and runs them later. The bound in (7) is a capacity question. Let C be the number of battles that may execute concurrently and let Sb = Lp 
+
+> b
+
++ Le 
+
+> b
+
+be a battle’s service time, with mean E[S]. The offered load is 
+
+ρ = λ E[S]
+
+C , (8) and the queue is stable only if ρ < 1. Little’s law [22] ties the wait to the load: the expected count of battles present, whether waiting or executing, is 
+
+E[in system] = λ (E[Lq] + E[S]) . (9) 
+
+Worked example (illustrative inputs). With λ = 12 per hour = 0 .2 per minute, E[S] = 6 .8minutes, and C = 4, the load is ρ = 0 .2 × 6.8/4 = 0 .34. In the simulation of Figure 4, which uses a lognormal service time with median 6 minutes and log-scale standard deviation 0 .5 (so 
+
+E[S] = 6 e0.125 = 6 .80 minutes), the mean queue wait was 0 .09 minutes and the largest wait was 2 .87 minutes; by (9) the mean number in system is 0 .2 × (0 .09 + 6 .80) ≈ 1.4 battles. If λ
+
+doubled to 24 per hour at the same C, the load would be ρ = 0 .68 and waits would grow sharply. The design response is to raise C, not to defer execution, because deferral breaks condition (iv). 
+
+4.4 Property 3: online rating updates 
+
+Property 3 (Online rating updates) The published rating at time t is a function of every admissible judgment made before t − Lr, for a bounded update latency Lr that does not grow with the size of the corpus. Define the staleness of the published rating at time t as 
+
+ς(t) = t − min { hb : hb ≤ t, b is not yet reflected in the rating served at t }, (10) 
+
+with ς(t) = 0 when no such judgment exists: the time the oldest unincorporated judgment has been waiting. A board with no pending judgment is current, however long ago the last vote arrived. The property requires sup t ς(t) ≤ Hrate for a stated horizon. 
+
+Two estimators satisfy this property in different ways (Section 5). The streaming update touches two parameters per judgment and has latency of milliseconds, but it depends on the order in which judgments arrived and cannot retroactively apply a retraction or a newly discovered exclusion. The batch refit is order-independent and applies every rule to the whole corpus, at the cost of a compute step. It runs on a fixed period ∆ with compute time c, so its staleness is bounded by 
+
+ς(t) ≤ ∆ + c. (11) The arena publishes the refit as the rating and shows the streaming value beside it, labeled, because the streaming value is what a judge sees move when they vote. 
+
+Worked example (illustrative inputs). With ∆ = 30 s and c = 1 s, the served rating is never more than 31 s stale. A benchmark that republishes weekly has ς up to 7 ×86 ,400 = 604 ,800 s, a ratio of about 2 × 10 4. The streaming update, with a latency of the order of 10 ms, makes a judge’s own vote visible to that judge at once; the refit makes it part of the published number within ∆ + c.74.5 Property 4: freshness and contamination resistance 
+
+Property 4 (Freshness and contamination resistance) A task is executed shortly after it is written, and before any agent’s training pipeline could have observed it. Define the task age at execution Ab = qb − sb and, for agent a with training-data cutoff time tcut  
+
+> a
+
+, the contamination indicator 
+
+cb = 1
+
+> [
+
+sb ≤ max  
+
+> a∈{ ab,a ′
+> b}
+
+tcut 
+
+> a
+> ]
+
+, (12) 
+
+which is 1 exactly when the task existed before the later of the two agents’ cutoffs. The property requires (i) Ap ≤ Hage at a stated percentile and (ii) cb = 0 for every rated battle. Because a task is written by its submitter at sb and every deployed agent’s cutoff precedes deployment, (ii) holds for the arriving stream by construction; the residual risk is a repeated task, one whose text near-duplicates an earlier public task, which is handled by the duplicate guard at intake and measured by a duplicate rate. 
+
+We measure freshness of the rating corpus itself by the share of rating weight that comes from tasks newer than an age α:
+
+F (α; t) =   
+
+> ∑
+> b:t−sb≤α
+
+wb 
+
+> ∑
+> b
+
+wb
+
+, (13) where wb ∈ (0 , 1] is the evidence weight of battle b in the likelihood (Section 5.5) and both sums run over the battles the rating is fitted on at time t. Under a constant arrival rate and a corpus window of the newest Nw battles with equal weights, F (α) = min {1, λα/N w}.The duplicate rate at threshold θ is 
+
+D(θ) = 1
+
+|B| 
+
+> ∑
+> b
+
+1
+
+> [
+
+max  
+
+> b′:sb′<s b
+
+sim( τb, τ b′ ) ≥ θ
+
+> ]
+
+, (14) where sim is a lexical similarity (we use word-trigram Jaccard) and B is the rated corpus. 
+
+D(θ) is a measured quantity of a deployed arena; in this paper we write it as a placeholder 
+
+D(0 .55) = [to be measured] rather than assert a value. 
+
+Worked example (illustrative inputs). If the machine stages of Figure 2 take Lq = 5 s and Lp = 40 s, a task is under execution 45 s after it was written; no training pipeline with a cutoff before sb can contain it, so cb = 0. With λ = 12 per hour = 288 per day and a fitting window of Nw = 20 ,000 battles, the window spans 20 ,000 /288 ≈ 69 days and the share of rating weight from the last 7 days is F (7 d) = 288 × 7/20 ,000 ≈ 0.10. A fixed benchmark released once has F (α) = 0 for every α shorter than its age. 
+
+4.6 Property 5: bounded feedback latency to a training environment 
+
+Property 5 (Bounded feedback latency) A failed run becomes a reusable, validated training environment within a stated horizon. Let F be the set of runs whose outcome is a failure (the agent gave up, exhausted its budget, or delivered a result a checker rejects). For u ∈ F with end time eu, let εu be the derived environment and νu the time it is published, validated, to the registry. The feedback latency is 
+
+T env  
+
+> u
+
+= νu − eu = T cap  
+
+> u
+
++ T red  
+
+> u
+
++ T syn  
+
+> u
+
++ T val  
+
+> u
+
++ T pub  
+
+> u
+
+, (15) 
+
+the sum of capture, redaction, synthesis, validation, and publication stage times (Figure 5; Algorithm 4). The property requires T env  
+
+> p
+
+≤ Henv at a stated percentile, and it requires reusability :
+
+εu must be reproducible from a stored initial state and a stored instruction, and validity : replaying the failing trajectory in εu must reproduce the failure, and a reference trajectory must pass the derived grader. 
+
+8Tier H (machine) Arrival Execution start Rating staleness Task age at run T0, batch release weeks release epochs offline release interval months to years T1, daily 24 h daily within the day ≤ 24 h ≤ 24 h T2, hourly 1 h hourly within the hour ≤ 1 h ≤ 1 h T3, minutes 10 min gaps of minutes within minutes ≤ 10 min ≤ 10 min T4, seconds 60 s sustained stream within seconds ≤ 60 s ≤ 60 s Tier Feedback Henv Reported human latency J                  
+
+> T0, batch release not defined not defined T1, daily ≤24 h reported at p
+> T2, hourly ≤1 h reported at p
+> T3, minutes ≤1 h (validation bound) reported at p
+> T4, seconds ≤1 h (validation bound) reported at p
+
+Table 1: Time-horizon tiers for the five properties of Definition 4.1. Each property is assigned a tier independently; the illustrative configuration in this paper is T4 for rating staleness (a 30-second refit) and for task age at run (under a minute), T3 for execution (minutes of provisioning and a run of several minutes), and T2 for feedback (a validation stage of two run lengths). The human judging latency is reported at the same percentile and does not carry a tier. An environment is a triple ε = (initial state , instruction , grader). The initial state is a snapshot of the sandbox before the first action, the instruction is the task text after redaction of personal data, and the grader is derived from the failure mode: a budget-exhaustion failure yields a grader on the delivered artifact; a wrong-result failure yields a grader from the judged-correct run’s final state where one exists. Validation runs the pipeline’s own replay twice, once with the failing trajectory and once with a reference, so T val is at least two run durations. 
+
+Worked example (illustrative inputs). Take T cap = 20 s, T red = 40 s, T syn = 300 s, 
+
+T val = 2 × 480 = 960 s, and T pub = 10 s. Then T env = 1 ,330 s ≈ 22 minutes, inside a one-hour horizon Henv = 3 ,600 s. Validation dominates, and it scales with the run length, so an arena with a 20-minute wall-clock budget should expect T env of the order of an hour at its tail. 
+
+4.7 Composite definition and time-horizon tiers 
+
+Definition 4.1 (Real-time arena evaluation at horizon H) An arena evaluation is real-time at machine horizon H and environment horizon Henv , at percentile p, if over its observation window: 1. (arrival) λ > 0 and Gmax (T ) ≤ H for every horizon T of at least one day; 2. (execution) parity, co-start with ∆start ≤ H, and isolation hold for every battle, and 
+
+(Lq + Lp + Le)p ≤ H;3. (rating) sup t ς(t) ≤ H;4. (freshness) Ap ≤ H and cb = 0 for every rated battle; 5. (feedback) T env  
+
+> p
+
+≤ Henv , with reusability and validity. The human latency Jb is reported alongside, at the same percentile, and is not part of the definition, because it is the property of a population of judges rather than of the system. 
+
+Table 1 arranges horizons into tiers. An evaluation can be real-time at one tier for some properties and not others; the honest statement names the tier per property. 94.8 What the definition excludes 
+
+Three designs are sometimes described as real-time and fail Definition 4.1. A benchmark refreshed on a schedule satisfies freshness at the refresh interval but fails arrival (its N (t) has epochs) and fails rating staleness between refreshes. A platform that records tasks continuously but executes them in nightly batches satisfies arrival and may satisfy contamination resistance, but fails execution contemporaneity, and its judgments compare runs made under conditions that may differ from the submitter’s. A platform that updates a streaming rating but publishes a snapshot blended with a fixed benchmark score fails rating staleness for the published number, because the blended component moves only when the snapshot is rebuilt. 
+
+# 5 Rating Methodology 
+
+5.1 Pairwise comparison model 
+
+Each agent a has a latent strength θa ∈ R; write θ = ( θ1, . . . , θ m). Under the Bradley-Terry model [2, 31] the probability that agent i is preferred to agent j in a comparison is 
+
+pij = P{i ≻ j} = eθi
+
+eθi + eθj = σ(θi − θj ), σ(x) = 11 + e−x . (16) Only differences of strengths are identified; adding a constant to every θa leaves every pij 
+
+unchanged. Ratings are reported on the Elo scale by the affine map 
+
+Ra = R0 + 400 ln 10 θa ≈ R0 + 173 .72 θa, (17) with origin R0 = 1000, so that a difference of 400 Elo points corresponds to odds of 10 to 1, as in [8]. 
+
+5.2 Observations, ties, and weights 
+
+A rated battle b between agents ib and jb yields an outcome yb ∈ { 1, 12 , 0}: 1 if ib was preferred, 0 if jb was, and 12 for a tie. We treat a tie as half a win for each side, the standard approximation that keeps the likelihood in the binomial family; the alternative of a tie parameter [5, 25] adds one parameter and is appropriate when ties are frequent enough to estimate it. A judgment of “both unacceptable” is recorded as a distinct label, because it is a statement about quality, and enters the rating as a tie, because it carries no preference between the two. Each battle carries an evidence weight wb ∈ (0 , 1] (Section 5.5), and the log-likelihood of the parameters given n rated battles is 
+
+L(θ) = 
+
+> n∑
+> b=1
+
+wb
+
+> [
+
+yb log σ(θib − θjb ) + (1 − yb) log (1 − σ(θib − θjb ))]
+
+. (18) A battle judged by several people enters (18) once, with the consensus outcome of Section 6.4, not once per judge; otherwise a redundancy sample meant to measure noise would triple that battle’s weight. 
+
+5.3 Penalized maximum-likelihood estimator 
+
+Ford’s condition [10] governs whether the unpenalized estimate exists at all: every agent must be joined to every other by both a chain of wins and a chain of losses. Early in an arena that fails routinely, because an agent that has not yet lost, or not yet won, drives its own estimate off to infinity. We therefore maximize a ridge-penalized objective, ˆθ = arg max  
+
+> θ
+
+L(θ) − r
+
+2 ∥θ∥22, (19) 10 with a small penalty r > 0 (we use r = 10 −3), which pins the shift and keeps a separated agent finite. The penalty is disclosed as part of the published method because it shrinks toward the origin. Writing xb ∈ Rm for the design vector of battle b (+1 at ib, −1 at jb, 0 elsewhere), ηb = x⊤ 
+
+> b
+
+θ
+
+and μb = σ(ηb), the gradient and negative Hessian of the objective are 
+
+g(θ) = ∑
+
+> b
+
+wb(yb − μb) xb − r θ, H(θ) = ∑
+
+> b
+
+wb μb(1 − μb) xbx⊤ 
+
+> b
+
++ rI. (20) We solve (19) by Newton steps, θ ← θ + H(θ)−1g(θ), stopping once no coordinate moves by more than a tolerance (Algorithm 2). Strict concavity of the penalized objective guarantees convergence from the zero start. After convergence we center the estimate on the mean strength of the agents that have reached the provisional floor of Section 5.7, so that a newcomer’s first, poorly identified estimate does not move every incumbent’s published number. 
+
+5.4 Streaming update 
+
+When a single judgment resolves battle b at time hb, the streaming estimator takes one stochastic-gradient step on that battle’s term of (18): 
+
+θib ← θib + ηib wb(yb − μb), θjb ← θjb − ηjb wb(yb − μb), (21) with per-agent step sizes ηa. Mapping to the Elo scale by (17) and setting ηa = Ka ln 10 /400 gives 
+
+Rib ← Rib + Kib wb
+
+> (
+
+yb − μb
+
+> )
+
+, μb = 11 + 10 (Rjb −Rib )/400 , (22) which is the Elo update [8] with a per-side factor Ka. The streaming estimator is thus a first-order online method for the same model the refit solves exactly, and the two disagree only by the path dependence of the online method. We use a factor that decays with the agent’s rated-battle count na,
+
+K(na) = Kmin + ( Kmax − Kmin ) n0
+
+n0 + na
+
+, (23) with Kmax = 48, Kmin = 12, and n0 = 30, so that a new agent moves quickly and a settled agent slowly (Algorithm 1). The streaming value is displayed beside the refit and labeled, because it is what changes when a judge votes, but the refit is the published rating, for the reasons given in Section 4.4. 
+
+5.5 Admissibility and evidence weight 
+
+Not every judged battle enters (18). A battle is excluded, in this order, when: the judge-visible text named a model (the vote was not blind); one side has no run record; one side produced no trajectory (an upstream outage, not a performance); the submitter ended one side early; the two sides ran under different step budgets; or no admissible vote remains once retracted votes, votes by judges marked untrusted, and votes recorded in less time than the two results take to read are removed. Every exclusion is counted and published beside the rating. Among admissible votes on a battle, votes by judges other than the submitter take precedence: if any independent judge voted, the submitter’s own vote is dropped from that battle’s consensus; if none has, the submitter’s blind vote decides and the battle is counted in a published “self-judged only” tally. The evidence weight is 
+
+wb = γb · ¯ωb, γb ∈ { γcal , 1}, ¯ωb = 1
+
+|Vb|
+
+> ∑
+> v∈Vb
+
+ωv ∈ [ωmin , 1] , (24) 11 where γcal = 0 .25 discounts a battle whose pairing was a new submitter’s calibration showcase (a pairing shaped by an input the matchmaker otherwise never sees), Vb is the set of judges whose votes produced the consensus outcome, and ωv ∈ [ωmin , 1] is judge v’s graded trust weight (Section 6.4), floored at ωmin = 0 .1 so that a graded signal discounts but never silences. 
+
+5.6 Confidence intervals 
+
+Model-based. At the optimum, H(ˆθ) from (20) is the observed information. Because the likelihood does not identify the shift, the covariance of the centered parameters is obtained by projecting out the all-ones direction: with P = I − 1 
+
+> m
+
+11 ⊤,̂
+
+Cov( ˆθ) = P H (ˆθ)−1 P, SE( ˆθa) = 
+
+> √̂
+
+Cov aa , CI 95 (Ra) = ˆRa ± 1.96 · 400 ln 10 SE( ˆθa). (25) Without the projection, the shift direction contributes a variance of 1 /(mr ) to every diagonal entry, which for r = 10 −3 and m = 5 is 200 in θ units: a spurious interval thousands of Elo points wide. The projection removes exactly that component. 
+
+Cluster-robust. Votes are not independent draws: one judge casts many of them, and a judge’s leanings are shared across their votes. We therefore publish a sandwich estimator [21, 28] clustered on the judge, ̂
+
+Cov CR (ˆθ) = GG − 1 H−1( G∑
+
+> g=1
+
+ugu⊤
+
+> g
+> )
+
+H−1, ug = ∑
+
+> b∈g
+
+wb(yb − μb) xb, (26) where g indexes the G distinct judges whose votes decided battles and ug is the summed score of cluster g. The score vectors satisfy 1⊤xb = 0, so the sandwich has no shift component and needs no projection. The estimator is identified only when G exceeds the number of parameters; when it does not, no interval is published rather than a spuriously narrow one. Clustering on the judge is the correct choice for an arena in which each task is submitted once; clustering on the task would place one observation in every cluster and reproduce the naive standard errors. 
+
+Rank bands. A rank is not a parameter, and its uncertainty is not a symmetric interval. We publish for each agent the 95% band of positions it holds when every rating is drawn from its own normal approximation and the field is re-ranked, together with the share of draws in which it was first (Algorithm 3). Draws are seeded per agent so that the same corpus yields the same band and adding an agent does not change another agent’s draws. The band uses each agent’s marginal variance and ignores the off-diagonal covariance; this errs toward wider bands, which is the safe direction for a published ordering. 
+
+5.7 Entry of a new agent 
+
+A new agent enters the roster with no rating. Until it has n0 = 30 rated battles it is provisional :the refit’s estimate for it is withheld from the board, because a record with no loss, or no win, is separated and its estimate is determined by the penalty rather than by data; the streaming value is shown instead with an interval of the full scale, labeled as the streaming value. The matchmaker samples the newcomer with weight ( na + κ)−1/2, κ = 4, so its exposure converges to the field’s. Once the floor is reached, the fitted rating, its interval, and its rank band are published. The agent is never given a seed rating that asserts it is average: its published number is whatever its record implies. 12 5.8 Convergence 
+
+Consider two agents that play only each other, n times, with true preference probability p. The information about θi − θj per game is p(1 − p) ≤ 14 , so the standard error of the estimated difference satisfies SE( ˆθi − ˆθj ) = 1
+
+> √
+
+n p (1 − p) ≥ 2
+
+√n , (27) with equality at p = 12 . On the Elo scale the 95% half-width is at least 1 .96 × 173 .72 × 2/√n ≈
+
+681 /√n: about 68 points after 100 games and about 22 points after 1 ,000. This is why the matchmaker prefers pairs near parity: a comparison at p = 0 .9 carries 0 .09 units of information against 0 .25 at p = 0 .5, roughly a third as much for the same cost in sandbox minutes and judge attention. In a field of m agents the standard error of a centered strength also depends on the connectivity of the comparison graph; Figure 3 shows the empirical behavior in a simulation. 
+
+# 6 Illustrative Results 
+
+All results in this section are derived from the inputs stated here. The vote matrix is illustrative, the ratings and intervals are computed from it by the method of Section 5, and the two simulations state their generative models and seeds. 
+
+6.1 Worked example: five agents, 211 votes 
+
+Table 2 gives a vote matrix for five agents, A to E, and the ratings it implies. Each cell of the upper block records, for the row agent against the column agent, the counts (wins, losses, ties) from the row agent’s point of view. Every vote is treated as a single admissible judgment by a distinct judge with weight wb = 1, so the model-based interval (25) applies and the cluster-robust interval coincides with it. Newton’s method from θ = 0 converged in five iterations at tolerance 10 −10 with r = 10 −3; the estimate was then centered on the mean of all five agents, since all have at least n0 battles. Three features of the result are worth stating. The point estimates are ordered as the scores are, which is expected when every agent has met every other with similar frequency. The intervals of adjacent agents overlap: A (1073 to 1206) and B (988 to 1111) share the range 1073 to 1111, and the bootstrap accordingly gives A the band 1 to 2 rather than a bare first place. And the ties, 29 of 211 votes, enter as half-wins and widen nothing in themselves; they carry less information than decisive votes only through μb(1 − μb) in (20), which does not depend on yb. Had the same 211 votes been cast by three judges rather than 211, the cluster-robust estimator (26) would have had G = 3 < m clusters, and no interval would have been published. 
+
+6.2 Convergence in a simulation 
+
+Figure 3 follows agent A’s published rating as votes accumulate in a simulation whose generative model is the Bradley-Terry model with true strengths equal to the fitted ˆθ of Table 2 (so that agent A’s true rating is 1139 .7 on the Elo scale), with pairs drawn uniformly from the ten possible pairs, binary outcomes drawn from (16), and pseudo-random seed 7. At each checkpoint of 20 total votes the refit of Section 5.3 is run on the votes so far and A’s rating and 95% interval are recorded; the streaming estimator of Section 5.4 runs on the same sequence from 
+
+R0 = 1000 with the factor (23). Agent A appears in about four of every ten votes, so 600 total votes correspond to roughly 240 of its own. The interval half-width shrinks from 112 Elo points at 100 total votes to 52 at 300 and 41 at 600. The interval contains the true value at every one of the 30 checkpoints, and the streaming value tracks the refit with more variability, as an online first-order method should. 13 Row vs. column A B C D EA · (12, 8, 4) (15, 5, 2) (14, 4, 2) (16, 2, 2) B (8, 12, 4) · (11, 9, 3) (12, 6, 2) (13, 4, 3) C (5, 15, 2) (9, 11, 3) · (10, 8, 4) (12, 5, 3) D (4, 14, 2) (6, 12, 2) (8, 10, 4) · (9, 7, 4) E (2, 16, 2) (4, 13, 3) (5, 12, 3) (7, 9, 4) ·                                                       
+
+> Agent naWLTScore ˆθaSE( ˆθa)ˆRa(95% CI) Rank band ( P{first })A86 57 19 10 0.721 +0 .804 0.196 1140 (1073, 1206) 1 to 2 (0.973) B87 44 31 12 0.575 +0 .288 0.181 1050 (988, 1111) 1 to 3 (0.027) C87 36 39 12 0.483 −0.045 0.179 992 (931, 1053) 2 to 4 (0.001) D82 27 43 12 0.402 −0.340 0.187 941 (877, 1005) 3 to 5 (0.000) E80 18 50 12 0.300 −0.707 0.199 877 (809, 945) 4 to 5 (0.000)
+
+Table 2: Worked example. Top: an illustrative vote matrix for five agents; each cell is (wins, losses, ties) for the row agent against the column agent, 211 votes in total. Bottom: quantities derived from it by the method of Section 5. na is the agent’s number of rated battles, Score is ( W + T / 2) /n a, ˆθa is the centered penalized maximum-likelihood strength, SE is from the projected observed information (25), ˆRa is on the Elo scale (17) with its 95% interval, and the rank band and probability of first place come from Algorithm 3 with 2,000 seeded draws. The table shows that 80 to 87 votes per agent separate the top agent from the bottom two but leave adjacent agents overlapping: A’s interval overlaps B’s, and A is first in 97.3% of draws, not all of them. 
+
+6.3 Arrivals and throughput in a simulation 
+
+Figure 4 shows one simulated day of the arrival and execution model of Properties 1 and 2: a homogeneous Poisson arrival process at λ = 12 per hour, lognormal battle service times with median 6 minutes and log-scale standard deviation 0 .5, four concurrent execution slots served first-in first-out, and seed 11. The day produced 280 arrivals, of which 279 battles (558 runs) had completed by the end of the day; the mean queue wait was 0 .09 minutes and the largest 2.87 minutes, consistent with the load ρ = 0 .34 computed in Section 4.3. The cumulative-runs curve stays close to twice the arrivals curve, which is the visual signature of contemporaneous execution: work is completed at the rate it arrives, with a lag of one service time. 
+
+6.4 Vote quality 
+
+Consensus on a battle. When several judges vote on one battle, the outcome entering (18) is the plurality choice, with the rule that a side wins only if it out-polls both the other side and the non-preferences (ties and “both unacceptable”) combined; otherwise the battle is a tie. One vote per person is counted, the earliest, so that a judge who voted under two identities does not carry a majority alone. 
+
+Abstentions. A judge may decline to judge a battle. An abstention is recorded with its reason, releases the judge’s hold so the battle returns to the queue, and does not enter the likelihood or the agreement statistics. Abstention rates are published per reason because a high rate on a class of tasks is information about the tasks. 
+
+Agreement. Agreement is measured on the redundancy sample, the battles assigned three judges at creation. Drawing the sample at creation rather than at judging time is deliberate: a sample of battles that happened to attract several judges would over-represent short, recent, popular tasks. For two judges we report Cohen’s κ [4]; for the three-judge sample we report 14 0 50 100 150 200 250 300 350 400 450 500 550 600 900 1,000 1,100 1,200 1,300 1,400 total votes n (agent A appears in about 0 .4 n)rating of agent A (Elo scale)  refit (published) streaming (displayed beside it) true value in the simulation 95% interval of the refit 
+
+Figure 3: Rating convergence for agent A in a simulation (generative model: Bradley-Terry with the strengths of Table 2, uniform pair draws, binary outcomes, seed 7). The solid line is the penalized refit at each checkpoint of 20 votes, the shaded band is its 95% interval from the projected observed information, the dashed line is the streaming Elo update on the same vote sequence, and the dotted line is the true value. The figure makes one point: the interval, not the point estimate, is the published claim. It it contains the truth at every checkpoint, it narrows roughly as one over the square root of the vote count (half-width 112 at 100 votes, 52 at 300, 41 at 600), and the streaming estimate is a noisier first-order approximation of the same quantity rather than a different measurement. Fleiss’ κ [9] and Krippendorff’s α [19], the latter because it handles missing judgments and an ordinal scale over the categories (side A, tie, side B). For N battles, each seen by n judges choosing among categories k, Fleiss’ κ is 
+
+κ = ¯P − ¯Pe
+
+1 − ¯Pe
+
+, ¯P = 1
+
+N 
+
+> N∑
+> i=1
+> ∑
+> k
+
+n2 
+
+> ik
+
+− nn(n − 1) , ¯Pe = ∑
+
+> k
+
+p2
+
+> k
+
+, pk = 1
+
+N n 
+
+> ∑
+> i
+
+nik , (28) where nik counts the judges who placed battle i in category k.
+
+Worked example (illustrative labels). Consider a redundancy sample of N = 8 battles with n = 3 judges each and categories {A, B, tie }, with judgments (A,A,A), (A,A,B), (B,B,B), (A,tie,A), (B,B,tie), (A,A,A), (tie,tie,B), (B,A,B). Three battles are unanimous ( Pi = 1) and five have a two-to-one split ( Pi = 1 /3), so ¯P = (3 × 1 + 5 × 1/3) /8 = 0 .583. The category proportions are pA = 11 /24 = 0 .458, pB = 9 /24 = 0 .375, ptie = 4 /24 = 0 .167, giving ¯Pe =0.458 2 + 0 .375 2 + 0 .167 2 = 0 .379 and κ = (0 .583 − 0.379) /(1 − 0.379) = 0 .330. The pairwise percent agreement is also 0 .583. A κ of 0 .33 is fair agreement by the usual reading and is what one should expect when one judgment in six is a non-preference and five of the eight battles split two to one; the arena publishes both κ and the agreement level with ties excluded, because the two answer different questions. 
+
+Judge trust. Each judge carries a graded weight ωv ∈ [ωmin , 1] computed from two behaviors that cannot be opinions. The first is a position lean: the lower bound of a Wilson interval on the judge’s share of votes for the left-hand side, when that interval excludes one half. Sides are shuffled per battle, so position carries no information. The second is a habit of voting faster than the two results could have been read: the lower bound of a Wilson interval on the share of the judge’s timed votes that fall under a reading-rate floor. Both factors are 1 below their 15 0 4 8 12 16 20 24 0200 400 600 hours since start of the simulated day cumulative count tasks arrived, N (t)runs completed (two per battle) expected arrivals λt , λ = 12 per hour 
+
+Figure 4: Task arrival and cumulative completed runs over one simulated day (Poisson arrivals at 12 per hour, lognormal service with median 6 minutes, four concurrent slots, seed 11; not measured data). The solid step is the arrival count N (t), the dashed step is twice the number of completed battles (each battle is two runs), and the dotted line is the expected arrival count. What to read off the figure is that under a load of ρ = 0 .34 execution keeps pace with arrival throughout the day with a lag of about one service time, which is what Property 2 requires; the small plateaus in the arrival step are the Poisson gaps whose probability equation (6) gives. evidence floors; the product is clamped to [ ωmin , 1]. A judge is marked untrusted, and their votes dropped rather than discounted, only by thresholded evidence: failing gold-standard items with known outcomes, or an accuracy on an elimination task below a chance-corrected floor over enough calls. The number of discounted judges, the number of dropped votes, and the share of the corpus that rests on self-judged battles are published beside the ratings. 
+
+# 7 Limitations 
+
+Human latency is not bounded by the system. Definition 4.1 excludes Jb on purpose, and the illustrative timeline of Figure 2 makes it the dominant term. An arena can shorten Jb
+
+by prioritizing the queue and by recruiting judges; it cannot guarantee a bound. A reader who needs a bound on end-to-end latency should read the reported percentile of Jb, not the machine horizon. 
+
+Judge population and self-judging. In a young arena most judgments come from a small number of people, and a large share of battles are judged only by their own submitter. Blinding is enforced by the server for the submitter as for anyone else, so those votes are real blind labels; what they carry is annotator concentration, which the cluster-robust interval widens to reflect and which the published self-judged share makes visible. The intervals are honest about this; the point estimates are still one population’s preferences. 
+
+Task population. The tasks are whatever users submit. That is the property that makes the evaluation track use, and it is also a selection effect that no reweighting in this paper corrects. The published distribution over task categories is descriptive; a ranking on it does not transfer to a workload with a different mix. 16 Failed run                    
+
+> u∈ F
+> Capture trajectory, frames, initial snapshot Redaction personal data removed Synthesis state, instruction, grader Validation replay fails, reference passes Registry
+> εupublished
+> Tcap Tred Tsyn Tval Tpub
+> rejected: not reproducible or reference does not pass
+> Tenv
+> u=νu−eu, the sum of five stage times, required ≤Henv at a stated percentile
+
+Figure 5: Failure-to-environment pipeline. A failed run is captured with its trajectory and initial snapshot, redacted, synthesized into an environment triple (initial state, instruction, grader), validated by replaying the failing trajectory and a reference, and published to a registry. Three things follow from the figure: the feedback latency is a sum of five bounded stages, that validation is the dominant and run-length-dependent term, and that an environment which cannot reproduce its own failure is rejected rather than published. 
+
+Ties as half-wins. The half-win treatment is an approximation. With ties at roughly one vote in seven, as in the worked example (29 of 211), a tie-parameter model [5, 25] would be estimable and would change the intervals; we have not quantified the difference here. 
+
+Marginal rank bands. The rank band uses each rating’s marginal variance and ignores the covariance the fit also estimates. The approximation errs toward wider bands, and the direction is stated, but a joint draw from the full covariance would be more accurate. 
+
+# 8 Conclusion 
+
+We have described an arena for computer-use agents and multi-agent systems in which real tasks are executed by two entrants at once in identical isolated environments, judged blind, and turned into a leaderboard. We have defined what it means for that evaluation to be real-time as five measurable properties: continuous arrival, live concurrent execution, online rating updates, freshness with contamination resistance, and bounded feedback latency to a training environment. Each property has a quantity a deployed system can report at a percentile, and Definition 4.1 names the tier at which each holds. The rating methodology is a penalized Bradley-Terry fit with cluster-robust intervals and bootstrap rank bands, with a streaming Elo update shown to be a first-order online step on the same likelihood. The worked example shows that a few hundred votes separate the ends of a five-agent field and leave neighbors overlapping, which is the honest state of many leaderboards and the reason a rank should be published as a band. The definitions are offered so that the word real-time, when applied to an evaluation, can be checked rather than believed. 
+
+# Acknowledgments 
+
+The authors thank the users and judges of CoArena.ai, whose submitted tasks and blind judgments motivated the formal treatment here. 
+
+# References 
+
+[1] M. Boubdir, E. Kim, B. Ermis, S. Hooker, and M. Fadaee. Elo uncovered: Robustness and best practices in language model evaluation. In Proceedings of the Third Workshop on Natural Language Generation, Evaluation, and Metrics (GEM) , pages 339 to 352, 2023. 17 [2] R. A. Bradley and M. E. Terry. Rank analysis of incomplete block designs: I. The method of paired comparisons. Biometrika , 39(3/4):324 to 345, 1952. [3] W.-L. Chiang, L. Zheng, Y. Sheng, A. N. Angelopoulos, T. Li, D. Li, B. Zhu, H. Zhang, M. Jordan, J. E. Gonzalez, and I. Stoica. Chatbot Arena: An open platform for evaluating LLMs by human preference. In Proceedings of the 41st International Conference on Machine Learning (ICML) , volume 235 of Proceedings of Machine Learning Research , pages 8359 to 8388, 2024. [4] J. Cohen. A coefficient of agreement for nominal scales. Educational and Psychological Measurement , 20(1):37 to 46, 1960. [5] R. R. Davidson. On extending the Bradley-Terry model to accommodate ties in paired comparison experiments. Journal of the American Statistical Association , 65(329):317 to 328, 1970. [6] X. Deng, Y. Gu, B. Zheng, S. Chen, S. Stevens, B. Wang, H. Sun, and Y. Su. Mind2Web: Towards a generalist agent for the web. In Advances in Neural Information Processing Systems 36 (NeurIPS), Datasets and Benchmarks Track , 2023. [7] B. Efron. Bootstrap methods: Another look at the jackknife. The Annals of Statistics , 7(1):1 to 26, 1979. [8] A. E. Elo. The Rating of Chessplayers, Past and Present . Arco Publishing, New York, 1978. [9] J. L. Fleiss. Measuring nominal scale agreement among many raters. Psychological Bulletin ,76(5):378 to 382, 1971. [10] L. R. Ford, Jr. Solution of a ranking problem from binary comparisons. The American Mathematical Monthly , 64(8, Part 2):28 to 33, 1957. [11] M. E. Glickman. Parameter estimation in large dynamic paired comparison experiments. 
+
+Journal of the Royal Statistical Society: Series C (Applied Statistics) , 48(3):377 to 394, 1999. [12] R. Herbrich, T. Minka, and T. Graepel. TrueSkill: A Bayesian skill rating system. In 
+
+Advances in Neural Information Processing Systems 19 (NIPS) , 2006. [13] D. R. Hunter. MM algorithms for generalized Bradley-Terry models. The Annals of Statistics ,32(1):384 to 406, 2004. [14] A. Jacovi, A. Caciularu, O. Goldman, and Y. Goldberg. Stop uploading test data in plain text: Practical strategies for mitigating data contamination by evaluation benchmarks. In 
+
+Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP) , 2023. [15] N. Jain, K. Han, A. Gu, W.-D. Li, F. Yan, T. Zhang, S. Wang, A. Solar-Lezama, K. Sen, and I. Stoica. LiveCodeBench: Holistic and contamination free evaluation of large language models for code. In Proceedings of the 13th International Conference on Learning Representations (ICLR) , 2025. [16] D. Kiela, M. Bartolo, Y. Nie, D. Kaushik, A. Geiger, Z. Wu, B. Vidgen, G. Prasad, A. Singh, P. Ringshia, Z. Ma, T. Thrush, S. Riedel, Z. Waseem, P. Stenetorp, R. Jia, M. Bansal, C. Potts, and A. Williams. Dynabench: Rethinking benchmarking in NLP. In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL-HLT) , pages 4110 to 4124, 2021. 18 [17] J. F. C. Kingman. Poisson Processes . Oxford University Press, Oxford, 1993. [18] J. Y. Koh, R. Lo, L. Jang, V. Duvvur, M. C. Lim, P.-Y. Huang, G. Neubig, S. Zhou, R. Salakhutdinov, and D. Fried. VisualWebArena: Evaluating multimodal agents on realistic visual web tasks. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (ACL) , 2024. [19] K. Krippendorff. Content Analysis: An Introduction to Its Methodology . SAGE Publications, Thousand Oaks, fourth edition, 2018. [20] T. Li, W.-L. Chiang, E. Frick, L. Dunlap, T. Wu, B. Zhu, J. E. Gonzalez, and I. Stoica. From crowdsourced data to high-quality benchmarks: Arena-Hard and BenchBuilder pipeline. In 
+
+Proceedings of the 42nd International Conference on Machine Learning (ICML) , volume 267 of Proceedings of Machine Learning Research , pages 34209 to 34231, 2025. [21] K.-Y. Liang and S. L. Zeger. Longitudinal data analysis using generalized linear models. 
+
+Biometrika , 73(1):13 to 22, 1986. [22] J. D. C. Little. A proof for the queuing formula: L = λW . Operations Research , 9(3):383 to 387, 1961. [23] E. Miller. Adding error bars to evals: A statistical approach to language model evaluations. 
+
+arXiv preprint arXiv:2411.00640 , 2024. [24] M. E. J. Newman. Efficient computation of rankings from pairwise comparisons. Journal of Machine Learning Research , 24(238):1 to 25, 2023. [25] P. V. Rao and L. L. Kupper. Ties in paired-comparison experiments: A generalization of the Bradley-Terry model. Journal of the American Statistical Association , 62(317):194 to 204, 1967. [26] C. Rawles, A. Li, D. Rodriguez, O. Riva, and T. Lillicrap. Android in the Wild: A large-scale dataset for Android device control. In Advances in Neural Information Processing Systems 36 (NeurIPS), Datasets and Benchmarks Track , 2023. [27] O. Sainz, J. A. Campos, I. García-Ferrero, J. Etxaniz, O. Lopez de Lacalle, and E. Agirre. NLP evaluation in trouble: On the need to measure LLM data contamination for each benchmark. In Findings of the Association for Computational Linguistics: EMNLP 2023 ,2023. [28] H. White. A heteroskedasticity-consistent covariance matrix estimator and a direct test for heteroskedasticity. Econometrica , 48(4):817 to 838, 1980. [29] C. White, S. Dooley, M. Roberts, A. Pal, B. Feuer, S. Jain, R. Shwartz-Ziv, N. Jain, K. Saifullah, S. Dey, Shubh-Agrawal, S. S. Sandha, S. Naidu, C. Hegde, Y. LeCun, T. Goldstein, W. Neiswanger, and M. Goldblum. LiveBench: A challenging, contamination-limited LLM benchmark. In Proceedings of the 13th International Conference on Learning Representations (ICLR) , 2025. [30] T. Xie, D. Zhang, J. Chen, X. Li, S. Zhao, R. Cao, T. J. Hua, Z. Cheng, D. Shin, F. Lei, Y. Liu, Y. Xu, S. Zhou, S. Savarese, C. Xiong, V. Zhong, and T. Yu. OSWorld: Benchmarking multimodal agents for open-ended tasks in real computer environments. In Advances in Neural Information Processing Systems 37 (NeurIPS), Datasets and Benchmarks Track ,2024. [31] E. Zermelo. Die Berechnung der Turnier-Ergebnisse als ein Maximumproblem der Wahrscheinlichkeitsrechnung. Mathematische Zeitschrift , 29:436 to 460, 1929. 19 [32] L. Zheng, W.-L. Chiang, Y. Sheng, S. Zhuang, Z. Wu, Y. Zhuang, Z. Lin, Z. Li, D. Li, E. P. Xing, H. Zhang, J. E. Gonzalez, and I. Stoica. Judging LLM-as-a-judge with MT-Bench and Chatbot Arena. In Advances in Neural Information Processing Systems 36 (NeurIPS), Datasets and Benchmarks Track , 2023. [33] S. Zhou, F. F. Xu, H. Zhu, X. Zhou, R. Lo, A. Sridhar, X. Cheng, T. Ou, Y. Bisk, D. Fried, U. Alon, and G. Neubig. WebArena: A realistic web environment for building autonomous agents. In Proceedings of the 12th International Conference on Learning Representations (ICLR) , 2024. 20 A Notation 
+
+Symbol Meaning 
+
+A, m roster of agents and its size 
+
+τ , b, u a task, a battle (one task, two agents, two runs), a run 
+
+sb, q b, δ b, e b, h b, r b, ℓ b submission, dequeue, provisioning time, execution end, first admissible judgment, rating incorporation, and service times of battle bLq 
+
+> b
+
+, L p 
+
+> b
+
+, L e
+
+> b
+
+, L r
+
+> b
+
+, L s 
+
+> b
+
+queue, provisioning, execution, rating-update, and serving latencies (2) 
+
+Jb human judging latency, hb − eb
+
+Mb machine latency, the sum of the five machine stages (3) 
+
+Xp(S) the p-th percentile of latency X over battle set SN (t), λ, λ(t) arrival counting process, long-run arrival rate, time-varying rate 
+
+Gmax (T ) largest inter-arrival gap on [0 , T ] (5) 
+
+C, Sb, ρ concurrent execution slots, battle service time, offered load (8) 
+
+I(b), ∆ start resolved input tuple of a battle; bound on lane start skew 
+
+K, W step budget and wall-clock budget of a run 
+
+ς(t), ∆, c rating staleness, the wait of the oldest unincorporated judgment (10); refit period; refit compute time 
+
+Ab, cb, tcut  
+
+> a
+
+task age at execution, contamination indicator (12), training cutoff of agent 
+
+aF (α; t), Nw share of rating weight from tasks newer than α (13); fitting window in battles 
+
+D(θ), sim duplicate rate at similarity threshold θ (14); lexical similarity 
+
+F, εu, νu, T env  
+
+> u
+
+failed runs, derived environment, its publication time, feedback latency (15) 
+
+H, Hexec , H rate , H age , H env real-time horizons 
+
+θa, θ, ˆθ latent strength of agent a, the vector of strengths, its estimate 
+
+Ra, R0 rating on the Elo scale (17) and its origin, 1000 
+
+pij , σ(·) preference probability (16); logistic function 
+
+yb, xb, ηb, μb outcome, design vector, linear predictor, fitted probability of battle bwb, γb, ωv , ωmin evidence weight (24), calibration discount, judge trust weight, its floor 
+
+L(θ), r log-likelihood (18); ridge penalty 
+
+g(θ), H(θ) gradient and negative Hessian of the penalized objective (20) 
+
+P centering projection I − 11 ⊤/m G, ug number of judge clusters; summed score of cluster g (26) 
+
+Ka, Kmax , K min , n 0 streaming factor of agent a and its schedule (23); provisional floor 
+
+na, κ rated battles of agent a; matchmaking pseudo-count ¯P , ¯Pe, κ (agreement) observed and chance agreement, Fleiss’ kappa (28) 
+
+ϵ, Tmax Newton tolerance and iteration cap (Algorithm 2) 
+
+z, ψ Newton step and per-battle working weight wbμb(1 − μb) (Algorithm 2) Σ, SE( ·) estimated covariance of ˆθ and a standard error (Algorithm 2) 
+
+P, B, ζ0, ξa publishable agents, bootstrap draw count, base seed, and agent a’s seeded stream (Algorithm 3) ˜R(d) 
+
+> a
+
+, pos d(a) agent a’s d-th drawn rating and its position in that draw (Algorithm 3) 
+
+t0 failure time from which the feedback latency is measured, eu (Algorithm 4) 
+
+Table 3: Notation used in the paper, in order of first appearance. The symbol κ is used for the matchmaking pseudo-count in Section 3 and for Fleiss’ agreement coefficient in Section 6.4; the context makes the meaning unambiguous in each case. 21 B Algorithms 
+
+Algorithm 1 Streaming update on one resolved judgment (Section 5.4) 
+
+Require: ratings R, rated-battle counts n, battle b with agents ( i, j ), outcome yb ∈ { 1, 12 , 0},weight wb 
+
+> 1:
+
+μ ← 1/
+
+(
+
+1 + 10 (Rj −Ri)/400 )
+
+▷ expected score of i, equation (22)  
+
+> 2:
+
+Ki ← Kmin + ( Kmax − Kmin ) n0/(n0 + ni) ▷ equation (23)  
+
+> 3:
+
+Kj ← Kmin + ( Kmax − Kmin ) n0/(n0 + nj ) 
+
+> 4:
+
+Ri ← Ri + Ki wb (yb − μ) 
+
+> 5:
+
+Rj ← Rj − Kj wb (yb − μ) 
+
+> 6:
+
+ni ← ni + 1; nj ← nj + 1  
+
+> 7:
+
+return R, n
+
+Algorithm 2 Periodic refit: penalized maximum likelihood with projected covariance (Sec-tion 5.3) 
+
+Require: admissible battles {(ib, j b, y b, w b)}nb=1 , penalty r, tolerance ϵ, maximum iterations 
+
+Tmax  
+
+> 1:
+
+θ ← 0 ∈ Rm 
+
+> 2:
+
+for t = 1 , . . . , T max do  
+
+> 3:
+
+g ← − rθ ; H ← rI  
+
+> 4:
+
+for each battle b do  
+
+> 5:
+
+μb ← σ(θib − θjb ); ψ ← wb μb(1 − μb) 
+
+> 6:
+
+gib ← gib + wb(yb − μb); gjb ← gjb − wb(yb − μb) 
+
+> 7:
+
+Hibib ← Hibib + ψ; Hjbjb ← Hjbjb + ψ; Hibjb ← Hibjb − ψ; Hjbib ← Hjbib − ψ 
+
+> 8:
+
+end for  
+
+> 9:
+
+z ← H−1g; θ ← θ + z 
+
+> 10:
+
+if ∥z∥∞ < ϵ then break  
+
+> 11:
+
+end if  
+
+> 12:
+
+end for  
+
+> 13:
+
+¯θ ← mean of θa over agents with na ≥ n0 (all agents if none has reached n0) 
+
+> 14:
+
+θ ← θ − ¯θ 1 ▷ center on the settled field  
+
+> 15:
+
+Σ ← P H −1P with P = I − 11 ⊤/m ▷ equation (25)  
+
+> 16:
+
+optionally replace Σ by the cluster-robust estimate (26) when the number of judge clusters exceeds m 
+
+> 17:
+
+Ra ← R0 + (400 / ln 10) θa; SE( Ra) ← (400 / ln 10) √Σaa for each a 
+
+> 18:
+
+return R, SE, the set of agents with na ≥ n0 (publishable) 22 Algorithm 3 Rank bands by seeded parametric bootstrap (Section 5.6) 
+
+Require: publishable agents P ⊆ A with ratings Ra and standard errors SE( Ra), draw count 
+
+B, base seed ζ0 
+
+> 1:
+
+for each a ∈ P do  
+
+> 2:
+
+initialize a pseudo-random stream ξa from hash( a) ⊕ ζ0 ▷ per-agent, order-independent  
+
+> 3:
+
+draw ˜R(1)  
+
+> a
+
+, . . . , ˜R(B) 
+
+> a
+
+∼ N (Ra, SE( Ra)2) from ξa 
+
+> 4:
+
+end for  
+
+> 5:
+
+count a[k] ← 0 for all a and positions k 
+
+> 6:
+
+for d = 1 , . . . , B do  
+
+> 7:
+
+sort P by ˜R(d) 
+
+> a
+
+descending; let pos d(a) be a’s position  
+
+> 8:
+
+count a[pos d(a)] ← count a[pos d(a)] + 1 for each a 
+
+> 9:
+
+end for  
+
+> 10:
+
+for each a ∈ P do  
+
+> 11:
+
+low a ← smallest k with cumulative count reaching 0 .025 B; high a ← smallest k with cumulative count reaching 0 .975 B 
+
+> 12:
+
+point a ← 1 + # {a′ ∈ P : Ra′ > R a} ▷ ties share a position  
+
+> 13:
+
+low a ← min(low a, point a); high a ← max(high a, point a) 
+
+> 14:
+
+P{a first } ← count a[1] /B  
+
+> 15:
+
+end for  
+
+> 16:
+
+return (point a, low a, high a, P{a first }) for each a ∈ P 
+
+Algorithm 4 Failure-to-environment pipeline (Section 4.6) 
+
+Require: failed run u with trajectory, frames, initial snapshot, instruction, outcome; horizon 
+
+Henv  
+
+> 1:
+
+t0 ← eu 
+
+> 2:
+
+capture : persist trajectory, frames, and the pre-first-action snapshot of the sandbox  
+
+> 3:
+
+redact : remove personal data from the instruction, frames, and typed text; abort if redaction is incomplete  
+
+> 4:
+
+synthesize : εu ← (snapshot, redacted instruction, grader) where the grader is derived from the failure mode  
+
+> 5:
+
+validate : replay u’s trajectory in εu; require the failure to reproduce  
+
+> 6:
+
+validate : run a reference trajectory in εu; require the grader to pass it  
+
+> 7:
+
+if either validation fails then  
+
+> 8:
+
+return rejected with reason  
+
+> 9:
+
+end if  
+
+> 10:
+
+publish εu to the registry at time νu 
+
+> 11:
+
+T env  
+
+> u
+
+← νu − t0; record it; flag if T env  
+
+> u
+
+> H env  
+
+> 12:
+
+return εu, T env 
+
+> u
+
+# C Interface Walkthrough and a Worked Session 
+
+This appendix shows the four interfaces a participant meets in CoArena and carries one battle through all of them with the numbers of Table 2. The interface figures are schematic renderings drawn to show the fields and their order; they are not captured screenshots, and every number on them is either taken from Table 2, derived in Section C.6, or labeled illustrative. The tasks in Table 4 are written for this paper to show the range a deployed arena receives; the tasks of a deployed arena are whatever its users submit. 23 C.1 Example tasks 
+
+Task as submitted (illustrative) Category What the judge compares Failure mode and derived grader Find a nonstop economy fare from San Francisco to New York on the 14th for one passenger, stop before payment, and report the fare. web research, form filling Whether each run hon-ored every constraint (nonstop, date, one pas-senger), stopped before payment, and reported a fare the page actually showed. A run selects a one-stop fare or proceeds to pay-ment. Grader: delivered fare must match a non-stop itinerary in the fi-nal state, and no payment step may appear in the trajectory. From the attached receipts (CSV), fill the expense form in the browser and download the summary as a PDF. form filling, attachments Whether the downloaded PDF exists, whether its totals match the CSV, and how many receipts were entered correctly. A run exhausts its step budget with rows missing. Grader: parse the deliv-ered PDF and compare totals and row count with the attachment. Open the spreadsheet on the desktop, add a column with each row’s share of the total, and save it under a new name. desktop appli-cation Whether the new file ex-ists, whether the column is arithmetically right, and whether the original is unchanged. A run overwrites the orig-inal. Grader: original hash unchanged, new file present, column values within rounding of the ex-pected shares. Rename every file in the Down-loads folder with a date prefix taken from its modification time and archive them into one zip. desktop, file operations Whether every file was renamed by the stated rule and whether the archive contains exactly those files. A run renames some files and stops. Grader: enu-merate the folder and the archive in the final state; every name must match the rule. Create a weekly recurring meet-ing in the calendar application with two named attendees and send the invitation. desktop appli-cation Whether the event recurs weekly, whether both at-tendees are attached, and whether an invitation was sent. A run creates a one-time event. Grader: read the event record in the fi-nal state and check recur-rence and attendee fields. Compare the return policies on two given retailer pages and write a one-paragraph summary of the differences that matter to a buyer. web research, writing Which summary is accu-rate to the pages and more useful to the per-son asking; this is a pref-erence comparison rather than a checklist. A run summarizes only one page. Grader: the summary must cite facts present on both pages; the judgment remains a preference. 
+
+Table 4: Example tasks written for this paper to show the range a computer-use arena receives, with the category the intake assigns, what a blind judge compares between the two runs, and how a failed run converts into an environment with a grader derived from the failure (Section 4.6). None of these is a measured task from a deployed arena. 
+
+C.2 The leaderboard 
+
+Figure 6 renders the leaderboard as a participant sees it, populated with the five agents of Table 2. The Rating column carries the refit’s point estimate, with its 95% interval in the next column; the rank column carries the band of Algorithm 3, printed as a range wherever the data cannot pin a position, and the status column states which of the four evidence levels the row has reached. A sixth, provisional row is included to show how an agent below the floor of Section 5.7 24 is listed: it sinks below every rated row, shows the reason its number is withheld, and takes no rank. 
+
+Leaderboard Rating | Success | Speed | Effort | Cost Blind human evaluation, and nothing else: judges pick the better of two runs without knowing which model made them. Refit every 30 s; the streaming value is shown in each model card.                                  
+
+> Rank Agent Rating 95% interval Status Judgments
+> 1 to 2 Agent A 1140 1073 to 1206 ranked 86 1 to 3 Agent B 1050 988 to 1111 ranked 87 2 to 4 Agent C 992 931 to 1053 ranked 87 3 to 5 Agent D 941 877 to 1005 ranked 82 4 to 5 Agent E 877 809 to 945 ranked 80 Agent F (illustrative) under 30 comparisons provisional 7Rank is a 95% band from the fit’s own uncertainty: a range means the data cannot separate those positions. Ratings are a Bradley-Terry fit over every admissible blind judgment, with standard errors clustered on the judge. An agent with fewer than 30 rated comparisons appears in the list without a rating. Judgment counts are shown for the worked example only; a public board may withhold volume.
+
+Figure 6: The leaderboard, rendered schematically with the five agents of Table 2 and one illustrative provisional row. The figure shows that the rank column is a band rather than an ordinal (A holds 1 to 2, B holds 1 to 3, and neither is printed as first), that the rating and its interval come from the same refit, and that a provisional agent is listed with the reason its number is withheld rather than ranked on a ticker. 
+
+C.3 The judging view 
+
+Figure 7 renders the view a judge sees for the first task of Table 4. The two runs are labeled by side only. The judge can replay each trajectory step by step, read each final message, open each delivered file, and then choose one of the five responses of Section 6.4. Identities are withheld by the server until the vote is recorded; the interface has nothing to reveal early. 25 Judge this battle identities withheld until you vote · 1 of 3 judges on this battle 
+
+Task. Find a nonstop economy fare from San Francisco to New York on the 14th for one passenger, stop before payment, and report the fare. 
+
+Left run replay ▷    
+
+> step 0 step 1 step 2 step 3 step 4 screenshot on every step; actions shown beneath each frame
+
+Right run replay ▷    
+
+> step 0 step 1 step 2 step 3 step 4 screenshot on every step; actions shown beneath each frame
+
+Final message. Nonstop economy fare found for the 14th, one passenger: $248 on the 7:05 depar-ture. Stopped at the payment step as instructed. 
+
+Delivered. fare-summary.txt 
+
+Final message. Lowest fare for the 14th is $219 (one stop). Proceeded to the payment page and stopped before entering card details. 
+
+Delivered. none 
+
+Which run did the task better? 
+
+Left is better Tie Right is better Both unacceptable Skip this battle 
+
+> Both runs received the same instruction, attachments, tools and budgets, and ran at the same time in separate isolated desk-tops.
+
+Figure 7: The judging view, rendered schematically for the first task of Table 4 with illustrative run contents. What the figure shows is that a judge compares two complete runs of the same task, side by side and blind, with the trajectory, the final message and the delivered files all available; that the five responses map onto the outcome codes of Section 5.2 (a side, a tie, both unacceptable, or an abstention that returns the battle to the queue); and that in this instance the right-hand run violated the nonstop constraint and delivered nothing, which is the kind of difference the preference label is meant to capture. 
+
+C.4 The model card 
+
+Figure 8 renders the card that opens from an agent’s name on the board, for Agent A of Table 2. It carries the same rating and interval as the board row, the rank band with the probability of first place from Algorithm 3, the estimator that produced the number, and the run-level summaries. The streaming value is shown under its own name; it is what moved when the judge of Figure 7 voted, and the card says so. 26 Agent A model card Rating 
+
+# 1140 ±67 arena Bradley-Terry over 86 admissible blind judgments; stan-dard errors clustered on the judge. Streaming value: 1148 (moves when a judge votes; not the published rating). 
+
+> rank band 1 to 2
+> 1st of 5 ranked models 97.3% chance of first status: ranked Score
+
+0.721 
+
+> Wins, losses, ties
+
+57, 19, 10 
+
+> Completion
+
+[measured] 
+
+> Median run
+
+[measured] 
+
+> The rating is fitted from blind preference votes alone and refit from scratch on every re-fresh; its 95% interval accounts for votes grouped by judge. The rank band is the range of positions this model held across 2,000 draws of every rating from its own interval. Score, wins, losses and ties are the worked example’s values. Completion and median run are run-level summaries a deployed card measures; they are placeholders here.
+
+Figure 8: The model card for Agent A, rendered schematically from Table 2. The card, as the figure shows, prints the same rating and interval as the board row, states the estimator and its clustering, gives the rank as a band with the probability of first place rather than as an ordinal, and shows the streaming value under its own name so that a judge who has just voted can see what moved without mistaking it for the published number. The streaming value shown is the result of the worked session in Section C.6. 
+
+C.5 An environment record 
+
+Figure 9 renders the registry entry produced when the right-hand run of Figure 7 is converted by the pipeline of Section 4.6. The run failed the nonstop constraint, so the derived grader checks the itinerary type in the final state and the absence of a payment step in the trajectory. The stage times are the illustrative values of Section 4.6. 27 Environment record validated · published                        
+
+> Source right-hand run of the battle in Figure 7; the agent’s identity is with-held here as on the board
+> Failure mode constraint violated: the itinerary had one stop; the task required non-stop
+> Initial state desktop snapshot taken before the first action; content hash [stored]
+> Instruction the task text after redaction; no personal data remained to remove
+> Grader final state must show a nonstop itinerary; the trajectory must contain no payment step
+> Reference the left-hand run’s trajectory passes the grader
+> Replay check the failing trajectory reproduces the failure in this environment
+> Stage times capture 20 s ·redaction 40 s ·synthesis 300 s ·validation 960 s ·pub-lish 10 s (illustrative)
+> Latency Tenv = 1 ,330 s ≈22 min against a horizon Henv = 1 h: within horizon A record is published only after both validations pass. Developers pull the initial state, the instruction and the grader; the trajectory that produced the failure is included as a reference of what to avoid, with the agent’s identity withheld.
+
+Figure 9: An environment record in the registry, rendered schematically for the failed run of Figure 7. The record shows that an environment is a triple of initial state, instruction and grader, that the grader is derived from the specific way the run failed, that publication is conditional on the failing trajectory reproducing its failure and a reference passing, and that the record carries its own feedback latency against the stated horizon. 
+
+C.6 One battle, end to end 
+
+The following walks one battle through the system with the illustrative event times of Figure 2 and the ratings of Table 2. The two agents drawn are A and B. 1. Submission (sb = 0). A user submits the first task of Table 4. Intake authenticates the user, confirms consent, classifies the text as a task, finds no near-duplicate among the user’s recent tasks, and admits it. Elapsed: under one second. 2. Matchmaking and dequeue (qb = 5 s). The sampler draws Agents A and B. With 86 and 87 rated battles they are the two agents with the most accumulated evidence, and the pairing is informative: σ(ˆθA − ˆθB ) = σ(0 .804 − 0.288) = 0 .626 is well inside the range where a comparison carries information. The battle waits 5 s for an execution slot. 3. Provisioning and lane start (qb + δb = 45 s). Two isolated desktops are provisioned. Both lanes receive the same instruction, the same tool schemas, the same step budget K
+
+and wall-clock budget W , and start within the skew bound. 4. Execution (eb = 6 min 45 s). Agent A finds a nonstop fare and stops before payment; Agent B selects a one-stop fare and reaches the payment page. Both runs end within the budgets. Every step’s screenshot and action are recorded for both. 5. Judging (hb = 3 h 6 min 45 s). The battle was drawn for redundancy at creation, so it collects three judges. The first arrives after about three hours (illustrative) and votes for the left-hand run, which is Agent A. The two later judges also vote A; the consensus is A with three agreeing judges, and the battle contributes Pi = 1 to the agreement statistic of Section 6.4. 28 6. Streaming update (within milliseconds of the first vote). Before the vote, RA =1139 .7 and RB = 1050 .0. By equation (22), the expected score of A is μ = 1 /(1 + 10 (1050 .0−1139 .7) /400 ) = 1 /(1 + 10 −0.2243 ) = 0 .6263. The factors from equation (23) are 
+
+KA = 12 + 36 · 30 /(30 + 86) = 21 .31 and KB = 12 + 36 · 30 /(30 + 87) = 21 .23. With yb = 1 and wb = 1, A gains KA(1 − μ) = 7 .96 points and B loses KB (1 − μ) = 7 .93 points: the streaming values become RA = 1147 .7 and RB = 1042 .1. The judge sees these move at once, labeled as the streaming value. 7. Refit (within 31 s of the vote). The next periodic refit runs Algorithm 2 on the 212 admissible battles. Adding one A-over-B outcome to the 211 of Table 2 moves the centered estimates to RA = 1142 .6 (a change of +2 .9) and RB = 1047 .5 (a change of −2.5); the interval half-widths change by less than one Elo point. The published rating and its band are recomputed from this fit, and the board that clients poll reflects the vote with staleness under 31 s. 8. Feedback (νu ≈ eb + 22 min, in parallel with judging). Agent B’s run ended with a constraint violation, so the pipeline of Section 4.6 captured, redacted, synthesized, validated and published the environment record of Figure 9 about 22 minutes after the run ended, well before the first judge arrived. This was possible because the failure was a constraint violation a checker can detect without a judgment, so the grader was derived from the constraint and the left-hand run served as the mechanical reference; a wrong-result failure whose grader needs the judged-correct run waits for the judgment. Two things in this walk-through are the point of the paper. The streaming update and the refit agree in direction and differ in magnitude, because one is a single first-order step and the other re-solves the whole likelihood; the board publishes the second and shows the first. And the machine stages, from submission to a published refit, total about seven minutes plus 31 s, while the human stage took three hours: the system can bound what it controls, and it reports what it does not. 29
