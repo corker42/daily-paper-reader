@@ -1,0 +1,224 @@
+Title: Authority-Preserving Evaluation of Medical Vision-Language Assistants
+
+URL Source: https://arxiv.org/pdf/2609.22302v1
+
+Published Time: Tue, 22 Sep 2026 00:08:22 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Authority-Preserving Evaluation of Medical Vision-Language Assistants 
+
+Flint Xiaofeng Fan 1,2, Cheston Tan 2, Yew-Soon Ong 2, and Roger Wattenhofer 1 
+
+> 1
+
+ETH Zurich, Zurich, Switzerland 
+
+{xiafan,wattenhofer}@ethz.ch  
+
+> 2
+
+Agency for Science, Technology and Research (A*STAR), Singapore, Singapore 
+
+{fanx,cheston-tan,ong_yew_soon}@a-star.edu.sg 
+
+Abstract. Medical vision-language models can propose how urgently a skin lesion should be reviewed, but the local service retains authority to accept or replace that proposal under referral policy, capacity, and locally held patient context. Proposal quality and selected-action quality are therefore distinct evaluation targets, and benchmark evidence trans-fers between them only when local review preserves the expected action score. We introduce AuthEval, a logging and evaluation framework that records both actions, scores the selected action under declared local cri-teria, and, where feasible, scores the declined proposal under the same rule. It reports the resulting authority gap only when the record supports it. Because the gap is the product of the proposal-change rate and the mean score change on changed cases, that rate alone determines neither its magnitude nor its sign. On ISIC 2019, with MedGemma and simu-lated local review, two constraint regimes with similar change rates pro-duced an optimistic image-equal gap under capacity (+0 .744 simulator units) but no detectable gap under safety. The declared evaluation unit also mattered: under mixed constraints the gap reversed from +0 .374 to 
+
+−0.206 when weighting shifted from image to lesion-aware cluster. Au-thEval thus clarifies whether a study’s records support claims about the model, the workflow, or both. 
+
+Keywords: Medical vision-language models · Evaluation construct va-lidity · Clinical decision support · Human–AI workflows 
+
+## 1 Introduction 
+
+A lesion image enters a teledermatology pathway, and a medical vision-language model (VLM) proposes how urgently it should be reviewed. The local service, however, retains authority over the routing decision: referral policy, available capacity, follow-up safeguards, and clinician review may lead it to accept or replace the proposal [16, 12]. The action retained by the workflow is therefore the one the service selected, which need not be the one the model proposed. Medical VLM benchmarks evaluate model outputs against references [19, 11], addressing proposal quality. Workflow-level claims additionally require selected-action quality because local review may accept or replace the proposal. This arXiv:2609.22302v1 [cs.CV] 14 Sep 2026 2 F. X. Fan et al.            
+
+> Decision time Post-hoc evaluation
+> x
+> case input VLM + action readout
+> S
+> ranked slate ˆa
+> proposed action
+> z
+> local context
+> G(x, z, S )local review
+> asel
+> selected action reference yUz(x, y, a )
+> Uz(x, y, ˆa)extra field when ˆ a̸=asel
+> Uz(x, y, a sel )per case
+> Jauth
+> proposal score
+> J
+> selected-action score
+> authority gap
+> ∆authority =
+> Jauth −J
+
+Fig. 1. Why proposal and selected-action scores can differ, organized by when infor-mation is available. At decision time the proposer sees only x, while the label-blind gate G also sees local context z and slate S, but never the reference y. Post-hoc scoring applies one locally parameterized rule to both actions; the declined proposal’s score is the one extra field needed when review changes the action. 
+
+changes the evaluation construct [18]: replacement can either improve or worsen the score under local criteria. A role-separated log with both actions and the selected-action score reveals how often local review changes the proposal and how well the selected actions score. It is still insufficient to measure the authority gap: on changed cases, the score that the declined proposal would have received under the same local criteria remains unknown. Because this score may depend on locally held context, it must be computed where that context is available. Figure 1 summarizes the two evaluation paths and this boundary. This study asks which recorded fields suffice to recover the authority gap, whether the frequency of local change determines it, and how it varies with the review process, the proposal mechanism, and the declared evaluation unit. We answer these with AuthEval, a logging protocol and evaluator that records the proposed and selected actions, scores both under the same local criteria when feasible, and otherwise marks the gap as not recoverable rather than treating pro-posal quality as workflow quality. Factorizing the gap into the proposal-change rate and the mean score change on changed cases shows why change frequency alone cannot recover it, and whether proposal scoring is optimistic or pessimistic relative to selection. In a controlled ISIC 2019 study the gap varies across all three dimensions and reverses sign between image- and cluster-equal weighting. 
+
+## 2 Related Work 
+
+Medical VLM benchmarks evaluate model outputs across a range of tasks [19, 11], but a different question arises when a study seeks evidence about the com-bined workflow, in which a local service may accept or replace the model’s pro-posal. AuthEval complements proposal evaluation by asking whether proposal-level evidence remains representative after local selection. Authority-Preserving Evaluation of Medical Vision-Language Assistants 3
+
+Clinical alert studies distinguish appropriateness from provider response [13]. Human–AI research separates advice, privately held information, and final deci-sions [1] and distinguishes reliance frequency from its payoff [7], while learning-to-defer methods optimize which actor decides [15]. AuthEval addresses the com-plementary measurement problem of determining which recorded fields suffice to recover the signed proposal-selection score difference under the same local criteria. Federated learning similarly exploits decentralized evidence while keeping raw observations local, including in sequential decision-making settings such as federated Bayesian Optimization and Reinforcement Learning [3]. FedPref learns from local rankings of model-proposed radiology extractions [4], while FedRLHF uses client-held feedback for collaborative policy learning without pooling raw feedback [5]. AuthEval complements these learning settings by measuring how local evidence and constraints alter the selected action and its score. 
+
+## 3 Authority-Preserving Evaluation (AuthEval) 
+
+We call an evaluation authority-preserving when its record keeps the model’s proposal and the accountable local selection as distinct objects scored under the same declared rule. The term describes the evaluation record, not the clinic: AuthEval neither allocates clinical authority nor certifies that a local selection was appropriate. A case provides proposer-visible information x and locally held clinical or operational context z, together with action set A. A medical VLM and declared action readout form a policy π that produces a ranked list of options, or slate, 
+
+Sπ (x). Its first option is the proposal ˆ a. A label-blind local review rule, gate G,selects asel = G(x, z, S π (x)) and may accept the proposal or substitute another listed action. Post-hoc evaluation additionally uses a fixed reference state y, a diagnosis-derived risk target used only for scoring. The gate does not observe y,so its selection cannot use the evaluation target. Let Uz (x, y, a ) be a declared post-hoc action score, with larger values pre-ferred. It scores either action using the same local criteria and fixed reference 
+
+y, and all expectations use the declared weighting rule. Under this rule, J(π) = 
+
+E[Uz (x, y, a sel )] is the selected-action score, while Jauth (π) = E[Uz (x, y, ˆa)] is the local-rule proposal score. On changed cases, computing Jauth requires the score that the declined proposal would have received under those same criteria. This declined-proposal score is not an estimate of the patient outcome that the pro-posal would have caused. Their authority gap, ∆authority = Jauth −J, isolates the score change introduced by local selection. Positive values mean that proposal scoring is optimistic relative to selection, and negative values mean that it is pessimistic. 
+
+Proposition 1 (Authority-gap factorization). Let I = 1[ˆ a̸ = asel ], p =Pr( I = 1) , and, for p > 0, δ = E[Uz (x, y, ˆa) − Uz (x, y, a sel ) | I = 1] . Under any fixed sampling and weighting rule, ∆authority = pδ . At p = 0 , ∆authority =4 F. X. Fan et al. 
+
+0 and δ is undefined. Consequently, for p > 0, the proposal-change rate does not determine ∆authority without an assumption fixing δ, and two local review processes can share p while their authority gaps differ in magnitude or sign. 
+
+Cases with I = 0 contribute zero, so conditioning on I = 1 yields the factoriza-tion. Here p is the proposal-change rate and δ the mean signed score difference on changed units under the declared weighting rule. Because p leaves δ uncon-strained, the same change rate can yield gaps of either sign; for example, p = 0 .30 and δ = ±2 give ∆authority = ±0.60. 
+
+Record recoverability. We call a quantity directly recoverable when the recorded fields suffice to compute it without additional assumptions. A record containing both actions and the selected-action score does not by itself recover ∆authority 
+
+when proposals change, because Uz depends on locally held z: when z remains local, the evaluation record must additionally include the declined proposal’s locally computed score under the same criteria (Section 6). 
+
+## 4 Experimental Setup 
+
+We instantiate AuthEval in a controlled study: proposals come from frozen mod-els scored on real dermoscopy images, while local review and context are sim-ulated under a study-defined rule. We use the ISIC 2019 dermoscopy training set, comprising Memorial Sloan Kettering (MSK), HAM10000, and BCN20000 sources [9, 2, 21, 8]. Diagnoses map to four study-defined risk levels, very low to high, and four ordinal routing actions span observation to urgent specialist as-sessment (Supplementary Material gives the mapping). Lesion-aware splitting with image fallback produces 17 ,629 /3,735 /3,967 train/validation/test images, and known-lesion or exact-pHash groups do not cross splits (a broader, un-enforced pHash diagnostic at Hamming threshold 4 finds 122 cross-split near-duplicate components, detailed in the Supplementary Material). Code and re-production instructions are available at https://github.com/flint-xf-fan/ AuthEval .Frozen MedGemma 1.5 4B assigns each risk continuation a mean token log-likelihood from the image and proposer-visible age, sex, and anatomic site. A validation-trained balanced multinomial mapping, the action readout, ranks the four actions from these likelihoods [20]. The readout was selected and locked before test access; its test balanced accuracy is 0 .420. Earlier ISIC releases en-tered MedGemma pretraining [20], so “held out” applies to readout fitting, not foundation-model pretraining. Services may cap escalation (capacity), impose a safety floor (safety), or apply both (mixed). Private factors can additionally remove or replace an admissible action and rescale the scoring weights below. A class-balanced ridge metadata proxy, fitted on training labels, supplies decision-time risk context from age, sex, and anatomic site. Four frozen synthetic profiles set per-profile capacity and safety bounds, and the gate selects the first admissible action from the ranked Authority-Preserving Evaluation of Medical Vision-Language Assistants 5
+
+slate, never observing the test-case diagnosis, ideal action, or utility score. The Supplementary Material gives the full profile assignment, private-factor mechan-ics, selection rule, and prompt. With ℓ(a), ℓ (y) ∈ { 0, 1, 2, 3} the action and reference levels, the declared score is Uz (x, y, a ) = −wu(z) sy [ℓ(y) − ℓ(a)] + − wo(z) [ ℓ(a) − ℓ(y)] +, where [t]+ = max( t, 0) and sy is the component indexed by ℓ(y) in ( s0, s 1, s 2, s 3) = (0 .5, 1, 2, 4). The under- and over-escalation weights wu, w o have base values set per profile and are rescaled by the private factors above. Zero is best, and a one-level over-escalation costs 0 .71–3 .45 units versus 4 .6–9 .0 for under-escalation at high risk, so upward and downward substitutions are non-equivalent under the declared static score. The Supplementary Material lists the per-profile weight pairs and effective ranges. Image-equal estimates weight images, and cluster-equal estimates weight 2,090 known-lesion/exact-pHash clusters. Confidence intervals (CIs) use 5 ,000 whole-cluster bootstrap replicates and are conditional on the fitted readouts and frozen proxy, gate, utility, and simulated context. For the mechanism compari-son, cases, context, gate, scoring rule, and metadata proxy remain fixed while the proposal mechanism varies: MedGemma is compared with a LLaVA-Med option-likelihood control whose expected ordinal score is discretized by validation-fitted thresholds (balanced accuracy 0 .249) [10, 14], and a validation-thresholded op-erational proposal derived from a supervised linear readout over LLaVA-Med’s frozen CLIP vision tower (0 .546 balanced accuracy) [17]. 
+
+## 5 Results 
+
+Proposal and selected-action scores diverge under local review. Under the mixed simulated local review process, the selected action differs from the MedGemma-derived proposal on 47 .0% of test images. The proposal score Jauth = −2.94 and selected-action score J = −3.31 give an authority gap ∆authority = +0 .374 simulator units (95% CI [+0 .091 , +0 .663]): under this declared score, proposal-only scoring is optimistic by that amount. The proposal-change rate p = 0 .470 and mean score change δ = 0 .797 give pδ = 0 .374 after rounding, consistent with Proposition 1. Scoring the declined proposal makes this comparison possible; the change rate remains simulator-specific. Table 1 summarizes this result and three checks. 
+
+Change frequency does not determine the authority gap. Capacity and safety yield proposal-change rates of 0 .341 and 0 .281, but mean score changes of 2 .18 and −0.18 on changed cases. The corresponding image-equal authority gaps are +0 .744 ([+0 .491 , +1 .010]) and −0.051 ([ −0.262 , +0 .158]); capacity substitutions are 97 .6% downward, whereas the safety arm is near zero. A rate-only adjustment with one shared conditional value would give both gaps the same sign and scale them only by p. Instead, they differ by 0 .795 units with opposite point-estimate signs, though only the capacity interval excludes zero. Change frequency there-fore determines neither size nor direction. 6 F. X. Fan et al.                                          
+
+> Table 1. Controlled authority gaps on the ISIC test split ( n= 3 ,967 images; 2,090 clusters; simulator units); positive values denote optimistic proposal scoring. The final row is the paired probe-minus-LLaVA-Med gap difference under fixed capacity. pimg
+> is the image-level proposal-change rate and δimg the mean score change on changed images. Weighting and bootstrap CIs (brackets) are defined in Section 4. Quantity Setting pimg δimg
+> Image estimate Cluster estimate
+> ∆authority MedGemma / mixed 0.470 0.80 +0 .374 −0.206 [+0 .091 ,+0 .663] [−0.373 ,−0.037]
+> ∆authority MedGemma / capacity 0.341 2.18 +0 .744 +0 .056 [+0 .491 ,+1 .010] [−0.107 ,+0 .218]
+> ∆authority MedGemma / safety 0.281 −0.18 −0.051 −0.224 [−0.262 ,+0 .158] [−0.358 ,−0.093] Paired gap Fixed capacity ––+0 .810 +0 .433 [+0 .629 ,+0 .999] [+0 .345 ,+0 .524]
+
+The gap varies across proposal mechanisms. Under a fixed capacity gate, the image-equal authority gap is +0 .014 for a LLaVA-Med option-likelihood head, +0 .744 for MedGemma, and +0 .824 for a linear probe over LLaVA-Med’s frozen CLIP vision tower. A paired cluster bootstrap places probe minus LLaVA-Med at +0 .810 (95% CI [+0 .629 , +0 .999]), and at +0 .433 (95% CI [+0 .345 , +0 .524]) under cluster-equal weighting. Because the mechanisms differ in architecture, readout, input signals, and slate construction, this analysis supports neither component attribution nor a model-quality comparison; balanced accuracy does not explain their gap differences. A capacity ceiling binds mechanisms in propor-tion to how often they escalate through predominantly downward substitutions. Thus, a gap for one complete proposal mechanism need not hold for another under the same review process. 
+
+What counts as one case changes the estimate. Giving each image equal weight produces the primary MedGemma authority gap +0 .374, while giving each lesion-aware cluster—images sharing a known lesion ID or exact perceptual-hash match, with image fallback—equal weight produces −0.206 ([ −0.373 , −0.037]). The two units differ because lesions are photographed unequally: a high-risk clus-ter holds 2 .98 images on average against 1 .54 for a very-low-risk cluster. Image weighting therefore emphasizes repeated high-risk lesions, precisely where a ca-pacity ceiling’s downward substitution is most expensive under the asymmetric score. Cluster weighting instead gives each lesion one vote. Capacity changes from +0 .744 to +0 .056 ([ −0.107 , +0 .218]) and safety from 
+
+−0.051 to −0.224 ([ −0.358 , −0.093]): under cluster weighting, the capacity es-timate becomes indistinguishable from zero while the safety estimate excludes zero. Together, these checks show that proposal accuracy and change frequency cannot substitute for direct measurement of the authority gap, and that the pro-posal mechanism and evaluation unit must be declared: AuthEval enables that measurement from a full counterfactual record. Authority-Preserving Evaluation of Medical Vision-Language Assistants 7
+
+## 6 Operationalizing AuthEval and Limitations 
+
+Operationally, the authority gap requires the proposed and selected actions, the selected-action score, and, when they differ, the declined proposal’s score under the same local rule. Because that rule may depend on locally held context, the latter score must be computed at the site, either from a computable policy or retrospective adjudication that leaves the original selection unchanged. This keeps the underlying context loca [6]; if the score is unavailable, AuthEval reports the gap as not recoverable. The Supplementary Material gives the record levels and reporting rules. Our results come from one imaging task in which the review process, the private context, the workflow profiles, and the scoring weights are all study-defined, so they establish that an authority gap can arise and change sign rather than estimating its size in clinical practice. The intervals are conditional on those authored choices, and the three proposal mechanisms differ along multi-ple dimensions. The Supplementary Material details these boundaries and the evidence needed to extend the claims beyond them. 
+
+## 7 Conclusion 
+
+Medical VLM benchmarks measure the quality of a model’s proposed action, whereas clinical workflows also require a service to select an action under local capacity, policy, and patient constraints. Treating these as the same evaluation object can make workflow performance appear better or worse for reasons intro-duced after the model’s proposal. We introduced AuthEval to keep these roles separate: it records the proposed and selected actions, evaluates both under the same local criteria, and expresses their difference as the authority gap. That gap is the product of the change rate and the average shift when it happens, so fre-quency alone cannot recover it. In our controlled ISIC study, its magnitude and direction varied across simulated review processes, proposal mechanisms, and evaluation units, and, under mixed constraints, it reversed sign when weight-ing shifted from image to lesion-aware cluster. AuthEval therefore lets studies making workflow-level claims test whether proposal scores remain representative after local review, measuring the resulting gap when local rescoring is available and stating clearly which workflow claims the available record can support. 
+
+## References 
+
+> 1. Bordt, S., von Luxburg, U.: A bandit model for human-machine decision making with private information and opacity. In: Proceedings of AISTATS (2022) 2. Codella, N.C.F., Gutman, D., Celebi, M.E., et al.: Skin lesion analysis toward melanoma detection: A challenge at the 2017 international symposium on biomed-ical imaging (ISBI), hosted by the international skin imaging collaboration (ISIC). arXiv:1710.05006 (2017)
+
+8 F. X. Fan et al. 3. Dai, Z., Fan, F.X., Tan, C., Hoang, T.N., Low, B.K.H., Jaillet, P.: Federated se-quential decision making: Bayesian optimization, reinforcement learning, and be-yond. In: Federated Learning, pp. 257–279. Elsevier (2024) 4. Fan, F.X., Tan, C., Ong, Y.S., Wattenhofer, R.: FedPref: Federated preference learning for structured radiology report extraction. arXiv:2608.16971 (2026) 5. Fan, F.X., Tan, C., Ong, Y.S., Wattenhofer, R., Ooi, W.T.: FedRLHF: Aconvergence-guaranteed federated framework for privacy-preserving and personal-ized RLHF. In: Proceedings of the 24th International Conference on Autonomous Agents and Multiagent Systems (AAMAS) (2025) 6. Fan, F.X., Tan, C., Wattenhofer, R., Ong, Y.S.: Position paper: Rethinking privacy in RL for sequential decision-making in the age of LLMs. In: 2025 International Joint Conference on Neural Networks (IJCNN). IEEE (2025) 7. Guo, Z., Wu, Y., Hartline, J., Hullman, J.: A decision theoretic framework for measuring AI reliance. In: Proceedings of the 2024 ACM Conference on Fairness, Accountability, and Transparency (2024) 8. Hernández-Pérez, C., Combalia, M., Podlipnik, S., et al.: BCN20000: Dermoscopic lesions in the wild. Scientific Data (2024) 9. International Skin Imaging Collaboration: ISIC challenge datasets: 2019. https: //challenge.isic-archive.com/data/ (2019) 10. Li, C., Wong, C., Zhang, S., et al.: LLaVA-Med: Training a large language-and-vision assistant for biomedicine in one day. In: NeurIPS DB Track (2023) 11. Liu, C., Pan, J., Shen, W., et al.: How far have medical vision-language models come? a comprehensive benchmarking study. arXiv:2507.11200 (2025) 12. Marsden, H., Kemos, P., Venzi, M., et al.: Accuracy of an artificial intelligence as a medical device as part of a UK-based skin cancer teledermatology service. Frontiers in Medicine (2024) 13. McCoy, A.B., Waitman, L.R., Lewis, J.B., et al.: A framework for evaluating the appropriateness of clinical decision support alerts and responses. Journal of the American Medical Informatics Association (2012) 14. Microsoft: LLaVA-Med v1.5 Mistral 7B model card. Hugging Face (2024), https: //huggingface.co/microsoft/llava-med-v1.5-mistral-7b 
+
+15. Mozannar, H., Sontag, D.: Consistent estimators for learning to defer to an expert. In: Proceedings of ICML (2020) 16. National Institute for Health and Care Excellence: Artificial intelligence (AI) tech-nologies for assessing and triaging skin lesions referred to the urgent suspected skin cancer pathway: Early value assessment. HealthTech guidance HTG746 (2025) 17. Radford, A., Kim, J.W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., et al.: Learning transferable visual models from natural language supervision. In: ICML (2021) 18. Raji, I.D., Bender, E.M., Paullada, A., Denton, E., Hanna, A.: AI and the every-thing in the whole wide world benchmark. In: NeurIPS DB Track (2021) 19. Royer, C., Menze, B., Sekuboyina, A.: MultiMedEval: A benchmark and a toolkit for evaluating medical vision-language models. In: Proceedings of the 7th Confer-ence on Medical Imaging with Deep Learning (2024) 20. Sellergren, A., Gao, C., Mahvar, F., et al.: MedGemma 1.5 technical report. arXiv:2604.05081 (2026) 21. Tschandl, P., Rosendahl, C., Kittler, H.: The HAM10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions. Scientific Data (2018) Authority-Preserving Evaluation of Medical Vision-Language Assistants 9
+
+## A Scientific Supplement 
+
+This supplement records the cohort construction, proposal mechanisms, simu-lated review process, declared score, and supporting results used in the main paper. All tables report frozen study artifacts; no additional model selection was performed for the supplement. The frozen configurations, the retained per-case traces, and a verifier that reproduces the reported values without ISIC images or model weights are available in the reproduction package at https: //github.com/flint-xf-fan/AuthEval .
+
+A.1 Scope and Limitations 
+
+AuthEval is evaluated in a controlled study built from one public dermoscopy collection. Proposals come from frozen models scored on real images, while lo-cal review, private context, and the scoring weights follow a study-defined rule. The evidence therefore characterizes an evaluation construct rather than clin-ical prevalence, benefit, or harm. ISIC records no referral, capacity, clinician-selection, completion, or outcome fields, so the workflow surrounding each image is authored rather than observed. The four workflow profiles are study assignments rather than institutions, and the private factors are simulated independently of any recorded patient attribute. The local review rules are stress tests chosen to span admissible behavior, not clinical prescriptions, and the declared score is a static study score rather than an outcome model. A gap measured under one such rule constrains neither the gap under a different rule nor the clinical consequence of the substitutions producing it. The authority-gap endpoint and mechanism analyses reported here were con-ducted post hoc after a prospectively locked policy-selection comparison yielded the same policy under proposal-only and authority-aware objectives. The three proposal mechanisms differ in architecture, readout, input signals, and slate construction, so ordering them by authority gap does not isolate a single component: three arms establish that the gap moves, not why it moves. Image-equal weighting was designated primary after exploratory development, and the cluster-equal estimand accompanies it throughout because the sign of the primary estimate depends on that choice. Stability after excluding the broader threshold-4 pHash components remains untested because that heuristic can also connect visually similar but distinct lesions. Earlier ISIC releases entered MedGemma pretraining, so “held out” describes the fitting of the action readout and the control thresholds rather than the foundation model itself. Every estimate is conditional on the fitted readouts and on the frozen proxy, gate, score, and simulated context, and the confidence intervals propagate sampling variation across clusters alone. 10 F. X. Fan et al.                            
+
+> Table 2. Split sizes and risk-stratum composition. Strata are derived from the recorded diagnosis and are used only as the post-hoc reference state. Split nVery low Low Moderate High Train 17,629 9,392 1,839 2,890 3,508 Validation 3,735 1,923 393 648 771 Test 3,967 2,052 392 652 871
+> Table 3. Perceptual-duplicate groupings over all 25,331 images. Exact groups constrain the split; threshold-4 components are diagnostic only. Grouping Components Images Exact pHash 95 191 Exact pHash crossing splits 00Threshold-4 pHash 594 1,777 Threshold-4 pHash crossing splits 122 —
+
+A.2 Cohorts, Splits, and Evaluation Units 
+
+Risk strata and routing actions. The study uses the ISIC 2019 training meta-data, ground truth, and image release. Diagnoses map to four ordinal risk levels: very low (melanocytic nevus, vascular lesion, or dermatofibroma), low (benign keratosis), moderate (actinic keratosis or intraepithelial carcinoma, and basal-cell carcinoma), and high (squamous-cell carcinoma or melanoma). Four ordinal routing actions a0, . . . , a 3 span observation, routine review, specialist assessment, and urgent specialist assessment. The reference state y is the risk level implied by the recorded diagnosis and enters scoring only. Table 2 reports the realized split composition. 
+
+Split construction and duplicate control. Images sharing a known lesion identifier or an exact 64-bit discrete cosine transform (DCT) perceptual hash (pHash) are assigned to the same split, so neither relation crosses the train, validation, and test boundaries. A broader pHash diagnostic at Hamming threshold 4 is com-puted for reference but does not redefine the split, because that threshold also connects visually similar yet distinct lesions. Table 3 summarizes both group-ings. The 122 components that cross splits under the broader threshold are the reason the diagnostic is reported rather than enforced. 
+
+Evaluation units. The primary estimand weights the 3,967 test images equally. The sensitivity estimand weights 2,090 clusters equally, of which 1,778 derive from known lesion identifiers and 312 from images carrying none, after exact-hash unions. Each cluster receives one simulated context, so its members share a workflow profile, private factors, and mean metadata proxy score. Confidence intervals resample whole clusters, using 5,000 replicates and the 0.025 and 0.975 quantiles. Authority-Preserving Evaluation of Medical Vision-Language Assistants 11              
+
+> Table 4. Test-split cluster sizes by risk stratum. Image-equal weighting is proportional to the image column, cluster-equal weighting to the cluster column. Risk stratum Clusters Images Images per cluster Very low 1,333 2,052 1.54 Low 221 392 1.77 Moderate 244 652 2.67 High 292 871 2.98
+
+The two units are not interchangeable, because lesions are photographed unequally across the risk strata. Table 4 gives the imbalance: high-risk clusters carry roughly twice as many images as very-low-risk clusters, so image-equal weighting places proportionally more weight on high-risk lesions than cluster-equal weighting does. This is the mechanism behind the sign reversal reported in the main paper. 
+
+A.3 Proposal Mechanisms 
+
+MedGemma proposal. We run the primary proposer, MedGemma 1.5 4B IT, in bfloat16 at the frozen identifier and revision: 
+
+google/medgemma-1.5-4b-it 91850547d9f0b2fdd21aa7c5f4f3d1a8a52c243b 
+
+For each image and the proposer-visible age, sex, and anatomic site, the frozen model assigns a mean token log-likelihood to four semantic continuations under the prompt: 
+
+> This is a research image-assessment task, not patient-specific clinical advice. Inspect the dermoscopy image and the listed public metadata only. Rank the lesion into one of four ordinal visual-risk categories. Do not infer unavailable history, symptoms, evolution, patient preference, local policy, or service capac-ity. Categories: very low visual risk; low visual risk; moderate visual risk; high visual risk. Public metadata:
+> age={age}, sex={sex}, anatomic_site={anatomic_site} . Selected visual-risk category:
+
+The four continuations describe, respectively, a benign appearance without evident suspicious dermoscopic features; a mostly benign appearance with lim-ited atypical features; suspicious features warranting specialist assessment; and strongly suspicious features warranting urgent specialist assessment. 
+
+Action readout. A balanced multinomial logistic readout maps the four log-clipped continuation probabilities (clip 10 −8) to the four routing actions. Four-fold grouped validation searches C ∈ { 0.01 , 0.1, 1, 10 }, minimizing ordinal mean absolute error and then maximizing balanced accuracy and macro-F1, with smaller C as the final tie-break; the selected value is C = 0 .01. Test labels 12 F. X. Fan et al. 
+
+enter neither fitting nor selection. On the held-out validation set, the readout uses all four actions and improves ordinal MAE from 1 .104 for the best constant to 0 .860. Shuffling images against their metadata within a 256-image validation subset raises MAE by 0 .375 and lowers balanced accuracy by 0 .132, indicating that the readout responds to image content rather than metadata alone. 
+
+Proposal controls. Two frozen controls supply alternative proposals through the same interface: 
+
+microsoft/llava-med-v1.5-mistral-7b openai/clip-vit-large-patch14-336 
+
+The language control reads option likelihoods from the first and converts its expected ordinal score to an action; the vision control uses a balanced linear probe trained on frozen CLIP ViT-L/14 features from the second. Both discretize with validation-fitted thresholds: language control: (0 .602433 , 0.645141 , 0.660500) ,
+
+vision control: (0 .459906 , 0.551713 , 0.662236) .
+
+Both controls are consumed by the simulator only through these frozen opera-tional heads, each a function of the image and declared public metadata alone. 
+
+A.4 Simulated Review Process 
+
+Workflow profiles. Each cluster is assigned one of four workflow profiles by a stable hash of its age band and anatomic site, falling back to the image iden-tifier only when both fields are missing; a cluster takes the modal profile of its members. A profile fixes an upper capacity bound on escalation, a floor policy, and the base under- and over-escalation weights of Table 5. The profiles are labeled by the service character they are meant to span, from a high-capacity dermatology service to a low-capacity, access-constrained one.                                                
+
+> Table 5. Workflow-profile parameters. Capacity is the highest admissible action level;
+> wuand woare the base under- and over-escalation weights before the private multipliers of Table 6. Profile Service character Capacity Floor policy wuwo
+> P1 High-capacity dermatology 3Standard 1.20 0.75 P2 General mixed source 2Standard 1.20 1.20 P3 Specialist, safety-oriented 3Strict 1.80 0.90 P4 Low-capacity, access-constrained 1Lenient 1.30 2.00 Authority-Preserving Evaluation of Medical Vision-Language Assistants 13
+> Table 6. Private factor levels and their multipliers on the under- and over-escalation weights. Factor Level wumult. womult. Sensitivity preference Sensitivity-seeking 1.25 0.95 Neutral 1.00 1.00 Specificity-seeking 0.95 1.25 Follow-up burden Low 1.00 1.00 High 1.00 1.15 Invasiveness aversion Neutral 1.00 1.00 Averse 1.00 1.20
+
+Private factors. Within each cluster, one level of each factor in Table 6 is drawn and held fixed. Sensitivity preference rescales both weights; follow-up burden and invasiveness aversion rescale the over-escalation weight alone. Invasiveness aversion additionally removes a3 from the admissible set, and high follow-up burden replaces an admissible a1 by a0 in lower proxy bins or by a2 in higher bins when that alternative is itself admissible. 
+
+Gate proxy and selection rule. The decision-time risk context is a class-balanced ridge model fitted on training labels from age, sex, and anatomic site, with regularization and temperature selected on validation. Its score is binned at (0 .25 , 0.50 , 0.75). The profile supplies the capacity bound, the proxy bin together with the profile floor policy supplies the safety floor, and the mixed regime intersects both. When an override empties the admissible band, the declared default is a0 in lower proxy bins and a2 in higher bins. The gate selects the first admissible action in the ranked slate and never observes the diagnosis, the reference action, or the score, so selection cannot depend on the evaluation target. 
+
+A.5 Declared Score 
+
+Score definition. For action and reference levels ℓ(a), ℓ (y) ∈ { 0, 1, 2, 3}, the de-clared score is 
+
+Uz (x, y, a ) = −wu(z) sy [ℓ(y) − ℓ(a)] + − wo(z) [ ℓ(a) − ℓ(y)] +, (1) with [ t]+ = max( t, 0) and sy the component indexed by ℓ(y) in ( s0, s 1, s 2, s 3) = (0 .5, 1, 2, 4). Zero is the best attainable value. 
+
+Weight ranges and asymmetry. Applying the multipliers of Table 6 to the base weights of Table 5 gives effective ranges wu ∈ [1 .14 , 2.25] and wo ∈ [0 .71 , 3.45]. A one-level over-escalation therefore costs between 0 .71 and 3 .45 units, whereas a one-level under-escalation at high risk costs between 4 .6 and 9 .0, since s3 = 4 multiplies the under-escalation weight. Upward and downward substitutions are 14 F. X. Fan et al. 
+
+consequently not equivalent under Eq. (1), contributing to the different gap magnitudes and signs produced by the two review processes. 
+
+Relation to a benchmark metric. A benchmark may report a score Jbench under a different metric. When Jbench is commensurate with Uz and uses the same cases, evaluation distribution, and weighting rule, its difference from the selected-action score decomposes as 
+
+Jbench − J = ( Jbench − Jauth ) + ∆authority , (2) where the first term is the gap between the benchmark metric and the declared local score evaluated on the same proposal, and the second is the local-selection effect isolated in the main paper. A comparison that does not hold the first term fixed cannot attribute a change in Jbench − J to local selection alone. 
+
+A.6 Record Levels 
+
+Table 7 states which AuthEval quantities each cumulative record level supports. The levels are cumulative: each adds the fields shown to the preceding level and thereby supports the quantities listed without additional assumptions. Every record also versions the case and cluster identifiers, proposal interface, local selection and scoring rules, reference state, and evaluation unit, and may log actor, reason, timestamp, and completion as further workflow metadata. If 
+
+p = 0, AuthEval reports ∆authority = 0 and leaves δ undefined; if p > 0 but the declined proposal’s local score is unavailable, it reports ∆authority and δ as not recoverable. Exporting locally computed scores rather than raw context can reduce data transfer, but provides no formal privacy guarantee.                    
+
+> Table 7. Cumulative record levels and the AuthEval quantities each one recovers. Fields are additional to the level above. Record level Additional local-review fields Quantities recovered Proposal-only ˆaand proposal metric none Role-separated asel ,Uz(x, y, a sel )p,J
+> Full counterfactual Uz(x, y, ˆa) on changed cases Jauth ,∆authority ,δif p > 0
+
+A.7 Supporting Results 
+
+Review-process decomposition. Table 8 reports the two constituent review pro-cesses alongside the mixed process of the main paper. The proposal score Jauth is identical across the three rows because the proposal does not depend on the gate; only the selected-action score J moves. The capacity ceiling constrains actions through the private profile and factors, and the safety floor constrains them Authority-Preserving Evaluation of Medical Vision-Language Assistants 15 
+
+Table 8. Authority gap by simulated review process for the fixed MedGemma-derived proposal. Scores are in simulator units; brackets give 95% whole-cluster bootstrap intervals. Review process Jauth J p δ ∆authority , image ∆authority , cluster Capacity ceiling −2.938 −3.683 0.341 2.182 +0 .744 [+0 .491 , +1 .010] +0 .056 [ −0.107 , +0 .218] Safety floor −2.938 −2.888 0.281 −0.180 −0.051 [ −0.262 , +0 .158] −0.224 [ −0.358 , −0.093] Mixed −2.938 −3.313 0.470 0.797 +0 .374 [+0 .091 , +0 .663] −0.206 [ −0.373 , −0.037] 
+
+through the public metadata proxy that the proposer also sees. Under image weighting the discrepancy is carried by the capacity channel, whose substitu-tions are 97 .6% downward, while the safety channel is indistinguishable from zero; under cluster weighting the ordering reverses, and the safety channel is the one whose interval excludes zero. 
+
+Proposal dependence. Table 9 holds the capacity gate, cases, private context, clusters, and score fixed while varying the proposal mechanism. Both the change rate and the conditional score change vary with the mechanism; under cluster weighting, the language control and vision probe have authority gaps of opposite sign. The paired contrast evaluates both proposals on the same clusters within each replicate, and its confidence interval excludes zero under both evaluation units. 
+
+Table 9. Authority gap by proposal mechanism under one fixed capacity review pro-cess. The final row is the paired probe-minus-LLaVA-Med contrast, computed on iden-tical clusters within each bootstrap replicate. Proposal Test balanced acc. p δ ∆authority , image ∆authority , cluster LLaVA-Med head 0.249 0.163 0.084 +0 .014 [ −0.056 , +0 .086] −0.096 [ −0.156 , −0.037] MedGemma readout 0.420 0.341 2.182 +0 .744 [+0 .491 , +1 .010] +0 .056 [ −0.107 , +0 .218] CLIP probe 0.546 0.276 2.988 +0 .824 [+0 .621 , +1 .033] +0 .337 [+0 .256 , +0 .422] Probe − LLaVA-Med — — — +0 .810 [+0 .629 , +0 .999] +0 .433 [+0 .345 , +0 .524]

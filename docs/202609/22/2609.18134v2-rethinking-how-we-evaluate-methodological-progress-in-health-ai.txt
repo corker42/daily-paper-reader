@@ -1,0 +1,495 @@
+Title: Rethinking How We Evaluate Methodological Progress in Health AI
+
+URL Source: https://arxiv.org/pdf/2609.18134v2
+
+Published Time: Tue, 22 Sep 2026 02:02:28 GMT
+
+Number of Pages: 23
+
+Markdown Content:
+> Submitted to ML4H 2026: Proceedings Track Machine Learning for Health (ML4H) 2026
+
+# Rethinking How We Evaluate Methodological Progress in Health AI 
+
+Florent Pollet ffp2106@cumc.columbia.edu and Matthew McDermott mm6677@cumc.columbia.edu 
+
+Department of Biomedical Informatics, Columbia University 
+
+# Abstract 
+
+Methodological progress in artificial intelli-gence (AI) for electronic health records (EHRs) depends on determining which algorithms work better, and under which conditions. However, such progress is thought to be hindered by dif-ficulties in reproducibility and in defining clin-ically meaningful evaluation tasks. We empiri-cally study these barriers by re-implementing 12 historical and recent algorithms within a shared evaluation framework and evaluating them on two clinical datasets, MIMIC-IV and NWICU. We compare two complementary task families: expert-authored clinically meaning-ful tasks and generated tasks defined from randomly sampled event codes and prediction horizons. We ask whether relative algorithm comparisons transfer across task families and datasets, whether residual task heterogeneity contains useful methodological structure, and what a controlled comparison reveals about progress over the last decade. Aggregate pair-wise comparisons transfer strongly across eval-uation settings, including from randomly gen-erated to clinically meaningful tasks and across datasets. At the same time, clinically mean-ingful tasks exhibit greater task-algorithm in-teraction, providing preliminary evidence that task properties can help explain when particu-lar modeling choices are advantageous. Finally, newer algorithms do not consistently outper-form earlier approaches: gradient-boosted trees remain highly competitive when paired with a high-capacity, wide and sparse representation of the EHR. Together, these results suggest that useful methodological knowledge may re-quire less task engineering than commonly as-sumed, while highlighting the need to under-stand the structured heterogeneity that remains across tasks and algorithms. 
+
+Keywords: EHR, Evaluation, Health AI 
+
+Data and Code Availability We use the MIMIC-IV and NWICU datasets [10, 19], available on Phys-ioNet. The code used to reproduce our experiments will be available upon publication. 
+
+Institutional Review Board (IRB) This study did not require IRB approval because it involved sec-ondary analysis of existing de-identified datasets and did not involve direct interaction with human partic-ipants or access to identifiable private information. 
+
+# 1. Introduction 
+
+Artificial Intelligence (AI) over structured EHR data promises to revolutionize patient care [30, 2, 27, 29] and is receiving increasing attention in both the sci-entific community and the media [32, 21]. Despite this, many researchers remain concerned about the extent of methodological progress and rigor in this sub-field [16, 1], arguing that the wealth of research in this space has not meaningfully enabled us to an-swer key methodological questions, such as when and why some algorithms work better than others on a given dataset and task [8]. Commentators have iden-tified many possible barriers to rigorous methodolog-ical progress, including: (i) the difficulty of defining sufficiently clinically meaningful evaluation tasks to characterize AI algorithms [1, 20] and (ii) the long-standing reproducibility and transportability crisis that hinders replicating task definitions or re-using model code across studies [17, 11, 16]. While there is empirical evidence that the repro-ducibility crisis hinders the accumulation of method-ological knowledge–for example, Johnson et al. found that the reported performance gain of neural net-work algorithms over gradient-boosted trees often re-versed upon reproduction [11]–barrier (i) has received very limited empirical characterization. Concretely, we do not know whether relative comparisons be-tween algorithms (e.g., does algorithm 1 outperform algorithm 2 when trained from scratch on a given dataset and task) identified on clinically “meaning-less” tasks would agree with the same comparisons on  
+
+> ©F. Pollet & M. McDermott. arXiv:2609.18134v2 [cs.LG] 21 Sep 2026 Methodological Progress Evaluation
+
+high-quality, expert-determined tasks. If the conclu-sions drawn in these two settings were highly similar– and a growing body of evidence on evaluation in other domains of machine learning suggests this is plausible [25]–methodological progress would be more accessible in this domain than previously expected, opening new routes to robust insight into the rel-ative performance of different algorithms across di-verse clinical settings. In this work, we empirically study this question, and methodological progress in health AI more gen-erally, via a shared implementation and evaluation framework. We re-implement 1 historical and recent ICU and EHR models using a common MEDS-based interface [18], and evaluate them on two public clini-cal datasets, MIMIC-IV [10] and NWICU [19], across both clinically meaningful tasks–explicitly authored by experts to capture meaningful predictions–and randomly generated tasks–which ask whether a ran-domly sampled code from the dataset vocabulary will occur within a randomly sampled duration, and re-quire no clinical curation. We use our findings to an-swer three key questions: Q1: Are rankings and com-parisons between algorithms consistent across eval-uation settings, such as across datasets or between clinically meaningful and randomly generated tasks? 
+
+Q2: Beyond global ranking consistency, is there ev-idence of shared structure between task, algorithm, and dataset properties that could tell us when a given algorithm is likely to work well in a target setting? 
+
+Q3: When algorithms developed over the last decade are evaluated in a common implementation, training, and evaluation framework, what evidence of method-ological progress emerges, if any? Our analyses suggest that: (1) comparative con-clusions about algorithm performance are statisti-cally significantly similar across evaluation settings, particularly between clinically meaningful and ran-domly generated tasks, suggesting that barrier (i) may not be a major barrier for methodological re-search; (2) there is preliminary but meaningful ev-idence of shared structure between tasks, datasets, and algorithms, particularly on clinically meaning-ful tasks , that is suggestive of future opportunities for progress; and (3) there is meaningful evidence of methodological progress, though not in direc-tions aligned with typical AI development: the best-
+
+> 1. As our models are reproductions, our findings do not imply that the original authors’ results were invalid; our repro-duction of any given model may itself have errors or flaws. Authors of re-implemented models were not consulted.
+
+performing algorithm in our comparison is a gradient-boosted tree model, but only when paired with an ex-tremely wide, sparse tabularization of the full feature space rather than the restricted, clinically motivated featurizations that dominated historical uses of such models. In sum, we make the following key contributions: 1. We provide reproducible, standard-interface reimplementations of twelve AI algorithms that can be applied across MEDS datasets through a common interface, enabling robust baseline com-parisons in future methodological research. 2. We provide a rich set of comparisons of algorithm performance, in both discriminative and compu-tational terms, across a battery of tasks and two datasets, offering concrete guidance on which al-gorithms are likely to perform best and at what computational cost. 3. We show that randomly generated tasks provide highly reliable estimates of relative algorithm performance, even across datasets, suggesting a more accessible route to robust methodological research in EHR AI. 4. We find preliminary evidence that relating task properties to algorithm and dataset properties yields further methodological insight, suggest-ing that relative algorithm rankings are partly predictable from characteristics of the evaluation setting. 
+
+# 2. Methods 
+
+To answer the three key questions introduced in Sec-tion 1, we use the following high-level experimental process. First, we re-implement a variety of histori-cally published algorithms such that they are train-able for any binary classification task on any MEDS dataset through a consistent interface, but are oth-erwise faithful to their original, published form. We then train these aligned algorithms on a collection of target tasks from two families: expert-defined clini-cally meaningful tasks and randomly generated tasks, which are randomly defined and require no clinical expertise. We evaluate the trained algorithms by per-task AUROC on held-out subjects. This pro-cess is replicated over two publicly available longi-tudinal critical care EHR datasets, MIMIC-IV and 
+
+> 2Methodological Progress Evaluation
+
+NWICU, which differ substantially in scale and clini-cal scope (Table 3 in Appendix C). With these evalua-tion results, we answer our questions directly: for Q1, we compute how consistent the AUROC ranking of these algorithms is across task families and datasets; for Q2, we assess to what extent variance in algo-rithm rankings is related to structured properties of the task, dataset, and algorithm combination; and for Q3, we assess how the best overall performance has changed with the first public artifact date of these al-gorithms and examine other properties differentiating high- from low-performing algorithms. The statisti-cal procedures used throughout (ranking-agreement tests, task-level reversal rates, variance decomposi-tion, and uncertainty quantification) are detailed in Appendix B.1. 
+
+2.1. Models Model selection. Five model families were se-lected arbitrarily from a set of 49 ICU and EHR modeling approaches identified through a literature review (Appendix A). We deliberately added sev-eral models and baselines to anchor the comparison with recent pretraining approaches. MEDS-Tab [22] was included as a strong tabular baseline, using both its XGBoost-based configurations and an additional logistic-regression variant using the same MEDS-Tab featurization ( MEDS-Tab-LR ). We also included the XGBoost model from the mortality reproducibil-ity study of [11] ( ICU-XGBoost ) as a historically motivated ICU baseline. Finally, MOTOR [28] and MEDS-EIC-AR [15] were added as potentially strong recent competitors. Table 1 summarizes all evaluated model variants. 
+
+Model implementation. All twelve models were re-implemented using agentic generative AI coding workflows (Claude Code with Claude Opus 5; see Appendix E), with one agent assigned to each model and the implementation template, verification pro-cedure, and human review held fixed across mod-els. Each model therefore received roughly equal “ex-pert attention” during implementation, rather than effort concentrating on any single model or family. To reduce implementation variability and the risk that obvious re-implementation errors affect com-parisons, we used a fixed model interface and ver-ification workflow from a common template reposi-tory 2. For each model, we first inspected the origi-
+
+> 2. Will be released upon publication.
+
+Table 1: Models considered in our evaluation, or-dered by the date of their first publicly avail-able artifact. 
+
+Model Year Training 
+
+RETAIN [5] 2016 Supervised ICU-XGBoost [11] 2017 Supervised BEHRT [14] 2019 Fine-tuned MOTOR-FT [28] 2023 Fine-tuned 
+
+> Full fine-tuning (FT)
+
+MOTOR-LP [28] 2023 Probed 
+
+> Linear probing (LP)
+
+DuETT [13] 2023 Fine-tuned MEDS-TAB-tiny [22] 2024 Supervised MEDS-TAB-large [22] 2024 Supervised MEDS-TAB-LR [22] 2024 Supervised TECO [24] 2025 Supervised MEDS-EIC-AR [15] 2025 Fine-tuned 
+
+> EIC-AR with fine-tuning
+
+MEDS-EIC-AR-sup [15] 2025 Supervised 
+
+> EIC-AR trained w/o pretraining
+
+nal paper, supplementary material, source code, con-figurations, preprocessing, and evaluation code, and recorded which components were ported, adapted, or omitted. Implementations then passed a staged set of tests. First, on a small synthetic dataset, we con-structed a controlled prediction problem in which a single event code determined a binary label without sequence length or event position leaking the out-come, verified that the model recovered this signal through its actual preprocessing and featurization pipeline, and used shuffled labels as a negative con-trol. Local end-to-end tests also checked that the complete workflow produced predictions for exactly the requested examples and splits. Second, models were executed through the isolated MEDS-DEV in-terface to verify installation, configuration, and out-put compatibility. Third, they were run on a MIMIC-IV demo task to expose data-dependent, serializa-tion, resource, and scale-related failures before full-scale experiments. For models requiring specific in-put features, we supplied dataset-specific predicate files mapping available MEDS events to the required features as closely as possible. Full-data experiments were then run from fixed, clean commits using the same task bundles across models, recording code re-vision, configuration, dataset, task, and resource in-formation for reproducibility. 
+
+> 3Methodological Progress Evaluation
+
+2.2. Tasks 
+
+All tasks are binary prediction problems. For each dataset we use 10 clinically meaningful and 10 ran-domly generated tasks, yielding four evaluation set-tings (dataset × task family) across which the eval-uated algorithms and evaluation procedure are held fixed. Full task definitions, cohort sizes, prevalences, and dataset-specific differences are provided in Ap-pendix D. 
+
+Randomly generated tasks. Randomly gener-ated tasks are defined by an event code and a pre-diction horizon, inspired by the EveryQuery task parametrization [3]. For each task, prediction times are sampled from eligible patient timelines, and the label indicates whether the event occurs within the horizon after the prediction time. Candidate tasks are retained only when they satisfy statistical ad-equacy and censoring requirements; in particular, we require min( npos , n neg ) ≥ 150. 3 Among eligible event-code–horizon pairs, tasks are sampled subject to diversity constraints limiting repeated codes and over-representation of individual event categories. Ten tasks are sampled independently per dataset, so the MIMIC-IV and NWICU randomly generated task sets are intentionally different. 
+
+Clinically meaningful tasks. In parallel, we de-fine clinically motivated tasks using ACES [34], with each task specified by a clinical trigger, prediction-time anchor, prediction horizon, and, when appro-priate, an exclusion criterion for patients already in the target state. We sought to make the MIMIC-IV and NWICU suites as similar as possible, adapting task definitions across datasets when the required in-formation was available, and to cover diverse clinical specialties, prediction horizons, and question types, including laboratory abnormalities, acute organ dys-function, interventions, utilization, and mortality. Exact correspondence was not required for our main methodological question, however, and some tasks necessarily differ because the available events and predicates differ across datasets; we therefore retain dataset-specific clinically meaningful tasks when a di-rect adaptation is not reliable. Because these more constrained definitions often yield smaller cohorts, we use a reporting floor of min( npos , n neg ) ≥ 40 and ex-clude tasks below it. 
+
+> 3. See Appendix D.2 for the derivation of the minority-class floor and its relationship to AUROC estimation error.
+
+# 3. Results 
+
+3.1. Q1: Comparative conclusions generally transfer across settings 
+
+Our experiments reliably show that comparative con-clusions across algorithms largely transfer from ran-domly generated tasks to clinically meaningful tasks and even across datasets, suggesting that intensive efforts to ensure that benchmarking tasks are highly clinically meaningful may not be as essential for methodological research as previously thought. Fig-ure 1 shows this visually: panels A–D plot the held-out AUROC of each algorithm on every task in each of our four evaluation settings, with algorithms col-ored by global macro-AUROC on a consistent gradi-ent, so the preservation of this gradient across tasks and settings shows directly that algorithm rankings are quite consistent. Full numerical results are avail-able in Appendix F. To quantify this finding formally, Figure 2 shows the ranking agreement between every pair of eval-uation settings (Appendix B.1). Agreement ranges from 76% to 92% and is statistically significantly higher than chance in all six comparisons after Holm correction; it is strongest between MIMIC-IV and NWICU randomly generated tasks (92%) and be-tween MIMIC-IV randomly generated and clinically meaningful tasks (91%). Figure 1E further shows that agreement is concentrated at the top and bot-tom of the ranking, with more variability in the mid-dle: MEDS-Tab-large ranks first in every setting, MEDS-EIC-AR ranks second in three settings and third in the fourth by less than 0.008 AUROC, and the same three algorithms (TECO, MEDS-Tab-LR, and BEHRT) form the bottom three in every setting. These results suggest that randomly generated tasks, which require no clinical curation, can serve as an efficient first-pass substrate for determining which modeling choices tend to perform better, and that additional datasets need not yield entirely new comparative conclusions. Clinically meaningful tasks nonetheless remain essential when the question shifts from broad algorithm comparison toward task-specific or deployment-oriented evaluation [26, 35], and with only two datasets our cross-dataset conclu-sions remain preliminary. 
+
+> 4
+
+Methodological Progress Evaluation MG1 MG2 MG3 MG4 MG5 MG6 MG7 MG8 MG9 MG10 
+
+> 0.4 0.6 0.8 1.0
+> AUC
+
+A MIMIC-IV Generated (MG) 
+
+> MC1 MC2 MC3 MC4 MC5 MC6 MC7 MC8 MC9 MC10
+> 0.4 0.6 0.8 1.0
+
+B MIMIC-IV Clinical (MC) 
+
+> NG1 NG2 NG3 NG4 NG5 NG6 NG7 NG8 NG9 NG10
+> 0.4 0.6 0.8 1.0
+> AUC
+
+D NWICU Generated (NG) 
+
+> NC1 NC2 NC3 NC4 NC5 NC6 NC7 NC8 NC9 NC10
+> 0.4 0.6 0.8 1.0
+
+C NWICU Clinical (NC) 
+
+> AMG BMC CNC DNG 12345678910 11 12
+> Rank by mean AUC
+> BEHRT TAB-LR TECO TAB-T DuETT RET ICU-XGB M-LP EIC-S M-FT EIC TAB-L
+
+E Setting rankings 
+
+> Models (colors ordered by overall mean AUC) MEDS-TAB-large (TAB-L) MEDS-EIC-AR (EIC) MOTOR-FT (M-FT) MEDS-EIC-AR-sup (EIC-S) MOTOR-LP (M-LP) ICU-XGBoost (ICU-XGB) RETAIN (RET) DuETT MEDS-TAB-tiny (TAB-T) TECO MEDS-TAB-LR (TAB-LR) BEHRT
+
+Figure 1: Task-level performance and ranking transfer across settings. A–D: tasks ordered from harder to easier by mean AUC across models. E: model ranks by setting-level mean AUC (1 = best), ordered MG, MC, NC, NG. Colors identify the same models throughout; lines connect tasks or settings as visual guides. 
+
+3.2. Q2: Dataset-task-algorithm interactions provide preliminary evidence of shared structure 
+
+While Section 3.1 shows that comparative conclu-sions are globally robust across settings, our exper-iments are also strongly suggestive of a shared, un-derlying structure in task-, dataset-, and algorithm-performance relationships. This structure matters because it is precisely the kind of methodological knowledge we seek to uncover: not only which al-gorithm performs best on average, but which design choices are advantageous under which conditions. Our analyses find preliminary evidence of this shared structure through two vehicles: greater algorithm– task interaction structure among clinically meaning-ful than randomly generated tasks, and relationships between algorithm design and task properties that are associated with comparative performance. 
+
+Increased heterogeneity and algorithm–task interaction structure. We find three complemen-tary, interrelated sources of evidence suggesting that the heterogeneity remaining in algorithm rankings across tasks is driven by algorithm–task relationships, especially for clinically meaningful tasks. First, and most directly, the within-setting ranking consistency shown on the diagonal of Figure 2 (the proportion of task-level pairwise algorithm comparisons that agree with the setting-level aggregate comparison) is con-sistently lower for clinically meaningful tasks than for randomly generated tasks: 15.2% and 16.7% of task-level comparisons reverse the aggregate ordering on MIMIC-IV and NWICU clinically meaningful tasks, 
+
+5Methodological Progress Evaluation MG MG MC MC NC NC NG NG 
+
+0.92 0.91* 0.80* 0.92* 
+
+0.85 0.89* 0.86* 
+
+0.83 0.76* 
+
+0.89   
+
+> 0.0 0.5 1.0 Proportion
+
+Figure 2: Ranking consistency across evaluation set-tings. Off-diagonal cells show agreement between mean-AUROC algorithm rank-ings; italic diagonal entries show one minus the within-setting task reversal rate. Stars mark above-chance agreement (one-sided random-ranking tests, Holm-adjusted p < 0.05 across six setting pairs). MG/MC denote MIMIC-IV Gen-erated/Clinical; NC/NG denote NWICU Clinical/Generated. Confidence intervals and Kendall τ for comparisons against MG are available in Appendix I. versus 8.3% and 10.9% on randomly generated tasks. Second, a variance decomposition (Appendix I) esti-mating how much observed AUROC variance is due to algorithms alone, tasks alone, or their interac-tion attributes roughly 24% of variance to interaction terms for clinically meaningful tasks, versus below 10% for randomly generated tasks. Third, compar-ing per-task algorithm rankings between MIMIC-IV and NWICU across six clinical task concepts present in both datasets (Appendix D.3), rankings are statis-tically significantly more similar when the task has the same conceptual meaning in both datasets than when it does not (mean Kendall’s τb of 0.601 versus 0.437; exact permutation p = 0 .019), suggesting that a task’s conceptual identity is associated with sys-tematic algorithm-performance differences that per-sist across datasets, beyond properties of the algo-rithm or dataset alone. 
+
+Evidence of relationships between algorithm design principles and task properties. We can also test whether hypothesized links between algo-rithm design principles and performance hold in real experiments. Specifically, we consider whether the form of the pre-training loss in our two highest-performing neural algorithms (fine-tuned MOTOR and MEDS-EIC-AR) is related to their relative per-formance. MEDS-EIC-AR is pre-trained for next-token prediction, by design a very short-horizon task, whereas MOTOR is pre-trained to estimate time-to-next-occurrence distributions over a panel of codes, a much longer-horizon task. We might therefore hy-pothesize that MOTOR-FT’s advantage over MEDS-EIC-AR should grow with the task’s prediction hori-zon, which pushes the task farther from MEDS-EIC-AR’s pre-training loss relative to MOTOR’s. Across randomly generated tasks on our two datasets, 4 we find a statistically significant relationship supporting this hypothesis on NWICU (Spearman ρ = 0 .795, 
+
+pHolm = 0 .016) and a non-significant but direction-ally aligned correlation on MIMIC-IV ( ρ = 0 .483, 
+
+pHolm = 0.16), providing preliminary, partial evi-dence. A similar hypothesis applies to the under-performance of BEHRT, which by design ingests only relatively low-frequency input features such as diagnoses and should therefore perform better on longer-horizon tasks, where such features may play a more dominant role. We observe a statistically significant relationship consistent with this hypoth-esis on MIMIC-IV ( ρ = 0 .805, pHolm = 0 .015) and a non-significant correlation on NWICU ( ρ = −0.135, 
+
+pHolm = 0 .71). Full tables for these and further ex-ploratory analyses are available in Appendix I. 
+
+3.3. Q3: Methodological progress can arise from new uses of existing techniques, not only new architectures 
+
+Our controlled comparison shows mixed evidence of methodological progress over the last decade, and that progress is poorly summarized by the recency of model architectures. Most strikingly, the highest-performing pipeline we evaluate uses gradient-boosted trees, a technology available for roughly the entire period we study, but obtains its performance through a substantially newer way of 
+
+> 4. We use only randomly generated tasks because prediction horizon is an explicitly sampled task parameter in this fam-ily, providing broad horizon variation without tying each horizon to a clinically authored endpoint.
+> 6Methodological Progress Evaluation
+
+representing and exposing longitudinal EHR data to that learner. Concretely, Figure 3 shows each algorithm’s mean AUROC against the date at which, to the best of our knowledge, it was first released or published. MEDS-Tab-large, an XGBoost-derived algorithm [4], obtains best-in-class performance but is anchored to 2024, when MEDS-Tab was first released. This seems at first glance contradictory, given that XGBoost mod-els were in use in this space well before 2024; however, MEDS-Tab-large uses XGBoost in a much higher-capacity manner than many prior XGBoost base-lines. For example, ICU-XGBoost, which substan-tially underperforms both MEDS-Tab-large and re-cent neural algorithms, uses a more historically typ-ical formulation: a relatively small set of clinically curated features modeled through XGBoost. In con-trast, MEDS-Tab-large tabularizes the raw clinical data at an extremely wide, sparse scale, producing millions of features that summarize every code in the dataset vocabulary over diverse aggregation functions and lookback windows (5,983,579 for MIMIC-IV and 1,103,767 for NWICU). This added representational capacity, coupled with the advantages of the XG-Boost model class, yields its performance relative to other algorithms. Consistent with this usage, MEDS-Tab-large was among the most time-intensive algorithms to train, as seen in Appendix H, Figure 5, which shows the Pareto frontier between total runtime (preprocessing, amortized pre-training where applicable, and train-ing) and overall performance. There, MEDS-Tab-large occupies the end of the frontier that maximizes performance at high cost, while, contrary to typical expectations, neural algorithms such as MEDS-EIC-AR offer competitive performance at greatly reduced wall-time cost, a benefit to efficiency rather than pre-dictive power. 
+
+# 4. Discussion 
+
+4.1. Implications for methodological research in Health AI 
+
+Taken together, Q1 and Q2 suggest a two-stage evalu-ation strategy for methodological research in Health AI: first estimate the broadly stable component of algorithm performance, which transfers across task families and datasets and can therefore be measured cheaply, and then study systematic departures from it, which is where task-, dataset-, and design-specific 2016 2019 2022 2025   
+
+> Model-family artifact year
+> 0.6 0.7 0.8 0.9
+> Mean AUC
+> Cumulative best TAB-L EIC M-FT EIC-S M-LP DuETT TAB-T TECO TAB-LR ICU-XGB RET BEHRT
+
+Figure 3: Retrospective progress by model-family ar-tifact year. Each point is one model’s mean AUROC across the 40 tasks in all four set-tings; the dashed step curve marks the best mean AUROC among models available in that year or earlier. Colors and abbrevia-tions match Figure 1. Artifact years denote first public availability of the model family; scores are from the present evaluation and do not establish historical state of the art. methodological knowledge lives. Under this view, the question to ask of a new algorithm is not only whether it improves a particular benchmark, but whether that improvement transfers, where it fails, and what those failures teach us about which algorithms work where. A natural extension is to characterize the task space itself. With more tasks and datasets, one could ask whether subsets of tasks induce consistently sim-ilar algorithm rankings, whether such subsets can be predicted from observable properties such as hori-zon, prevalence, clinical category, or cohort size, and whether algorithm characteristics explain systematic departures from the aggregate ranking. Such anal-yses could turn task heterogeneity from a nuisance into a source of methodological insight. Finally, our experience suggests that recent tool-ing can considerably lower the historical barriers to comparative research in Health AI [17, 6]. Agentic generative AI made it feasible to reconstruct multi-ple heterogeneous model pipelines under a common interface with comparable effort per model, while data standards and shared tooling—MEDS for event-stream representation [18], MEDS-DEV for decen-tralized model execution and comparison [12], and ACES for portable task specification [34]—make such comparisons cumulative rather than one-off. Stan-dardized re-implementation is a different objective 
+
+> 7Methodological Progress Evaluation
+
+from exact reproduction of an original result, and our framework is designed for the former. We intend to contribute the re-implemented algorithms back to MEDS-DEV so that future work can extend rather than recreate these comparisons. 
+
+4.2. Limitations and future work 
+
+Several limitations constrain the scope of our con-clusions. First, we evaluate only two datasets, both drawn from structured hospital and ICU EHR data; extending the study to additional public datasets such as eICU and EHRSHOT, and to substantially different clinical contexts, would provide a stronger test of dataset invariance. Second, our algorithm set is a subset of the much larger Health AI litera-ture, and extending the common interface to the re-maining candidate algorithms would reduce sensitiv-ity to the particular algorithms sampled here. Third, each evaluation setting contains only ten tasks, which is sufficient to identify aggregate transfer and task-level heterogeneity but too small to characterize a la-tent task space; multiple independently sampled ran-domly generated suites and larger clinically meaning-ful collections would enable sensitivity analyses with respect to task count. Fourth, clinically meaningful task definitions cannot always be transferred identi-cally across datasets, so some observed cross-dataset differences may conflate dataset and task-definition changes. Fifth, all re-implementations are best-effort translations of the original algorithms: our common template, behavioral tests, integration tests, and hu-man review reduce the risk of obvious implementa-tion errors but cannot guarantee equivalence to the original pipelines, so our conclusions concern the al-gorithms as instantiated within our shared framework rather than the original studies. Finally, our uncer-tainty analysis does not capture all sources of varia-tion: we do not systematically repeat model training across random seeds, and our primary analyses focus on AUROC rather than other metrics such as win rate. 
+
+# 5. Related work 
+
+Prior work on barriers to cumulative methodological progress in Health AI can be organized around three recurring themes: access to and suitability of clini-cal data [20, 35], the formulation of meaningful and comparable evaluation tasks [11, 1], and the repro-ducibility and comparability of experimental results [17]. Donoho’s account of frictionless reproducibil-ity identifies complementary ingredients for such cu-mulative comparison: accessible data, re-executable workflows, and shared challenge problems with ex-plicit performance criteria [6]. Shared datasets alone, however, do not guarantee comparability. In amortality-prediction case study, Johnson et al. [11] documented substantial heterogeneity in cohort con-struction and task specification, motivating shared code, benchmarks, and common data-extraction pro-cedures. Harutyunyan et al. [9] subsequently intro-duced four standardized clinical prediction tasks on MIMIC-III, while MIMIC-Extract [31] further stan-dardized data extraction and preprocessing for repro-ducible EHR modeling. Yet Bellamy et al. [1] found that only a small fraction of subsequent studies cit-ing these benchmarks used sufficiently similar exper-imental setups for direct comparison, so benchmark availability and citation alone do not ensure consis-tent use. More recent benchmarks have expanded both the scope of tasks and the models being evaluated. EHRSHOT [33] defines 15 prediction tasks over lon-gitudinal EHR data for few-shot evaluation of pre-trained models, moving beyond ICU-only evalua-tion. FoMoH [23] similarly evaluates structured-EHR foundation models across a diverse suite of clinically meaningful prediction tasks, emphasizing clinical rel-evance and cross-model comparability. These efforts provide increasingly rich and standardized evaluation settings, but necessarily instantiate particular choices of datasets, cohorts, and tasks. Our work is comple-mentary: rather than proposing another fixed bench-mark, we ask how much the methodological conclu-sions obtained from an evaluation depend on those choices themselves. 
+
+# References 
+
+[1] David Bellamy, Leo Celi, and Andrew L. Beam. Evaluating progress on machine learning for longitudinal electronic healthcare data. arXiv preprint arXiv:2010.01149 , 2020. URL https: //arxiv.org/abs/2010.01149. [2] Aaron Boussina, Supreeth P. Shashikumar, Atul Malhotra, Robert L. Owens, Robert El-Kareh, Christopher A. Longhurst, Kimberly Quintero, Allison Donahue, Theodore C. Chan, Shamim Nemati, and Gabriel Wardi. Impact of a deep learning sepsis prediction model on quality of 
+
+> 8Methodological Progress Evaluation
+
+care and survival. npj Digital Medicine , 7:14, 2024. doi: 10.1038/s41746-023-00986-6. [3] Payal Chandak, Gregory Kondas, Liat Antwarg Friedman, Isaac Kohane, and Matthew McDermott. Everyquery: Zero-shot clinical prediction via task-conditioned pretraining over electronic health records, 2026. URL https://arxiv.org/abs/2603.07900. [4] Tianqi Chen and Carlos Guestrin. XGBoost: A scalable tree boosting system. In Proceedings of the 22nd ACM SIGKDD International Con-ference on Knowledge Discovery and Data Min-ing , pages 785–794. ACM, 2016. doi: 10.1145/ 2939672.2939785. [5] Edward Choi, Mohammad Taha Bahadori, Joshua A. Kulas, Andy Schuetz, Walter F. Stewart, and Jimeng Sun. RETAIN: An in-terpretable predictive model for healthcare us-ing reverse time attention mechanism. arXiv preprint arXiv:1608.05745 , 2016. [6] David Donoho. Data science at the singularity. 
+
+Harvard Data Science Review , 6(1), 2024. doi: 10.1162/99608f92.b91339ef. URL https://hdsr. mitpress.mit.edu/pub/g9mau4m0/release/2. [7] James A. Hanley and Barbara J. McNeil. The meaning and use of the area under a receiver op-erating characteristic (ROC) curve. Radiology ,143(1):29–36, 1982. doi: 10.1148/radiology.143. 1.7063747. [8] Moritz Hardt and Benjamin Recht. Patterns, Predictions, and Actions: Foundations of Ma-chine Learning . Princeton University Press, 2022. ISBN 9780691233734. [9] Hrayr Harutyunyan, Hrant Khachatrian, David C. Kale, Greg Ver Steeg, and Aram Galstyan. Multitask learning and benchmarking with clinical time series data. Scientific Data , 6(1):96, 2019. doi: 10.1038/s41597-019-0103-9. URL https://doi.org/10.1038/s41597-019-0103-9. [10] Alistair Johnson, Lucas Bulgarelli, Tom Pol-lard, Brian Gow, Benjamin Moody, Steven Horng, Leo Anthony Celi, and Roger Mark. MIMIC-IV. PhysioNet , October 2024. doi: 10.13026/kpb9-mt58. URL https://doi.org/10. 13026/kpb9-mt58. Version 3.1. [11] Alistair E. W. Johnson, Tom J. Pollard, and Roger G. Mark. Reproducibility in critical care: a mortality prediction case study. In Finale Doshi-Velez, Jim Fackler, David Kale, Rajesh Ranganath, Byron Wallace, and Jenna Wiens, editors, Proceedings of the 2nd Machine Learning for Healthcare Conference , volume 68 of Proceedings of Machine Learning Research ,pages 361–376. PMLR, 2017. URL https:// proceedings.mlr.press/v68/johnson17a.html. [12] Aleksia Kolo, Chao Pang, Edward Choi, Ethan Steinberg, Hyewon Jeong, Jack Gallifant, Ja-son A. Fries, Jeffrey N. Chiang, Jungwoo Oh, Justin Xu, Kamil˙ e Stankeviˇ ci¯ ut˙ e, Kiril V. Klein, Matthew B. A. McDermott, Mikkel Odgaard, Nassim Oufattole, Nigam H. Shah, Patrick Rockenschaub, Pawel Renc, Robin P. van de Water, Shalmali Joshi, Simon A. Lee, Teya S. Bergamaschi, Tom J. Pollard, Vincent Jeanselme, Young Sang Choi, Michael Wornow, Apara Kashyap, Xinzhuo Jiang, Yanwei Li, Yuta Kobayashi, and Ryan C. King. MEDS decentral-ized, extensible validation (MEDS-DEV) bench-mark: Establishing reproducibility and compa-rability in ml for health. In Machine Learning for Health (ML4H) 2024 Demo Track , 2024. [13] Alex Labach, Aslesha Pokhrel, Xiao Shi Huang, Saba Zuberi, Seung Eun Yi, Maksims Volkovs, Tomi Poutanen, and Rahul G. Kr-ishnan. DuETT: Dual event time transformer for electronic health records. arXiv preprint arXiv:2304.13017 , 2023. [14] Yikuan Li, Shishir Rao, Jose Roberto Ay-ala Solares, Abdelaali Hassaine, Dexter Canoy, Yajie Zhu, Kazem Rahimi, and Gholamreza Salimi-Khorshidi. BEHRT: Transformer for electronic health records. arXiv preprint arXiv:1907.09538 , 2019. [15] Matthew McDermott. MEDS “everything-is-code” autoregressive model. URL https:// github.com/mmcdermott/MEDS EIC AR. [16] Matthew McDermott. The (lack of?) sci-ence of machine learning for healthcare. In Stefan Hegselmann, Helen Zhou, Elizabeth Healey, Trenton Chang, Caleb Ellington, Vish-wali Mhasawade, Sana Tonekaboni, Peniel Ar-gaw, and Haoran Zhang, editors, Proceedings 
+
+> 9Methodological Progress Evaluation
+
+of the 4th Machine Learning for Health Sym-posium , volume 259 of Proceedings of Ma-chine Learning Research , pages 19–29. PMLR, 2025. URL https://proceedings.mlr.press/v259/ mcdermott25a.html. [17] Matthew B. A. McDermott, Shirly Wang, Niko-lay Marinsek, Rajesh Ranganath, Luca Foschini, and Marzyeh Ghassemi. Reproducibility in ma-chine learning for health research: Still a ways to go. Science Translational Medicine , 13(586): eabb1655, 2021. doi: 10.1126/scitranslmed. abb1655. [18] Matthew B. A. McDermott, Ethan Steinberg, Jason A. Fries, Robin P. van de Water, Chao Pang, Patrick Rockenschaub, Pawel Renc, Jung-woo Oh, Kamil˙ e Stankeviˇ ci¯ ut˙ e, Justin Xu, Tom J. Pollard, Nassim Oufattole, Michael Wornow, Teya S. Bergamaschi, Hyewon Jeong, Simon A. Lee, Vincent Jeanselme, Kiril V. Klein, Mikkel Odgaard, Maria E. Montgomery, Arka-diusz Sitek, Mads Nielsen, Jeffrey N. Chiang, Noa Dagan, Isaac Kohane, Shalmali Joshi, Ed-ward Choi, and Nigam H. Shah. MEDS— an emerging data standard and ecosystem for health ai research. NEJM AI , 3(6), 2026. doi: 10.1056/AIra2501253. [19] Dana Moukheiber, William Temps, Bhadrappa Molgi, Yikuan Li, Alice Lu, Prasanth Nan-napaneni, Abdulrahman Chahin, Sicheng Hao, Felipe Torres Fabregas, Leo Anthony Celi, Adrian Wong, Maxwell Lloyd, Xavier Bor-rat Frigola, Hyung-Chul Lee, Daniel Schnei-der, Tom Pollard, Yuan Luo, Abel Kho, and Roger Mark. Northwestern ICU (NWICU) database. PhysioNet , November 2024. doi: 10.13026/s84w-1829. URL https://doi.org/10. 13026/s84w-1829. Version 0.1.0. [20] Sendhil Mullainathan and Ziad Obermeyer. Solving medicine’s data bottleneck: Nightin-gale open science. Nature Medicine , 28 (5):897–899, May 2022. doi: 10.1038/ s41591-022-01804-4. URL https://doi.org/10. 1038/s41591-022-01804-4. [21] Myura Nagendran, Yang Chen, Christopher A. Lovejoy, Anthony C. Gordon, Matthieu Ko-morowski, Hugh Harvey, Eric J. Topol, John P. A. Ioannidis, Gary S. Collins, and Mahiben Maruthappu. Artificial intelligence versus clin-icians: systematic review of design, reporting standards, and claims of deep learning studies. 
+
+BMJ , 368:m689, 2020. doi: 10.1136/bmj.m689. [22] Nassim Oufattole, Teya Bergamaschi, Aleksia Kolo, Hyewon Jeong, Hanna Gaggin, Collin M. Stultz, and Matthew B. A. McDermott. MEDS-Tab: Automated tabularization and baseline methods for MEDS datasets, 2024. URL https: //arxiv.org/abs/2411.00200. [23] Chao Pang, Vincent Jeanselme, Young Sang Choi, Xinzhuo Jiang, Zilin Jing, Aparajita Kashyap, Yuta Kobayashi, Yanwei Li, Florent Pollet, Karthik Natarajan, and Shalmali Joshi. FoMoH: A clinically meaningful foundation model evaluation for structured electronic health records. arXiv preprint arXiv:2505.16941 , 2025. doi: 10.48550/arXiv.2505.16941. [24] Ruichen Rong, Zifan Gu, Hongyin Lai, Tanna L. Nelson, Tony Keller, Clark Walker, Kevin W. Jin, Catherine Chen, Ann Marie Navar, Fer-dinand Velasco, Eric D. Peterson, Guanghua Xiao, Donghan M. Yang, and Yang Xie. Adeep learning model for clinical outcome pre-diction using longitudinal inpatient electronic health records. medRxiv , 2025. doi: 10.1101/ 2025.01.21.25320916. [25] Olawale Salaudeen and Moritz Hardt. Imagenot: A contrast with imagenet preserves model rank-ings. Transactions on Machine Learning Re-search , 2026. [26] Olawale Salaudeen, Florian E. Dorner, and Pe-ter Hase. On evaluating methods vs. evaluating models. In NeurIPS 2025 Workshop on Evalu-ating the Evolving LLM Lifecycle: Benchmarks, Emergent Abilities, and Scaling , 2025. [27] David W. Shimabukuro, Christopher W. Bar-ton, Mitchell D. Feldman, Samson J. Mataraso, and Ritankar Das. Effect of a machine learning-based severe sepsis prediction algorithm on pa-tient survival and hospital length of stay: arandomised clinical trial. BMJ Open Respira-tory Research , 4(1):e000234, 2017. doi: 10.1136/ bmjresp-2017-000234. [28] Ethan Steinberg, Jason Alan Fries, Yizhe Xu, and Nigam Shah. MOTOR: A time-to-event foundation model for structured medical records. 
+
+> 10 Methodological Progress Evaluation
+
+In International Conference on Learning Repre-sentations , 2024. [29] Nenad Tomaˇ sev, Xavier Glorot, Jack W. Rae, Michal Zielinski, Harry Askham, An-dre Saraiva, Anne Mottram, Clemens Meyer, Suman Ravuri, Ivan Protsyuk, Alistair Con-nell, C´ ıan O. Hughes, Alan Karthikesalingam, Julien Cornebise, Hugh Montgomery, Geraint Rees, Chris Laing, Clifton R. Baker, Kelly Pe-terson, Ruth Reeves, Demis Hassabis, Dominic King, Mustafa Suleyman, Trevor Back, Christo-pher Nielson, Joseph R. Ledsam, and Shakir Mohamed. A clinically applicable approach to continuous prediction of future acute kidney in-jury. Nature , 572(7767):116–119, 2019. doi: 10.1038/s41586-019-1390-1. [30] Eric J. Topol. High-performance medicine: the convergence of human and artificial intelligence. 
+
+Nature Medicine , 25(1):44–56, 2019. doi: 10. 1038/s41591-018-0300-7. [31] Shirly Wang, Matthew B. A. McDermott, Geet-icka Chauhan, Marzyeh Ghassemi, Michael C. Hughes, and Tristan Naumann. MIMIC-Extract: A data extraction, preprocessing, and represen-tation pipeline for MIMIC-III. In Proceedings of the ACM Conference on Health, Inference, and Learning , pages 222–235. ACM, 2020. doi: 10.1145/3368555.3384469. [32] Jenna Wiens, Suchi Saria, Mark Sendak, Marzyeh Ghassemi, Vincent X. Liu, Finale Doshi-Velez, Kenneth Jung, Katherine Heller, David Kale, Mohammed Saeed, Pilar N. Osso-rio, Sonoo Thadaney-Israni, and Anna Golden-berg. Do no harm: a roadmap for responsi-ble machine learning for health care. Nature Medicine , 25(9):1337–1340, 2019. doi: 10.1038/ s41591-019-0548-6. [33] Michael Wornow, Rahul Thapa, Ethan Stein-berg, Jason A. Fries, and Nigam H. Shah. EHRSHOT: An ehr benchmark for few-shot evaluation of foundation models. In Advances in Neural Information Processing Systems , vol-ume 36, pages 67125–67137, 2023. doi: 10. 52202/075280-2933. [34] Justin Xu, Jack Gallifant, Alistair E. W. Johnson, and Matthew B. A. McDermott. ACES: Automatic cohort extraction sys-tem for event-stream datasets. In Inter-national Conference on Learning Represen-tations , 2025. URL https://proceedings. iclr.cc/paper files/paper/2025/hash/ d8542126cd3e0dd6c0a44e0aa1957072-Abstract-Conference. html. [35] Angela Zhang, Lei Xing, James Zou, and Joseph C. Wu. Shifting machine learning for healthcare from development to deployment and from models to data. Nature Biomedical En-gineering , 6:1330–1345, 2022. doi: 10.1038/ s41551-022-00898-y. 
+
+> 11
+
+Methodological Progress Evaluation 
+
+# Appendix A. List of considered models 
+
+The list of considered ICU/EHR models for our study is presented in Table 2. 
+
+Table 2: The 49 structured-EHR model cards surveyed for this pilot, grouped by training strategy. Supervised models learn predictors directly from task-specific labels; Pretrained models use a separate reusable pre-training stage, consumed either by fine-tuning or by a frozen probe; 
+
+Other includes zero-shot and prior-fitted approaches that do not require task-specific supervised training. For zero-shot algorithms, dir. denotes algorithms that produce predictions directly from the observed record without sampling future trajectories, whereas mat. denotes algorithms that obtain predictions by sampling or materializing future trajectories and evaluating the target outcome on those trajectories. Years follow each model card’s classification; links are to the source paper and, where available, a public code repository. Years in this table refer to publica-tion year, whereas years in some other tables refer to the artifact date (e.g., the date of the original preprint or release). ∗ foundation-model configuration. † with self-supervised pretraining. 
+
+Model Publication Year Resource Supervised 
+
+STraTS-mTAND 2025 paper TECO 2025 paper GenHPF 2024 paper / code PRISM 2024 paper / code TRANS 2024 paper / code KerPrint 2023 paper / code Chet 2022 paper / code UniHPF 2022 paper / code GRASP 2021 paper / code SETOR 2021 paper / code AdaCare 2020 paper / code ConCare 2020 paper / code GCT 2020 paper / code HiTANet 2020 paper / code StageNet 2020 paper / code SAnD 2018 paper / code Dipole 2017 paper / code GRAM 2017 paper / code Doctor AI 2016 paper / code RETAIN 2016 paper / code 
+
+Pretrained – Probe 
+
+ORA 2026 paper PORTER 2026 paper CLMBR 2021 paper / code 
+
+Pretrained – Fine-tuned 
+
+AID-MAE 2026 paper HealthFormer 2026 paper / code SurvivEHR 2026 paper / code BAT ∗ 2025 paper / code CEHR-XGPT 2025 paper / code 
+
+continued on next page 
+
+12 Methodological Progress Evaluation 
+
+Table 2: (continued) 
+
+Model Publication Year Resource 
+
+PULSE-ICU 2025 paper / code TOO-BERT 2025 paper / code CORE-BEHRT 2024 paper / code EBCL 2024 paper / code MOTOR 2024 paper / code DuETT 2023 paper / code Hi-BEHRT 2023 paper TransEHR 2023 paper / code TransformEHR 2023 paper / code GenHPF † 2022/2023 paper / code STraTS 2022 paper / code CEHR-BERT 2021 paper / code Med-BERT 2021 paper / code BEHRT 2020 paper / code G-BERT 2019 paper / code 
+
+Other 
+
+EveryQuery (dir.) 2026 paper / code SurvPFN 2026 paper / code CoMET (mat.) 2025 paper Delphi-2M (dir.) 2025 paper / code MEDS-EIC-AR (mat.) 2025–2026 code ETHOS / ARES (mat.) 2024/2025 paper / code 13 Methodological Progress Evaluation 
+
+# Appendix B. Analysis definitions 
+
+B.1. Statistical analysis overview 
+
+Our primary quantity of interest is the difference in held-out AUROC between two algorithms on a given task and evaluation setting. We use these pair-wise differences, together with the aggregate rankings across tasks that they induce, to assess how compara-tive conclusions change when the dataset or task fam-ily changes. Formal definitions follow in the remain-der of this appendix, and uncertainty quantification is detailed in Appendix B.4. 
+
+Transfer across evaluation settings (Q1). We compare the aggregate algorithm rankings for ev-ery pair of the four settings. Pairwise agreement is the proportion of algorithm pairs whose mean-AUROC difference has the same sign in both set-tings. Agreement above chance is assessed with one-sided random-ranking permutation tests (10 6 permu-tations, plus-one correction), with Holm adjustment across the six between-setting comparisons. 
+
+Task–algorithm interactions (Q2). We quan-tify within-setting task consistency as one minus the task-level reversal rate: the proportion of task-specific pairwise algorithm comparisons that agree with the corresponding comparison averaged across tasks in the same setting (Appendix B.3). We com-plement this with a descriptive decomposition of each task–algorithm AUROC matrix into algorithm, task, and algorithm–task interaction components. Further exploratory Q2 analyses are described alongside their results in Section 3; where significance is reported for these analyses, it is assessed with permutation tests, Holm-adjusted across datasets where applica-ble. Q3 relates aggregate performance to model-family artifact dates, with component-precedent and performance–compute analyses reported in Appen-dices G and H. 
+
+B.2. AUROC and pairwise algorithm differences 
+
+For a binary prediction task, let S+ and S− denote the scores assigned by a model to randomly sampled positive and negative examples, respectively. The area under the receiver operating characteristic curve (AUROC) can be interpreted as the probability that a randomly selected positive example receives a higher score than a randomly selected negative example: AUROC = Pr( S+ > S −) + 12 Pr( S+ = S−).
+
+For algorithm m, task t, and evaluation setting s,we denote the held-out AUROC by Amts . Our pri-mary comparative quantity is the difference in AU-ROC between two algorithms i and j:∆ijts = Aits − Ajts .
+
+Positive values indicate that algorithm i outperforms algorithm j on task t.When comparing algorithms at the evaluation-setting level, we first average AUROC across the Ts
+
+tasks in that setting: ¯Ams = 1
+
+TsTsX
+
+> t=1
+
+Amts ,
+
+and define the corresponding aggregate pairwise dif-ference as ¯∆ijs = ¯Ais − ¯Ajs .
+
+B.3. Task-level reversal rate 
+
+We use task-level reversals to quantify how often an individual task favors the opposite algorithm from the aggregate comparison within the same evaluation setting. A reversal occurs for algorithm pair ( i, j ) on task t when the task-specific difference and aggregate difference have opposite signs: ∆ijts ¯∆ijs < 0.
+
+The reversal rate for evaluation setting s is there-fore 
+
+Rs = 1
+
+Ts
+
+ M
+
+> 2
+
+
+
+> Ts
+
+X
+
+> t=1
+
+X
+
+> i<j
+
+1 ∆ijts ¯∆ijs < 0 ,
+
+where M is the number of evaluated algorithms and 
+
+1[·] is the indicator function. Thus, Rs is the pro-portion of all task–algorithm-pair comparisons whose direction disagrees with the corresponding aggregate comparison. Ties are not counted as reversals. 
+
+B.4. Uncertainty quantification 
+
+For ranking agreement, reversal rates, horizon cor-relations, and training-strategy differences, we com-bine the 2,000 supplied joint patient-bootstrap draws 
+
+> 14 Methodological Progress Evaluation
+
+Table 3: Summary of the two datasets used in our experiments.             
+
+> Characteristic MIMIC-IV NWICU
+> Subjects 364,627 25,923 Events 881M 50.8M Events / subject 2,417 1,959 Vocabulary size 148,193 26,620 Subjects with ICU stay 65,366 (17.9%) 23,204 (89.5%)
+
+with task resampling. Within each dataset, a com-mon patient draw is reused across all tasks and algo-rithms; draw orders are paired independently across datasets. Independently within each setting, we sam-ple ten tasks with replacement, identically across al-gorithms, and recompute each statistic and its aggre-gate references. For horizon correlations, each sam-pled task’s horizon and contrast remain paired and ranks are recomputed; undefined correlations from constant resamples are excluded and counted. We report marginal 95% percentile intervals, assuming exchangeable tasks within settings. These intervals condition on the fitted algorithms: repeated algo-rithm training was not bootstrapped because of com-putational cost. 
+
+# Appendix C. Dataset characterization 
+
+Dataset characterization is shown in Table 3. 
+
+# Appendix D. Tasks 
+
+D.1. Task specifications 
+
+Task specifications are shown in Tables 4, 5, 6, 7. 
+
+D.2. Task adequacy threshold. 
+
+We impose a minimum cohort size to avoid evalu-ating models on tasks for which the held-out AU-ROC is estimated with substantial sampling uncer-tainty. AUROC can be interpreted as the probability that a randomly selected positive example is ranked above a randomly selected negative example [7]. For a Bernoulli ranking outcome with probability A, the variance is A(1 − A), which is maximized at A = 0 .5and is therefore bounded by 1 /4. This motivates the simple resolution heuristic SE(AUROC) ≲ 12√N , N = min( npos , n neg ),
+
+where the minority-class size is used because it is the limiting class for estimating pairwise discrimination. Under this heuristic, N = 150 corresponds to an AUROC standard-error scale of approximately 0 .041, while N = 40 corresponds to approximately 0 .079. We use these values as task-selection criteria rather than as exact confidence intervals; the actual sam-pling variance of AUROC depends on both class sizes and the distribution of model scores. 
+
+D.3. Matched tasks 
+
+Matched tasks are summarized in Table 8. 
+
+# Appendix E. Model development 
+
+We used Claude Code v2.1 with Anthropic Claude Opus 5, assigning one agent to each model imple-mentation. The agents were not given access to raw PhysioNet data. Experiments were run on a compute cluster with NVIDIA L40S GPUs. 
+
+# Appendix F. Detailed results 
+
+Detailed AUROC results are shown in Tables 9, 10, 11, 12. Detailed compute cost results are shown in Tables 13, 14 and 15. 
+
+# Appendix G. Model recency and methodological progress 
+
+To assess whether newer algorithms correspond to im-proved performance, we relate overall mean AUROC to two notions of model “age”: the first documented public artifact of each model family and the precedent date of selected architectural or learning components, as shown in Table 16. For each timeline, we also re-port the best performance achieved up to each year within the evaluated model set. Component dates are editorial choices, and these curves should be in-terpreted as retrospective summaries of the models studied here rather than reconstructions of the his-torical state of the art. We consider two notions of recency. First, we date each model family by the year of its first public ar-tifact, that can be a paper or a GitHub repository 
+
+> 15
+
+Methodological Progress Evaluation 
+
+Table 4: Randomly generated tasks selected on MIMIC-IV. All statistics are measured on the held-out split. The randomly generated task selection requires min( npos , n neg ) ≥ 150. ∆ t is the prediction horizon; Prev. is the prevalence, with the minority-class count nmin in parentheses. Avg AUROC is averaged across the 12 models.                                                        
+
+> Task Category ∆tPrev. ( nmin )Avg AUROC ID Name
+> MG3 MCH result LAB 1 d 51.13% (11,235) 0.854 MG7 Death MEDS DEATH 1 d 1.01% (233) 0.910 MG8 IV acetaminophen INFUSION START 2 d 2.97% (644) 0.919 MG5 22-gauge IV catheter removal PROCEDURE 2 d 2.04% (443) 0.904 MG6 Oral-gastric output SUBJECT FLUID OUTPUT 2 d 1.12% (244) 0.909 MG9 Invasive ventilation end PROCEDURE 30 d 5.44% (946) 0.926 MG10 Tube-feed residual SUBJECT FLUID OUTPUT 30 d 2.75% (477) 0.926 MG2 Serum chloride LAB 180 d 70.92% (3,954) 0.839 MG4 Phenylephrine infusion INFUSION START 180 d 2.64% (362) 0.883 MG1 20-gauge IV catheter placement PROCEDURE 365 d 8.99% (872) 0.812
+
+Table 5: Randomly generated tasks selected on NWICU. All statistics are measured on the held-out split. The randomly generated task selection requires min( npos , n neg ) ≥ 150. Columns as in Table 4.                                                        
+
+> Task Category ∆tPrev. ( nmin )Avg AUROC ID Name
+> NG7 Diet order PROCEDURE 3 d 14.5% (348) 0.792 NG5 Heparin injection MEDICATION 3 d 8.9% (214) 0.742 NG6 Total bilirubin LAB 7 d 41.6% (866) 0.763 NG8 Patient transfer PROCEDURE 7 d 25.3% (522) 0.807 NG4 Magnesium sulfate IV MEDICATION 14 d 22.8% (323) 0.729 NG3 Potassium chloride, oral MEDICATION 14 d 22.8% (323) 0.704 NG2 Immature granulocytes LAB 30 d 44.4% (490) 0.703 NG9 Death MEDS DEATH 90 d 36.5% (318) 0.809 NG10 Pulse oximetry LAB 180 d 38.8% (294) 0.819 NG1 Portable chest X-ray PROCEDURE 731 d 32.5% (163) 0.688
+
+(Figure 3 in the main text). Under this view, there is some evidence of improvement over time, but the re-lationship is far from monotonic: several recent mod-els perform below substantially older approaches, and the strongest overall performer is the XGBoost-based MEDS-Tab-Large baseline. A different picture emerges when models are dated by the precedent of their main technical components (Figure 4). Strong performance is already achieved by relatively old modeling components, most notably logistic regression and XGBoost, and newer technical components do not consistently improve upon this frontier. This suggests that model recency alone is a poor proxy for methodological progress in the settings we evaluate. MEDS-Tab Large illustrates an important distinc-tion between these two views. Although it is a recent model artifact, its predictive model is XGBoost; its strong performance instead relies on a modern, ex-tremely wide and sparse tabularization of the longi-tudinal record, rather than on a recently introduced learning algorithm. Thus, some improvements asso-ciated with newer systems may come from how clin-ical data are represented and exposed to the model, rather than from the recency of the predictive archi-tecture itself. 
+
+# Appendix H. Performance–compute tradeoff 
+
+To assess whether newer approaches expand the achievable tradeoff between predictive performance and computational cost, rather than considering per-formance alone, Figure 5 compares generated-task macro-AUROC with amortized wall time across the 
+
+16 Methodological Progress Evaluation 
+
+Table 6: Clinically meaningful tasks evaluated on MIMIC-IV. All statistics are measured on the held-out split. Clinical tasks are retained when min( npos , n neg ) ≥ 40. Columns as in Table 4.                                                        
+
+> Task Anchor ∆tPrev. ( nmin )Avg AUROC ID Name
+> MC8 Circulatory failure ICU admission + 24 h 8 h 0.86% (45) 0.792 MC4 Invasive ventilation ICU admission + 24 h 12 h 1.16% (69) 0.752 MC9 Thrombocytopenia Hospital admission + 24 h 24 h 5.17% (765) 0.825 MC7 Respiratory failure ICU admission + 24 h 24 h 4.83% (226) 0.788 MC3 Hyponatremia Hospital admission + 24 h 48 h 9.38% (1,065) 0.737 MC1 Leukocytosis ICU admission + 24 h 48 h 13.39% (464) 0.700 MC6 Acute kidney injury ICU admission + 24 h 48 h 9.00% (547) 0.763 MC5 Hospital discharge Hospital admission + 48 h 7 d 70.69% (9,714) 0.755 MC2 Hospital readmission Live hospital discharge 30 d 20.85% (11,283) 0.722 MC10 Post-discharge mortality Live hospital discharge 90 d 5.09% (2,755) 0.876
+
+Table 7: Clinically meaningful tasks evaluated on NWICU. All statistics are measured on the held-out split. Clinical tasks are retained when min( npos , n neg ) ≥ 40. Columns as in Table 4.                                                        
+
+> Task Anchor ∆tPrev. ( nmin )Avg AUROC ID Name
+> NC9 Thrombocytopenia Hospital admission + 24 h 24 h 7.20% (157) 0.746 NC1 Leukocytosis ICU admission + 24 h 48 h 16.27% (192) 0.670 NC3 Hyponatremia Hospital admission + 24 h 48 h 9.28% (164) 0.699 NC4 Sedation initiation ICU admission + 24 h 48 h 6.37% (118) 0.702 NC5 Broad-spectrum antibiotic initiation ICU admission + 24 h 48 h 4.47% (86) 0.703 NC6 Vasopressor initiation ICU admission + 24 h 48 h 4.89% (83) 0.714 NC8 Acute kidney injury ICU admission + 24 h 48 h 4.14% (79) 0.744 NC7 Hospital discharge Hospital admission + 48 h 7 d 59.94% (1,806) 0.721 NC2 Hospital readmission Live hospital discharge 30 d 29.18% (1,635) 0.672 NC10 Post-discharge mortality Live hospital discharge 90 d 6.67% (374) 0.748
+
+Table 8: Clinical task pairs treated as conceptu-ally matched in the cross-dataset ranking-similarity analysis. 
+
+Clinical concept MIMIC-IV NWICU Hyponatremia MC3 NC3 Thrombocytopenia MC9 NC9 Leukocytosis MC1 NC1 Hospital readmission (30 d) MC2 NC2 Post-discharge mortality (90 d) MC10 NC10 Length of stay (7 d) MC5 NC7 
+
+evaluated algorithms. Shared preprocessing and pre-training costs are amortized across tasks, while task-specific preprocessing, training, and required feature extraction are included; the Pareto frontier marks al-gorithms that achieve higher performance for a given cost or lower cost for a given performance. The mod-els span a wide range of tradeoffs: inexpensive histor-ical approaches such as ICU-XGBoost and RETAIN achieve relatively strong performance at very low cost, while higher-performing algorithms generally re-quire more computation. The frontier is formed by algorithms from several generations and model fami-lies rather than by a monotonic sequence of increas-ingly recent architectures: MEDS-Tab-large achieves the highest mean AUROC at the second-highest cost, whereas MEDS-EIC-AR and RETAIN occupy differ-ent points on the frontier at lower computational cost. Per-model costs are tabulated in Appendix F. 
+
+# Appendix I. Additional analyses 
+
+This section provides the detailed numerical results underlying the analyses in Section 3. For Q1, Ta-ble 17 reports aggregate pairwise agreement and Kendall rank correlation between MIMIC-IV ran-
+
+17 Methodological Progress Evaluation 
+
+Table 9: Task-level AUROC for MIMIC-IV Generated (MG). Mean is the unweighted task average; bold indicates the highest unrounded value in each column. Point estimates only. 
+
+Model MG1 MG2 MG3 MG4 MG5 MG6 MG7 MG8 MG9 MG10 Mean MEDS-TAB-large 0.8697 0.9075 0.9344 0.9470 0.9695 0.9779 0.9804 0.9768 0.9782 0.9725 0.9514 
+
+MEDS-EIC-AR 0.8500 0.9070 0.9325 0.9357 0.9675 0.9699 0.9624 0.9708 0.9718 0.9700 0.9438 MOTOR-FT 0.8703 0.9107 0.9276 0.9540 0.9712 0.9740 0.9735 0.9783 0.9801 0.9742 0.9514 MEDS-EIC-AR-sup 0.8268 0.8842 0.9051 0.9219 0.9541 0.9594 0.9538 0.9638 0.9630 0.9661 0.9298 MOTOR-LP 0.8700 0.8951 0.8950 0.9499 0.9388 0.9720 0.9707 0.9781 0.9796 0.9746 0.9424 ICU-XGBoost 0.8256 0.7936 0.8079 0.9134 0.9165 0.9596 0.9626 0.9401 0.9584 0.9632 0.9041 RETAIN 0.8361 0.8838 0.9097 0.9125 0.9529 0.9511 0.9328 0.9548 0.9575 0.9637 0.9255 DuETT 0.8259 0.8285 0.8604 0.9155 0.9247 0.9420 0.9581 0.9441 0.9462 0.9557 0.9101 MEDS-TAB-tiny 0.8065 0.7826 0.8182 0.8845 0.9010 0.9268 0.9366 0.9241 0.9357 0.9605 0.8877 TECO 0.7922 0.7682 0.7716 0.8750 0.9071 0.9270 0.9181 0.9109 0.9297 0.9520 0.8752 MEDS-TAB-LR 0.7393 0.8712 0.9023 0.7535 0.8638 0.7815 0.7598 0.8898 0.8974 0.8386 0.8297 BEHRT 0.6343 0.6376 0.5855 0.6295 0.5844 0.5722 0.6115 0.5983 0.6148 0.6223 0.6090 
+
+Table 10: Task-level AUROC for MIMIC-IV Clinical (MC). Mean is the unweighted task average; bold indicates the highest unrounded value in each column. Point estimates only. 
+
+Model MC1 MC2 MC3 MC4 MC5 MC6 MC7 MC8 MC9 MC10 Mean MEDS-TAB-large 0.8105 0.7847 0.8090 0.8759 0.8187 0.8579 0.8935 0.9006 0.9288 0.9225 0.8602 
+
+MEDS-EIC-AR 0.7334 0.7591 0.7991 0.8196 0.8121 0.8363 0.8682 0.8848 0.9063 0.9103 0.8329 MOTOR-FT 0.7625 0.7598 0.8017 0.8376 0.8082 0.7974 0.8481 0.8798 0.9123 0.9095 0.8317 MEDS-EIC-AR-sup 0.6923 0.7476 0.7766 0.8050 0.7980 0.8248 0.8473 0.8466 0.8783 0.9051 0.8121 MOTOR-LP 0.7104 0.7550 0.7365 0.8389 0.7993 0.7952 0.8542 0.8783 0.8070 0.9070 0.8082 ICU-XGBoost 0.7755 0.6551 0.7900 0.8266 0.7283 0.7981 0.8474 0.8817 0.9070 0.8388 0.8049 RETAIN 0.6991 0.7359 0.6992 0.7388 0.7520 0.7491 0.8459 0.7404 0.7513 0.8778 0.7589 DuETT 0.7538 0.7056 0.7918 0.7029 0.7454 0.7571 0.7135 0.8575 0.9075 0.8544 0.7789 MEDS-TAB-tiny 0.6903 0.6878 0.7685 0.7362 0.7253 0.7483 0.7785 0.7697 0.8930 0.8368 0.7634 TECO 0.6054 0.6391 0.6523 0.7100 0.6954 0.7242 0.7762 0.7947 0.6863 0.7846 0.7068 MEDS-TAB-LR 0.6129 0.7179 0.6495 0.6103 0.7647 0.6853 0.6409 0.6457 0.6960 0.8641 0.6887 BEHRT 0.5524 0.7223 0.5664 0.5211 0.6076 0.5771 0.5450 0.4243 0.6220 0.9069 0.6045 
+
+domly generated tasks and the other evaluation set-tings, including bootstrap confidence intervals and permutation-test results. For Q2, Tables 18 and 19 provide two complemen-tary summaries of task–algorithm interaction: the frequency with which individual-task comparisons re-verse the corresponding aggregate comparison, and the decomposition of observed AUROC variation into model, task, and model–task interaction components. Table 20 examines whether conceptually matched clinical tasks induce more similar model rankings across MIMIC-IV and NWICU than incorrect cor-respondences among the same six task concepts; the broader nonmatched comparison is also reported for completeness. Tables 22 and 21 report the exploratory analy-ses relating prediction horizon to model performance. The former measures how the relative performance of MOTOR-FT and MEDS-EIC-AR changes with hori-zon, while the latter relates horizon to BEHRT’s ab-solute AUROC. Finally, Table 23 reports paired com-parisons of fine-tuning versus linear probing for MO-TOR and pretraining versus supervised-only training for MEDS-EIC-AR across each evaluation setting and overall. 
+
+18 Methodological Progress Evaluation 
+
+Table 11: Task-level AUROC for NWICU Clinical (NC). Mean is the unweighted task average; bold indicates the highest unrounded value in each column. Point estimates only. 
+
+Model NC1 NC2 NC3 NC4 NC5 NC6 NC7 NC8 NC9 NC10 Mean MEDS-TAB-large 0.7847 0.7700 0.8156 0.8012 0.7957 0.8300 0.8128 0.8437 0.8983 0.8279 0.8180 
+
+MEDS-EIC-AR 0.7534 0.7425 0.7826 0.7527 0.7946 0.8237 0.8105 0.8046 0.8898 0.8146 0.7969 MOTOR-FT 0.6186 0.7394 0.6523 0.7737 0.7388 0.7524 0.7456 0.7610 0.6921 0.7548 0.7229 MEDS-EIC-AR-sup 0.6728 0.7288 0.7127 0.7356 0.7577 0.7683 0.7569 0.7486 0.7300 0.7973 0.7408 MOTOR-LP 0.6317 0.7052 0.6258 0.7578 0.7656 0.7647 0.7191 0.7664 0.6907 0.7434 0.7170 ICU-XGBoost 0.7706 0.6163 0.8131 0.6902 0.7186 0.7267 0.7150 0.8589 0.9016 0.7775 0.7589 RETAIN 0.6461 0.6797 0.6791 0.7540 0.6892 0.7212 0.7678 0.7512 0.7017 0.7630 0.7153 DuETT 0.7177 0.6193 0.7490 0.6888 0.7192 0.7457 0.6890 0.7901 0.8542 0.7662 0.7339 MEDS-TAB-tiny 0.6782 0.6396 0.7422 0.7006 0.7179 0.7329 0.6972 0.7676 0.7661 0.7459 0.7188 TECO 0.6059 0.5998 0.6051 0.6617 0.6677 0.6927 0.6892 0.7838 0.6190 0.6820 0.6607 MEDS-TAB-LR 0.5634 0.6195 0.6329 0.6138 0.5342 0.5219 0.6878 0.5518 0.6254 0.5962 0.5947 BEHRT 0.5951 0.6003 0.5738 0.4902 0.5341 0.4828 0.5593 0.5035 0.5856 0.7097 0.5634 
+
+Table 12: Task-level AUROC for NWICU Generated (NG). Mean is the unweighted task average; bold indicates the highest unrounded value in each column. Point estimates only. 
+
+Model NG1 NG2 NG3 NG4 NG5 NG6 NG7 NG8 NG9 NG10 Mean MEDS-TAB-large 0.7838 0.8020 0.7879 0.7966 0.8589 0.8522 0.8764 0.9131 0.8770 0.9021 0.8450 
+
+MEDS-EIC-AR 0.7243 0.7591 0.7768 0.8049 0.8429 0.8349 0.8813 0.9036 0.8549 0.8597 0.8242 MOTOR-FT 0.7707 0.7295 0.7430 0.7832 0.7741 0.7722 0.8524 0.8627 0.8497 0.8460 0.7983 MEDS-EIC-AR-sup 0.6885 0.7289 0.6913 0.7504 0.7776 0.7952 0.8039 0.8272 0.8262 0.8468 0.7736 MOTOR-LP 0.7602 0.6900 0.7264 0.7808 0.7806 0.7476 0.8365 0.8430 0.8441 0.8114 0.7821 ICU-XGBoost 0.6570 0.6521 0.7446 0.7239 0.7047 0.7948 0.7641 0.7696 0.8443 0.8352 0.7490 RETAIN 0.7146 0.7806 0.7371 0.7897 0.7848 0.8219 0.8453 0.8798 0.8367 0.8663 0.8057 DuETT 0.6602 0.7457 0.6989 0.7481 0.7391 0.8040 0.8078 0.8166 0.8426 0.8585 0.7722 MEDS-TAB-tiny 0.6505 0.7239 0.6599 0.7120 0.7379 0.7737 0.7115 0.7234 0.7723 0.7965 0.7262 TECO 0.6679 0.5897 0.6414 0.6414 0.6818 0.6804 0.7609 0.7676 0.7572 0.8684 0.7057 MEDS-TAB-LR 0.6291 0.6673 0.6897 0.6594 0.6726 0.7234 0.7488 0.7704 0.7820 0.7635 0.7106 BEHRT 0.5465 0.5720 0.5488 0.5606 0.5498 0.5605 0.6103 0.6090 0.6187 0.5686 0.5745 19 Methodological Progress Evaluation 
+
+Table 13: MIMIC-IV generated tasks: macro-AUC and mean pipeline wall time per task for the 8 retained tasks. Preprocessing and pretraining include the allocated shared costs; extraction is required for MOTOR-LP feature extraction. Training denotes fine-tuning or supervised fitting. Total is in hours; components are in seconds. 
+
+Model Macro-AUC Preprocess (s) Pretrain (s) Train (s) Extract (s) Total (h) MEDS-TAB-large 0.953529 38,776.408 0.000 62,360.200 0.000 28.093502 MEDS-EIC-AR 0.944870 2,768.338 1,085.950 3,422.240 0.000 2.021258 MOTOR-FT 0.952875 688.006 6,210.695 230,571.552 0.000 65.963959 MOTOR-LP 0.943626 688.006 6,210.695 152.098 2,439.183 2.636106 RETAIN 0.926711 152.375 0.000 155.875 0.000 0.085625 MEDS-EIC-AR-sup 0.931370 2,768.338 0.000 3,367.908 0.000 1.704513 DuETT 0.915796 9.800 10,830.688 874.023 0.000 3.254031 ICU-XGBoost 0.911114 6.219 0.000 5.078 0.000 0.003138 MEDS-TAB-tiny 0.894786 2,561.875 0.000 4,486.750 0.000 1.957951 TECO 0.881755 33.087 0.000 9,693.292 0.000 2.701772 MEDS-TAB-LR 0.816080 38,776.408 0.000 604.022 0.000 10.939008 BEHRT 0.604747 2.625 221.780 1,301.012 0.000 0.423727    
+
+> Totals use unrounded components. Prediction time is excluded. Zero denotes a component not used. Wall times are not hardware-normalized; values describe the retained task set, not the full evaluation.
+
+Table 14: NWICU generated tasks: macro-AUC and mean pipeline wall time per task for the 7 retained tasks. Preprocessing and pretraining include the allocated shared costs; extraction is required for MOTOR-LP feature extraction. Training denotes fine-tuning or supervised fitting. Total is in hours; components are in seconds. 
+
+Model Macro-AUC Preprocess (s) Pretrain (s) Train (s) Extract (s) Total (h) MEDS-TAB-large 0.856071 3,688.251 0.000 6,401.618 0.000 2.802742 MEDS-EIC-AR 0.833626 212.314 255.888 242.627 0.000 0.197452 MOTOR-FT 0.813803 71.783 1,128.593 23,286.575 0.000 6.801931 MOTOR-LP 0.795611 71.783 1,128.593 128.474 144.120 0.409158 RETAIN 0.814524 1.565 0.000 9.875 0.000 0.003178 MEDS-EIC-AR-sup 0.782722 212.314 0.000 247.324 0.000 0.127677 DuETT 0.784100 0.879 842.774 61.184 0.000 0.251344 ICU-XGBoost 0.772798 0.725 0.000 0.929 0.000 0.000459 MEDS-TAB-tiny 0.726841 81.857 0.000 80.000 0.000 0.044960 TECO 0.734837 1.766 0.000 1,034.701 0.000 0.287907 MEDS-TAB-LR 0.729546 3,688.251 0.000 38.713 0.000 1.035268 BEHRT 0.580357 0.169 17.906 101.415 0.000 0.033192    
+
+> Totals use unrounded components. Prediction time is excluded. Zero denotes a component not used. Wall times are not hardware-normalized; values describe the retained task set, not the full evaluation.
+
+20 Methodological Progress Evaluation 
+
+Table 15: Pooled generated tasks: macro-AUC and mean pipeline wall time per task for the 15 retained tasks. Preprocessing and pretraining include the allocated shared costs; extraction is required for MOTOR-LP feature extraction. Training denotes fine-tuning or supervised fitting. Total is in hours; components are in seconds. Pooled means give equal weight to each retained task across both datasets. 
+
+Model Macro-AUC Preprocess (s) Pretrain (s) Train (s) Extract (s) Total (h) MEDS-TAB-large 0.908048 22,401.934 0.000 36,246.195 0.000 16.291147 MEDS-EIC-AR 0.892956 1,575.526 698.588 1,938.421 0.000 1.170149 MOTOR-FT 0.887975 400.435 3,839.048 133,838.563 0.000 38.355013 MOTOR-LP 0.874552 400.435 3,839.048 141.073 1,368.154 1.596864 RETAIN 0.874357 81.997 0.000 87.742 0.000 0.047150 MEDS-EIC-AR-sup 0.862001 1,575.526 0.000 1,911.635 0.000 0.968656 DuETT 0.854338 5.637 6,169.661 494.698 0.000 1.852777 ICU-XGBoost 0.846566 3.655 0.000 3.141 0.000 0.001888 MEDS-TAB-tiny 0.816412 1,404.533 0.000 2,430.267 0.000 1.065222 TECO 0.813193 18.471 0.000 5,652.616 0.000 1.575302 MEDS-TAB-LR 0.775697 22,401.934 0.000 340.211 0.000 6.317263 BEHRT 0.593365 1.479 126.639 741.200 0.000 0.241477    
+
+> Totals use unrounded components. Prediction time is excluded. Zero denotes a component not used. Wall times are not hardware-normalized; values describe the retained task set, not the full evaluation.
+
+Table 16: Model-family artifact dates and selected technical-component dates. 
+
+Model name Artifact date Artifact type Technical date Newest component RETAIN 2016-08-19 arXiv preprint 2014 GRU and attention ICU-XGBoost 2017 Conference paper 2014 XGBoost BEHRT 2019-07-22 arXiv preprint 2018 BERT MOTOR-FT 2023-01-09 arXiv preprint 2021 Rotary positional embeddings MOTOR-LP 2023-01-09 arXiv preprint 2021 Rotary positional embeddings DuETT 2023-04-25 arXiv preprint 2021 Continuous-value embeddings (STraTS) MEDS-TAB-LR 2024-06-05 Package release 2008 Regularized logistic regression MEDS-TAB-tiny 2024-06-05 Package release 2014 XGBoost MEDS-TAB-large 2024-06-05 Package release 2014 XGBoost TECO 2025-01-23 medRxiv preprint 2017 Transformer with sinusoidal positional encoding MEDS-EIC-AR 2025-04-21 Repository release 2021 Rotary embeddings and parallel residuals MEDS-EIC-AR-sup 2025-04-21 Repository release 2021 Rotary embeddings and parallel residuals 
+
+Table 17: Agreement of aggregate model rankings with MIMIC-IV Generated (MG; A). Target Agreement [95% CI] Kendall τ [95% CI] pHolm 
+
+MIMIC-IV Clinical (MC; B) 90.9% [83.3, 95.5] 0.818 [0.667, 0.909] 4.60 × 10 −5
+
+NWICU Clinical (NC; C) 80.3% [69.7, 92.4] 0.606 [0.394, 0.848] 0.0026 NWICU Generated (NG; D) 92.4% [81.8, 93.9] 0.848 [0.636, 0.879] 1.80 × 10 −5
+
+21 Methodological Progress Evaluation 2008 2012 2016 2021 
+
+Component precedent year 
+
+> 0.55 0.60 0.65 0.70 0.75 0.80 0.85 0.90
+> Mean AUC
+> MEDS-EIC-AR MOTOR-FT MEDS-EIC-AR-sup MOTOR-LP DuETT MEDS-TAB-large ICU-XGBoost RETAIN MEDS-TAB-tiny TECO* MEDS-TAB-LR BEHRT Pareto frontier
+
+Figure 4: Retrospective progress by selected component-precedent year. Points show mean AUROC across the same 40 equally weighted tasks as Figure 3, using identical model colors and AUROC limits. The dashed step curve marks the best mean AUROC among evaluated models assigned to that year or earlier. Component years are editorial precedents (Table 16) and do not establish when the complete pipelines first became feasible. TECO’s asterisk marks a provisional Transformer-backbone date. Table 18: Task-level reversals of aggregate model comparisons. Each setting contains 10 × 66 = 660 task–model-pair compar-isons. MG/MC denote MIMIC-IV Gen-erated/Clinical; NG/NC denote NWICU Generated/Clinical. Setting Reversal rate [95% CI] MG 8.3% [4.5, 10.6] MC 15.2% [10.2, 17.7] NC 16.7% [10.9, 19.7] NG 10.9% [7.7, 15.5] Table 19: Two-way decomposition of observed AU-ROC variation within each evaluation set-ting. MG/MC denote MIMIC-IV Gen-erated/Clinical; NG/NC denote NWICU Generated/Clinical. Setting Model Task Interaction MG 78.2% 13.6% 8.2% MC 51.0% 25.1% 23.9% NC 66.0% 9.6% 24.4% NG 62.3% 28.7% 9.0% Table 20: Similarity of individual-task model rank-ings across datasets. Entries are mean Kendall τb with 95% patient-and-task bootstrap intervals. 
+
+Task pairs n Mean τb [95% CI] Matched 6 0.601 [0.485, 0.712] All nonmatched 394 0.546 [0.480, 0.596] Same-six nonmatched 30 0.437 [0.352, 0.573] Matched − all nonmatched 0.055 [-0.059, 0.182] Matched − same-six nonmatched 0.164 [0.025, 0.284]   
+
+> Exact two-sided correspondence-permutation test within the six concepts: p= 0 .0194 (720 bijections).
+
+Table 21: Association between generated-task hori-zon and BEHRT AUROC. Each dataset contains 10 generated tasks. Brackets give 95% percentile intervals from 2,000 task-only bootstrap replicates; patient un-certainty is unavailable for absolute AU-ROC. Two-sided permutation tests use 1,000,000 permutations. Reported p-values are Holm-adjusted across the two datasets within this analysis. Positive cor-relation indicates better absolute perfor-mance at longer horizons. Dataset Spearman ρ [95% CI] pHolm 
+
+MIMIC-IV 0.805 [0.230, 0.967] 0.0146 NWICU -0.135 [-0.810, 0.690] 0.7105 
+
+22 Methodological Progress Evaluation 10 −3 10 −2 10 −1 10 0 10 1 10 2
+
+Amortized wall time per task (hours) 
+
+> 0.5 0.6 0.7 0.8 0.9
+> Macro-AUC
+
+Pooled across both datasets    
+
+> Pareto frontier MEDS-TAB-large MEDS-EIC-AR MOTOR-FT MOTOR-LP RETAIN MEDS-EIC-AR-sup DuETT ICU-XGBoost MEDS-TAB-tiny TECO MEDS-TAB-LR BEHRT
+
+Figure 5: Generated-task macro-AUROC versus amortized wall time for 12 models on 8 MIMIC-IV and 7 NWICU tasks. All models use the same retained tasks within each dataset. Shared preprocessing and pretraining are amortized over these tasks; task-specific preprocessing, training, and required feature extraction are added. Dashed curves show the Pareto frontier. Wall times are not hardware-normalized. Pooled values weight each retained task equally. For the compute analysis, we restrict to tasks for which compute measurements were successfully verified, yielding 8 MIMIC-IV and 7 NWICU generated tasks. Table 22: Association of generated-task horizon with the AUROC difference MOTOR-FT mi-nus MEDS-EIC-AR, across 10 tasks per dataset. Positive Spearman ρ indicates a growing relative advantage for MOTOR-FT at longer horizons. Repeated horizons receive average ranks. Dataset Spearman ρ [95% CI] pHolm 
+
+MIMIC-IV 0.483 [-0.417, 0.949] 0.1600 NWICU 0.795 [0.067, 0.997] 0.0163 Table 23: Paired training-strategy comparisons. En-tries are mean AUROC differences in per-centage points. MOTOR compares FT mi-nus LP; EIC-AR compares the pretrained variant minus the supervised-only variant. 
+
+Setting MOTOR EIC-AR MG 0.90 [0.16, 1.71] 1.39 [0.88, 1.97] MC 2.35 [0.28, 4.85] 2.08 [0.93, 3.45] NC 0.58 [-0.89, 1.95] 5.61 [2.88, 8.88] NG 1.63 [0.63, 2.66] 5.06 [3.06, 6.95] Overall 1.37 [0.67, 2.16] 3.54 [2.61, 4.53] 23
