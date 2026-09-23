@@ -6,53 +6,44 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-09-22
-- 运行时间：2026-09-22 22:11:33 UTC
+- 最新运行日期：2026-09-23
+- 运行时间：2026-09-23 22:12:43 UTC
 - 运行状态：成功
-- 本次总论文数：11
-- 精读区：5
-- 速读区：6
+- 本次总论文数：7
+- 精读区：3
+- 速读区：4
 
 ### 今日简报（AI）
-今日精读5篇、速读6篇医疗AI论文，重点聚焦医学推理奖励机制与医疗强化学习评估。最值得看的是《Fathom-Vaidya》（9.0/10）用评分标准奖励推进医学推理，以及《The Evidence Ladder》（8.0/10）梳理从回顾性策略到可信干预的强化学习路径。普通读者可先读这两篇精读，再速览医疗AI评估与临床数据分析方向的速读文章。
-- 详情：[/202609/22/README](/202609/22/README)
+- 今日共生成 7 篇推荐（精读 3 篇，速读 4 篇）
+- 精读：《The Evidence Ladder for Reinforcement Learning in Healthcare: From Retrospective Policies to Trusted Interventions》（8.0/10）, 《Governed AI-Agent Coordination for Dementia Care: Architecture, Safety Contracts, and Evidence-Derived Workflow Verification》（8.0/10）
+- 速读：《Representation-guided in-context learning for medical image interpretation with multimodal large language models》（7.0/10）, 《MedVLA: A Hierarchical Vision-Language-Action Framework for Closed-Loop Precision Medical Robot Manipulation》（7.0/10）, 《Generalist-Specialist Mixture-of-Experts for Rare Pathology Detection in Multimodal Imaging》（6.0/10）
+- 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。
+- 详情：[/202609/23/README](/202609/23/README)
 
 ### 精读区论文标签
-1. [Fathom-Vaidya: Advancing Medical Reasoning with Rubric-Based Rewards](/202609/22/2609.24480v1-fathom-vaidya-advancing-medical-reasoning-with-rubric-based-rewards)  
-   标签：评分：9.0/10、query:topic
-   evidence：基于评分标准奖励的LLM医学推理，用于诊断和临床决策支持
-2. [The Evidence Ladder for Reinforcement Learning in Healthcare: From Retrospective Policies to Trusted Interventions](/202609/22/2609.23374v1-the-evidence-ladder-for-reinforcement-learning-in-healthcare-from-retrospective-policies-to-trusted-interventions)  
-   标签：评分：8.0/10、query:med-rl-agent
-   evidence：医疗强化学习的证据阶梯综述
-3. [Representation-guided in-context learning for medical image interpretation with multimodal large language models](/202609/22/2609.24057v1-representation-guided-in-context-learning-for-medical-image-interpretation-with-multimodal-large-language-models)  
-   标签：评分：8.0/10、query:retina-agent
-   evidence：视网膜眼底镜与多模态大模型医学图像解读
-4. [A Task-Oriented Multi-Agent Framework for Complex Wearable Health Analysis](/202609/22/2609.24107v1-a-task-oriented-multi-agent-framework-for-complex-wearable-health-analysis)  
+1. [The Evidence Ladder for Reinforcement Learning in Healthcare: From Retrospective Policies to Trusted Interventions](/202609/23/2609.23374v1-the-evidence-ladder-for-reinforcement-learning-in-healthcare-from-retrospective-policies-to-trusted-interventions)  
    标签：评分：8.0/10、query:topic
-   evidence：面向健康分析的任务导向多智能体框架
-5. [MedRSI: Recursive Self-Improvement for Medical Agents via Clinically Aligned Self-Evolution](/202609/22/2609.24838v1-medrsi-recursive-self-improvement-for-medical-agents-via-clinically-aligned-self-evolution)  
+   evidence：以证据阶梯作为医疗强化学习策略的评估方法论
+2. [Governed AI-Agent Coordination for Dementia Care: Architecture, Safety Contracts, and Evidence-Derived Workflow Verification](/202609/23/2609.25956v1-governed-ai-agent-coordination-for-dementia-care-architecture-safety-contracts-and-evidence-derived-workflow-verification)  
    标签：评分：8.0/10、query:topic
-   evidence：面向医疗智能体的递归自我改进框架
+   evidence：面向痴呆照护的受治理AI智能体协同架构
+3. [MAC-RRG: Iterative Multi-Agent Collaboration for X-ray Radiology Report Generation](/202609/23/2609.26124v1-mac-rrg-iterative-multi-agent-collaboration-for-x-ray-radiology-report-generation)  
+   标签：评分：8.0/10、query:topic
+   evidence：面向放射报告生成的迭代式多智能体协作框架
 
 ### 速读区论文标签
-1. [Rethinking How We Evaluate Methodological Progress in Health AI](/202609/22/2609.18134v2-rethinking-how-we-evaluate-methodological-progress-in-health-ai)  
+1. [Representation-guided in-context learning for medical image interpretation with multimodal large language models](/202609/23/2609.24057v1-representation-guided-in-context-learning-for-medical-image-interpretation-with-multimodal-large-language-models)  
+   标签：评分：7.0/10、query:retina-agent
+   evidence：免训练上下文学习用于含眼底镜的医学图像解读
+2. [MedVLA: A Hierarchical Vision-Language-Action Framework for Closed-Loop Precision Medical Robot Manipulation](/202609/23/2609.25756v1-medvla-a-hierarchical-vision-language-action-framework-for-closed-loop-precision-medical-robot-manipulation)  
    标签：评分：7.0/10、query:topic
-   evidence：针对健康AI算法的共享评估框架
-2. [Authority-Preserving Evaluation of Medical Vision-Language Assistants](/202609/22/2609.22302v1-authority-preserving-evaluation-of-medical-vision-language-assistants)  
-   标签：评分：7.0/10、query:topic
-   evidence：医学视觉语言助手的评估框架
-3. [Ascent: An Agentic System over the Model Context Protocol for Real-World Clinical Data Analysis](/202609/22/2609.24620v1-ascent-an-agentic-system-over-the-model-context-protocol-for-real-world-clinical-data-analysis)  
-   标签：评分：7.0/10、query:topic
-   evidence：面向临床数据分析与决策支持的智能体系统
-4. [A Unified Evaluation Framework for Trustworthy Large Language Models, Agentic AI, and Multimodal Systems](/202609/22/2609.19524v2-a-unified-evaluation-framework-for-trustworthy-large-language-models-agentic-ai-and-multimodal-systems)  
+   evidence：分层医疗智能体框架与多智能体数据生成
+3. [Generalist-Specialist Mixture-of-Experts for Rare Pathology Detection in Multimodal Imaging](/202609/23/2609.18688v1-generalist-specialist-mixture-of-experts-for-rare-pathology-detection-in-multimodal-imaging)  
+   标签：评分：6.0/10、query:fsrh
+   evidence：面向罕见低患病率病理的混合专家模型
+4. [The AI Neuroscientist: An Interactive Agentic Interface for Neuroimaging Analysis](/202609/23/2609.25254v1-the-ai-neuroscientist-an-interactive-agentic-interface-for-neuroimaging-analysis)  
    标签：评分：6.0/10、query:topic
-   evidence：面向大模型、智能体AI与多模态系统的统一可信评估框架
-5. [Proxifield: Decentralized Multi-Agent Communication through Semantic Proximity](/202609/22/2609.20889v1-proxifield-decentralized-multi-agent-communication-through-semantic-proximity)  
-   标签：评分：6.0/10、query:topic
-   evidence：去中心化多智能体通信协议，可迁移至医疗多智能体系统
-6. [QwenVLConnector: A Fast, Unified Medical VLM Chatbot for Fine-Grained Clinical Perception and Text Generation](/202609/22/2609.23139v1-qwenvlconnector-a-fast-unified-medical-vlm-chatbot-for-fine-grained-clinical-perception-and-text-generation)  
-   标签：评分：6.0/10、query:topic
-   evidence：轻量级连接器的统一医学视觉语言聊天机器人
+   evidence：面向医学影像分析的领域专用LLM智能体框架与自建基准
 
 
 <div class="dpr-home-promo-card">

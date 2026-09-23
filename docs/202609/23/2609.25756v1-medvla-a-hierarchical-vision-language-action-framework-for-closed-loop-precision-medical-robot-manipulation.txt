@@ -1,0 +1,435 @@
+Title: MedVLA: A Hierarchical Vision-Language-Action Framework for Closed-Loop Precision Medical Robot Manipulation
+
+URL Source: https://arxiv.org/pdf/2609.25756v1
+
+Published Time: Wed, 23 Sep 2026 01:00:31 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# MedVLA: A Hierarchical Vision-Language-Action Framework for Closed-Loop Precision Medical Robot Manipulation 
+
+Junjie Xie, Angen Ye, Yujia Song, Chuxuan He, and Dapeng Zhang ∗
+
+Abstract — Precision medical robotics demands adaptive decision-making under strict safety, interpretability, and ex-ecution constraints. Although recent Vision-Language-Action (VLA) models show strong multimodal reasoning ability, their continuous action generation paradigm is not well suited for precision medical tasks, where reliable closed-loop operation may also depend on non-action system function calls. To address this gap, we propose MedVLA, a hierarchical frame-work that couples high-level multimodal reasoning with low-level function-constrained execution. We further introduce a scalable multi-agent pipeline to generate skill-oriented chain-of-thought(CoT) data for structured training. Built on differ-ent multimodal large-model backbones, MedVLA consistently improves performance after fine-tuning, demonstrating the effectiveness of the proposed framework across model variants. Under identical initial conditions, we perform 100 closed-loop flexible electrode implantation trials. The results show that MedVLA achieves a 95.0% task success rate, substantially out-performing representative VLA baselines, including OpenVLA (8%) and π0 (15%), in accuracy, stability, and safety. These results indicate that structured reasoning with constrained function-level execution is a practical route toward deployable precision medical robotics. 
+
+I. INTRODUCTION Precision medical robotics has become an important re-search direction at the intersection of medical engineering, robotics, and intelligent systems [1]. Its goal is not merely to complete predefined operations, but to maintain stable control of instruments and tissues in medical environments characterized by high risk, strong constraints, and extremely low fault tolerance. Unlike general manipulation in open en-vironments, precision medical tasks are typically performed in narrow surgical fields and require continuous percep-tion, real-time judgment, and dynamic correction within millimeter-scale or smaller workspaces [2]–[5]. In scenarios such as minimally invasive intervention, neural modulation, and electrode implantation, the robot must not only localize key targets from visual observations, but also continuously update subsequent actions by jointly considering instrument state, task phase, and operation goals, thereby enabling safe and accurate closed-loop execution under continuous feedback [4]–[6]. Such settings therefore require integrated                            
+
+> *This work is supported by the Beijing Natural Science Foundation Haidian Original Innovation Joint Fund Project (L232035, L222154). Junjie Xie, Angen Ye, and Yujia Song are with the Institute of Au-tomation, Chinese Academy of Sciences, Beijing 100190, China, and also with the School of Artificial Intelligence, University of Chinese Academy of Sciences, Beijing 100049, China. Chuxuan He is with Zhe-jiang Gongshang University, Hangzhou 310018, China. Dapeng Zhang is with the Institute of Automation, Chinese Academy of Sciences, Beijing 100190, China. ∗Corresponding author: Dapeng Zhang (e-mail:
+
+xiejunjie2024@ia.ac.cn ; dapeng.zhang@ia.ac.cn ). 
+
+high-precision decision-making, constrained execution, and closed-loop adjustment under complex operational con-straints [5], [6]. Medical robotics has made sustained progress in mecha-nism design, visual navigation, motion control, and human– robot collaboration [3], [4], [7], [8]. However, most existing systems still remain within the “human-led, robot-assisted” paradigm, where intelligence is reflected in local func-tional enhancement rather than autonomous decision-making throughout the task process [9]–[12]. Meanwhile, Vision-Language-Action (VLA) models such as OpenVLA and π0
+
+have unified visual perception, language understanding, and action generation within a single framework, showing strong cross-task generalization in open-world manipulation [13], [14]. Yet a substantial gap remains between such general-purpose VLA paradigms and precision medical requirements. Schmidgall et al. pointed out that robot-assisted surgery faces distinctive challenges including limited open surgical data, soft-tissue modeling difficulty, and stricter safety val-idation needs [15]. Lee et al. confirmed through a review of FDA-cleared surgical robots that most deployed systems operate at low autonomy levels [9]. Zargarzadeh et al. fur-ther showed that in surgical settings, higher-level reasoning must be explicitly coordinated with lower-level execution rather than left to unconstrained end-to-end action generation [16]. These findings indicate that directly applying general-purpose VLA models to precision medical tasks remains insufficient in execution accuracy, safety constraints, and behavioral determinism. Beyond the execution-level mis-match, data acquisition has become another major bottleneck. Previous studies have relied on small-scale experimental data or task-specific samples collected on dedicated platforms, which remain insufficient for systems that must learn high-level reasoning and closed-loop feedback mechanisms [6], [15], [17], [18]. Data collection for precision medical tasks is inherently costly due to specialized platforms, dense annota-tion, and expert participation [8], [12], [19]. Moreover, recent work shows that raw visual input with direct supervision cannot capture the full decision chain of closed-loop medical operation; richer representations such as hierarchical phase– task–action annotations [20], explicit phase recognition [21], and structured surgical workflow modeling [17], [22], [23] are necessary. What is therefore needed is a scalable data construction mechanism that can generate structured task data efficiently while remaining extensible to new precision medical scenarios [6], [18]. To address these issues, this paper proposes MedVLA ,a hierarchical vision-language-action framework for closed-arXiv:2609.25756v1 [cs.RO] 22 Sep 2026 Dual-Vision Image   
+
+> User Input Module
+> Is implant possible?
+> Left.png Right.png
+> Robot State
+> [SINGULARITY JUDGEMENT]
+> [CAM. FRAMERATE STATUS]
+> [RANGE INITIALIZATION]
+> …
+> OTHER H.D. STATE
+> Image
+> Encoder
+
+State-aware 
+
+Prompt 
+
+## ⊕
+
+> Is implant
+> possible?
+> Is implant possible? (SINGULARITY JUDGEMENT:
+> Operational;
+> CAM. FRAMERATE STATUS: Operational;
+> RANGE INITIALIZATION: Not initialized ；…)
+> …
+> Text Encoder
+> … …
+> MULTIMODAL FUSION & CROSS-ATTENTION LAYER
+> LVLM BACKBONE
+> & STRUCTURED OUTPUT
+> GENERATION
+> STATE -BASEDLOGIC
+> GATING?
+> ACTION SPACE VALIDITY CHECK?
+> YES
+> Gating
+> Denied
+> NO
+> NO
+> YES
+> LOWER-LAYER
+> ACTION MODULE
+> FUNCTION
+> SPACES
+> <FUNCTION 1>
+> EXECUTE
+> <FUNCTION>
+> Action execution
+> flag set to 1
+
+FEEDBACK LOOP 
+
+> Next Iteration: ResampleVision, Combine UpdatedState & Original User Input
+
+UPDATE STATE 
+
+> Hard-coded judgment mechanism (non-LLM-based)
+> MIDDLE GATING MODULE
+> think
+> answer
+> function
+> <FUNCTION 2>
+> <FUNCTION 3>
+> <FUNCTION N>
+> …
+> <function>
+> <think>
+> The image background generally……following action: Initialize Range.
+> <answer>
+> Currently in the implantation ……range initialization is required.
+> e.g. REINITIALIZE_RANGE
+
+Fig. 1. Overview of the proposed hierarchical closed-loop framework for precision medical robot operation. Dual-view images, user instruction, and robot state are combined into a state-aware prompt and processed by the LVLM to generate structured outputs ( think , answer , and function ). The predicted function is then verified by the middle gating module through action-space validity checking and state-based logic gating before being executed by the lower-layer action module. Updated visual observations and robot states are fed back into the next iteration to form a closed-loop process. 
+
+loop precision medical robot manipulation. While hierar-chical control and skill-based planning have been explored in general robotics [13], [14], MedVLA differs from prior work in three key respects. First, unlike high-level planner / low-level controller frameworks that decompose tasks into language-level subgoals and delegate execution to learned continuous policies, MedVLA outputs structured function calls verified by an explicit state-based gating module before reaching the executor, making each decision au-ditable and constrained rather than open-ended. Second, the gating mechanism enforces domain-specific preconditions tied to the physical task state—not merely action-space membership—so that unsafe or premature operations are blocked before execution. Third, the framework integrates chain-of-thought reasoning into the decision triplet, coupling interpretable reasoning traces with function prediction to support both post-hoc analysis and improved intermediate judgment accuracy. Together, these design choices address the safety, determinism, and verifiability requirements that distinguish precision medical manipulation from open-world robotic tasks. Specifically, the upper module is centered on a fine-tuned large model that integrates visual observations, system states, and task goals to produce structured decision outputs. The lower module invokes constrained skill interfaces according to these decisions, executes them in a single-step manner, updates the environment state after each operation, and feeds the updated state back to the upper module, thereby forming a progressively advancing closed-loop process. Through this design, MedVLA preserves the high-level semantic under-standing and task reasoning ability of large models [13], [14] while strictly restricting actual execution to a constrained and verifiable skill space, making it better suited to the safety, determinism, and execution-precision requirements of precision medical tasks [1], [4]. In addition, to address the high cost and limited scalability of real-world medical data collection, we design a skill-oriented multi-agent data generation mechanism for MedVLA. Multiple agents col-laboratively construct instruction, state, decision, and skill-invocation data throughout the task process, while a cosine-similarity-based deduplication strategy removes highly repet-itive samples. This process yields a structured dataset with lower redundancy, stronger generalization ability, and clearer organization for MedVLA training and deployment. We conduct systematic validation of the proposed method on a real implantable electrode operation platform. The pri-mary contributions of this work are summarized as follows: 
+
+1) We propose a hierarchical architecture tailored for precision medical tasks, which achieves safe closed-loop control over a constrained skill space by decoupling high-level judgment from low-level execution. 
+
+2) We design a skill-oriented multi-agent data generation mechanism and construct a structured dataset of approx-imately 30,000 samples with low redundancy and strong generalization, providing an effective data foundation for closed-loop decision learning. 
+
+3) We perform system-level validation on a real platform and show that the proposed method achieves a 95.0% success rate in complete closed-loop tasks, outperforming OpenVLA and π0 by 87.0 and 80.0 percentage points, respectively, thereby demonstrating its effectiveness in balancing precision execution and intelligent decision-making. II. METHODOLOGY 
+
+A. Task Formulation and Problem Modeling 
+
+Precision medical robotic tasks are structured decision-making problems under multimodal and state constraints, rather than direct regressions from visual observations to continuous actions. Compared with general manipulation, they involve stringent precision requirements and explicit ex-ecution stages. At each step, the system decision depends on visual observations, execution progress, completed actions, and task objectives. We therefore formulate the task as an iterative process centered on state-constrained function calls. At time t, the system receives binocular image obser-vations It = {I(1)  
+
+> t
+
+, I (2)  
+
+> t
+
+}, user task input ut, and internal robot state st. Here, It captures the surgical scene and local geometric relations, ut specifies the task intent, and st
+
+records the execution stage and internal decision variables. Based on these inputs, the system predicts a structured decision triplet 
+
+yt = {⟨ think ⟩t, ⟨answer ⟩t, ⟨function ⟩t}, (1) where ⟨think ⟩t denotes the reasoning process, ⟨answer ⟩t the intermediate judgment, and ⟨function ⟩t the next function call. The core mapping learned in this work is 
+
+(It, u t, s t) → yt, (2) rather than the conventional mapping (It, u t) → at.Let F denote the discrete executable function space, and let F(st) ⊆ F denote the subset allowed under the current state. The predicted function must satisfy 
+
+⟨function ⟩t ∈ F (st). (3) The overall task is thus formulated as the closed-loop process 
+
+(It, u t, s t) → yt → ⟨ function ⟩t → (st+1 , I t+1 ), (4) which repeats until termination. 
+
+B. Hierarchical Closed-Loop Control Framework 
+
+To ensure stable execution under stringent constraints, we design a hierarchical closed-loop framework that organizes perception, reasoning, verification, and execution into a uni-fied workflow. As shown in Fig. 1, the framework consists of multimodal perception and state inputs, a high-level decision module, a middle gating module, a low-level action module, and a feedback update loop. At each step, the robot state is explicitly combined with the user instruction to form a state-aware prompt. This allows the model to reason not only about the visible scene, but also about what is currently executable under the system state. The high-level decision module uses a fine-tuned Large Vision-Language Model (LVLM) to map the image observations and state-aware prompt to the structured triplet 
+
+yt defined in Eq. (1), making the decision process explicit and interpretable. To prevent invalid or unsafe execution, the predicted 
+
+⟨function ⟩t is checked by the middle gating module, which performs two sequential checks: (i) action-space validity ,ensuring that the predicted function belongs to the predefined executable set F; and (ii) state-based logic gating , verifying that the function is consistent with the current robot state st
+
+and satisfies domain-specific preconditions. In the implan-tation task, these preconditions include geometric alignment status between the needle and electrode hole, vision-system readiness (exposure and focus within operational bounds), and workspace initialization state. Only functions that pass both checks are forwarded to the lower layer for execution. When the gate rejects a predicted function, the system immediately triggers E STOP , initiates a hardware self-check routine, and activates an audible alarm. Given the safety-critical nature of precision surgical tasks, the system then transfers control to the human operator rather than attempting autonomous recovery to an uncertain state. This conservative design reflects the principle that, in high-stakes medical settings, a safe halt with human handover is preferable to autonomous re-planning whose safety cannot be fully guaranteed. After execution, the system updates the robot state and vi-sual observations, yielding (st+1 , I t+1 ) for the next iteration. This forms an iterative “Perceive–Reason–Gate–Execute– Update” loop, summarized in Algorithm 1. 
+
+C. Structured Data Generation via Multi-Agent Collabora-tion 
+
+To align the training data with the proposed framework, we construct a structured data generation pipeline based on multi-agent collaboration, redundancy reduction, and con-straint verification, as illustrated in Fig. 2. We use prior task documents, robot capability documents, action rules, and initial system states as knowledge sources for data generation. In this pipeline, we define two LLM-based roles: the Human Agent , which simulates a user by generating diverse task prompts from the source materials, and the Robot Agent , which produces structured responses given the generated prompts and system states. The term User Queries & Tasks 
+
+Robot Capabilities 
+
+& Action Rules 
+
+Initial System State(State) 
+
+Human Agent 
+
+(User Prompt Generation) 
+
+> Robot Agent
+> (Structured Response Generation)
+> <think>Reasoning Process
+> <answer>Intermediate Judgment
+> <function>Next Function Call
+> Deduplication Module
+> UP
+> +
+> State
+
+User Prompt 
+
+(UP) 
+
+## ⊕
+
+Prior Documents A 
+
+Prior Documents B 
+
+UP 
+
++
+
+State 
+
++
+
+Structured 
+
+Response 
+
+> Reduced
+> Redundancy
+> Semantic Embedding Mapping
+> Cosine
+> Similarity
+> Metric
+> Hard Constraint Verification
+> Check Logic Gate Constraints
+> on <function>
+> Check <function> within
+> Pre-defined Action Space
+> Soft Constraint Verification
+> Check Image-<answer> Match
+> Check <answer>-<function>
+> Consistency
+> Check <think>-<answer>-<function>chain
+> Semantic Coherence Check
+> Validated
+> Training
+> Dataset
+> [UP1, State1,
+> <think>,
+> <answer>,
+> <function>]
+> [UP2, State2,
+> <think>,
+> <answer>,
+> <function>]
+
+...  
+
+> Data Flow Feedback
+> [UP3, State3,
+> <think>,
+> <answer>,
+> <function>]
+
+I. Inputs & 
+
+Knowledge Base 
+
+Ⅱ. Generation & 
+
+Reduced Redundancy  Ⅲ. Validation Data  Ⅳ. Validated 
+
+Dataset Fig. 2. Structured data generation pipeline based on multi-agent collaboration. Prior documents and initial system states are used to generate user prompts. The combined prompt-state inputs are embedded using the hidden representations of the LVLM backbone, and redundant samples are removed by cosine similarity. The retained samples are then used to generate structured responses ( think , answer , and function ) and further filtered by hard constraints, soft constraints, and semantic coherence checks to form the validated training dataset. 
+
+Algorithm 1 Hierarchical Closed-Loop Control 
+
+Require: Images I0, user input u, initial state s0, LVLM M,function space F
+
+1: t ← 0
+
+2: while task not terminated do 
+
+3: yt ← M (It, u, s t) {Reason: predict triplet }
+
+4: ft ← ⟨ function ⟩t
+
+5: if ft /∈ F or ft /∈ F (st) then 
+
+6: Execute E STOP ; self-check; alarm; hand over {Gate: reject }
+
+7: end if 
+
+8: Execute ft; update (st+1 , I t+1 ) {Execute & Update }
+
+9: t ← t + 1 
+
+10: end while 
+
+skill-oriented refers to the fact that each training sample is organized around a single executable function call (i.e., a predefined robot skill) rather than free-form text or raw action trajectories. The Human Agent first generates user prompts to simulate realistic task requests. To reduce re-dundancy, each prompt-state pair is embedded using the internal hidden representations of Qwen2.5-VL-3B-Instruct, and highly similar samples are removed by cosine similarity thresholding. The retained prompt-state pairs are then fed to the Robot Agent, which generates a structured response following the same triplet format as Eq. (1). The generated response is paired with the corresponding prompt and state for verifi-cation. The Verification Agent then performs three levels of checking: hard constraint verification, which tests whether the predicted function satisfies logic-gate constraints and remains within the predefined action space; soft constraint verification, which checks consistency between image obser-vations and ⟨answer ⟩, as well as alignment between ⟨answer ⟩
+
+and ⟨function ⟩; and semantic coherence checking over the full ⟨think ⟩–⟨answer ⟩–⟨function ⟩ chain. Only samples that pass all checks are retained to form the final validated training dataset. This pipeline improves data quality by jointly reducing redundancy and enforcing constraint consistency, producing training data better aligned with the state-aware, function-constrained, and closed-loop characteristics of precision medical robotic tasks. III. EXPERIMENTS 
+
+A. Experimental Platform, Setup, and Evaluation Protocol 
+
+We evaluate the proposed framework on a real-world flexible electrode implantation platform for precision neu-rosurgical manipulation, where a tungsten insertion needle (∼10 μm tip) must pass through a 30 ×50 μm electrode hole (Fig. 3). The micrometer-scale geometric constraints make this task representative of precision surgical robotic systems. We conduct both offline function prediction and real-robot closed-loop evaluation. The decision space consists of seven discrete functions, grouped into image regulation, state management, safety control, and action execution, as listed in Table I. Among them, ALIGN NEEDLE and INSERT are the two execution-critical functions directly associated with implantation, while the others provide visual adjustment, system recovery, and safe interruption during closed-loop operation. We organize the evaluation into offline function prediction and real-robot closed-loop execution. For dataset construc-tion, we collect approximately 3,000 real-world samples (a)Side View            
+
+> (c) Orthogonal Side View (d) Macro Close -Up View
+> Needle Mount
+> Needle
+> (b)Front -Angle View
+> Camera 1Camera 2
+> Needle
+> Arm(Z -axis)
+> Electrode
+> LEDs
+> Electrode hole
+> Needle
+> Electrode Support
+> Electrode
+> Needle
+> Electrode hole Fig. 3. Experimental platform for flexible electrode implantation. (a) Side view of the needle mount, insertion needle, and electrode support, with a zoom-in of the ∼10 μm needle tip. (b) Front-angle view of the overall setup, including the binocular cameras, LEDs, robotic arm, and flexible electrode. (c) Orthogonal side view of the needle–electrode configuration. (d) Macro close-up of the insertion region, showing alignment between the needle and the approximately 30 ×50 μm electrode hole.
+
+(synchronized binocular images, function labels, and trajec-tories at 5 Hz) and expand to ∼30,000 samples through controlled image perturbations. Combined with the data generation pipeline in Section II, this provides a unified training foundation for all methods. To verify backbone generality, we fine-tune InternVL2-2B, Qwen2.5-VL-3B, and Llama-3.2-11B-Vision-Instruct. For comparison, we evaluate OpenVLA-7B and π0-3.3B in real-robot closed-loop ex-ecution. Qwen2.5-VL-3B is selected for deployment due to its favorable trade-off between accuracy and efficiency. We report Exact Match (EM) and Macro-F1 for offline evaluation, and closed-loop insertion success rate for real-robot evaluation. 
+
+B. Offline Function Prediction Results 
+
+Table II reports offline function prediction results un-der zero-shot evaluation, cross-backbone fine-tuning (i.e., applying the same structured training procedure to LVLM backbones other than the primary Qwen2.5-VL), and CoT ablation. Overall, the full Qwen2.5-VL-3B variant reaches 95.00% accuracy and 0.9604 Macro-F1, substantially out-performing the zero-shot baselines, which supports the effec-tiveness of structured function-level supervision for precision surgical decision making. Comparing Ours w/o CoT and Ours Full shows that the effect of CoT supervision is class-dependent. The largest gains appear on ADJUST FOCUS (65.84% → 96.71%) and 
+
+ALIGN NEEDLE (48.67% → 72.57%), indicating that CoT is particularly helpful for functions requiring finer judgment         
+
+> TABLE I DISCRETE FUNCTION SPACE USED IN THE PROPOSED FRAMEWORK .SYMBOLS INDICATE FUNCTION CATEGORIES :▲IMAGE REGULATION ,⋆
+> STATE MANAGEMENT ,■SAFETY CONTROL ,AND •ACTION EXECUTION .
+
+Function Description 
+
+▲ ADJUST EXPOSURE Adjust image exposure to im-prove brightness and visibility. 
+
+▲ ADJUST FOCUS Adjust focus to improve scene sharpness. 
+
+⋆ REINITIALIZE RANGE Reset the robot working range when the current state is unsuit-able. 
+
+⋆ RESTART CAMERA Restart the vision system after camera failure or abnormal ob-servation. 
+
+■ E STOP Immediately stop execution for safety protection. 
+
+• ALIGN NEEDLE Refine the alignment between the insertion needle and the tar-get. 
+
+• INSERT Execute the final insertion to-ward the target position. 
+
+of visual quality and intermediate surgical states. By con-trast, INSERT decreases from 93.33% to 81.67%. Error analysis on the 60 INSERT test samples reveals that the additional false negatives introduced by CoT are predomi-nantly misclassified as ALIGN NEEDLE , meaning the model favors further alignment refinement rather than committing to insertion when the reasoning chain expresses residual uncertainty about geometric readiness. This conservative shift is not necessarily harmful: as shown in Section III-C, permitting additional alignment rounds in closed-loop execution leads to a higher overall insertion success rate (95% vs. 73% at 3 rounds), because the real-world cost of a redundant ALIGN NEEDLE call is far lower than the cost of a premature INSERT . Despite this per-class reduction, CoT improves reasoning over ambiguous intermediate states and raises overall accuracy from 85.30% to 95.00%. Cross-backbone results further show that the framework generalizes well across different LVLM architectures. Under the same structured function-calling setting, both InternVL2-2B and Llama-3.2-11B achieve competitive results, indi-cating that the framework does not depend on a specific backbone design. The Llama-based variant attains the best overall accuracy, likely due to its larger parameter scale. However, Qwen2.5-VL-3B remains highly competitive with a much smaller model size and offers a better practical trade-off for deployment, and is therefore selected for real-robot experiments. As shown in Table II, the remaining errors of the full model are mainly concentrated in three functions: 
+
+ADJUST FOCUS , ALIGN NEEDLE , and INSERT . By contrast, ADJUST EXPOSURE , REINITIALIZE RANGE ,
+
+RESTART CAMERA , and E STOP are predicted with near-perfect or perfect accuracy, indicating that the major diffi-culty lies in visually ambiguous intermediate judgments and TABLE II OFFLINE FUNCTION PREDICTION PERFORMANCE OF DIFFERENT BACKBONES AND ABLATION VARIANTS                                                                                                          
+
+> Overall Performance on the Action-Balanced Test Set Type Model Scale FT CoT EM (%) Macro-F1
+> Zero-shot Qwen2.5-VL 3B No No 29.60 0.1594 Zero-shot Qwen3-VL 30B-A3B No No 65.40 0.7474 Cross-backbone InternVL2 2B Yes Yes 94.00 0.9400 Cross-backbone Llama-3.2-11B 11B Yes Yes 95.70 0.9570 Ours Qwen2.5-VL 3B Yes No 85.30 0.8693
+> Ours Qwen2.5-VL 3B Yes Yes 95.00 0.9604 Per-Function Accuracy (%) Function (GT) Support Qwen2.5-3B Qwen3-30B InternVL2-2B Llama-3.2-11B Ours w/o CoT Ours Full
+> ADJUST EXPOSURE 243 100.00 84.36 99.18 100.00 99.18 100.00
+> ADJUST FOCUS 243 0.00 20.99 95.88 97.12 65.84 96.71 REINITIALIZE RANGE 141 0.00 100.00 100.00 100.00 100.00 100.00 ALIGN NEEDLE 113 0.00 39.82 70.80 76.11 48.67 72.57 RESTART CAMERA 100 1.00 96.00 100.00 100.00 100.00 100.00 E STOP 100 52.00 100.00 100.00 100.00 100.00 100.00 INSERT 60 0.00 26.67 75.00 85.00 93.33 81.67
+> OVERALL 1000 29.60 65.40 94.00 95.70 85.30 95.00
+
+precision-critical execution decisions rather than recovery or safety-related functions. 
+
+C. Closed-Loop Comparison in Real Execution 
+
+We evaluate all methods under a unified 100-trial closed-loop protocol. In each trial, the insertion needle is randomly initialized, and successful insertion is the final criterion. For each initialization, the VLA baseline runs first with all motor trajectories recorded; the robot is then restored to the same start state for our method, ensuring a consistent comparison. Under this protocol, OpenVLA achieves 8 suc-cessful insertions out of 100 trials, corresponding to 8.00% ,while π0 achieves 15 successful insertions, corresponding to 
+
+15.00% . In contrast, the proposed hierarchical framework performs substantially better. With the maximum number of decision rounds limited to 3, our method achieves 73.00% ;increasing the limit to 6 further improves the success rate to 
+
+95.00% . This result is consistent with the offline observation that the model is more conservative before committing to the final INSERT action. Although such conservativeness may slightly reduce offline INSERT accuracy, it appears to avoid premature or risky insertion attempts in real execution, thereby improving overall success in high-precision electrode implantation. We chose OpenVLA and π0 as baselines because they represent the two dominant VLA paradigms—autoregressive action tokenization and flow-matching continuous control— and comparing against them isolates the benefit of hierar-chical function-level execution over end-to-end continuous action generation. Conventional visual-servoing or PID/MPC controllers could serve as domain-specific baselines but are limited to low-level subtasks and lack the high-level multimodal reasoning that the proposed framework targets; a fair comparison would require designing equivalent task-level decision logic around them, which we leave for future work. 
+
+Inference latency. In our deployment configuration (Qwen2.5-VL-3B on a single GPU), the average end-to-end latency per decision cycle is approximately 10 seconds, comprising ∼8 s for LVLM inference (including image encoding and structured output generation), ∼2 s for state update and gating verification, and negligible time for low-level motor command execution. We note that the 5 Hz in Section III-A is the offline trajectory-sampling rate used to build dense training data, and is distinct from the deployment decision rate: at runtime the system issues one structured decision per ∼10 s cycle ( ∼0.1 Hz), and the executed function moves the needle by a single constrained step before the next observation is taken. Since the implantation task operates quasi-statically with no moving tissue, this decision rate is acceptable for the current application. For time-critical scenarios, latency could be reduced via distillation, quantization, or speculative decoding. 
+
+Gating module analysis. To assess the role of the middle gating module, we conducted over 500 inference trials on the test set under varied prompt formulations. Across all trials, the gate rejected the predicted function only twice, both due to the LVLM generating outputs outside the prede-fined seven-function action space. In each case, the system immediately triggered E STOP , executed a hardware self-check, and activated an audible alarm before handing control to the human operator. The low rejection rate indicates that the fine-tuned LVLM has learned to produce well-formed function calls with high reliability. Nevertheless, the gating module remains essential as a hard safety boundary: because removing it would allow arbitrary model outputs to be di-rectly executed on micrometer-scale surgical hardware, a full ablation (i.e., disabling the gate during physical execution) was not conducted to avoid potential equipment damage. The gating module thus serves as a necessary safeguard whose value lies not in frequent activation but in guaranteeing safe “from”: “human” ：UP + State 
+
+Is the current situation suitable for implantation? 
+
+(SINGULARITY JUDGEMENT: Operational; 
+
+CAM. FRAMERATE STATUS: Operational; 
+
+RANGE INITIALIZATION: Done ；
+
+Implantation hole alignment: Not completed.) 
+
+“from”: “ gpt ”, ：think 、answer 、function 
+
+<think>The image is blurry with a reddish tint and poor exposure, though the needle, electrode, and hole are visible. System self-check and range settings are complete. However, the robot is not yet in position, and the needle is misaligned with the electrode hole. <think>\n<answer>Currently in the implantation preparation phase, visual conditions require improvement.<answer>\n<function>ADJUST_EXPOSURE<function> 
+
+“from”: “human” ：UP + State 
+
+Is the current situation suitable for implantation? 
+
+(SINGULARITY JUDGEMENT: Operational; 
+
+CAM. FRAMERATE STATUS: Operational; 
+
+RANGE INITIALIZATION: Done ；
+
+Implantation hole alignment: Not completed.) 
+
+“from”: “ gpt ”, ：think 、answer 、function 
+
+<think>"Background blurry and reddish, but exposure sufficient; needle, electrode, and hole visible. Self-check and range set. Though not positioned and misaligned, implantation and alignment are feasible."<think>\n<answer>Currently in the implantation preparation phase, with both system and environment normal, electrode hole alignment can proceed.<answer>\n<function>ALIGN_NEEDLE<function> 
+
+“from”: “human” ：UP + State 
+
+Is the current situation suitable for implantation? 
+
+(SINGULARITY JUDGEMENT: Operational; 
+
+CAM. FRAMERATE STATUS: Operational; 
+
+RANGE INITIALIZATION: Done ；
+
+Implantation hole alignment: Completed.) 
+
+“from”: “ gpt ”, ：think 、answer 、function 
+
+<think>The current image background is hazy and reddish, yet exposure is adequate, with the needle body, electrode, and electrode hole clearly distinguishable. Robot self-check is error-free and range is set; since the needle tip is aligned with the implantation hole, insertion is possible.<think> \n<answer>All systems ready, preparing for implantation.<answer>\n<function>INSERT<function> 
+
+“from”: “human” ：UP + State 
+
+(SINGULARITY JUDGEMENT: Operational; 
+
+CAM. FRAMERATE STATUS: Operational; 
+
+RANGE INITIALIZATION: Done ；
+
+Implantation hole alignment: Completed.) 
+
+“from”: “system” 
+
+Is the current situation suitable for implantation? 
+
+1 2
+
+34
+
+System monitoring implant marker position 1, cycle stopped. 
+
+ADJUST_EXPOSURE 
+
+ALIGN_NEEDLE 
+
+INSERT Fig. 4. Real-world closed-loop deployment example of the proposed hierarchical framework using the fine-tuned Qwen2.5-VL-3B-Instruct model. Starting from binocular microscopic observations and task prompts, the system sequentially performs ADJUST EXPOSURE , ALIGN NEEDLE , and INSERT ,ultimately completing electrode-hole insertion through structured function-level decision making. 
+
+termination under rare but critical failure modes. 
+
+D. Real-World Closed-Loop Case Study 
+
+Fig. 4 shows a representative deployment case using the fine-tuned Qwen2.5-VL-3B-Instruct model. Starting from binocular microscopic observations, the system sequen-tially issues ADJUST EXPOSURE , ALIGN NEEDLE , and 
+
+INSERT , completing electrode-hole insertion through struc-tured closed-loop decision making. IV. C ONCLUSION 
+
+This paper presents a hierarchical vision-language-action framework for precision medical robotics and validates it on flexible electrode implantation under micrometer-level constraints. By decoupling high-level multimodal decision-making from constrained low-level execution, the proposed method achieves a 95% closed-loop success rate, addressing a key limitation of continuous-action VLA paradigms in safety-critical settings. The multi-agent data pipeline further provides scalability: new task actions can be supported by extending the pipeline and fine-tuning. 
+
+Limitations. The current evaluation is conducted on a single precision medical task with training data generated by the proposed pipeline, which may favor the framework by construction. Validation on independent datasets, alterna-tive surgical tasks, and data collected by external operators would strengthen the generalization claim. Additionally, the gating mechanism currently relies on task-specific state-based rules; incorporating richer medical-domain constraints (e.g., anatomical boundaries and tissue-interaction models) remains an important direction for broader clinical applica-bility. REFERENCES [1] D. K. Iakovidis, P. Vartholomeos, A. L. Gall, M. Cianchetti, O. Ozioko, R. Dahiya, E. Mazomenos, F. Vasconcelos, D. Stoyanov, J. Philpott 
+
+et al. , “Medical & healthcare robotics: a roadmap for enhanced precision, safety, and efficacy,” Measurement Science and Technology ,vol. 36, no. 10, p. 103001, 2025. [2] D. Wu, R. Zhang, A. Pore, D. Dall’Alba, X. T. Ha, Z. Li, Y. Zhang, F. Herrera, M. Ourak, W. Kowalczyk et al. , “A review on machine learning in flexible surgical and interventional robots: Where we are and where we are going,” Biomedical Signal Processing and Control ,vol. 93, p. 106179, 2024. [3] Y. Liu, X. Wu, Y. Sang, C. Zhao, Y. Wang, B. Shi, and Y. Fan, “Evo-lution of surgical robot systems enhanced by artificial intelligence: a review,” Advanced Intelligent Systems , vol. 6, no. 5, p. 2300268, 2024. [4] G. Dagnino and D. Kundrat, “Robot-assistive minimally invasive surgery: trends and future directions,” International Journal of Intel-ligent Robotics and Applications , vol. 8, no. 4, pp. 812–826, 2024. [5] S. Huang, C. Lou, Y. Zhou, Z. He, X. Jin, Y. Feng, A. Gao, and G.-Z. Yang, “Mri-guided robot intervention—current state-of-the-art and new challenges,” Med-X , vol. 1, no. 1, p. 4, 2023. [6] L. Maier-Hein, S. S. Vedula, S. Speidel, N. Navab, R. Kikinis, A. Park, M. Eisenmann, H. Feussner, G. Forestier, S. Giannarou et al. , “Surgical data science for next-generation interventions,” Nature Biomedical Engineering , vol. 1, no. 9, pp. 691–696, 2017. [7] G. P. Moustris, S. C. Hiridis, K. M. Deliparaschos, and K. M. Kon-stantinidis, “Evolution of autonomous and semi-autonomous robotic surgical systems: a review of the literature,” The international journal of medical robotics and computer assisted surgery , vol. 7, no. 4, pp. 375–392, 2011. [8] I. Rivas-Blanco, C. J. Perez-Del-Pulgar, I. Garcia-Morales, and V. F. Munoz, “A review on deep learning in minimally invasive surgery,” 
+
+IEEE Access , vol. 9, pp. 48 658–48 678, 2021. [9] A. Lee, T. S. Baker, J. B. Bederson, and B. I. Rapoport, “Levels of autonomy in fda-cleared surgical robots: a systematic review,” NPJ Digital Medicine , vol. 7, no. 1, p. 103, 2024. [10] C. Varghese, E. M. Harrison, G. O’Grady, and E. J. Topol, “Artificial intelligence in surgery,” Nature medicine , vol. 30, no. 5, pp. 1257– 1268, 2024. [11] B. Vasey, K. A. Lippert, D. Z. Khan, M. Ibrahim, C. H. Koh, H. L. Horsfall, K. S. Lee, S. Williams, H. J. Marcus, and P. McCulloch, “In-traoperative applications of artificial intelligence in robotic surgery: a scoping review of current development stages and levels of autonomy,” 
+
+Annals of Surgery , vol. 278, no. 6, pp. 896–903, 2023. [12] N. Kenig, J. Monton Echeverria, and A. Muntaner Vives, “Artificial intelligence in surgery: a systematic review of use and validation,” 
+
+Journal of clinical medicine , vol. 13, no. 23, p. 7108, 2024. [13] M. J. Kim, K. Pertsch, S. Karamcheti, T. Xiao, A. Balakrishna, S. Nair, R. Rafailov, E. Foster, G. Lam, P. Sanketi et al. , “Open-vla: An open-source vision-language-action model,” arXiv preprint arXiv:2406.09246 , 2024. [14] K. Black, N. Brown, D. Driess, A. Esmail, M. Equi, C. Finn, N. Fusai, L. Groom, K. Hausman, B. Ichter et al. , “ π0: A vision-language-action flow model for general robot control,” arXiv preprint arXiv:2410.24164 , 2024. [15] S. Schmidgall, J. W. Kim, A. Kuntz, A. E. Ghazi, and A. Krieger, “General-purpose foundation models for increased autonomy in robot-assisted surgery,” Nature Machine Intelligence , vol. 6, no. 11, pp. 1275–1283, 2024. [16] S. Zargarzadeh, M. Mirzaei, Y. Ou, and M. Tavakoli, “From decision to action in surgical autonomy: Multi-modal large language models for robot-assisted blood suction,” IEEE Robotics and Automation Letters ,vol. 10, no. 3, pp. 2598–2605, 2025. [17] Y. Li, Z. Zhao, R. Li, and F. Li, “Deep learning for surgical workflow analysis: a survey of progresses, limitations, and trends,” Artificial Intelligence Review , vol. 57, no. 11, p. 291, 2024. [18] L. Maier-Hein, M. Eisenmann, D. Sarikaya, K. M¨ arz, T. Collins, A. Malpani, J. Fallert, H. Feussner, S. Giannarou, P. Mascagni et al. ,“Surgical data science–from concepts toward clinical translation,” 
+
+Medical image analysis , vol. 76, p. 102306, 2022. [19] K. Sone, S. Tanimoto, Y. Toyohara, A. Taguchi, Y. Miyamoto, M. Mori, T. Iriyama, O. Wada-Hiraike, and Y. Osuga, “Evolution of a surgical system using deep learning in minimally invasive surgery,” 
+
+Biomedical reports , vol. 19, no. 1, p. 45, 2023. [20] M. Bilal, M. Alam, D. Bapu, S. Korsgen, N. Lal, S. Bach, A. M. Hajiyavand, M. Ali, K. Soomro, I. Qasim et al. , “Temset-24k: Densely annotated dataset for indexing multipart endoscopic videos using surgical timeline segmentation,” Scientific Data , vol. 12, no. 1, p. 1424, 2025. [21] F. R. Kolbinger, S. Bodenstedt, M. Carstens, S. Leger, S. Krell, F. M. Rinner, T. P. Nielen, J. Kirchberg, J. Fritzmann, J. Weitz 
+
+et al. , “Artificial intelligence for context-aware surgical guidance in complex robot-assisted oncological procedures: An exploratory feasibility study,” European Journal of Surgical Oncology , vol. 50, no. 12, p. 106996, 2024. [22] M. Wagner, B.-P. M¨ uller-Stich, A. Kisilenko, D. Tran, P. Heger, L. M¨ undermann, D. M. Lubotsky, B. M¨ uller, T. Davitashvili, M. Capek 
+
+et al. , “Comparative validation of machine learning algorithms for surgical workflow and skill analysis with the heichole benchmark,” 
+
+Medical image analysis , vol. 86, p. 102770, 2023. [23] P. Li, X. Shu, C.-M. Feng, Y. Feng, W. Zuo, and J. Tang, “Surgical video workflow analysis via visual-language learning,” npj Health Systems , vol. 2, no. 1, p. 5, 2025.
