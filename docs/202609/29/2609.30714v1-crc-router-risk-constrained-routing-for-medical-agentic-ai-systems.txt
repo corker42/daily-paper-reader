@@ -1,0 +1,281 @@
+Title: CRC-Router: Risk-Constrained Routing for Medical Agentic AI Systems
+
+URL Source: https://arxiv.org/pdf/2609.30714v1
+
+Published Time: Mon, 28 Sep 2026 00:28:03 GMT
+
+Number of Pages: 7
+
+Markdown Content:
+# CRC-Router: Risk-Constrained Routing for Medical Agentic AI Systems 
+
+Xueyang Li, Mingze Jiang, Gelei Xu, Jun Xia, Ching-Hao Chiu, Mengzhao Jia, Danny Z. Chen, and Yiyu Shi 
+
+Computer Science and Engineering, University of Notre Dame, USA 
+
+{xli34, mjiang23, gxu4, jxia4, cchiu3, mjia2, dchen, yshi4 }@nd.edu 
+
+Abstract —Agentic AI systems are increasingly being explored in medical imaging to improve throughput and reduce clinician workload; however, safe deployment remains challenging because autonomous errors may propagate into downstream clinical decisions. A central requirement is therefore not only strong predictive performance, but also a reliable routing mechanism that determines when the system should proceed autonomously and when a case should be escalated for further review. To address this gap, we propose CRC-Router, a risk-constrained, uncertainty-aware routing module that is applicable to both conventional medical prediction models and agentic medical AI systems. CRC-Router combines multiple complementary uncer-tainty signals with the predictive score to construct a per-finding routing feature vector, maps this vector to an estimated wrong-accept risk using a lightweight per-finding risk model, and then applies Conformal Risk Control (CRC) to calibrate acceptance thresholds under a user-specified risk target. Instantiated on chest X-ray multi-finding triage using the NIH ChestX-ray14 dataset, CRC-Router achieves the strongest empirical risk– coverage trade-off among the evaluated baselines, both as a standalone routing layer and as a plug-in module integrated with the state-of-the-art MedRAX agent. These results demon-strate both the effectiveness of CRC-Router in selective medical automation and its modular, model-agnostic compatibility with existing predictive and agentic medical pipelines. Code is publicly available at https://github.com/XLIAaron/CRC-Router. 
+
+Index Terms —Medical Agentic AI, Conformal Risk Control, Uncertainty-Aware Routing. 
+
+I. I NTRODUCTION 
+
+Agentic AI systems have attracted substantial attention for their planning, self-adjustment, and autonomous decision-making capabilities. In medical imaging, they show promise for improving clinical throughput and reducing workload [1]. However, increased autonomy raises the impact of errors: fail-ures may propagate beyond isolated predictions to downstream clinical decisions. This is especially critical in healthcare, where model outputs can affect diagnosis and treatment, and errors can cause delayed care, financial burden, or even patient harm. Thus, clinical agentic AI systems must not only achieve strong discrimination, but also operate as responsible AI systems that explicitly account for risks and support safe and transparent deployment. In practice, this safety requirement is tightly connected to uncertainty estimation, as uncertainty signals often provide the most accessible evidence for when autonomous predictions are likely to fail. Although uncertainty-aware mechanisms have been explored in agentic AI, primarily in general-domain language and tool-use settings, these methods typically use uncertainty as a heuristic coordination signal (e.g., for tool orchestration [2], trajectory propagation [3], adaptive inter-vention [4], [5]). Such uses are valuable for improving agent behavior, but they do not directly yield a formally calibrated routing policy with explicit risk control. Consequently, they do not address the central deployment requirement in our setting: enforcing a user-specified risk constraint on accept-versus-escalate decisions through an explicitly risk-calibrated routing rule. A natural candidate for enforcing risk constraints is Con-formal Risk Control (CRC) [6], which provides statistically grounded calibration for black-box systems. While it has shown value in medical imaging [7], [8], prior works focus strictly on task-level or prediction-specific risk. However, medical agentic AI systems require a conceptual shift toward treating routing as a distinct, decision-theoretic layer above prediction. This routing determines whether to execute aprediction autonomously or escalate it, explicitly controlling which errors propagate into downstream clinical workflows. Such rigorous control fundamentally differs from selective prediction [9] and its reliance on heuristics without formal risk guarantees. To the best of our knowledge, CRC remains unstudied as a routing-layer calibration mechanism for risk-constrained decisions in medical agentic AI systems. Indeed, applying it requires overcoming nontrivial design challenges: determining how to represent heterogeneous uncertainty, con-vert it into risk estimates, and integrate this routing layer into existing agentic pipelines. To address this gap, we propose CRC-Router, a novel formalization of risk-constrained routing for both con-ventional predictive models and medical agentic AI sys-tems with statistical wrong-accept guarantees. Unlike se-lective classification, which merely rejects uncertain pre-dictions, CRC-Router explicitly calibrates wrong-accept risk under operational coverage constraints. It maps multi-signal uncertainty features and predictive scores to a per-finding risk estimate, then uses CRC to calibrate actionable routing thresholds under a user-specified safety target. Crucially, this design decouples predictive modeling from autonomy control, yielding a model-agnostic, plug-in compatible module. We instantiate this framework on chest X-ray multi-finding triage, evaluating it as a standalone routing layer and as a plug-in for the MedRAX agent [10]. Across both settings, CRC-Router achieves the best risk–coverage trade-off among evaluated methods, demonstrating that it provides effective risk control arXiv:2609.30714v1 [cs.AI] 25 Sep 2026 and is compatible with existing medical agentic AI systems. II. B ACKGROUND 
+
+A. Medical Agentic AI and Selective Automation 
+
+Medical AI systems are increasingly adopting agentic de-signs in which large language or multimodal models reason over intermediate states, invoke external tools, and coor-dinate multi-step decision processes rather than producing a single direct prediction. Representative examples include MDAgents [11], which studies adaptive collaboration among multiple LLMs for medical decision-making, and MMedA-gent [12], which learns to select specialized medical tools across tasks and modalities within a unified multimodal frame-work. Similar designs have also emerged in medical imaging, where systems such as MedRAX [10] and RadFabric [13] compose perception modules, diagnostic tools, and multimodal reasoning components for CXR interpretation. Together, these works show a broader shift from isolated medical predictors toward orchestrated, tool-using AI systems. The closest classical literature is selective prediction, where a model may reject unreliable examples to improve the risk– coverage trade-off [9]. However, selective prediction does not fully align with medical agentic AI: rejection is usually treated as a terminal outcome, whereas medical deployment requires an intermediate routing decision to a stronger model, downstream agent, or human expert. Moreover, most selective-prediction methods rely on confidence scores or learned rejec-tion functions rather than an explicitly calibrated wrong-accept 
+
+risk. Selective prediction therefore provides an important foundation, but not a complete solution, for risk-constrained routing in selective medical automation. 
+
+B. Uncertainty Estimation for Risk-Aware Routing 
+
+Predictive confidence, often measured by the maximum predicted class probability, provides a natural starting point for identifying unreliable predictions. However, confidence alone is an incomplete routing signal: modern neural networks are often poorly calibrated, so high softmax confidence does not necessarily imply a high probability of correctness [14]. More severely, deep networks can assign near-certain confidence to unrecognizable or far-out-of-distribution inputs, implying that confidence-only routing may accept cases that should instead be escalated. Predictive entropy, rooted in information-theoretic uncertainty quantification, provides a posterior-level summary of uncertainty and has become a standard signal for failure detection and selective prediction [15]. Nevertheless, entropy remains derived from the predictive distribution alone and cannot distinguish whether uncertainty arises from model disagreement, intrinsic input ambiguity, or distributional shift. In Bayesian deep learning, epistemic uncertainty reflects uncertainty in the model itself, such as limited training support, and can be approximated using Monte Carlo dropout [15]. Aleatoric uncertainty instead reflects ambiguity intrinsic to the observation, such as noise, occlusion, or equivocal visual evidence [16]. A complementary perspective is distributional atypicality: posterior-based uncertainty may remain overcon-fident under dataset shift [17], whereas Mahalanobis-style scoring measures deviation from in-distribution feature statis-tics [18]. These observations motivate integrating predictive entropy, epistemic and aleatoric uncertainty, and distributional scoring as complementary routing evidence rather than relying on a single confidence score. 
+
+C. Conformal Calibration and Risk Control 
+
+Conformal prediction offers a model-agnostic, distribution-free framework for uncertainty quantification under exchange-ability [19]. In classification and structured prediction, its natural output is a set or interval that enjoys formal finite-sample coverage guarantees. This is highly valuable for re-liability, but it does not by itself resolve the selective au-tomation problem studied here. In our setting, the deployment question is not only how to represent uncertainty, but how to translate uncertainty into an actionable decision about whether autonomous execution should proceed. A set-valued output therefore still requires an additional decision rule before it can govern accept-versus-escalate behavior in an agentic workflow. Conformal Risk Control extends conformal ideas beyond miscoverage to bounded monotone losses, allowing decisions to be calibrated against a user-specified expected-risk tar-get [6]. Medical-imaging applications of conformal calibra-tion include semantically adaptive uncertainty quantification in CT [8] and few-shot transfer of medical vision-language models [7]. Here, we apply CRC to the wrong-accept risk ,defined as the probability that a finding prediction is both accepted and incorrect, to calibrate per-finding accept-versus-escalate decisions. The next section formalizes this routing problem and instan-tiates a CRC-based procedure for calibrating accept-versus-escalate decisions under a user-specified target risk. III. M ETHOD 
+
+A. Problem Formulation 
+
+Let x ∈ X denote an input image, and let y =(y1, . . . , y D ) ∈ { 0, 1}D denote the multi-label ground-truth vector over D findings. For each finding d ∈ { 1, . . . , D },a base model (or ensemble) produces a predictive score 
+
+¯pd(x) ∈ [0 , 1] , and a hard prediction ˆyd(x) = 1[¯ pd(x) ≥ td],where td is a disease-specific decision threshold (e.g., fixed at 0.5 or tuned on a non-test split). The router then outputs an action ad(x) ∈ { accept , escalate }. Here, accept 
+
+means the system proceeds with the autonomous prediction for that finding, whereas escalate routes the case for additional review (e.g., a stronger model, a downstream agent, or a human expert). Because only accepted predictions are acted upon autonomously, the safety-relevant error for routing is the 
+
+accepted error . Accordingly, we define the per-finding wrong-accept risk as Rd = P ad(x) = accept ∧ ˆyd(x)̸ = yd
+
+,which measures how often the system makes an autonomous incorrect decision on finding d. We define coverage as ϕd =
+
+P ad(x) = accept , i.e., the fraction of cases handled autonomously. Our objective is to maximize coverage ϕdFig. 1. Overview of the proposed CRC-Router. (a) Multi-signal uncertainty and risk modeling. (b) Conformal Risk Control (CRC)-based threshold calibration and deployment routing. 
+
+subject to a per-finding risk constraint Rd ≤ α, where α is a user-specified target risk level. In this work, we instantiate this risk-constrained routing formulation for chest X-ray (CXR) multi-finding triage as a case study. Under this setting, x
+
+denotes a chest X-ray image, and each index d ∈ { 1, . . . , D }
+
+corresponds to a candidate finding (disease label) for that image. Fig. 1 summarizes the proposed CRC-Router. The frame-work comprises two stages: (a) multi-signal uncertainty feature construction with per-finding risk modeling, and (b) CRC-based threshold calibration for deployment-time accept-versus-escalate routing under a user-specified risk target. We describe each stage in the following subsections. 
+
+B. Multi-Signal Uncertainty Vector 
+
+As illustrated in Fig. 1(a), the first component of CRC-Router constructs a per-finding multi-signal uncertainty rep-resentation from committee predictions and an image-level distributional score, which is then used for downstream risk modeling. Formally, let {pm,d (x)}Mm=1 denote the probability predictions for finding d produced by M committee mem-bers, where m indexes the committee member. From these committee outputs, we define the ensemble mean probability as ¯pd(x) = 1
+
+> M
+
+PMm=1 pm,d (x). For binary predictions, we use the entropy function H(p) = −p log p − (1 − p) log(1 − p).We then define a per-finding uncertainty vector ud(x) ∈ R4,whose components are described below. 
+
+1) Predictive Entropy: Predictive entropy captures overall output uncertainty from the aggregated committee prediction, but does not distinguish whether the uncertainty arises from model disagreement or intrinsic ambiguity in the input: 
+
+uent  
+
+> d
+
+(x) = H ¯pd(x). (1) This term serves as a compact posterior-level uncertainty summary and provides a strong baseline signal for selective prediction, but is insufficient on its own for risk-sensitive routing under distribution shift. 
+
+2) Epistemic Uncertainty: In contrast to predictive entropy, which summarizes uncertainty after aggregation, epistemic uncertainty is intended to capture disagreement across models. We estimate it using the variance of committee predictions: 
+
+uepi  
+
+> d
+
+(x) = Var Mm=1 
+
+ pm,d (x), (2) where Var Mm=1 (·) denotes the empirical variance across com-mittee predictions. A large value indicates that committee members disagree on the same input, suggesting elevated model uncertainty, such as limited support in training data, model instability, or sensitivity to representation differences. 
+
+3) Aleatoric Uncertainty: Whereas epistemic uncertainty measures between-model disagreement, aleatoric uncertainty characterizes uncertainty that appears within individual model predictions and is therefore more closely associated with data ambiguity, including noisy or visually ambiguous findings. We estimate this using the average entropy across committee members: 
+
+uale  
+
+> d
+
+(x) = 1
+
+M
+
+> M
+
+X
+
+> m=1
+
+H pm,d (x). (3) This complements uepi  
+
+> d
+
+(x): two cases may have similar pre-dictive entropy, but differ in whether uncertainty is driven by model disagreement (epistemic) or consistently uncertain per-model predictions (aleatoric). 
+
+4) Mahalanobis-Style Distributional Score: The preceding three terms are derived from model outputs. To additionally capture distributional atypicality that may not be reflected in posterior probabilities, we include a Mahalanobis-style feature-space discrepancy score, denoted umah (x). Maha-lanobis distance can be defined in various feature spaces; in this work, we compute it using handcrafted radiomics-style image descriptors (first-order intensity, texture, and histogram-shape features) rather than deep embeddings. This choice pro-vides a model-agnostic distributional signal that is independent of the committee outputs and incurs minimal computational overhead, thereby preserving low-latency routing and avoiding unnecessary delay in autonomous agent execution. Specifi-cally, we fit a diagonal Mahalanobis model on the training dis-tribution in this handcrafted feature space, producing a single image-level score umah (x) that is shared across all findings. This term provides an image-level signal for outlier-like or shifted inputs and complements posterior-based uncertainty measures. Combining the above terms, the per-finding uncertainty vector is 
+
+ud(x) = 
+
+h
+
+uent  
+
+> d
+
+(x), u epi  
+
+> d
+
+(x), u ale  
+
+> d
+
+(x), u mah (x)
+
+i
+
+∈ R4. (4) Since the probability of error depends not only on uncer-tainty signals but also on the predictive score, we augment the multi-signal uncertainty vector ud(x) with the predictive score ¯pd(x). This yields a per-finding routing feature vector 
+
+˜ud(x) = [ ud(x), ¯pd(x)] ∈ R5, as shown in Fig. 1(a). We then learn a per-finding risk model rθ,d , defined by 
+
+rθ,d : R5 → [0 , 1] , rθ,d 
+
+ ˜ud(x) ≈ P ˆyd(x)̸ = yd | ˜ud(x),
+
+(5) where θ denotes the learnable parameters of the risk model, with a separate parameter set fitted for each finding d; yd ∈{0, 1} is the ground-truth label for finding d, and ˆyd(x) is the predicted label for input x. The model is supervised using the binary error indicator zd(x) = 1[ˆ yd(x)̸ = yd] on an out-of-sample calibration split. In practice, we use a lightweight MLP, since the uncertainty-to-risk mapping may be nonlinear and involve feature interactions, while the input dimension is small and low-latency execution is desirable for routing. 
+
+C. Conformal Risk Control for Threshold Calibration 
+
+As illustrated in Fig. 1(b), the risk score produced by the uncertainty-to-risk model is subsequently converted into a deployable routing rule through a calibration step. Specifically, the risk model in Eq. (5) maps the routing feature vector 
+
+˜ud(x) to a per-finding risk score rθ,d (˜ ud(x)) , which estimates the conditional probability that the corresponding prediction 
+
+ˆyd(x) is incorrect. To instantiate the risk-constrained routing objective in Sec. III-A, this score must be converted into a calibrated routing rule. We therefore adopt Conformal Risk Control (CRC) [6], which calibrates a per-finding acceptance threshold on the predicted risk score so as to control the expected wrong-accept risk at a user-specified level α.For a finding d and a candidate threshold τ , CRC induces the acceptance rule a(τ ) 
+
+> d
+
+(x) = accept iff rθ,d (˜ ud(x)) ≤ τ ,and a(τ ) 
+
+> d
+
+(x) = escalate otherwise. Therefore, the corre-sponding CRC loss on an example (x, y ) is defined as 
+
+Ld(τ ; x, y ) = 1
+
+h
+
+rθ,d 
+
+ ˜ud(x) ≤ τ
+
+i
+
+1
+
+h
+
+ˆyd(x)̸ = yd
+
+i
+
+. (6) This is exactly the indicator of a wrong-accept event. Ac-cordingly, for deployment-time inputs and labels (X, Y ),the threshold-induced per-finding wrong-accept risk can be written as Rd(τ ) = E[Ld(τ ; X, Y )] , which is the threshold-parameterized version of the risk Rd in Sec. III-A. The same threshold also determines the corresponding coverage, thereby linking threshold calibration directly to the risk–coverage objective. The threshold-dependent wrong-accept loss Ld(τ ; x, y ) pro-vides the quantity on which CRC calibrates τ into a deployable threshold ˆτd that satisfies the target risk level. In deployment settings, the user specifies a target risk level α ∈ (0 , 1) 
+
+according to the desired tolerance for risks. CRC then cal-ibrates a per-finding acceptance threshold ˆτd on a separate calibration split such that, under the standard exchangeability assumption between calibration and deployment samples, the induced expected wrong-accept risk is controlled: 
+
+E
+
+h
+
+Ld(ˆ τd; X, Y )
+
+i
+
+≤ α. (7) The calibrated threshold ˆτd is then used at deployment to instantiate the per-finding accept-versus-escalate routing rule: 
+
+ad(x) = 
+
+(
+
+accept , rθ,d 
+
+ ˜ud(x) ≤ ˆτd,
+
+escalate , rθ,d 
+
+ ˜ud(x) > ˆτd, (8) where ad(x) denotes the router action for finding d.Taken together, our proposed method first constructs a per-finding multi-signal uncertainty representation, then maps it to a learned risk score, and finally uses CRC to calibrate a deployment threshold that enforces the target wrong-accept risk while preserving as much autonomous coverage as possi-ble. This yields a risk-constrained, uncertainty-aware, and model-agnostic routing module that can be attached to a broad range of predictive or agentic medical systems without modifying the underlying predictor(s). 
+
+IV. E XPERIMENTS 
+
+We first evaluate CRC-Router as a standalone risk-constrained router on NIH ChestX-ray14 [22] (112,120 frontal-view CXRs; 14 labels). Following standard prac-tice, we use a patient-level Train/Calibration/Test split of 0.5/0.25/0.25, and split Calibration equally into risk-model training and CRC calibration subsets. To estimate epistemic and aleatoric uncertainty, we train an MoE committee of five multi-label classifiers (RegNetY-1.6 [24], ResNet-50d [25], RexNet-150 [26], EfficientNetV2-B3 [27], and DenseNet-121 [28]) with learning rate 10 −4, batch size 24, and early stopping (patience 10; max 60 epochs). The Mahalanobis score is computed from 24 handcrafted radiomics features (13 intensity, 5 GLCM texture, 6 histogram) using a diagonal Mahalanobis model fitted on the training set. Per-disease risk models rθ,d are selected by grid search over MLP architectures using 5-fold cross-validated AUROC. CRC thresholds ˆτd are calibrated per disease at target risk α = 5% . We com-pare against standard post-hoc selective prediction baselines: maximum predictive probability thresholding (MaxProb) [20], MCD-MI (computed via ensemble disagreement) [21], and Conformal Prediction [19]. Baseline thresholds are selected to TABLE I PER -DISEASE RISK ( ˆRd ) ACROSS ROUTING METHODS (α = 5% ). A LL SELECTIVE METHODS ARE MATCHED TO ∼91% MACRO COVERAGE . B EST RESULTS AMONG SELECTIVE METHODS ARE HIGHLIGHTED IN BOLD . ✓ INDICATES ˆRd ≤ α. † RELATIVE REDUCTION OF CRC-R OUTER RISK COMPARED TO ACCEPT -A LL ; “–” INDICATES THE ACCEPT -A LL RISK IS ALREADY BELOW α.Disease Accept -All MaxProb [20] MCD-MI [21] Conformal Pred. [19] CRC-Router Risk Red. †
+
+Atelectasis 17.0% 5.4% 10.6% 11.9% 3.9% ✓ ↓77% Cardiomegaly 3.8% ✓ 1.5% ✓ 1.3% ✓ 1.1% ✓ 3.8% ✓ –Consolidation 18.1% 9.8% 17.8% 9.6% 4.4% ✓ ↓76% Edema 2.8% ✓ 0.8% ✓ 0.8% ✓ 1.0% ✓ 2.8% ✓ –Effusion 14.8% 5.1% 9.3% 9.6% 4.4% ✓ ↓70% Emphysema 2.3% ✓ 1.4% ✓ 0.8% ✓ 0.9% ✓ 2.3% ✓ –Fibrosis 6.4% 4.8% ✓ 3.8% ✓ 1.2% ✓ 5.0% ✓ ↓23% Hernia 1.1% ✓ 1.1% ✓ 1.1% ✓ 0.1% ✓ 1.1% ✓ –Infiltration 21.9% 7.4% 19.7% 16.7% 3.5% ✓ ↓84% Mass 7.3% 4.2% ✓ 3.6% ✓ 3.3% ✓ 4.5% ✓ ↓38% Nodule 8.5% 6.3% 5.9% 3.9% ✓ 4.5% ✓ ↓47% Pleural Thickening 8.2% 5.1% 5.2% 2.0% ✓ 4.3% ✓ ↓47% Pneumonia 9.3% 7.5% 8.2% 1.3% ✓ 4.6% ✓ ↓50% Pneumothorax 6.8% 2.7% ✓ 2.4% ✓ 2.7% ✓ 5.9% ↓13% Macro 9.2% 4.5% 6.5% 4.7% 3.9% ↓58% Coverage 100.0% 91.0% 91.1% 91.1% 91.3% –Pass ( ≤5%) 4/14 7/14 7/14 10/14 13/14 –TABLE II PER -DISEASE WRONG -ACCEPT RISK ( ˆRd ) FOR MED RAX INTEGRATION AT α = 5% ON NIH C HEST X-RAY 14 AND CHE XPERT . CR * =CRC-R OUTER .MOE IS OMITTED ON CHE XPERT AS THE COMMITTEE WAS NOT TRAINED ON CHE XPERT . ✓ MARKS ˆRd ≤ α.NIH ChestX-ray14 [22] CheXpert [23] Disease MedRAX [10] +CR *
+
+(TTA) +CR *
+
+(MoE) Disease MedRAX [10] +CR *
+
+(TTA) Atelectasis 6.6% 4.7% ✓ 4.0% ✓ Enl. Cardiomed. 57.6% 4.2% ✓
+
+Cardiomegaly 12.9% 3.6% ✓ 3.7% ✓ Cardiomegaly 51.3% 4.7% ✓
+
+Consolidation 9.6% 6.6% 3.4% ✓ Lung Opacity 30.1% 4.7% ✓
+
+Edema 6.5% 6.2% 2.9% ✓ Lung Lesion 1.5% ✓ 3.9% ✓
+
+Effusion 14.5% 5.9% 4.3% ✓ Edema 19.4% 4.3% ✓
+
+Emphysema 1.6% ✓ 2.6% ✓ 1.7% ✓ Consolidation 19.3% 5.4% Fibrosis 2.7% ✓ 4.3% ✓ 4.5% ✓ Pneumonia 1.4% ✓ 6.3% Hernia 0.5% ✓ 0.4% ✓ 1.5% ✓ Atelectasis 33.6% 6.2% Infiltration 9.4% 5.6% 3.7% ✓ Pneumothorax 11.6% 4.4% ✓
+
+Mass 1.6% ✓ 5.6% 3.7% ✓ Pleural Effusion 22.3% 4.2% ✓
+
+Nodule 2.0% ✓ 7.0% 4.7% ✓ Pleural Other 0.2% ✓ 1.5% ✓
+
+Pl. Thickening 1.5% ✓ 4.2% ✓ 3.7% ✓ Fracture 3.2% ✓ 4.8% ✓
+
+Pneumonia 4.1% ✓ 3.2% ✓ 4.8% ✓
+
+Pneumothorax 6.2% 6.9% 6.8% Macro Risk 5.7% 4.8% 3.8% Macro Risk 20.9% 4.6% 
+
+Coverage 62.9% 81.5% 91.3% Coverage 65.6% 68.4% 
+
+Pass ( ≤5%) 7/14 7/14 13/14 Pass ( ≤5%) 4/12 9/12 
+
+approximately match CRC-Router macro coverage, and risk is evaluated at the matched operating point. To evaluate adaptability to state-of-the-art medical AI agents, we further integrate CRC-Router into MedRAX [10], a representative chest X-ray agentic AI system, and report results on both NIH ChestX-ray14 and CheXpert [23]. For computational efficiency, we use stratified subsampling: on NIH ChestX-ray14 we evaluate on a 10% stratified test sub-sample, and on CheXpert we use stratified subsamples of 2,000 images each for risk-model training, CRC calibration, and test-ing (U-Ignore policy [23], 12 pathology labels, excluding No Finding and Support Devices). We evaluate three conditions when applicable: (1) MedRAX, where the LLM decides accept versus escalate without CRC-Router guidance; (2) MedRAX + CRC-Router (TTA), where CRC-Router is calibrated on MedRAX’s built-in DenseNet and epistemic/aleatoric uncer-tainty is estimated via test-time augmentation (TTA) by sam-pling radiology-safe perturbations (rotation ±5°, translation 
+
+±2% , scaling ±2% , brightness jitter ±5% ) to generate 5 stochastic forward passes per image, testing plug-in transfer when no ensemble committee is available; (3) MedRAX + CRC-Router (MoE) on NIH ChestX-ray14 only, where MedRAX’s DenseNet is replaced by our MoE committee with CRC-Router. We primarily evaluate all methods with risk-coverage analy-sis. For each disease d, we report empirical wrong-accept risk 
+
+bRd = nwrong  
+
+> d
+
+/n total  
+
+> d
+
+, where nwrong  
+
+> d
+
+is the number of accepted but incorrect predictions and ntotal  
+
+> d
+
+is the total number of test cases for disease d. We additionally report per-disease coverage and the number of diseases with bRd ≤ α. We set Fig. 2. (a) Risk–Coverage Tradeoff curves for CRC-Router and baselines on NIH ChestX-ray14. (b) Prevalence enrichment among escalated cases. 
+
+α = 5% in all experiments. V. R ESULTS AND DISCUSSION 
+
+1) CRC-Router Standalone Results: As shown in Table I, CRC-Router achieves the lowest macro wrong-accept risk among all selective routing methods at matched macro cover-age, with a macro risk of 3.9% at 91.3% coverage. Although Accept-All attains 100% coverage by definition, it yields a substantially higher macro wrong-accept risk of 9.2%. Com-pared with Accept-All, CRC-Router reduces macro wrong-accept risk by 58% while sacrificing only 8.7 percent-age points of coverage, demonstrating a favorable safety– automation trade-off. It also shows the strongest empirical conformity to the target risk level ( α = 5% ): 13/14 diseases achieve per-disease wrong-accept risk ≤ 5% , compared with 10/14 for Conformal Prediction, and 7/14 for both MaxProb and Entropy baselines. The only disease above the target is Pneumothorax (5.9%), which represents a modest deviation from the nominal level on the held-out test set. Fig. 2(a) further illustrates the risk–coverage trade-off across routing methods. CRC-Router provides the most favorable trade-off in the high-coverage regime, consistently achieving lower macro risk than baselines at comparable coverage levels. For the downstream CXR triage task, Fig. 2(b) shows that the proposed router substantially enriches pathology preva-lence in the escalated queue. Across the 10 diseases with non-trivial escalation rates, the prevalence among escalated cases increases to 1.5–7.0 × the natural population prevalence. These results indicate that escalated cases are concentrated in diagnostically challenging and clinically important subsets, which supports the use of CRC-Router as a safety-oriented triage mechanism for downstream review in practical clinical workflows. The four diseases with near-100% acceptance (Cardiomegaly, Edema, Emphysema, and Hernia) are omitted   
+
+> TABLE III ABLATION STUDY ON FEATURES IN UNCERTAINTY VECTOR .∆COV .
+> DENOTES THE CHANGE IN MACRO COVERAGE RELATIVE TO THE FULL MODEL .
+
+Removed Feature Macro Cov. ∆ Cov. None (full model) 91.3 % —
+
+H¯p 90.4% −0.9% Mahalanobis 90.0% −1.3% Epistemic 88.2% −3.1% Aleatoric 90.3% −1.0% 
+
+¯p 85.1% −6.2% 
+
+from Fig. 2(b) because they produce negligible escalation queues. 
+
+2) MedRAX Integration Results: Table II reports per-disease wrong-accept risk ( ˆRd) for MedRAX integration on NIH ChestX-ray14 and CheXpert. On NIH ChestX-ray14, MedRAX alone achieves 62.9% macro coverage at 5.7% macro risk, while integrating CRC-Router (TTA) substantially improves the risk–coverage trade-off to 81.5% coverage and 4.8% risk. On CheXpert, CRC-Router (TTA) similarly reduces macro risk from 20.9% to 4.6% while slightly increasing coverage from 65.6% to 68.4%. This demonstrates that CRC-Router can serve as a modular plug-in routing component for an existing agentic framework without retraining or modifying the agent architecture, and it remains effective when epistemic and aleatoric signals are approximated via TTA rather than an ensemble. On NIH ChestX-ray14, using CRC-Router (MoE) yields the best performance, reaching 91.3% coverage at 3.8% risk. Overall, these results indicate complementary benefits from CRC-based risk-constrained routing and stronger uncer-tainty estimates, and support the cross-dataset generalizability of CRC-Router when embedded within a medical agentic workflow. 3) Ablation Study: To quantify the contribution of each un-certainty signal in the proposed uncertainty vector, we conduct a leave-one-feature-out ablation by removing one component at a time and retraining all 14 per-disease risk models using the same protocol and architecture. Table III shows that the full model attains the highest macro coverage, 91.3%, at the target risk level. Removing any individual component decreases macro coverage, indicating that each feature contributes com-plementary information for risk estimation. Among the uncer-tainty terms, removing the epistemic component causes the largest degradation, with macro coverage ↓ 3.1% , suggesting that model-disagreement information is particularly important for identifying high-risk cases. Across all features, removing the predictive score term ¯p produces the largest overall reduc-tion, with macro coverage ↓ 6.2% , indicating that prediction magnitude remains an important complement to uncertainty features when learning the uncertainty-to-risk mapping. VI. C ONCLUSIONS 
+
+In this paper, we presented CRC-Router, a risk-constrained, uncertainty-aware routing module for both conventional med-ical prediction models and agentic medical AI systems. CRC-Router combines heterogeneous uncertainty signals and the predictive score to estimate per-finding wrong-accept risk, and then applies Conformal Risk Control (CRC) to calibrate deployment thresholds for a user-specified risk target. Using CXR multi-finding triage as a case study, CRC-Router was effective both as a standalone routing layer and as a plug-in module integrated with MedRAX. Across both settings, it achieved the best empirical risk–coverage trade-off among compared methods, supporting its use for risk-constrained medical AI deployment and highlighting its modular, model-agnostic compatibility with existing predictive and agentic medical AI systems. REFERENCES [1] G. Xu, X. Li, Y. Chen, Y. Duan, S. Wu, A. Yu, C.-H. Chiu, J. Ni, N. Tang, T. J.-J. Li et al. , “A comprehensive survey of agentic AI in healthcare,” Authorea Preprints , 2025. [2] J. Han, W. Buntine, and E. Shareghi, “Towards uncertainty-aware language agent,” in Findings of the Association for Computational Linguistics: ACL 2024 , 2024, pp. 6662–6685. [3] Q. Zhao, D. Li, Y. Liu, W. Cheng, Y. Sun, M. Oishi, T. Osaki, K. Matsuda, H. Yao, C. Zhao et al. , “Uncertainty propagation on LLM agent,” in Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 2025, pp. 6064– 6073. [4] Z. Zhi, C. Feng, A. Daneshmend, M. Orlu, A. Demosthenous, L. Yin, D. Li, Z. Liu, and M. R. Rodrigues, “Seeing and reasoning with confidence: Supercharging multimodal LLMs with an uncertainty-aware agentic framework,” arXiv preprint arXiv:2503.08308 , 2025. [5] J. Zhang, P. K. Choubey, K.-H. Huang, C. Xiong, and C.-S. Wu, “Agentic uncertainty quantification,” arXiv preprint arXiv:2601.15703 , 2026. [6] A. N. Angelopoulos, S. Bates, A. Fisch, L. Lei, and T. Schuster, “Conformal risk control,” arXiv preprint arXiv:2208.02814 , 2022. [7] J. Silva-Rodr´ ıguez, I. Ben Ayed, and J. Dolz, “Trustworthy few-shot transfer of medical VLMs through split conformal prediction,” in In-ternational Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2025, pp. 658–668. [8] J. Teneggi, J. W. Stayman, and J. Sulam, “Conformal risk control for semantic uncertainty quantification in computed tomography,” in 
+
+International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2025, pp. 45–55. [9] Y. Geifman and R. El-Yaniv, “Selective classification for deep neural networks,” Advances in neural information processing systems , vol. 30, 2017. [10] A. Fallahpour, J. Ma, A. Munim, H. Lyu, and B. Wang, “MedRAX: Med-ical reasoning agent for chest X-ray,” arXiv preprint arXiv:2502.02673 ,2025. [11] Y. Kim, C. Park, H. Jeong, Y. S. Chan, X. Xu, D. McDuff, H. Lee, M. Ghassemi, C. Breazeal, and H. W. Park, “MDAgents: An adaptive collaboration of LLMs for medical decision-making,” Advances in Neural Information Processing Systems , vol. 37, pp. 79 410–79 452, 2024. [12] B. Li, T. Yan, Y. Pan, J. Luo, R. Ji, J. Ding, Z. Xu, S. Liu, H. Dong, Z. Lin et al. , “MMedAgent: Learning to use medical tools with multi-modal agent,” arXiv preprint arXiv:2407.02483 , 2024. [13] W. Chen, Y. Dong, Z. Ding, Y. Shi, Y. Zhou, F. Zeng, Y. Luo, T. Lin, Y. Su, Y. Wu, K. Zhang, Z. Xiang, T. Liu, N. Liu, L. Sun, Y. Yuan, and X. Li, “Radfabric: Agentic ai system with reasoning capability for radiology,” arXiv preprint arXiv:2506.14142 , 2025. [14] C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, “On calibration of modern neural networks,” in Proceedings of the 34th International Conference on Machine Learning , ser. Proceedings of Machine Learning Research, vol. 70, 2017, pp. 1321–1330. [15] Y. Gal and Z. Ghahramani, “Dropout as a bayesian approximation: Representing model uncertainty in deep learning,” arXiv preprint arXiv:1506.02142 , 2016. [16] A. Kendall and Y. Gal, “What uncertainties do we need in bayesian deep learning for computer vision?” in Advances in Neural Information Processing Systems , vol. 30, 2017. [17] Y. Ovadia, E. Fertig, J. Ren, Z. Nado, D. Sculley, S. Nowozin, J. V. Dillon, B. Lakshminarayanan, and J. Snoek, “Can you trust your model’s uncertainty? evaluating predictive uncertainty under dataset shift,” in 
+
+Advances in Neural Information Processing Systems , vol. 32, 2019. [18] K. Lee, K. Lee, H. Lee, and J. Shin, “A simple unified framework for detecting out-of-distribution samples and adversarial attacks,” in 
+
+Advances in Neural Information Processing Systems , vol. 31, 2018. [19] A. N. Angelopoulos and S. Bates, “Conformal prediction: A gentle introduction,” Foundations and Trends in Machine Learning , vol. 16, no. 4, pp. 494–591, 2023. [20] P. F. Jaeger, C. T. L¨ uth, L. Klein, and T. J. Bungert, “A call to reflect on evaluation practices for failure detection in image classification,” arXiv preprint arXiv:2211.15259 , 2022. [21] J. Traub, T. J. Bungert, C. T. L¨ uth, M. Baumgartner, K. H. Maier-Hein, L. Maier-Hein, and P. F. J¨ ager, “Overcoming common flaws in the evaluation of selective classification systems,” Advances in Neural Information Processing Systems , vol. 37, pp. 2323–2347, 2024. [22] X. Wang, Y. Peng, L. Lu, Z. Lu, M. Bagheri, and R. M. Summers, “ChestX-Ray8: Hospital-scale chest X-ray database and benchmarks on weakly-supervised classification and localization of common thorax diseases,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition , 2017, pp. 2097–2106. [23] J. Irvin, P. Rajpurkar, M. Ko, Y. Yu, S. Ciurea-Ilcus, C. Chute, H. Mark-lund, B. Haghgoo, R. Ball, K. Shpanskaya et al. , “Chexpert: A large chest radiograph dataset with uncertainty labels and expert comparison,” in Proceedings of the AAAI conference on artificial intelligence , vol. 33, no. 01, 2019, pp. 590–597. [24] I. Radosavovic, R. P. Kosaraju, R. Girshick, K. He, and P. Doll´ ar, “Designing network design spaces,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2020, pp. 10 428–10 436. [25] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition , 2016, pp. 770–778. [26] D. Han, S. Yun, B. Heo, and Y. Yoo, “Rethinking channel dimensions for efficient model design,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2021, pp. 732–741. [27] M. Tan and Q. Le, “EfficientNetV2: Smaller models and faster training,” in International Conference on Machine Learning . PMLR, 2021, pp. 10 096–10 106. [28] G. Huang, Z. Liu, L. Van Der Maaten, and K. Q. Weinberger, “Densely connected convolutional networks,” in Proceedings of the IEEE Confer-ence on Computer Vision and Pattern Recognition , 2017, pp. 4700–4708.

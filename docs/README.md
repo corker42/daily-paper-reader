@@ -6,35 +6,44 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-09-27
-- 运行时间：2026-09-27 21:50:36 UTC
+- 最新运行日期：2026-09-29
+- 运行时间：2026-09-29 00:20:27 UTC
 - 运行状态：成功
-- 本次总论文数：4
-- 精读区：1
-- 速读区：3
+- 本次总论文数：7
+- 精读区：3
+- 速读区：4
 
 ### 今日简报（AI）
-- 今日共生成 4 篇推荐（精读 1 篇，速读 3 篇）
-- 精读：《AgentBetta: Verification-Driven Adaptive Configuration of an AI Nano-Agent through Selective Expansion and Verified Contraction》（8.0/10）
-- 速读：《Monitorable Chart Reasoning Agents via Verifiable Process Rewards》（7.0/10）, 《Representation-guided in-context learning for medical image interpretation with multimodal large language models》（6.0/10）, 《Synthetic Hospital: An Open, Verifiable, Physician-Validated Longitudinal EHR Benchmark》（6.0/10）
+- 今日共生成 7 篇推荐（精读 3 篇，速读 4 篇）
+- 精读：《Representation-guided in-context learning for medical image interpretation with multimodal large language models》（8.0/10）, 《CRC-Router: Risk-Constrained Routing for Medical Agentic AI Systems》（8.0/10）
+- 速读：《ConsultMind:Towards Automated Diagnostic Consultation via Uncertainty-Aware Reasoning》（7.0/10）, 《PIA: A Personal Intelligence Agent Turning Health Conversations into Records and Records into Understanding》（7.0/10）, 《A Safety-Bounded SDC-to-MCP Gateway for Medical AI Agents》（7.0/10）
 - 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。
-- 详情：[/202609/27/README](/202609/27/README)
+- 详情：[/202609/29/README](/202609/29/README)
 
 ### 精读区论文标签
-1. [AgentBetta: Verification-Driven Adaptive Configuration of an AI Nano-Agent through Selective Expansion and Verified Contraction](/202609/27/2609.23512v1-agentbetta-verification-driven-adaptive-configuration-of-an-ai-nano-agent-through-selective-expansion-and-verified-contraction)  
+1. [Representation-guided in-context learning for medical image interpretation with multimodal large language models](/202609/29/2609.24057v1-representation-guided-in-context-learning-for-medical-image-interpretation-with-multimodal-large-language-models)  
+   标签：评分：8.0/10、query:retina-agent
+   evidence：免训练上下文学习用于视网膜眼底图像解读
+2. [CRC-Router: Risk-Constrained Routing for Medical Agentic AI Systems](/202609/29/2609.30714v1-crc-router-risk-constrained-routing-for-medical-agentic-ai-systems)  
    标签：评分：8.0/10、query:topic
-   evidence：自适应AI纳米智能体框架及AB-ConfigBench基准评估
+   evidence：面向医疗智能体系统的风险约束路由
+3. [MACBT: A Multi-Agent Cognitive Behavioral Therapy Decision Support System with Longitudinal Memory](/202609/29/2609.30939v1-macbt-a-multi-agent-cognitive-behavioral-therapy-decision-support-system-with-longitudinal-memory)  
+   标签：评分：8.0/10、query:topic
+   evidence：多智能体认知行为疗法临床决策支持系统
 
 ### 速读区论文标签
-1. [Monitorable Chart Reasoning Agents via Verifiable Process Rewards](/202609/27/2609.24071v1-monitorable-chart-reasoning-agents-via-verifiable-process-rewards)  
-   标签：评分：7.0/10、query:med-rl-agent
-   evidence：用可验证过程奖励训练智能体的强化学习框架
-2. [Representation-guided in-context learning for medical image interpretation with multimodal large language models](/202609/27/2609.24057v1-representation-guided-in-context-learning-for-medical-image-interpretation-with-multimodal-large-language-models)  
-   标签：评分：6.0/10、query:retina-agent
-   evidence：免训练多模态大模型框架，提升视网膜眼底图像解读
-3. [Synthetic Hospital: An Open, Verifiable, Physician-Validated Longitudinal EHR Benchmark](/202609/27/2609.30027v1-synthetic-hospital-an-open-verifiable-physician-validated-longitudinal-ehr-benchmark)  
-   标签：评分：6.0/10、query:topic
-   evidence：面向医疗大模型评估的开放、医生验证的纵向EHR基准
+1. [ConsultMind:Towards Automated Diagnostic Consultation via Uncertainty-Aware Reasoning](/202609/29/2609.30796v1-consultmindtowards-automated-diagnostic-consultation-via-uncertainty-aware-reasoning)  
+   标签：评分：7.0/10、query:topic
+   evidence：面向临床决策支持的不确定性感知自动化诊断问诊
+2. [PIA: A Personal Intelligence Agent Turning Health Conversations into Records and Records into Understanding](/202609/29/2609.31255v1-pia-a-personal-intelligence-agent-turning-health-conversations-into-records-and-records-into-understanding)  
+   标签：评分：7.0/10、query:topic
+   evidence：将健康对话转化为结构化临床记录的健康智能体
+3. [A Safety-Bounded SDC-to-MCP Gateway for Medical AI Agents](/202609/29/2609.31358v1-a-safety-bounded-sdc-to-mcp-gateway-for-medical-ai-agents)  
+   标签：评分：7.0/10、query:topic
+   evidence：为医疗AI智能体提供安全约束的网关
+4. [Structured Reasoning Agentic Framework for Interpretable Critical View of Safety Assessment](/202609/29/2609.31524v1-structured-reasoning-agentic-framework-for-interpretable-critical-view-of-safety-assessment)  
+   标签：评分：7.0/10、query:topic
+   evidence：面向医学评估的结构化推理智能体框架
 
 
 <div class="dpr-home-promo-card">
