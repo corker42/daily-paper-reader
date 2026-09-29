@@ -1,0 +1,746 @@
+Title: Training-Free Clinical Reasoning through Medical Ontologies and Cognitive Mapping: A Symbolic-Probabilistic Knowledge Graph Framework
+
+URL Source: https://arxiv.org/pdf/2609.35298v1
+
+Published Time: Tue, 29 Sep 2026 04:18:36 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# Training-Free Clinical Reasoning through Medical Ontologies and Cognitive Mapping: A Symbolic–Probabilistic Knowledge Graph Framework 
+
+Surajit Das 1, ∗
+
+Abstract 
+
+Most clinical prediction systems learn patient-variable–outcome associations; we investigate an alternative, training-free diagnostic paradigm that maps patient observations onto explicit medical knowledge. CKG Reasoner integrates candidate-specific Evidence Feature Nodes, patient–reference matching, a bounded Information Gate, knowledge-weighted evidence accumulation, disease-level similarity, and decisive clinical rules. Missing-aware normalization and evidence-coverage auditing distinguish absent from unavailable evidence. Candidate ranking remains separate from outcome-label-independent K-means clustering, which uses evi-dence strength, relative magnitude, directional similarity, and evidence completeness to derive cohort-level diagnostic assignments. Retrospective evaluation across six clinical cohorts comprising four dengue datasets ( N = 1000 , 1523 , 989 , 1018), one malaria dataset ( N = 2190), and one influenza dataset ( N = 4569) yielded positive-class F1 scores under a uniform, label-free, cohort-fitted 
+
+K = 2 partition protocol of 0.996, 0.634, 0.936, and 0.917 for dengue, 0.695 for malaria, and 0.842 for influenza. Corresponding all-record accuracies were 0.996, 0.558, 0.914, 0.893, 0.707, and 0.906, respectively. All six cohorts achieved full partition-decision coverage under a uniform K = 2 protocol using the previously frozen package and disease-specific knowledge representations. Neither the knowledge-grounded scorer nor unsupervised clustering is fitted using outcome labels. K-means uses only the four derived evidence coordinates, not raw dataset predictors or target variables. Logistic regression provides a supervised baseline. Influenza results incorporate confirmatory molecular PCR and do not represent independent pre-test prediction. The findings char-acterize knowledge-grounded evidence separation, auditability, and evidence sensitivity rather than establish prospective clinical validity or comparative superiority. FOL /LLM-based clinical explanation remains an unevaluated extension. 
+
+Keywords: training-free clinical reasoning, medical ontology, knowledge representation, cognitive mapping, knowledge graphs, symbolic–probabilistic inference, explainable AI, clinical decision support 
+
+1. Introduction 
+
+Disease diagnosis requires the integration of heterogeneous evidence, including symptoms, serology, laboratory findings, demographics, imaging, and clinical context. These observa-tions do not have equivalent diagnostic roles: a finding may provide weak support, strong support, contradiction, decisive confirmation, or exclusion, while its clinical importance and disease specificity may also di ff er. Outcome-fitted classifiers address this problem by learning empirical feature–outcome associations from labeled observations, particularly when do-main rules are unknown or di ffi cult to specify explicitly. Such models can provide strong predictive performance within a given population but may degrade under distribution shift or confounding when these factors are not explicitly modeled or controlled. Moreover, a learned mapping need not explicitly preserve distinctions among evidential support, contradiction, clinical importance, specificity, decisive findings, and unre-solved evidence that are important for translational healthcare. Knowledge-based systems make disease–finding relations ex-plicit but may themselves be brittle under incomplete or am-biguous evidence. Probability /rule hybrids, ontology-supported 
+
+> ∗Corresponding author: Surajit Das (mr.surajitdas@gmail.com). Code and implementation materials are available upon request.
+
+diagnosis, and weighted clinical knowledge graphs (KGs) are established [1, 3, 11, 27, 28]; the contribution of the present work therefore does not rest on any one of these ingredients in isolation. 
+
+Conceptual premise.. The present framework investigates an alternative, knowledge-grounded modeling paradigm. Medi-cal knowledge is first represented explicitly through ontology-grounded, disease-specific structures; patient observations are then cognitively mapped onto these representations; and diag-nostic support is obtained through symbolic–probabilistic rea-soning over the resulting patient–knowledge correspondence. “Training-free” is used specifically to mean that patient out-come labels do not train, fit, fine-tune, calibrate, or optimize the diagnostic reasoner. The method is therefore more pre-cisely outcome-label-independent, knowledge-engineered, and parameter-frozen during cohort evaluation; it is not parameter-free or assumption-free. The package and its disease-specific knowledge representations were developed independently of all six evaluation datasets and frozen before their evaluation; none of those datasets was used to construct or revise the package. Clinical evidential and measurement parameters are mapped to fixed ordinal scales that computationally encode specified med-ical knowledge rather than outcome-learned parameters. Within this paradigm, CKG Reasoner isolates cross-sectional arXiv:2609.35298v1 [cs.AI] 28 Sep 2026 diagnostic reasoning from temporal progression and explic-itly separates operations that are often conflated: patient– knowledge correspondence and evidence accumulation, relative candidate ranking, decisive pathognomonic /exclusionary rules, evidence-completeness auditing, and unsupervised partition-based diagnostic assignment from the post-reasoning represen-tation. These operations answer di ff erent questions. Candidate ranking expresses relative support among represented disease hypotheses and is not a calibrated posterior probability or a prospectively validated diagnosis. Decisive clinical rules pre-serve explicit confirmation or exclusion semantics. Evidence completeness describes how much diagnostically relevant evi-dence was available without treating missingness as contradic-tion. Unsupervised partitioning uses quantities produced by the fixed reasoner to assign cohort-level diagnostic groups. It there-fore participates in the reported classification pathway, although it does not modify candidate evidence accumulation, clinical rules, or ranking. The objective of the present study is therefore not to es-tablish predictive superiority over outcome-fitted classifiers. Supervised models estimate empirical mappings from patient variables to outcomes using labeled observations, whereas the present framework investigates whether explicitly represented medical knowledge can be operationalized as a fixed, patient-activated reasoning process without fitting the diagnostic map-ping to cohort outcome labels. Predictive discrimination alone would consequently not constitute a like-for-like evaluation of the principal contribution. The primary questions in this ini-tial study are whether the encoded reasoning process is com-putationally coherent, auditable at the level of individual evi-dence contributions, robust to plausible perturbations, sensitive to clinically relevant evidence removal, and capable of exposing the provenance and limitations of its conclusions. Outcome-fitted models remain useful contextual benchmarks, and com-parative predictive and clinical-utility studies remain important subsequent validation questions, particularly under matched external cohorts, aligned information availability and clinical tasks, and prospective evaluation of discrimination, calibration, selective prediction, and clinical utility. Unsupervised partitioning constitutes the diagnostic assign-ment stage used to produce the reported cohort-level classi-fication labels, rather than merely an evaluation-level visual-ization. The clustering uses only the four derived evidence coordinates; neither raw dataset predictors nor target /outcome labels are clustering inputs. The reported K-means partition-ing operates on the post-reasoning representation generated by the fixed inference process and does not alter candidate evi-dence accumulation, decisive clinical rules, or candidate rank-ing. Documented outcomes are subsequently used to calcu-late F1, accuracy, and related metrics for the partition-derived diagnostic assignments. These metrics evaluate the cohort-level assignments produced by the integrated, outcome-label-independent diagnostic-assignment stage. They are not inter-preted as prospective clinical performance, calibrated diagnos-tic accuracy, or substitutes for an externally validated clinical decision rule. Supervised logistic-regression results are sup-plied in the manuscript as a contextual baseline for all six co-horts; their underlying fitting scripts and split provenance were not independently reproduced from the six CKG notebooks. Its held-out test metrics and the cohort-fitted CKG partition met-rics follow di ff erent evaluation protocols, so their numerical comparison is descriptive rather than evidence of matched pre-dictive superiority. Random forests, gradient-boosted models, and neural classifiers were not established as executed baselines in the supplied experiments. The empirical study evaluates six heterogeneous clinical co-horts using the same inference machinery with disease-specific knowledge representations: four dengue cohorts with di ff erent evidence profiles, one malaria cohort, and one influenza co-hort. All six cohorts A–F were evaluated using the previously frozen CKG Reasoner package and disease-specific knowledge representations; none was used to develop or modify the pack-age or its knowledge representations. A uniform K = 2 K-means protocol was applied across all six cohorts; outcome la-bels were excluded from package construction, schema map-ping, knowledge-grounded scoring, and K-means fitting. These infectious-disease datasets provide clinically overlapping but heterogeneous evidence regimes through which the behavior of the fixed reasoning architecture can be examined. No cohort outcome labels are used to train, fit, fine-tune, calibrate, or op-timize the reasoner or its disease-specific knowledge represen-tation. Negative records are not relabelled as unsupported alter-native diseases. Accordingly, the six cohorts evaluate the archi-tecture across separate disease-specific binary tasks rather than constituting a validated three-class dengue–malaria–influenza di ff erential-diagnosis benchmark. The principal contributions of this work are: 1. An outcome-label-independent, candidate-conditioned symbolic–probabilistic reasoning architecture integrating medical ontologies, cognitive patient–knowledge mapping, evidence accumulation, disease ranking, decisive clinical rules, and unsupervised diagnostic assignment. 2. Disease-specific Evidence Feature Nodes (EFNs) that pre-serve canonical clinical states and explicitly distinguish diagnostic importance, specificity, patient–reference cor-respondence, positive support, contradiction, and pathog-nomonic /exclusionary roles. 3. A knowledge-engineered inference procedure with frozen diagnostic parameters, missing-aware evidence normaliza-tion, and separate evidence-completeness auditing. The latter identifies unresolved critical evidence and quantifies Confidence Score (CS) without incorporating it into candi-date ranking. 4. An extensible, inference-faithful architecture providing patient-specific reasoning traces and evidence prove-nance, with explicit design pathways toward uncertainty-region identification, interactive evidence acquisition, FOL-compatible explanations, constrained language generation, and real-time clinical decision support. These extensions are distinguished from experimentally validated capabilities. 5. Retrospective evaluation across six heterogeneous dengue, malaria, and influenza cohorts using frozen knowledge representations and a uniform, outcome-label-independent clustering protocol, supported by available component-2ablation, perturbation, evidence-withholding, parameter-sensitivity, and initialization-stability analyses. The separate binary cohorts are not presented as a three-class di ff erential-diagnosis benchmark, and the study does not claim predictive superiority over outcome-fitted classifiers. 
+
+Novelty statement.. The novelty of CKG Reasoner lies in the design and integration of an outcome-label-independent, ontology-grounded, candidate-conditioned symbolic– probabilistic reasoning architecture, rather than in its individual components. Through cognitive patient–knowledge mapping, the framework operationally separates clinical importance, diagnostic specificity, patient–reference similarity, positive and contradictory evidence, decisive clinical rules, and evi-dence completeness. This semantic decomposition enables patient-specific disease ranking, auditable reasoning, explicit evidence provenance, and a separate unsupervised diagnostic-assignment pathway without fitting diagnostic parameters to patient outcome labels. An additional architectural contribution is its extensibility to-ward translational healthcare. Unlike approaches restricted to fixed-output classification, the design preserves the information necessary to investigate explicit uncertainty regions, identify unresolved critical evidence, request additional patient infor-mation, and revise diagnostic conclusions through further rea-soning. Its inference-faithful traces also provide a foundation for clinically grounded explanations and prospective real-time, patient-wise clinical decision support. These research opportu-nities arise from the architecture’s explicit evidence semantics, modular reasoning stages, and separation of ranking, decision-making, and evidence completeness. The contribution is therefore both an implemented, auditable reasoning methodology and an extensible architecture for fu-ture interactive and explainable clinical AI, complementary to outcome-fitted classifiers. Real-time deployment, interac-tive evidence acquisition, explicit uncertainty-region validation, and clinical validation of FOL /LLM explanations remain future work. 
+
+2. Related Work and Positioning 
+
+2.1. From expert rules to probabilistic and ontology-based di-agnosis 
+
+Probability–rule hybrids are longstanding: CLAUDE com-bined rule and probabilistic experts through a neural recon-ciler [1], while probabilistic induction learned weighted med-ical rules from historical cases [2]. Ontology-based systems later combined probabilistic inference [3], fuzzy rules, seman-tic similarity and hierarchical weighting [6, 5], or symptom-dependency-aware Naive Bayes [11]. Thus neither probability-plus-rules nor semantic uncertainty is novel here; the distinc-tion is the graph-structured separation of evidence semantics and decisive clinical roles. Bayesian models likewise provide interpretable di ff erential reasoning: expert-knowledge BNs [13], a prospectively de-signed anterior-uveitis BN [36], Siamese BNs emphasizing negative evidence [10], dengue BNs with /without NS1 [7], and large leaky noisy-OR networks derived from Orphanet /HPO [29]. These establish uncertainty and negative evidence as prior art; the present question is their integration with richer graph semantics and hard clinical overrides without outcome-driven fitting. 
+
+2.2. Knowledge graphs for diagnostic reasoning 
+
+Knowledge-graph CDSS research spans graph representation and reasoning [9], learned interactive policies such as DKDR and RDKG [12, 17], weighted symptom–syndrome paths [16], embedding-refined diagnosis paths [14], and recent sleep-disorder reasoning [20]. A particularly close headache en-gine uses ICHD-3, weighted graph matching, fulfilled-criteria weights, and exclusion penalties [28]; therefore transparent exclusion-aware graph scoring is not claimed as unique. Graph uncertainty is also established. A semantic clinical KG uses likelihood-ratio weights and patient-specific condi-tional edges for hypothesis ranking [27], while uncertain KGs have been constructed from personal EHRs [21]. The present framework di ff ers by preserving canonical disease features, clinical importance, specificity, patient /reference agreement, support, contradiction, and hard pathognomonic /exclusionary roles as distinct inference quantities rather than primarily weighted relations. 
+
+2.3. EHR-centered, patient-specific, and learned clinical graphs 
+
+EHR-oriented KGs address fragmented-data integration and CDSS workflow [18, 19, 33], whereas this work assumes a pre-specified clinical knowledge model and studies inference se-mantics. Modern patient-specific systems include D 2KGMed, which uses LLM-guided graph construction and supervised fine-tuning [22]; DR.KNOWS, which ranks UMLS paths with graph /LLM components [23]; and KGDAgents [32]. Their value supports patient-specific structured reasoning, but their diagnostic behavior depends on learned, graph-neural, agentic, or language-model components; here patient records activate a fixed knowledge-driven procedure whose parameters are not estimated from outcome labels. 
+
+2.4. Neuro-symbolic and LLM-guided reasoning 
+
+Neuro-symbolic CDSSs combine deep learning with sym-bolic reasoning [25, 26], including rule engines coupled to neu-ral language processing [30]. Structured-knowledge LLM sys-tems include ReCLLaMA [31], DR.KNOWS [23], and episte-mologically guided diagnostic reasoning [35]. These improve structure and reviewability but retain learned /generative com-ponents. Here the implemented numerical evidence and rule traces provide a foundation for clinically grounded explanation; FOL serialization and LLM-based verbalization are prospective extensions rather than evaluated contributions in this study. 32.5. Closest methodological gap 
+
+The literature does not support broad novelty claims for knowledge graphs, probabilistic reasoning, clinical rules, neg-ative evidence, semantic similarity, patient-specific reasoning, or explainability, each of which has clear precedent [1, 6, 10, 27, 28]. The methodological gap concerns how these ele-ments are organized within the diagnostic inference process. Relatively few systems preserve clinical importance, diagnos-tic specificity, patient–reference agreement, positive support, contradiction, and decisive clinical roles as distinct operational quantities within a single outcome-label-independent, patient-activated reasoning architecture, while also allowing pathog-nomonic /exclusionary findings to remain operationally distinct from graded evidence and exposing a patient-specific inference trace constructed from the same quantities that generate the diagnostic result. Against the representative systems summa-rized in Table 1, the contribution of the present work is there-fore best characterized by this explicit semantic decomposition, its integration within a fixed, auditable, candidate-conditioned symbolic–probabilistic reasoning architecture, and inference-faithful patient-level traceability, rather than by any individual component in isolation. 
+
+3. Methodology 
+
+3.1. Clinical Knowledge Representation 3.1.1. Reference knowledge graph 
+
+Let GR = (VR, ER) denote a reference medical knowledge graph constructed from clinical guidelines, pathological ob-servations, laboratory biomarkers, radiological findings, epi-demiological evidence, and expert knowledge. Nodes repre-sent symptoms, laboratory measurements, biomarkers, imaging findings, contextual variables, intermediate clinical concepts, or diseases. The graph serves as a cross-sectional evidence struc-ture linking observed patient features to candidate disease hy-potheses without implying temporal progression. The representation separates two complementary aspects of diagnostic reasoning: (i) the patient–reference aspect , describ-ing the correspondence between an individual’s observed fea-tures and the candidate-specific canonical representation; and (ii) the disease-knowledge aspect , describing the diagnostic meaning of each feature for a candidate disease. This seman-tic separation between patient–reference evidence and disease-specific knowledge is essential because the same observed fea-ture may have di ff erent diagnostic significance across compet-ing diseases 
+
+Patient–reference aspect. For feature Fi under candidate dis-ease D j, the patient–reference aspect compares the activated patient representation of that feature with its candidate-specific canonical representation. A feature may contain several clin-ically distinct components; for example, a fever feature may contain onset, duration, and temperature components. The patient observation itself is unchanged across candidates, but its activation is evaluated relative to the canonical state speci-fied by each disease model. The mathematical construction of component activation, feature-level directional agreement, rel-ative magnitude, and the resulting bounded Information Gate is given in Section 3.2.3 after component activation. This patient–reference correspondence is distinct from fixed disease-knowledge attributes such as diagnostic role, clinical impor-tance, support strength, and contradiction magnitude. 
+
+Disease-specific knowledge attributes and Evidence Feature Nodes. For feature i under candidate disease D j, gi j is the diagnostic-role weight /direction, Ii j clinical importance, S i j 
+
+support strength, and Ci j contradiction magnitude. Patient– reference correspondence is computed separately from acti-vated feature components through the Information Gate IG i j 
+
+in Section 3.2.3. The fixed disease-knowledge semantics and accompanying encodings are as follows: 
+
+Clinical importance. Clinical importance Ii j denotes the 
+
+practical diagnostic importance of feature Fi for candidate dis-ease D j, distinct from disease specificity. Features with the same diagnostic role may di ff er in importance, and a highly disease-specific feature need not be maximally important, be-cause practical contribution may depend on availability, mea-surement reliability, disease stage, and clinical context. It is defined as 
+
+Ii j ∈ { 1, 0.75 , 0.50 , 0.25 },
+
+corresponding to Critical , Major , Moderate , and Minor , respec-tively. 
+
+Diagnostic role and disease specificity. The diagnostic role gi j denotes the disease specificity and diagnostic direc-tion of feature Fi for candidate D j, i.e., how characteristic or diagnostically informative the feature is for that disease. It is candidate-specific, so the same feature may have di ff erent roles across diseases. Unlike patient–disease similarity, which mea-sures correspondence between a patient’s observed feature rep-resentation and the candidate-specific canonical disease repre-sentation, specificity is encoded medical knowledge about the feature–disease relationship. Thus, a highly specific feature may be absent or poorly matched in a patient, while a patient may strongly match a nonspecific feature shared across dis-eases. The scale is 
+
+gi j ∈ { 1, 0.85 , 0.70 , 0.50 , 0.30 , 0.15 , −0.50 },
+
+corresponding to Pathognomonic , Hallmark , Major , Support-ive , Associated , Nonspecific , and Exclusionary , respectively. 
+
+Support strength. Support strength S i j denotes the posi-tive evidential strength contributed by feature Fi for D j when the patient observation is present and appropriately matched, distinct from specificity and clinical importance. Hence, fea-tures with identical roles and importance may di ff er in sup-port: two Hallmark features may provide strong versus mod-erate support if one is less consistent, more context-dependent, or more susceptible to alternative explanations. Conversely, an uncommon feature may have moderate practical importance yet 4Table 1: Representative diagnostic reasoning systems and their relationship to the proposed framework. “Learned” indicates that a substantive diagnostic component is estimated or fine-tuned from data. 
+
+Study Primary representation Prob. Rules Neg. ev. Patient-specific Learned Intrinsic trace Main distinction from this work 
+
+[1] Hybrid rule /probabilistic experts Yes Yes – Yes Yes Partial Combines expert outputs through a neural network; no explicit clinical KG evi-dence semantics. [6] Ontology + fuzzy rule system Fuzzy Yes Partial Yes Partial Yes Semantic similarity and fuzzy inference, but no sep-arate support /contradiction channels or decisive rule override layer. [10] Siamese Bayesian networks Yes – Yes Yes Yes Yes Explicitly addresses neg-ative evidence, but within a learned BN formulation rather than a disease-specific EFN graph. [12] KG + deep reinforcement learning – – – Yes Yes Partial Learns interactive diagnos-tic policy over the KG. [16] KG reasoning paths + dynamic weights Yes – Partial Yes Partial Yes Weighted paths for TCM syndrome reason-ing; no hard pathog-nomonic /exclusionary override semantics. [27] Semantic KG with LR-weighted /conditional edges Yes Conditional Yes Yes No /limited Yes Very close weighted trans-parent reasoning; evidence remains primarily edge-weight based rather than explicitly separated clinical attributes. [28] ICHD-3 KG + weighted matching Weighted Criteria Yes Yes No /limited Yes Transparent di ff erential engine with exclusion penalties; no probabilistic evidence /similarity /hard-rule decomposition used here. [22] Patient-specific dynamic diagnostic KG + LLM – – – Yes Yes Yes Dynamic patient graph is learned /refined through LLM and supervised fine-tuning. [23] UMLS KG paths + graph model +
+
+LLM – – – Yes Yes Yes Retrieves patient-specific reasoning paths, but pre-diction depends on learned graph /LLM components. [31] Neuro-symbolic LLM agent + KG – Yes Partial Yes Yes Yes Structured agentic reason-ing over free text; gener-ative /learned inference re-mains central. 
+
+Proposed Disease-specific EFNs + patient ev-idence graph Yes Yes Yes Yes No outcome fitting Yes Separates importance, specificity, similarity, support, contradiction, and decisive clinical roles within one fixed inference procedure. 
+
+provide decisive support when present if strongly associated with D j. Thus, S i j independently represents the evidential con-sequence of an observed match: 
+
+S i j ∈ { 1, 0.8, 0.6, 0.3, 0},
+
+corresponding to Decisive , Strong , Moderate , Slight , and None ,respectively. 
+
+Contradiction magnitude. Contradiction magnitude Ci j 
+
+denotes the negative evidential strength against D j when the observed state of Fi conflicts with its candidate-specific expec-tation. It is not simply the inverse of S i j because agreement and disagreement may have asymmetric consequences. For exam-ple, a highly characteristic but uncommon manifestation may provide strong or decisive support when present ( S i j = 0.8 or 1) but little contradiction when absent ( Ci j = 0.2). Conversely, a finding expected in nearly all a ff ected patients but common in other diseases may provide only moderate support when present (S i j = 0.6) yet strong contradiction when unexpectedly absent (Ci j = 0.7). Thus, positive and negative evidence are repre-sented independently: 
+
+Ci j = min 0, Contra i j 
+
+ ∈ { 1, 0.7, 0.4, 0.2, 0},
+
+corresponding to Decisive , Strong , Moderate , Mild , and None ,respectively. Thus Ci j is the nonnegative magnitude used by the negative-evidence equation. 
+
+Definition 1 (Evidence Feature Node) .
+
+EFN i j = (Fi, gi j , Ii j , S i j , Ci j , Ti),
+
+5where F i identifies the feature and T i is optional non-temporal metadata. The candidate-specific canonical feature state is stored with the reference knowledge representation. Patient observations are not part of the fixed EFN; they are activated against that canonical state during inference to obtain IG i j .
+
+Remark 1 (Candidate dependence of an EFN) . An EFN is candidate-conditioned rather than a generic clinical-feature node. The same feature F i may occur across candidate dis-ease graphs with di ff erent canonical states, diagnostic roles, importance values, support strengths, and contradiction mag-nitudes. The patient observation itself remains unchanged; only the disease-specific reference and its diagnostic interpretation vary across candidates. 
+
+Outcome-label-independent evaluation. The inference machinery and disease-specific knowledge representations were developed independently of all six evaluation cohorts and frozen before evaluation. Dataset-specific schema mapping preserved the underlying knowledge. All cohorts underwent uniform, label-free K-means partitioning ( K = 2) using four-dimensional post-reasoning vectors. Classification metrics were derived from partition assign-ments rather than candidate-ranking scores. K-means uses only the four derived, knowledge-grounded coordinates, not raw dataset predictors or target labels. Reference outcomes are used only after assignment to calculate evaluation metrics. The su-pervised logistic-regression baseline follows a di ff erent evalua-tion protocol; comparisons are therefore descriptive rather than evidence of matched predictive superiority. 
+
+3.2. Hybrid Diagnostic Reasoning 3.2.1. Training-free design 
+
+Frozen experimental specification. The medical ontology and disease-specific knowledge graphs, including canonical clinical features, diagnostic roles, clinical-importance weights, support and contradiction strengths, and hard-rule semantics, were constructed principally from established WHO, CDC, and PAHO clinical guidance and medical knowledge. The corresponding numerical scales, scoring coe ffi cients, activa-tion functions, and decision thresholds are explicitly defined knowledge-engineering choices rather than parameters learned from patient outcomes or necessarily prescribed by those guide-lines. The ontology, disease-specific knowledge representations, and inference parameters were developed independently of all six evaluation datasets and frozen before evaluation. Pa-tient records supply observations for patient–knowledge map-ping; reference outcomes are reserved exclusively for post-assignment evaluation. No patient outcome labels are used to train, fit, fine-tune, calibrate, or optimize the diagnostic rea-soner or its knowledge representations. Canonical default components are handled through explicit patient–reference matching. Repeated feature codes occurring at distinct disease stages retain stage-specific identities and re-main independent evidence nodes. The scorer preserves Pevidence , r, and c as disease-level rea-soning quantities and separately exports the outcome-label-independent Confidence Score (CS; Confidence_Score ), an evidence-completeness quantity. CS does not enter candidate ranking. The integrated diagnostic-assignment stage applies a uniform 
+
+K = 2 K-means protocol across all six evaluation cohorts us-ing the standardized four-dimensional post-reasoning represen-tation 
+
+S 0(D j) = [Pevidence (D j), r j, c j, CS j]⊤.
+
+Candidate ranking uses a separate canonically normalized addi-tive score defined below. K-means operates exclusively on the four derived knowledge-grounded evidence coordinates, not on raw clinical predictors or outcome labels. Its centroids are fit-ted independently within each cohort, making the retrospective assignment procedure transductive rather than an independent out-of-sample prediction test. Ground-truth labels enter only after partitioning for retrospective metric calculation. 
+
+3.2.2. Ontology-grounded cognitive mapping 
+
+The central operation of CKG Reasoner is a patient-to-knowledge mapping rather than a learned feature-to-label map-ping. Let the medical ontology /knowledge representation de-fine, for candidate disease D j, a set of Evidence Feature Nodes with canonical component states and fixed clinical semantics. For an observed patient x, the cognitive map 
+
+M j : x 7 −→ nqi j , ri j , cos θi j , ρ i j , IG i j , gi j , Ii j , S i j , Ci j 
+
+o
+
+> i
+
+constructs a candidate-conditioned representation of how the patient’s evidence corresponds to the encoded disease model. Here qi j is the activated patient representation, ri j is its candidate-specific canonical reference, cos θi j represents direc-tional agreement, ρi j represents relative magnitude, and IG i j is their bounded feature-level Information Gate. The remaining quantities are disease-knowledge attributes supplied by the on-tology rather than learned from the patient cohort. This use of “cognitive mapping” denotes an explicit com-putational correspondence between observed clinical evidence and structured medical knowledge. It does not imply a model of human cognition. The mapping is candidate-specific: the same observation can have di ff erent diagnostic meaning under di ff er-ent disease hypotheses because canonical states, roles, support, contradiction, and decisive-rule semantics belong to the disease representation. The subsequent reasoning layer operates on this mapped representation and never estimates its parameters from cohort outcome labels. This decomposition is important for auditability. An er-roneous decision can, in principle, be localized to the en-coded medical knowledge, the patient-to-reference activa-tion /boundary function, the interaction of evidence, a hard rule, or the final aggregation mechanism rather than being hidden inside learned model weights. Conversely, being training-free does not guarantee clinical correctness: the framework can only reason from the quality and contextual validity of the knowl-edge and mapping functions supplied to it. 63.2.3. Operational scoring 
+
+Component activation. Each available patient component 
+
+x is transformed according to the type of its candidate-specific canonical reference. Let κi(x) denote the fixed codebook value for a categorical state, ε = 0.01 the numerical matching toler-ance, Ai a finite admissible set, [ ai, bi] a canonical interval, and 
+
+Gi(x) the fixed feature-specific fall-o ff outside that interval. The component activation is 
+
+qi(x) =
+
+
+
+κi(x), binary /categorical ,
+
+1{| x − ai| < ε }, single numerical value ,
+
+1{∃ a ∈ Ai : |x − a| < ε }, finite numerical set ,
+
+1{x ∈ Ai}, finite categorical set ,
+
+1, interval and x ∈ [ai, bi],
+
+Gi(x), interval and x < [ai, bi].
+
+(1) For a fixed normal range [ Li, Ui], directional trend references are 
+
+q↓ 
+
+> i
+
+(x) =
+
+
+
+0, x ≥ Li,
+
+1 − exp[ −5( Li − x)/Li], x < Li,
+
+q↑ 
+
+> i
+
+(x) =
+
+
+
+0, x ≤ Ui,
+
+1 − exp[ −4( x − Ui)/Ui], x > Ui, (2) with values clipped to [0 , 1]. A Normal /No-change reference has unit activation inside [ Li, Ui] and the fixed implementation-specific fall-o ff outside it. Equations (1)–(2) therefore define the activation rule for all supported reference types. Because the canonical reference is candidate-specific, ap-plying these transformations to component c of feature Fi un-der candidate D j produces the retained activation qi jc . Thus, the same observed patient value can produce di ff erent acti-vations under di ff erent candidate diseases when their canoni-cal reference states di ff er. These transformations are bounded knowledge-engineering compatibility scores, not calibrated probabilities, disease prevalence, diagnostic specificity, clinical importance, support strength, or contradiction strength. 
+
+Feature-level patient–reference correspondence. Let feature Fi contain mi mutually orthogonal component axes 
+
+ui1, . . . , uim i , with u⊤
+
+> ic
+
+uid = 0 for c , d and ∥uic ∥2 = 1. After the candidate-conditioned activation procedure above, the patient representation for Fi under disease D j is 
+
+qi j =
+
+> mi
+
+X
+
+> c=1
+
+qi jc uic , 0 ≤ qi jc ≤ 1. (3) Under the adopted canonical representation, every canonical component is an orthogonal unit component. Thus 
+
+ri j =
+
+> mi
+
+X
+
+> c=1
+
+ri jc uic , ri jc = 1, ∥ri j ∥2 = √mi. (4) The canonical disease representation is the reference itself and is not passed through the patient activation transformation. The component-wise normalized patient magnitude is therefore 
+
+pi j =
+
+
+
+> mi
+
+X
+
+> c=1
+
+qi jc 
+
+ri jc 
+
+!2
+
+> 1/2
+
+=
+
+
+
+> mi
+
+X
+
+> c=1
+
+q2
+
+> i jc
+
+
+
+> 1/2
+
+, (5) because ri jc = 1 for every canonical component. The norm is taken only across components of the same feature for the same patient and never across patients. Although each qi jc is bounded by one, pi j is a geometric magnitude and may exceed one when several components are active; it is not a probability. Directional patient–canonical agreement for feature Fi is cos θi j = q⊤
+
+> i j
+
+ri j 
+
+∥qi j ∥2 ∥ri j ∥2
+
+=
+
+Pmi 
+
+> c=1
+
+qi jc 
+
+qPmi 
+
+> c=1
+
+q2
+
+> i jc
+
+√mi
+
+, (6) with cos θi j = 0 when ∥qi j ∥2 = 0. Relative magnitude is 
+
+ρi j = ∥qi j ∥2
+
+∥ri j ∥2
+
+=
+
+qPmi 
+
+> c=1
+
+q2
+
+> i jc
+
+√mi
+
+. (7) Since 0 ≤ qi jc ≤ 1, both cos θi j and ρi j lie in [0 , 1] for an ob-served /evaluable feature. The feature-level Information Gate combines these two com-plementary forms of agreement. Let 
+
+zi j =
+
+"cos θi j 
+
+ρi j 
+
+#
+
+, z∗ =
+
+"11
+
+#
+
+. (8) The ideal self-reference has cos θ = 1 and ρ = 1, so its squared Euclidean magnitude is 2 and its L2 norm is √2. Consequently, 
+
+IG i j = ∥zi j ∥2
+
+∥z∗∥2
+
+=
+
+s
+
+cos 2 θi j + ρ2
+
+> i j
+
+2 , 0 ≤ IG i j ≤ 1. (9) Thus IG i j = 1 denotes perfect patient–canonical correspon-dence for that feature. Missing or unavailable evidence is han-dled separately and is not represented by setting IG i j = 0. 
+
+Evidence accumulation. Evidence is accumulated sepa-rately for each candidate disease. Let O j denote the ob-served /evaluable features for candidate D j; missing or unavail-able features are excluded rather than interpreted as observed absence. For a bounded correspondence value x ∈ [0 , 1], define the nonlinear evidence gate 
+
+f (x; α, β, γ ) = 11 + α exp[ −β(x − γ)] , (10) where α > 0 controls the scale of the exponential term, β > 0controls transition steepness, and γ determines its location. The experiments reported here use 
+
+α = 0.05 , β = 10 , γ = 0.85 .
+
+The same gate is applied to positive correspondence and to the complementary mismatch proxy. Feature-level contributions are 
+
+pcon i j = f (IG i j ; α, β, γ ) max( gi j , 0) Ii j S i j , (11) 
+
+ncon i j = f (1 − IG i j ; α, β, γ )Ci j . (12) 7The second expression is a transformed complementary-mismatch proxy, not an independently measured contradictory-reference similarity. Diagnostic role gi j and clinical importance 
+
+Ii j retain their encoded values; no exponential transformation of either attribute is used. Candidate-level evidence totals are 
+
+E+(D j) =
+
+X 
+
+> i∈O j
+
+pcon i j , (13) 
+
+E−(D j) =
+
+X 
+
+> i∈O j
+
+ncon i j , (14) 
+
+Enet (D j) = E+(D j) − E−(D j). (15) No additional multiplicative discount is applied to aggregate negative evidence. Evidence from di ff erent candidate diseases is never pooled into one Enet (D j). 
+
+Missing-aware canonical evidence normalization. The implementation does not apply a sigmoid to net evidence. For candidate D j, the canonical denominator is constructed over the same observed /evaluable feature support O j used by the patient numerator. The canonical self-reference sets IG = 1 for those features and applies the same positive- and negative-evidence equations: 
+
+Ecan (D j; O j) =
+
+X 
+
+> i∈O j
+
+f (1; α, β, γ ) max( gi j , 0) Ii j S i j 
+
+−
+
+X 
+
+> i∈O j
+
+f (0; α, β, γ )Ci j . (16) The evidence quantity used downstream is the direct canonical normalization 
+
+Pevidence (D j) = Enet (D j)
+
+Ecan (D j; O j) , (17) when Ecan (D j; O j) > 0, and 0 otherwise. Unavailable features therefore neither contribute negative evidence nor enlarge the canonical denominator. This missing-aware construction keeps the numerator and denominator on the same observed support and prevents unequal unobserved feature coverage across can-didate disease graphs from mechanically changing the normal-ized evidence scale. No sigmoid or clipping is applied at this stage; consequently Pevidence is a normalized evidence score rather than a calibrated probability and can, in principle, be neg-ative or exceed one. 
+
+Diagnostic evidence coverage and confidence annotation. 
+
+Missing-aware normalization answers how strongly the avail-able evidence corresponds to a candidate, but it does not by it-self quantify how much diagnostically important evidence was available. Two patients can therefore obtain similar Pevidence 
+
+or R(D j) values despite substantially di ff erent amounts of ob-served evidence. To expose this distinction without treating missingness as negative evidence, the implementation com-putes a diagnostic evidence-coverage quantity separate from candidate scoring but included in the default clustering repre-sentation. For candidate D j, let Keval  
+
+> j
+
+denote EFNs that are evaluable in the cohort, i.e., represented by the cohort schema and ob-served for at least one record. This avoids mechanically penal-izing every patient for ontology concepts that the dataset never collects. For EFN i, let mobs  
+
+> i j
+
+and mexp  
+
+> i j
+
+denote the numbers of observed and reference-defined components, respectively, and define component availability 
+
+ai j = mobs 
+
+> i j
+
+mexp 
+
+> i j
+
+, 0 ≤ ai j ≤ 1, (18) with the feature-level observed state used for single /default-component EFNs. Thus ai j = 1 denotes fully observed, ai j = 0fully missing, and intermediate values partially observed evi-dence. For non-exclusionary EFNs, canonical diagnostic capacity uses the same positive-evidence semantics as the reasoner, 
+
+wi j = f (1; α, β, γ ) max( gi j , 0) Ii j S i j , gi j ≥ 0. (19) Because an Exclusionary EFN has no positive-evidence capac-ity but may be decisively informative, its coverage weight is retained through 
+
+wi j = f (1; α, β, γ )|gi j | max( Ci j , Ii j S i j ), gi j < 0. (20) Diagnostic Evidence Coverage (DEC) is then DEC j(x) =
+
+Pi∈K eval  
+
+> j
+
+ai j wi j 
+
+Pi∈K eval  
+
+> j
+
+wi j 
+
+, 0 ≤ DEC j ≤ 1, (21) when the denominator is positive, and 0 otherwise. The imple-mentation exports the same quantity as Evidence_Coverage 
+
+and Confidence_Score . For interpretive reporting only, 
+
+Confidence_Level is High for DEC ≥ 0.80, Moderate for 0.50 ≤ DEC < 0.80, and Low otherwise. These categories are evidence-completeness descriptors, not calibrated probabilities or validated clinical confidence cuto ff s. Crucially, DEC j is not multiplied into Pevidence , r j, c j, R(D j), or the hard-rule score. The exported Confidence_Score (nu-merically identical to DEC) is appended as the fourth coordi-nate of S 0(D j) for unsupervised partitioning; thus it can af-fect cluster geometry while remaining outside disease ranking and diagnostic evidence accumulation. The audit trace addi-tionally lists unresolved Pathognomonic, Hallmark, Major, and Exclusionary EFNs so that equal numerical coverage arising from clinically di ff erent missing-evidence patterns remains dis-tinguishable. The second patient–reference comparison is performed at the disease level and is kept distinct from the feature-level Information Gate. For candidate D j, define the Hallmark /Major subset 
+
+H j = {i ∈ O j : gi j ∈ { 0.85 , 0.70 }} ,
+
+corresponding to Hallmark and Major diagnostic roles in the fixed ontology. Collect patient and canonical magnitudes only over this subset, 
+
+pHM j = (pi j )i∈H j , eHM j = (ei j )i∈H j ,
+
+8so that supportive /associated /nonspecific features can still con-tribute to Enet (D j) but do not determine aggregate disease-level similarity. Pathognomonic features are handled separately by the hard-rule pathway. For each retained feature, 
+
+ei j = ∥ri j ∥2 = √mi. (22) Here pi j = ∥qi j ∥2 is the activated patient-feature magnitude from Eq. (5), whereas ei j is the corresponding canonical fea-ture magnitude. Disease-level directional agreement and rela-tive magnitude are then 
+
+c j = (pHM j )⊤eHM j
+
+∥pHM j ∥2 ∥eHM j ∥2
+
+, r j = min( ∥pHM j ∥2, ∥eHM j ∥2)max( ∥pHM j ∥2, ∥eHM j ∥2) , (23) with either quantity defined as 0 when its denominator is zero. Thus the first comparison, IG i j , evaluates component-level cor-respondence within one feature, whereas ( c j, r j) evaluates the aggregate patient–canonical profile specifically across observed Hallmark /Major features of the same candidate disease. The implementation deliberately does not collapse these quantities through a logistic similarity gate. Instead, it preserves the four-dimensional post-KG clustering representation 
+
+S 0(D j) =
+
+
+
+Pevidence (D j)
+
+r j
+
+c j
+
+Confidence_Score (D j)
+
+
+
+, (24) which is the default full representation used by the reported four-coordinate experiments; the package also permits selected coordinate subsets. For candidate disease D j, ranking compares the com-bined patient-derived disease-level components with their cor-responding canonical components. The ranking score is defined as 
+
+R(D j) = P+  
+
+> evidence ,j
+
++ r j + c j
+
+Pcan evidence , j + rcan  
+
+> j
+
++ ccan 
+
+> j
+
+, (25) where 
+
+P+  
+
+> evidence ,j
+
+= max 0, Pevidence , j
+
+ . (26) Here Pcan evidence , j, rcan  
+
+> j
+
+, and ccan  
+
+> j
+
+are the corresponding disease-level quantities obtained from the candidate’s canonical self-reference under the same available-feature support. The de-nominator is therefore derived from the candidate representa-tion rather than imposed as an arbitrary constant. Thus, the three disease-level components contribute independently to the ranking score. A zero value in one component does not multi-plicatively suppress informative values in the remaining com-ponents. The raw, potentially negative Pevidence is retained un-changed in S 0; lower truncation is used only for its contribution to candidate ranking. The resulting R(D j) is a relative diagnos-tic ranking score, not a calibrated posterior disease probability. 
+
+3.2.4. Hard clinical rules as implemented 
+
+A candidate D j triggers pathognomonic evidence when an observed /evaluable feature satisfies ∃i ∈ O j : gi j = 1, IG i j ≥ τp
+
+and triggers exclusionary evidence when ∃i ∈ O j : gi j =
+
+−.5, IG i j ≥ τe, with τp = τe = .8. Because IG i j is candidate-conditioned, a trigger requires patient–reference agreement with the canonical state of that candidate disease rather than mere presence of the raw patient variable. The saved implementation applies candidate-level pathog-nomonic /exclusionary overrides as formalized in Eq. (27); can-didates are scored before the maximum is selected, so a trigger is not global early termination, and its rule trace is reported. The engine implements both pathognomonic and exclu-sionary candidate-level overrides. In the supplied knowledge files used by the six executed notebooks, however, no eval-uated Dengue, Malaria, or Influenza EFN is encoded with 
+
+diagnostic_role: Exclusionary ; consequently, the ex-clusionary override is available in code but is not empirically triggered in these six runs. In Dataset A, the raw column MAL 
+
+denotes malaise ; the Dengue manifestation YAML maps it to a Supportive feature rather than an exclusionary malaria indi-cator. Role metadata must also be interpreted jointly with the candidate-specific canonical state: NS1 is Pathognomonic in the laboratory knowledge models, but its expected state di ff ers by disease. Feature name /role alone is therefore not disease-specific evidence; the complete canonical representation and candidate-level quantities are. 
+
+3.2.5. Candidate ranking, decisive rules, and evidence-completeness audit 
+
+Before candidate-level hard-rule override, diseases are or-dered by the additive ranking score R(D j) from Eq. (25). The post-rule score is 
+
+S(D j) =
+
+
+
+1, pathognomonic trigger ,
+
+0, otherwise, exclusionary trigger ,
+
+R(D j), otherwise .
+
+(27) The leading represented hypothesis is D∗ = arg max j S(D j). Optional normalized support P(D j) = S(D j)/ Pr S(Dr) is a relative ranking weight and is not interpreted as a calibrated disease probability. Candidate-level pathognomonic and exclu-sionary rules remain explicit overrides rather than learned pa-rameters. Evidence completeness is audited separately from candi-date scoring. For candidate D j, Diagnostic Evidence Cover-age (DEC j) is the weighted fraction of cohort-evaluable canon-ical diagnostic evidence observed for the patient. The ex-ported Confidence Score (CS) is the corresponding evidence-completeness quantity used for reporting and as the fourth coordinate of the post-reasoning representation S 0(D j) =
+
+[Pevidence (D j), r j, c j, CS j]⊤. CS does not enter Pevidence , r j, c j, or the additive ranking score R(D j), but it can a ff ect the diagnos-tic assignments produced by K-means because it is part of S 0.Unresolved Pathognomonic, Hallmark, Major, and Exclusion-ary EFNs are exported explicitly. Missing evidence is therefore distinguished from observed absence without being converted into contradictory evidence. The clinical attributes used by the inference procedure are defined together in Section 3.1.1; the operational scoring sec-9Algorithm 1 CKG Reasoner: Inference and Diagnostic Assign-ment                                                                                                                                   
+
+> Require: Frozen KG, cohort X, candidate diseases D, target Dt,K=2
+> Ensure: Inference traces T, rankings R, diagnostic assignments ˆ yPhase I: Knowledge-grounded inference
+> 1: for x∈ X do
+> 2: for Dj∈ D do
+> 3: for Fi∈ O j(x)do
+> 4: qi j ← M j(x,Fi)5: IG i j ←
+> q
+> (cos 2θi j +ρ2
+> i j )/26: (pcon i j ,ncon i j )←Evidence( IG i j ,EFN i j )7: end for
+> 8: Pevidence ,j←Enet ,j/Ecan ,j
+> 9: (rj,cj)←Similarity( pHM j,eHM j)10: Rj←Rank( Pevidence ,j,rj,cj)11: Sj←Rules( Rj,IG j,EFN j)12: CS j←DEC j(x)13: S0(x,Dj)←[Pevidence ,j,rj,cj,CS j]⊤
+> 14: Tx,j←Trace( x,Dj)15: end for
+> 16: Rx←argsort Dj(Sj)17: end for Phase II: Unsupervised assignment
+> 18: Z← { S0(x,Dt) : x∈ X}
+> 19: eZ←Standardize( Z)20: z←KMeans( eZ,K)21: ˆ y←OrderAndAssign( z,Z)
+> Phase III: Retrospective evaluation
+> 22: E ← Evaluate(ˆ y,y)23: return T,R,ˆy,E
+
+tion above specifies how the patient and reference quantities en-ter those attributes. No separate interpretation table is repeated here. 
+
+3.2.6. Patient-specific graph extraction and inference-faithful explanation 
+
+For patient evidence O = {o1, . . . , on}, the system retrieves disease-specific EFNs and constructs GP ⊆ GR. The same observation may enter several candidate graphs with di ff er-ent canonical representations and evidence values; the dengue experiments use the dengue-oriented configuration only. Ex-plainability is intrinsic because each candidate trace exposes the same patient /reference agreement, separated evidence at-tributes, decisive-rule states, and score that directly produce support, with provenance to the activated EFNs rather than a post-hoc surrogate. The EFNs alone are therefore not treated as complete explanations; an explanation is the patient-activated inference trace assembled from those EFNs and the similarity, evidence, rule, uncertainty, decision, and provenance quantities generated during inference. 
+
+3.2.7. Formal explanation and reasoning-to-language exten-sion 
+
+The executed six-cohort experiments evaluate the knowledge-grounded scoring, evidence audit, and partition-derived assignments; they do not execute or validate FOL-based inference or LLM-generated clinical reports. The package includes explanation-object construction, FOL-compatible serialization methods, deterministic report generation, and consistency checks as software interfaces. These facilities establish an avenue for subsequent clinically grounded expla-nation research, not evidence of experimentally demonstrated FOL /LLM explanation performance. A proposed extension represents the patient-specific infer-ence trace for patient x and candidate D j as 
+
+Zx, j = (Fx, j, Cx, j, Rx, j, Ux, j, Dx, j, Πx, j), (28) where the components organize evidence facts, numerical con-tributions, rule states, evidence completeness, candidate deci-sions, and provenance. FOL-compatible predicates can express observed evidence, importance, specificity, similarity, positive and negative contributions, rule triggers, evidence coverage, and candidate rank. Numerical operations remain external arithmetic; this is not a claim that diagnostic scoring or clus-tering is performed by pure first-order logic. The proposed ex-planation object should distinguish candidate ranking from the partition-derived diagnostic assignment. 
+
+3.2.8. Prospective constrained clinical-report generation 
+
+A future LLM-based verbalizer could receive only a struc-tured, provenance-linked explanation object and a fixed report schema, with generation restricted to claims licensed by that object. A deterministic verifier could check disease identity, numerical values, support /contradiction signs, rule states, evi-dence completeness, and the separate partition assignment; un-supported statements would require rejection or deterministic fallback. The package’s existing deterministic report and ver-ification utilities are preparatory components. No LLM ver-balizer, end-to-end claim-grounding evaluation, clinician-rated explanation study, or clinical report-quality result is presented here. 
+
+3.2.9. End-to-end diagnostic workflow 
+
+Figure 2 summarizes KG → EFNs → separated evidence → candidate activation 
+
+→ graded aggregation → hard rules → candidate ranking 
+
+→ evidence-completeness audit 
+
+→ standardized S 0 = [Pevidence , r, c, CS ]⊤
+
+→ K-means diagnostic assignment ( K = 2) .
+
+The executed pathway produces the knowledge-grounded trace and K-means partition assignments. Conversion to a formal explanation object and any verified LLM report are extension paths, not operations evaluated in these experiments. Cohort A remains dengue versus non-dengue and does not relabel nega-tive records as other diseases. 
+
+3.3. Cross-Sectional One-Layer Formulation 
+
+The dengue data contain one cross-sectional record per pa-tient, so no temporal progression is inferred. The patient graph is GP = (VP, EP) with VP ⊆ L1; feature evidence is aggre-gated, canonically normalized, and then passed through the disease-similarity and hard-rule mechanisms above. Because diagnostic-time attributes are absent, the patient score is a di-agnostic evidence score ( Best_Score ), not a time-normalized DEI. 10 Executed: knowledge-grounded scoring and evidence /rule audit Executed: K-means ( K = 2) diagnostic assignment from standardized S 0                              
+
+> Available software interfaces: explanation object and FOL serialization Proposed, not evaluated: constrained LLM verbalization Proposed end-to-end: claim verification and clinical review
+> S0=[Pevidence ,r,c,CS ]⊤
+> Figure 1: Executed inference and partition assignment versus available explanation interfaces and proposed, unevaluated FOL /LLM-based clinical-report workflow. Dashed arrows denote extension paths rather than experimental results.
+> Patient observations Candidate-specific EFN activation Separated posi-tive /negative evidence Candidate score R(Dj)
+> +hard-rule override Evidence audit: DEC j,CS, unresolved EFNs K-means diagnostic assignment ( K=2) from standardized derived
+> S0=[Pevidence ,r,c,CS ]⊤
+> Figure 2: Cross-sectional reasoning and evaluation workflow. Patient observations activate candidate-specific EFNs, graded evidence is accumulated, and candidate ranking remains distinct from the evidence-completeness audit. The audit reports DEC j, CS, and unresolved critical evidence. Post-reasoning K-means partitioning produces the reported cohort-level diagnostic tags. It operates on the standardized representation S0=[Pevidence ,r,c,CS ] and does not modify candidate evidence accumulation or ranking.
+
+3.4. Training-Free Multi-Dataset Evaluation 3.4.1. Evaluation principle 
+
+The evaluation uses six executed notebooks and the CKG Reasoner package, which was developed and frozen indepen-dently of all six datasets. Dataset-specific schema mapping and label-free cohort-level fitting of the integrated diagnostic-assignment stage are evaluation operations, not package con-struction or knowledge-model fitting. Outcome labels are not supplied to hmap , graphfit , candidate scoring, the ranking function, or K-means fitting. Each notebook performs deter-ministic schema mapping and exhaustive reasoning over the three bundled disease graphs. For target-disease evaluation, each patient is represented by 
+
+S 0(D j) = hPevidence (D j), r j, c j, Confidence_Score (D j)i⊤
+
+,
+
+(29) whose four coordinates are standardized before K-means. The scalar ranking score R(D j) is not used as a clustering coordi-nate. Ground-truth labels enter only after cluster assignment for retrospective metric calculation. Ground-truth outcomes are therefore external retrospective criteria used to character-ize cluster composition; they are not used to construct S 0, fit K-means, estimate centroids, or tune the reasoning parameters. K-means is an integral component of the proposed diagnostic-assignment methodology, not a post-hoc analysis. It operates exclusively on the four knowledge-grounded evidence coordinates derived by the fixed reasoner; neither raw clinical predictors nor target /outcome labels are used as clustering in-puts. K-means is the integrated diagnostic-assignment stage following the internal KG evidence and hard-rule pathway. As a subsequent stage, it does not modify EFNs, Information Gates, evidence contributions, hard-rule states, or candidate ranking. Nevertheless, because its assignments are used in the headline retrospective classification metrics, the uniform K = 2 configu-ration is the diagnostic-assignment protocol evaluated here, not a clinically validated decision rule. It partitions the post-KG evidence representation rather than serving as a separate ex-ploratory analysis or a clinically validated decision threshold. It examines whether the structured representation contains recov-erable cohort-level diagnostic information without outcome-label fitting; the candidate-conditioned evidence pathway, hard clinical roles, ranking score, and evidence-completeness audit remain mathematically distinct from this integrated diagnostic-assignment stage. The primary evaluation examines label-free separation of the fixed, knowledge-grounded four-coordinate representation un-der a uniform K = 2 protocol. Neither raw dataset predictors nor target /outcome labels enter K-means; outcomes are used only afterward to quantify agreement with the resulting assign-ments. 
+
+3.4.2. Evaluation datasets 
+
+The evaluation comprises six cohorts spanning three target diseases (Table 2). The first four reported evaluation cohorts use the package schemas C1_Bangladesh_Dengue_1000 ,
+
+C2_D4_Dengue_Hematology_1523 , C3_M1_Malaria_2190 ,and C4_I1_Thailand_Influenza_4569 . The two sub-sequently reported dengue cohorts likewise use the same frozen package and existing Dengue knowledge representa-tion through deterministic schema mapping. Ground-truth positive /negative counts are 533 /467, 1042 /481, 1068 /1122, 1493 /3076, 644 /345, and 697 /321 for A–F, respectively. 
+
+3.4.3. Disease-specific feature mapping 
+
+Each dataset variable is mapped to a disease-specific EFN before outcome evaluation. Mapping is deterministic and semantic rather than outcome-fitted. The mapping layer preserves stage-specific EFN identity, normalizes supported units /categorical states, and distinguishes missing values from observed negative findings. In the influenza mapper, molecular 11 Table 2: Datasets used in the executed CKG Reasoner evaluation.                                                              
+
+> Dataset Target Package schema N/outcome Evidence profile
+> ADengue C1_Bangladesh_Dengue_1000 1000; 533 positive /467 nega-tive Mixed serological, clinical, and routine labora-tory evidence BDengue C2_D4_Dengue_Hematology_1523 1523; 1042 positive /481 nega-tive Hematology-dominant evidence CMalaria C3_M1_Malaria_2190 2190; 1068 positive /1122 neg-ative Malaria-specific clinical /laboratory evidence DInfluenza C4_I1_Thailand_Influenza_4569 4569; 1493 positive /3076 neg-ative Symptoms plus molecular PCR and rapid-antigen evidence EDengue D7 additional evaluation 989; 644 positive /345 negative Hematology-focused; four headings mapped to existing Dengue EFNs FDengue D3 additional evaluation 1018; 697 positive /321 nega-tive Clinical symptoms plus platelet and WBC evi-dence; eight headings mapped to existing Dengue EFNs
+> Table 3: Audited mapping of variables in Dengue Cohort A to ontology fea-tures.
+> Original variable Ontology feature Original variable Ontology feature
+> Gender Gender Age Age NS1 NS1 IgG IGG IgM IGM Fever Duration FEV_dura_dy Body Temperature FEV_temperature_c Platelet Count MTP_platelet_count WBC Count LEU_wbc Joint Pain ART_severity Headache HDH Retro-Orbital Pain ROP Myalgia MYA Rash RSH
+
+assay subtype strings are normalized to Influenza_A_or_B ;rapid-antigen variants such as Positive FluA , Positive FLU A , Positive FluB , and combined A +B forms are nor-malized to Positive , whereas invalid or pending results are treated as unavailable. The generalized-aches source variable maps to GBA rather than being duplicated into both GBA and MYA. For the audited dengue cohort, the preserved mapping is shown in Table 3. For the two additional dengue evaluations using the same frozen package, D7 mapped hemoglobin, WBC count, platelet count, and platelet-distribution width to existing EFNs; di ff erential count and RBC count were skipped as un-matched, while age, gender, identifier, and the outcome field were not used as evidence. D3 mapped platelet count, WBC count, fever, fever duration, headache, myalgia, rash, and vom-iting; identifier, gender, age, and the outcome field were not used as evidence. No outcome labels were supplied to the map-ping or reasoning steps. 
+
+3.4.4. Primary endpoints and partition protocol 
+
+The main F1 is conventional positive-class F1 ( f1 , identi-cal to f1_positive ); additional outputs include accuracy, bal-anced accuracy, macro /weighted F1, MCC, Cohen’s κ, confu-sion matrices, ROC–AUC, average precision where available, and coverage. All six reported evaluations use K = 2 on the standardized four-coordinate post-reasoning representation. K-means fitting does not use reference outcomes. The headline metrics are drawn from the recorded uniform K = 2 evalu-ations. Because two clusters are assigned negative and posi-tive tags, no intermediate partition is generated and partition-decision coverage is 1.000 in all six cohorts. The uniform ret-rospective protocol was not prospectively preregistered. 
+
+3.4.5. Evidence-completeness reporting 
+
+For every prediction, the output includes patient-level Ev-idence Coverage, CS, confidence level /reason, and disease-specific unresolved critical-evidence fields, together with feature-level evidence and explanation traces. These quantities audit the completeness of the evidence available to the reasoner. They do not alter feature-level evidence accumulation or the candidate-ranking score. CS is, however, the fourth standard-ized coordinate of S 0 and can therefore a ff ect K-means diag-nostic assignments and their evaluation metrics. 
+
+3.5. Comparators and Controlled Experiments 3.5.1. Comparator scope 
+
+In addition to the knowledge-based comparator feasibility as-sessment in Table 4, a supervised logistic-regression baseline table is supplied for all six datasets in Table 5. This provides a contextual predictive reference rather than a matched evalu-ation of the training-free reasoning architecture. The logistic-regression results are based on the reported held-out test sub-sets, whereas the CKG results characterize K-means diagnostic assignments from post-reasoning representations. The compar-ison therefore does not establish predictive superiority of either approach. To examine the feasibility of comparative evaluation, we further assessed the implementation availability and adapta-tion requirements of representative diagnostic reasoning sys-tems identified in the related-work analysis (Table 1). The as-sessment considered the availability of executable implementa-tions, supporting model artifacts, input-data requirements, and the compatibility of each architecture with the structured cross-sectional datasets used in the present study. The findings are summarized in Table 4. This assessment distinguishes the availability of a published implementation from its direct applicability to the target co-horts. Several existing approaches operate on clinical narra-tives, specialized ontologies, learned graph representations, or disease-specific knowledge structures that di ff er substantially from the available clinical and laboratory variables. Conse-quently, reproducing their published results and adapting them to the present datasets constitute distinct experimental tasks. The assessment does not imply that these architectures are in-trinsically irreproducible or that their adaptation is impossible. 12 Table 4: Reproducibility and empirical execution audit of representative diagnostic reasoning systems surveyed in Table 1 when considered for baseline benchmark-ing on our target cross-sectional cohorts. 
+
+Study Method / Architecture Description Artifact / Access Status Technical Reason Precluding Execution on Target Cohorts 
+
+[1] Hybrid rule-based /probabilistic expert sys-tem combining expert outputs via neural net-work. Paywalled (IEEE) No public code Historical 1992 proceeding pre-dating digital code repositories; no source code, infer-ence software, or calibrated parameters available. [6] Ontology-grounded fuzzy decision support system using semantic similarity for dia-betes. Open Access (IEEE Ac-cess) No public code Code unreleased; hospital training dataset is private; transfer to acute febrile cohorts impossible without calibrated fuzzy membership functions. [10] Siamese Bayesian networks incorporating symptom absence as negative evidence over learned BNs. Paywalled (ACM) Proprietary commercial IP Developed as proprietary commercial IP for the mFine telemedicine platform; network topologies, learned weights, and code are strictly unreleased. [12] DKDR: Knowledge graph reasoning with deep reinforcement learning for interactive diagnosis. Paywalled (IEEE) No public code Closed conference proceeding; no public code repository, pre-trained policy check-points, or KG simulation environment released. [16] Multi-hop KG path reasoning with dynamic TF-IDF and Naive Bayes weights for TCM diagnosis. Open Access (CMC) No public code Open-access publication, but no source code, reasoning scripts, or path weight tables were publicly deposited. [27] Semantic KG reasoning with likelihood-ratio-weighted edges and conditional patient constraints. Paywalled (Springer) No public code Published as a conceptual book chapter in conference proceedings; no software imple-mentation, graph exports, or code packages released. [28] ICHD-3 headache KG engine using weighted criteria matching and exclusion penalties. Paywalled (Wiley) Meeting abstract only Conference meeting abstract only; no executable di ff erential engine, ontology rules, or software packages were distributed. [22] D2KGMed: Dynamic diagnostic knowledge graphs generated and refined via fine-tuned LLM. Paywalled (IEEE) Closed conference pro-ceeding; No source code, dynamic graph generation routines, or fine-tuning weights released. [23] DR.KNOWS: Stack-GIN graph neural net-work over UMLS SNOMED-CT with multi-head attention path rankers. Open Access (JMIR AI) 
+
+Public repository exists 
+
+(serenayj/DRKnows )
+
+Cannot be run out-of-the-box: (1) Expects unstructured text notes and discrete UMLS CUIs rather than continuous laboratory measurements; (2) Pre-trained neural check-points ( gmodel.pth , encoder.pth ) were omitted and point to private author cluster paths; (3) Requires supervised training on credentialed MIMIC-III ICU data. [31] ReCLLaMA: Neuro-symbolic LLM agent linking procedure codes to proteins with NARS logic. Conference proc. (IEEE) 
+
+Public repository exists 
+
+(shilab/RECLLAMA )
+
+Cannot be run on target cohorts: (1) Internal reasoning graph (diseases_reasons.pickle ) has only 258 conditions, completely omitting Dengue ( 061 ), Malaria ( 084 ), and Influenza ( 487 ); (2) Alignment model requires surgical procedure codes to link proteins; (3) Missing local fine-tuned BioBERT weights. 
+
+Proposed Disease-specific EFNs + patient evidence graph + symbolic–probabilistic accumula-tion + hard rules. 
+
+Source package and six executed notebooks sup-plied Executed retrospectively on six cohorts; clinical validity remains unestablished; 
+
+deterministic, training-free, requires no unreleased checkpoints or outcome-fitting. 
+
+3.5.2. Ablation and robustness protocol 
+
+The available secondary component ablations for B, C, D, and F remove Pevidence , r, c, or CS from the post-KG partition representation, evaluate Pevidence alone and ( r, c) alone, remove the contradiction channel, and set clinical-importance weights to unity. Influenza additionally removes PCR alone and PCR together with rapid-antigen evidence. Evidence-withholding stress tests remove fixed fractions (10%, 25%, and 50%) of observed evidence without parameter refitting. Evidence-gate sensitivity varies one parameter family at a time over α ∈{0.025 , 0.05 , 0.10 }, β ∈ { 5, 10 , 20 }, and γ ∈ { 0.75 , 0.85 , 0.95 }.Initialization stability is assessed across 20 K-means random seeds. Adjusted Rand index (ARI) measures partition agree-ment with the corresponding baseline. Bootstrap intervals and secondary stress-test results are reported only for cohorts with compatible K = 2 configurations. These analyses do not refit ontology weights or activation parameters to outcome labels. No quantitative evidence-acquisition or blinded explanation-quality experiment is reported because the supplied executed analyses do not contain such completed evaluations. These re-main prospective validation targets and are therefore not pre-sented as results. 
+
+4. Results 
+
+For context, Table 5 reports the supplied supervised logistic-regression baseline results for Datasets A–F, including the re-spective held-out test-set sizes. These results are presented separately from the CKG retrospective partition metrics in Ta-ble 6. In particular, the reported F1 values have di ff erent eval-uation populations and decision procedures and must not be in-terpreted as a direct head-to-head test. 
+
+4.1. Post-KG partition performance 
+
+Table 6 reports the corrected K-means evaluation after synchronizing partition ordering with the additive candidate-ranking strategy. K-means fitting itself remains outcome-label-independent and operates on standardized four-dimensional 
+
+S 0 = [Pevidence , r, c, CS ] coordinates; the scalar R(D j) is not a clustering coordinate. All six cohorts have full partition-decision coverage under the uniform K = 2 evaluation. Under the uniform K = 2 evaluation, Dataset A has all-record accuracy 0.996, balanced accuracy 0.996, positive-class F1 0.996, and full coverage. Dataset E has accuracy 0.914, bal-anced accuracy 0.895, positive-class F1 0.936, and full cover-age. Dataset B yields accuracy 0.558, balanced accuracy 0.558, F1 0.634, and MCC 0.108. Dataset C yields accuracy 0.707, balanced accuracy 0.706, F1 0.695, and MCC 0.413. Dataset D 13 Table 5: Cross-cohort supervised logistic regression baseline performance across the six evaluation cohorts. Thailand Influenza and Dengue Cohort A incorporate point-of-care rapid testing alongside clinical and laboratory presentation. Bold highlights values as formatted in the supplied baseline table; cross-cohort values are not directly comparable because cohorts di ff er.                                                                              
+
+> Cohort Dataset Name Accuracy F1 Score Sensitivity Specificity Precision ROC-AUC PR-AUC Test Size (Pos /Neg) ABangladesh mixed evidence (Dengue) 100.00% 100.00% 100.00% 100.00% 100.00% 1.0000 1.0000 200 (107 /93) BHematology (Dengue) 60.00% 68.23% 62.68% 54.17% 74.86% 0.6513 0.7793 305 (209 /96) CClinical Data (Bangladesh) (Malaria) 70.09% 69.89% 71.03% 69.20% 68.78% 0.7539 0.7022 438 (214 /224) DThailand ILI cohort (Influenza) 88.84% 82.59% 80.94% 92.68% 84.32% 0.9268 0.8784 914 (299 /615) ED7 additional evaluation (Dengue) 92.42% 94.30% 96.12% 85.51% 92.54% 0.8968 0.8918 198 (129 /69) FD3 additional evaluation (Dengue) 99.02% 99.29% 99.29% 98.44% 99.29% 0.9941 0.9971 204 (140 /64)
+
+Note: Dataset E corresponds to D7 and Dataset F to D3. Baseline values are reported as verified by the authors; baseline and CKG evaluation protocols di ff er. Table 6: Uniform K = 2 KG partition results. F1 is positive-class F1; all six cohorts have full partition-decision coverage. MCC is omitted where it was unavailable for the uniform protocol.                                                         
+
+> Dataset Target NAccuracy Bal. Acc. F1 +MCC Coverage Silhouette A: Bangladesh mixed evidence Dengue 1000 0.996 0.996 0.996 –1.000 0.724 B: Hematology Dengue 1523 0.558 0.558 0.634 0.108 1.000 0.635 C: Clinical Data (Bangladesh) Malaria 2190 0.707 0.706 0.695 0.413 1.000 0.889 D: Thailand ILI cohort Influenza 4569 0.906 0.871 0.842 0.783 1.000 0.842 E: D7 additional evaluation Dengue 989 0.914 0.895 0.936 –1.000 0.870 F: D3 additional evaluation Dengue 1018 0.893 0.907 0.917 0.776 1.000 0.601
+
+yields accuracy 0.906, balanced accuracy 0.871, F1 0.842, and MCC 0.783. Dataset F yields accuracy 0.893, balanced accu-racy 0.907, MCC 0.776, and F1 0.917. All six cohorts have full partition-decision coverage. MCC for A and E is not reported because corresponding values were unavailable for the uniform protocol. The influenza result remains subject to confirmatory-evidence circularity: PCR exactly separates the reference out-come and is mapped as pathognomonic influenza evidence. The confirmatory-evidence ablation below therefore provides the more informative stress test of this evidence regime. Taken together, these experiments provide a feasibility and robustness assessment of the outcome-label-independent rea-soning architecture rather than a claim of predictive superior-ity. The reported CKG classification metrics evaluate K-means-derived diagnostic tags from the post-KG representation. They characterize diagnostic assignments derived exclusively from knowledge-grounded evidence coordinates; prospective clinical performance, calibration, and clinical utility are not evaluated. 
+
+4.2. Bootstrap uncertainty and seed stability 
+
+One thousand nonparametric bootstrap resamples yielded 95% intervals for all-record accuracy and positive-class F1 of 0.533–0.581 and 0.607–0.658 for Dataset B, 0.687–0.725 and 0.672–0.716 for Dataset C, and 0.897–0.914 and 0.827–0.856 for Dataset D, respectively. Dataset F yielded corresponding intervals of 0.874–0.912 and 0.901–0.933, with full coverage. Comparable bootstrap intervals under the uniform protocol are not reported for A and E. In the available K = 2 secondary experiments for B, C, D, and F, partitions were unchanged across 20 K-means random seeds (ARI =1.000). This establishes initialization stability for these executed tests, not independent validation. 
+
+4.3. Component ablation 
+
+Table 7 reports the available K = 2 component ablations for B, C, D, and F relative to the full four-dimensional represen-tation. Comparable component-ablation results under the uni-form protocol are not available for A and E. In Dataset B, re-moving Pevidence , r, or c yielded F1 scores of 0.612, 0.660, and 0.607, respectively, while Pevidence alone yielded 0.694. Dataset C was largely invariant to single-coordinate removal, with F1 0.695 except when c was removed (0.692). Dataset D was similarly stable under single-coordinate removal; Pevidence alone produced perfect retrospective separation, which should be in-terpreted in light of the confirmatory laboratory evidence. In Dataset F, removing Pevidence changed the partition more sub-stantially (ARI =0.561), while removing r or c retained ARI 0.949 and 0.942; removing CS reproduced the full partition (ARI =1.000). Removing contradiction or setting clinical-importance weights to one left the Dataset-C and D partitions unchanged (ARI =1.000). Dataset B changed modestly (ARI =0.984 and 0.969, with F1 0.635 and 0.633); in Dataset F, the correspond-ing ARIs were 0.976 and 0.988, with F1 0.913 and 0.917. These results indicate that component utility depends on the evidence regime rather than showing a uniform benefit in every cohort. 
+
+4.4. Evidence-gate, partition, and missing-evidence sensitivity 
+
+The available K = 2 sensitivity analyses show limited depen-dence on evidence-gate settings. Varying α, β, and γ over the specified ranges produced unchanged partitions (ARI =1.000) in nearly all tested configurations for B, C, D, and F. The largest departure was Dataset B at β = 5 (ARI =0.971; F1 =0.628 versus 0.634 at baseline); at γ = 0.95, its ARI was 0.997. Dataset F re-mained stable, with its largest departure at β = 5 (ARI =0.984; F1 0.919 versus 0.917 at baseline). The common K = 2 protocol ensures that all six cohorts are evaluated using the same partition specification. It does not establish that two clusters are clinically optimal. Controlled random evidence withholding reduced perfor-mance in several cohorts. At 50% withholding, Dataset B had 14 Table 7: Available K = 2 component ablations for Datasets B, C, D, and F relative to the full four-dimensional post-reasoning representation. Values are positive-class F1. The No-CS column is the explicit three-dimensional [ Pevidence , r, c] ablation.                                        
+
+> Dataset Full No Pevidence No rNo cPevidence only Profile only No CS B0.634 0.612 0.660 0.607 0.694 0.612 0.634 C0.695 0.695 0.695 0.692 0.695 0.695 0.695 D0.842 0.842 0.843 0.844 1.000 0.842 0.842 F0.917 0.925 0.928 0.930 0.931 0.925 0.917
+
+F1 0.691, balanced accuracy 0.503, and MCC 0.006, illustrat-ing why F1 alone is insu ffi cient under class imbalance. Dataset C fell to F1 0.447 and Dataset D to F1 0.498. Dataset F yielded F1 0.862, accuracy 0.811, balanced accuracy 0.782, MCC 0.563, and full coverage. Corresponding uniform-protocol withholding results are not reported for A and E. These tests support reporting balanced accuracy and MCC alongside F1. 
+
+4.5. Influenza confirmatory-evidence ablation 
+
+Removing PCR alone did not change the Dataset-D parti-tion (ARI =1.000; F1 =0.842), indicating that other encoded ev-idence retained the same retrospective separation. Removing both PCR and rapid-antigen evidence, however, reduced ac-curacy from 0.906 to 0.539, balanced accuracy from 0.871 to 0.627, F1 from 0.842 to 0.555, and MCC from 0.783 to 0.262 (ARI versus baseline = −0.038). Accordingly, the primary influenza analysis is interpreted as post-test evidence integra-tion , because confirmatory laboratory evidence is available to the reasoner. The PCR-plus-antigen removal experiment is re-ported separately as a pre-test-like evidence-withholding stress test ; it is not equivalent to a prospectively designed pre-test prediction study. The high influenza performance therefore depends substantially on the confirmatory laboratory evidence regime as a whole and should not be interpreted as pre-test symptom-only prediction. 
+
+4.6. Clustering diagnostics and ranking separation 
+
+The uniform K = 2 partitioning operates on standardized [Pevidence , r, c, CS ] rather than the scalar disease-ranking score 
+
+R(D j). Candidate ranking and cohort partitioning therefore re-main mathematically and operationally distinct. The two parti-tions are ordered using their mean evidence-plus-profile score, without using reference outcomes for fitting. 
+
+5. Discussion 
+
+The six-cohort evaluation demonstrates the behavior of a frozen, outcome-label-independent clinical reasoning architec-ture across heterogeneous evidence regimes. The uniform 
+
+K = 2 protocol provides a consistent experimental specifica-tion, with K-means applied exclusively to the four derived evi-dence coordinates, without raw predictors or target labels. The substantial cross-cohort variation in classification performance requires interpretation in relation to evidence availability, diag-nostic specificity, and the corresponding supervised baselines, rather than being attributed exclusively to the reasoning archi-tecture. 
+
+5.1. Training-free ontology-grounded reasoning 
+
+CKG Reasoner integrates candidate-specific cognitive mapping, explicit clinical evidence semantics, symbolic– probabilistic evidence accumulation, disease-profile similar-ity, decisive clinical rules, and evidence-completeness auditing within a fixed inference architecture. Unlike outcome-fitted classification, the diagnostic reasoner operates without estimating its parameters from cohort outcome labels. Its explicit separation of positive support, contradic-tion, clinical importance, specificity, and patient–reference cor-respondence makes individual evidence contributions and their provenance inspectable. Importantly, relative candidate ranking and cohort-level di-agnostic assignment are distinct operations. Candidate rank-ing uses the canonically normalized additive score, subject to pathognomonic and exclusionary overrides. The reported classification metrics instead evaluate unsupervised partitions of the four-dimensional post-reasoning representation S 0 =
+
+[Pevidence , r, c, CS ]⊤. CS contributes to clustering but remains separate from candidate ranking. Consequently, the present study investigates the feasibil-ity, coherence, auditability, and evidence sensitivity of aknowledge-grounded reasoning paradigm complementary to outcome-fitted classifiers, rather than establishing comparative predictive superiority. 
+
+5.2. Cross-cohort variability and baseline context 
+
+The positive-class F1 scores range from 0.634 to 0.996 across the six cohorts. This variation must be interpreted against their heterogeneous clinical evidence and evaluation conditions. The supplied logistic-regression results in Table 5 provide relevant contextual evidence. Their reported F1 scores for cohorts A–E are 1.000, 0.682, 0.699, 0.826, and 0.943, re-spectively, compared with CKG scores of 0.996, 0.634, 0.695, 0.842, and 0.936. Both sets of reported results exhibit substantial cross-cohort variation. This observation is consistent with the importance of dataset-specific evidence and task characteristics, although it does not establish that these factors fully explain the observed di ff erences. The evaluation protocols must remain distinguished. Lo-gistic regression is outcome-fitted and evaluated on reported held-out subsets, whereas CKG classification uses cohort-fitted, label-free partitions. Consequently, numerical di ff erences be-tween their F1 scores cannot establish matched predictive superiority or equivalence. The verified Dataset-F logistic-regression baseline corresponds to the D3 cohort. 15 Dataset A combines serological and clinical dengue evi-dence, including confirmatory information. Its high retrospec-tive performance is therefore interpreted within this compara-tively informative evidence regime. In contrast, Dataset B relies predominantly on routine hema-tological findings with limited disease specificity. Its CKG F1 of 0.634 and the reported logistic-regression F1 of 0.682 pro-vide complementary descriptive evidence of more limited dis-crimination under their respective protocols. Neither result es-tablishes the cause of the performance limitation. The additional dengue cohorts extend evaluation of the frozen reasoning specification to di ff erent evidence subsets. Dataset E achieves F1 0.936 using four mapped hematologi-cal headings, while Dataset F achieves F1 0.917 using eight mapped clinical and laboratory headings. These results demon-strate retrospective separability under additional schemas with-out outcome-based modification of the knowledge representa-tion. They do not establish prospective or external-site clinical validity. Malaria yields F1 0.695, compared with the reported logistic-regression F1 of 0.699 under its separate evaluation protocol. This provides additional context for interpreting the moderate discrimination observed in that cohort. Influenza achieves F1 0.842, but its reference outcome is perfectly aligned with PCR, which is also encoded as pathog-nomonic evidence. The primary result therefore reflects post-test evidence integration rather than independent pre-test pre-diction. Its reported logistic-regression F1 of 0.826 is likewise interpreted within an evaluation regime containing confirma-tory laboratory information. Overall, the results indicate that the fixed reasoning specifi-cation can produce substantially di ff erent retrospective discrim-ination across clinical evidence regimes. This variation should not be conflated with computational instability, nor should the reported baselines be treated as matched comparative valida-tion. 
+
+5.3. Robustness and evidence dependence 
+
+The available secondary experiments help distinguish sensi-tivity to algorithmic configuration from dependence on clinical evidence. For cohorts B, C, D, and F, the reported K = 2 partitions were unchanged across 20 K-means random seeds. Evidence-gate sensitivity experiments likewise showed predominantly stable partitions over the tested parameter ranges, with limited depar-tures in selected configurations. These findings support initialization stability and limited pa-rameter sensitivity within the executed experiments. They do not establish stability under population shift, alternative knowl-edge representations, or prospective deployment. Comparable secondary results for A and E are not reported where unavail-able. Component ablations further demonstrate that the contribu-tion of individual reasoning coordinates depends on the evi-dence regime. For Dataset B, using Pevidence alone produced higher retrospective F1 than the full representation. Dataset F showed greater partition sensitivity to removing Pevidence ,whereas removing CS reproduced its full partition. These observations caution against assuming that every rea-soning component contributes equally to discrimination in ev-ery cohort. The architecture preserves their distinct clinical meanings rather than optimizing their combination against eval-uation outcomes. Evidence-withholding experiments provide an additional qualification. At 50% withholding, the reported F1 declined to 0.447 for malaria and 0.498 for influenza. Dataset B illustrates the importance of complementary metrics: its F1 was 0.691, but balanced accuracy was 0.503 and MCC was 0.006. For influenza, removing PCR alone left the reported parti-tion unchanged, whereas removing both PCR and rapid-antigen evidence reduced F1 from 0.842 to 0.555. This establishes substantial dependence on the combined confirmatory-evidence regime in the executed retrospective experiment. Taken together, the available robustness analyses support computational stability under the tested configurations while also demonstrating clinically important evidence dependence. These are complementary, not contradictory, findings. 
+
+5.4. Explainability, uncertainty, and translational extensibility 
+
+An important architectural contribution is the preservation of clinically distinct reasoning quantities rather than their reduc-tion to a single opaque classification output. The implemented inference trace exposes patient–reference correspondence, diagnostic roles, positive and contradictory ev-idence, decisive-rule states, candidate scores, evidence com-pleteness, and provenance. Missing-aware normalization and Diagnostic Evidence Cov-erage address complementary questions: the former character-izes correspondence using available evidence, whereas the lat-ter identifies how much cohort-evaluable diagnostic capacity was observed. CS is therefore an evidence-completeness de-scriptor, not a calibrated probability of diagnostic correctness. This separation also creates architectural opportunities for translational research. Explicit unresolved critical evidence, candidate-specific reasoning, and modular decision stages pro-vide a foundation for investigating uncertainty regions, interac-tive evidence acquisition, and patient-wise diagnostic reassess-ment rather than requiring unconditional binary classification. The inference-faithful trace additionally provides a struc-tured foundation for clinically grounded explanations and prospective real-time decision-support applications. These opportunities arise from the framework’s design, but must be distinguished from experimentally established capa-bilities. The present six-cohort evaluation does not validate interactive evidence acquisition, explicit uncertainty regions, real-time deployment, FOL-based inference, or LLM-generated clinical explanations. Future studies should separately evaluate these capabilities, including explanation faithfulness, clinical grounding, selective prediction, information-acquisition utility, and prospective clin-ical performance. 16 6. Limitations 
+
+Clinical knowledge and evidence representation.. The frame-work depends on the accuracy and completeness of encoded medical knowledge and the consistency of clinical feature map-pings. The e ff ects of population-specific reference ranges, mea-surement normalization, and feature-activation boundaries re-quire further investigation. Although exclusionary reasoning is implemented, its behavior has not been empirically evaluated in the six studied cohorts. 
+
+Hierarchical and cooperative evidence reasoning.. The current framework does not explicitly model hierarchical, conditional, or cooperative interactions among diagnostic features. Multiple Hallmark or Major findings may provide conflicting evidence, while their combined diagnostic significance may di ff er from their individual contributions. For example, discordant platelet and leukocyte measurements may require joint clinical interpre-tation rather than independent evidence accumulation. Future extensions should incorporate clinically justified feature depen-dencies, hierarchical relationships, composite evidence rules, and mechanisms for resolving conflicting observations. 
+
+Knowledge updating and distribution shift.. The fixed knowl-edge representations do not automatically adapt to changes in clinical populations, laboratory practices, or disease manifesta-tions. External medical knowledge-graph integration, evidence retrieval, and controlled ontology-updating mechanisms should therefore be investigated to improve contextual adaptation and support the identification of distribution shift and potential con-founding. Such updates would require provenance, clinical ver-ification, and version control to preserve the auditability of the reasoning process. 
+
+Explicit uncertainty and information acquisition.. The current cohort-level partitioning does not establish a clinically vali-dated uncertainty region. Future extensions should explicitly distinguish insu ffi cient evidence, conflicting evidence, and un-certain diagnostic assignments. Rather than forcing a deci-sion, the reasoner should be able to abstain and identify ad-ditional clinically relevant observations required to resolve un-certainty. Evidence adequacy, contradiction, and the clinical consequences of alternative decisions should inform this mech-anism rather than cluster geometry alone. 
+
+Clinical translation and explanation.. Diagnostic Evidence Coverage measures the availability of cohort-evaluable evi-dence rather than calibrated diagnostic certainty. Although excluded from candidate ranking, its Confidence Score is in-cluded in the clustering representation and can influence K-means diagnostic assignments. Matched comparisons with su-pervised classifiers, calibration, clinical utility, and prospec-tive selective-decision evaluation remain outstanding. The present framework is cross-sectional; temporal reasoning and FOL /LLM-based clinical explanations have not undergone clin-ical validation. 
+
+7. Conclusion 
+
+CKG Reasoner investigates a complementary, outcome-label-independent approach to cross-sectional clinical rea-soning through explicit medical knowledge and candidate-specific cognitive mapping. Its architecture separates feature-level patient–reference correspondence, positive and contradic-tory evidence, missing-aware canonical normalization, Hall-mark /Major disease-profile similarity, decisive clinical rules, candidate ranking, and evidence-completeness auditing. The reported diagnostic tags are produced separately by cohort-fitted K-means on the four-coordinate post-reasoning represen-tation [ Pevidence , r, c, CS ]⊤; they are not direct classifications from the candidate-ranking score. Using the same frozen package and disease-specific knowl-edge representations, the uniform K = 2 retrospective eval-uation covered six cohorts: four dengue datasets (N =
+
+1000 , 1523 , 989 , 1018), malaria ( N = 2190), and influenza (N = 4569). Their respective positive-class F1 scores were 0.996, 0.634, 0.936, 0.917, 0.695, and 0.842, with full partition-decision coverage in all six. Di ff erences across cohorts under-score the dependence of retrospective separation on the avail-able evidence regime. Compatible secondary analyses charac-terize component dependence, evidence withholding, param-eter sensitivity, and partition stability where available; corre-sponding uniform-protocol robustness estimates for A and E remain unreported. Influenza performance incorporates confir-matory testing and must not be interpreted as independent pre-test prediction. The contribution is an auditable reasoning architecture that keeps knowledge-grounded scoring and evidence provenance distinct from cohort-level diagnostic assignment without fitting the scorer to cohort outcome labels. The reported results es-tablish neither prospective clinical validity nor predictive supe-riority over outcome-fitted classifiers. Future work should pri-oritize independent and temporal validation, matched clinical-task comparisons, assessment of encoded knowledge and evi-dence interactions, calibrated or selective clinical decision pro-cedures, and clinician evaluation of the proposed FOL /LLM ex-planation extension. 
+
+References            
+
+> [1] K. Henson-Mack, H.-C. Chen, D. C. Wester, Integrating probabilis-tic and rule-based systems for clinical di ff erential diagnosis, Proceed-ings IEEE Southeastcon ’92 (1992) 699–702. https://doi.org/10. 1109/SECON.1992.202287 .[2] K. C. C. Chan, J. Y. Ching, A. K. C. Wong, A probabilistic in-ductive learning approach to the acquisition of knowledge in medi-cal expert systems, Proceedings Fifth Annual IEEE Symposium on Computer-Based Medical Systems (1992) 572–581. https://doi. org/10.1109/CBMS.1992.245017 .[3] P. Agarwal, R. Verma, A. Mallik, Ontology based disease diagnosis sys-tem with probabilistic inference, 2016 1st India International Conference on Information Processing (2016) 1–5. https://doi.org/10.1109/ IICIP.2016.7975383 .[4] D. K. Choubey, S. Paul, V. K. Dhandhenia, Rule based diagnosis system for diabetes, Biomedical Research (2017) 5196–5209. [5] N. Shoaip, S. El-Sappagh, S. Barakat, M. Elmogy, Ontology enhanced fuzzy clinical decision support system, U-Healthcare Monitoring Sys-
+
+17 tems: Volume 1: Design and Applications (2018) 147–177. https: //doi.org/10.1016/B978-0-12-815370-3.00007-4 .[6] S. El-Sappagh, J. M. Alonso, F. Ali, A. Ali, J.-H. Jang, K.-S. Kwak, An ontology-based interpretable fuzzy decision support system for diabetes diagnosis, IEEE Access (2018) 37371–37394. https://doi.org/10. 1109/ACCESS.2018.2852004 .[7] C. Sa-ngamuang, P. Haddawy, V. Luvira, W. Piyaphanee, S. Iam-sirithaworn, S. Lawpoolsri, Accuracy of dengue clinical diagnosis with and without NS1 antigen rapid test: Comparison between human and Bayesian network model decision, PLoS Neglected Tropical Diseases (2018). https://doi.org/10.1371/journal.pntd.0006573 .[8] J. Quinteros, N. Baloian, J. A. Pino, A. Riquelme, S. Peñafiel, H. Sanson, D. Teoh, Diagnostic test suggestion via Bayesian network of non-expert assisted knowledge base, 2018 20th International Conference on Ad-vanced Communication Technology (2018). https://doi.org/10. 23919/ICACT.2018.8323748 .[9] X. Xiang, Z. Wang, Y. Jia, B. Fang, Knowledge Graph-Based Clinical Decision Support System Reasoning: A Survey, 2019 IEEE 4th Inter-national Conference on Data Science in Cyberspace (2019). https: //doi.org/10.1109/DSC.2019.00063 .[10] M. Kaul, N. S. Narayan, A. Narayanan, Siamese bayesian networks for AI based di ff erential diagnosis, Proceedings of the 3rd Inter-national Conference on High Performance Compilation, Computing and Communications (2019). https://doi.org/10.1145/3318265. 3318298 .[11] Y. Shen, Y. Li, H.-T. Zheng, B. Tang, M. Yang, Enhancing ontology-driven diagnostic reasoning with a symptom-dependency-aware Naive Bayes classifier, BMC Bioinformatics (2019) 330. https://doi.org/ 10.1186/s12859-019-2924-0 .[12] Y. Jia, Z. Tan, J. Zhang, DKDR: An Approach of Knowl-edge Graph and Deep Reinforcement Learning for Dis-ease Diagnosis, IEEE ISPA /BDCloud /SocialCom /SustainCom (2019) 1303–1308. https://doi.org/10.1109/ ISPA-BDCloud-SustainCom-SocialCom48970.2019.00187 .[13] M. M. Ershadi, A. Seifi, An e ffi cient Bayesian network for di ff eren-tial diagnosis using experts’ knowledge, International Journal of In-telligent Computing and Cybernetics (2020). https://doi.org/10. 1108/IJICC-10-2019-0112 .[14] N. Heilig, J. Kirchho ff , F. Stumpe, J. Plepi, L. Flek, H. Paulheim, Re-fining Diagnosis Paths for Medical Diagnosis based on an Augmented Knowledge Graph, CEUR Workshop Proceedings (2022). [15] A. Lacki, D. Bosca, A. Martinez-Millana, Probabilistic Inference of Comorbidities from Symptoms in Patients with Atrial Fibrillation: An Ontology-Driven Hybrid Clinical Decision Support System, 2022 Computing in Cardiology (2022) 1–4. https://doi.org/10.22489/ CinC.2022.002 .[16] D. Zhang, Q. Jia, S. Yang, X. Han, C. Xu, X. Li, Y. Xie, Tradi-tional Chinese Medicine Automated Diagnosis Based on Knowledge Graph Reasoning, Computers, Materials and Continua (2022). https: //doi.org/10.32604/cmc.2022.017295 .[17] S. Guo, K. Liu, P. Wang, W. Dai, Y. Du, Y. Zhou, W. Cui, RDKG: A Reinforcement Learning Framework for Disease Diagnosis on Knowl-edge Graph, 2023 IEEE International Conference on Data Mining (2023) 1049–1054. https://doi.org/10.1109/ICDM58522.2023.00122 .[18] Y. Shang, Y. Tian, K. Lyu, T. Zhou, P. Zhang, J. Chen, J. Li, Elec-tronic Health Record-Oriented Knowledge Graph System for Collabo-rative Clinical Decision Support Using Multicenter Fragmented Medical Data: Design and Application Study, Journal of Medical Internet Re-search (2024) e54263. https://doi.org/10.2196/54263 .[19] J. M. R. Mejia, D. B. Rawat, ClinicalGraph: An Applied Approach in Clinical EHR Knowledge Graph Generation for Optimized Clini-cal Decision Support System, 2024 IEEE International Conference on E-health Networking, Application and Services (2024) 1–6. https: //doi.org/10.1109/HealthCom60970.2024.10880799 .[20] Y. Liu, F. Wang, X. Wang, Y. Guo, J. Chang, A Knowledge Graph-Based AI Diagnostic and Reasoning System for Sleep Disorders, Pro-ceedings of the 2025 2nd International Conference on Big Data and Digital Management (2025) 793–797. https://doi.org/10.1145/ 3768801.3768930 .[21] J. Du, D. Zhang, F. Luo, H. Su, Research on Automatic Construc-tion Method of Uncertain Knowledge Graph Based on Personal Elec-tronic Medical Records, 2025 10th International Conference on Intelli-gent Computing and Signal Processing (2025). https://doi.org/10. 1109/ICSP65755.2025.11086945 .[22] J. Zhang, G. Zheng, H. Lv, L. Luo, G. Ma, Z. Lin, X. Chen, Y. Tan, D2KGMed: Dynamic Diagnostic Knowledge Graphs for Medical Diag-nosis Prediction, 2025 IEEE International Conference on Bioinformat-ics and Biomedicine (2025) 4458–4461. https://doi.org/10.1109/ BIBM66473.2025.11357158 .[23] Y. Gao, R. Li, E. Croxford, J. Caskey, B. W. Patterson, M. Churpek, T. Miller, D. Dligach, M. Afshar, Leveraging Medical Knowledge Graphs Into Large Language Models for Diagnosis Prediction: Design and Application Study, JMIR AI (2025) e58670. https://doi.org/10. 2196/58670 .[24] G. Sowerby, O. Ashaolu, R. Calinescu, S. Connor, Synthesising Bayesian Network Models for Clinical Decision Support from Rule-Based Logic, CEUR Workshop Proceedings (2025). [25] R. Chavda, K. Suresh, S. Kumar, K. L. R. Reddy, B. Jayaprakash, P. K. Sahu, B. Bharathi, D. Singh, S. Namdev, A bidirectional neuro-symbolic framework for clinical decision support via dynamic inte-gration of deep learning and symbolic reasoning, Network Modeling Analysis in Health Informatics and Bioinformatics (2026) 79. https: //doi.org/10.1007/s13721-025-00710-2 .[26] R. A. Yadav, M. Vaishnavi, J. A. Kurumidde, B. Yalamanchili, Integrat-ing Deep Learning with Symbolic Reasoning: A NeuroSymbolic Frame-work for Trustworthy Medical Diagnosis, 2026 IEEE International Con-ference on Emerging Computing and Intelligent Technologies (2026) 1– 6. https://doi.org/10.1109/ICoECIT68303.2026.11497919 .[27] S. Albagli-Kim, D. Beimel, A Semantic Knowledge Graph Ap-proach with Weighted and Conditional Edges for Clinical Reasoning, IFMBE Proceedings (2026) 234–243. https://doi.org/10.1007/ 978-3-032-24724-7_24 .[28] J. Dave, P. Patel, I. S. Hakkinen, P. Zhang, A knowledge graph based di ff erential diagnosis engine for headache disorders, Headache (2026). 
+
+https://doi.org/10.1111/head.70117 .[29] F. Roucoux, S. Jodogne, Clinical Diagnosis of Rare Diseases Us-ing Leaky Noisy-OR Bayesian Networks, Studies in Health Technol-ogy and Informatics (2026) 368–372. https://doi.org/10.3233/ SHTI260179 .[30] N. M. Edward, D. Godwin, F. Odeh, A. Sa˘ glam, M. Leila, A Neuro-Symbolic Expert System for Medical Diagnosis from Natural Language with Rule-Based Logic Engines, 2026 ICHORA (2026). https://doi. org/10.1109/ICHORA69329.2026.11536979 .[31] Y. Zhao, S. Dong, X. Shi, ReCLLaMA: A Reasoning-Centered LLM Agent for Medical Diagnosis, 2026 IEEE /ACM Conference on Connected Health (2026) 397–402. https://doi.org/10.1109/ CHASE69719.2026.00067 .[32] Y. Chen, X. Zhou, X. Qiao, Y. Lian, W. Zhang, W. Lu, J. Zhu, J. Guo, KGDAgents: A Knowledge Graph Enhanced Multi-agent Frame-work For Clinical Diagnosis, 2026 29th International Conference on Computer Supported Cooperative Work in Design (2026) 1005–1010. 
+
+https://doi.org/10.1109/CSCWD68734.2026.11582439 .[33] D. Civale, C. De Maio, D. Furno, S. Senatore, Constructing a clinical knowledge graph from electronic health records for enhanced decision-making and disease diagnosis, Neurocomputing (2026). https://doi. org/10.1016/j.neucom.2025.132358 .[34] M. He, J. Song, S. Ren, Y. Zhang, J. Du, J. Feng, R. Wu, B. Shen, FPGDKG 1.0: An Integrated Facial Phenotype-Gene-Disease Knowl-edge Graph for Rare Disease Diagnosis and Explanation, IEEE Jour-nal of Biomedical and Health Informatics (2026) 1–10. https://doi. org/10.1109/JBHI.2026.3659898 .[35] S. Rancati, L. Bergomi, E. Parimbelli, G. Nicora, R. Bellazzi, Epistemologically Guided LLM Reasoning for Di ff erential Diagno-sis, Lecture Notes in Artificial Intelligence 16748: Artificial Intel-ligence in Medicine (2027) 115–124. https://doi.org/10.1007/ 978-3-032-30710-1_14 .[36] J. J. Gonzalez-Lopez, A. M. Garcia-Aparicio, D. Sanchez-Ponce, N. Munoz-Sanz, N. Fernandez-Ledo, P. Beneyto, M. C. Westcott, Devel-opment and validation of a Bayesian network for the di ff erential diagno-sis of anterior uveitis, Eye (2016). https://doi.org/10.1038/eye. 2016.64 .
+
+18

@@ -1,0 +1,302 @@
+Title: CLAIRE: A Schema-Grounded Hybrid Workflow for Healthcare Administrative Form Completion
+
+URL Source: https://arxiv.org/pdf/2609.32787v1
+
+Published Time: Tue, 29 Sep 2026 01:16:04 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+RESEARCH ARTICLE 
+
+CLAIRE: A Schema-Grounded Hybrid Workflow for Healthcare Administrative Form Completion 
+
+Garapati Keerthana 1 and Manik Gupta 1
+
+> 1
+
+Department of Computer Science and Information Systems, Birla Institute of Technology and Science, Pilani, Hyderabad, India 
+
+ABSTRACT 
+
+Healthcare administrative staff transfer structured information from electronic health records, referrals, claims systems, provider rosters, and work queues into dy-namic forms. We developed and evaluated CLAIRE (Clinical Language and Agen-tic Intelligence for Reasoning and Entry), a hybrid workflow that separates field-state discovery, source-to-field mapping, deterministic validation, bounded correc-tion, escalation, and audit tracing. We tested five synthetic healthcare administra-tive schemas, 1,000 source records, four interface variants, two data-quality suites, and six comparators, yielding 24,000 benchmark episodes. A separate strict-output audit evaluated direct mappings from Qwen2.5-1.5B and Qwen2.5-7B, and a trace-derived operational simulation covered 6,000 episodes. Under the evaluated synthetic benchmark conditions, full CLAIRE achieved 1.000 episode success, field accuracy, required-field completion, and dependency completion in both suites; removing val-idation reduced stress-suite success to 0.500. In the simulation, 100.0% of clean and validation-stress episodes reached a staff-reviewable draft, compared with 68.6% of escalation-challenge episodes; unsupported cases were blocked. Scenario-based savings were 149.7–165.5 seconds per case, not observed staff times. The findings support schema-grounded, validation-first healthcare administrative automation in which language-model components assist mapping but do not authorize unsupported or consequential actions. 
+
+KEYWORDS 
+
+Medical informatics; Healthcare administration; Form completion; Language models; Validation; Electronic health records; Workflow automation 
+
+Highlights 
+
+• Evaluated schema-grounded agentic form completion for healthcare operations. 
+
+• Schema grounding improves robustness across perturbed forms. 
+
+• Validation routes routine, review, and escalation cases. 
+
+• Simulation estimated 149.7–165.5 seconds saved per case. 
+
+1. Introduction 
+
+Healthcare staff repeatedly transfer information from electronic health records (EHRs), referrals, claims, provider rosters, and work queues into forms for intake, benefit veri-fication, prior authorization, credentialing, and claims correction. Missing or inconsis-tent entries can delay care and create rework, making administrative form completion 
+
+> CONTACT Garapati Keerthana. Email: p20240505@hyderabad.bits-pilani.ac.in arXiv:2609.32787v1 [cs.AI] 26 Sep 2026
+
+a medical-informatics problem Shrank et al. (2019). The informatics challenge is to preserve field meaning, dependencies, validation constraints, provenance, and human oversight as information moves from heterogeneous healthcare sources into structured interfaces. Current US policy similarly promotes computable exchange and reduced prior-authorization burden Centers for Medicare & Medicaid Services (2024b). These forms are stateful: one answer can reveal another required field, which we call a dependency . Automation must find visible fields, reveal dependencies, map only source-supported values, validate the completed state, and stop when evidence is miss-ing. For example, it may normalize a supported National Provider Identifier (NPI) to the required ten-digit format Centers for Medicare & Medicaid Services (2024a), but must not invent one. Fixed browser scripts can be brittle when identifiers, labels, or lay-outs change, whereas unconstrained language models can produce unsupported, mal-formed, or untraceable entries (Selenium Project, 2026; Microsoft Playwright Team, 2026; Chrome for Developers, 2026). Web-agent benchmarks show that flexible interpretation has not yet produced de-pendable end-to-end action (Deng et al., 2023; Zhou et al., 2023; Koh et al., 2024; He et al., 2024; Xie et al., 2024). FormFactory likewise identifies field–value match-ing, layout understanding, and precise interface action as persistent difficulties (Li et al., 2025). Healthcare administration therefore needs a middle path: flexible map-ping within explicit schemas, state tracking, validation, bounded correction, audit logging, and staff review. A form schema is a machine-readable description of fields, labels, allowed values, dependencies, and rules; an episode is one complete form at-tempt under one test condition. We introduce CLAIRE (Clinical Language and Agentic Intelligence for Reasoning and Entry), a schema-grounded hybrid architecture with four logical roles. The Se-lector finds visible fields and dependencies; the Filler maps supported values; the 
+
+Validator checks the resulting state; and the Error Corrector applies only de-terministic normalization or an explicitly supplied correction. Unresolved cases are blocked for staff review, and every step is logged. These are LLM-instrumented hybrid modules, not four autonomous LLM agents: deterministic schema and rule logic au-thorized actions in the main benchmark, while direct model-generated mappings were evaluated separately. This study makes four contributions: (1) a four-role, schema-grounded healthcare informatics architecture with explicit au-dit and staff-review boundaries; (2) a reproducible synthetic dataset spanning five form families, two data-quality suites, four interface variants, dependencies, and validation rules; (3) six controlled comparators and a two-model strict-output audit separating model mapping from deterministic safeguards; and (4) a trace-derived simulation of review readiness, escalation, and scenario-based staff time. 2Table 1. Summary table. 
+
+What was already known Healthcare organizations rely on administrative forms for prior authorization, benefit verification, credentialing, intake, and claims work. Browser automation can be brittle, and unconstrained language-model agents can generate plausible but unchecked entries. What this study added A schema-grounded hybrid workflow separates field discovery, mapping, validation, controlled error correction, and audit logging. In 24,000 benchmark episodes and a 6,000-episode operational simulation, the workflow completed validated cases, intercepted review needs, captured escalation cases, and produced scenario-based estimates of staff-time savings. 32. Related work 
+
+Interactive healthcare form completion sits between web agents, document AI, and administrative AI because it requires semantic mapping as well as safe control of a changing form state. 
+
+2.1. Web agents and computer-use benchmarks 
+
+Mind2Web showed that raw webpage content often needs filtering before language-model use, while WebArena and VisualWebArena introduced reproducible functional and visually grounded tasks (Deng et al., 2023; Zhou et al., 2023; Koh et al., 2024). WebVoyager, WorkArena, BrowserGym, and OSWorld extend evaluation to real web-sites, enterprise workflows, standardized infrastructure, and desktop interaction (He et al., 2024; Drouin et al., 2024; Le Sellier De Chezelles et al., 2024; Xie et al., 2024). Together they show that browser agents remain unreliable on realistic tasks. Evalua-tion guidance therefore recommends reproducibility and downstream usefulness, while safety benchmarks identify poor risk awareness and brittle robustness (Kapoor et al., 2024; Zhang et al., 2024). We respond by reporting validation and execution behavior, not accuracy alone. 
+
+2.2. Interactive form filling 
+
+FormFactory is the closest benchmark: it tests field–value alignment and graphical actions across layouts and input types (Li et al., 2025). Its results demonstrate that form filling requires more than copying: a system must align evidence with fields, choose appropriate controls, and leave the complete form valid. Unlike its zero-shot action setting, we evaluate a healthcare-specific modular workflow with computable schemas, deterministic validation, correction, and traces. FormFactory motivates our Labels-only comparator and supplies healthcare-like answer keys for a secondary align-ment check. Our adapter tests semantic mappings rather than screenshot-coordinate trajectories, so we do not claim a full reproduction. 
+
+2.3. Document AI and form prediction 
+
+LayoutLM and LayoutLMv3 combine text and spatial layout for static document un-derstanding, scanned forms, and visual question answering (Xu et al., 2020; Huang et al., 2022); LAFF predicts categorical values from historical submissions (Belgacem et al., 2023). These complementary methods support extraction or suggestion but do not themselves reveal conditional controls, validate a dynamic form state, or block unsafe submission. 
+
+2.4. Healthcare administrative AI 
+
+AI-generated prior-authorization letters can retain clinical content yet omit admin-istrative details, and HealthAdminBench reports low end-to-end reliability despite stronger subtasks (Awan and Raza, 2026; Bedi et al., 2026). Prior work therefore sup-ports individual capabilities but leaves a healthcare-specific gap: dynamic form filling in which every value is source-grounded, rule-checked, corrected only within stated limits, and escalated when unresolved. 43. Methods 3.1. Architecture and workflow framing 
+
+The architecture receives a structured source record containing the available case values and a computable form schema defining fields, labels, aliases, source keys, input types, allowed options, required flags, dependencies, and validation rules. All roles use this shared evidence and form state. CLAIRE: schema-grounded form completion with four explicit roles 
+
+> STRUCTURED SOURCE RECORD
+> EHR extract, claim, provider roster, or work-queue record
+> COMPUTABLE FORM SCHEMA
+> labels, aliases, source keys, types, options, dependencies, rules
+> SHARED WORKING CONTEXT
+> 1. SELECTOR
+> Finds visible controls and reveals conditional fields
+> 2. FILLER
+> Maps supported source values and normalizes format
+> 3. VALIDATOR
+> Checks required fields, options, formats, dates, and ranges
+> 4. ERROR CORRECTOR
+> Uses only deterministic normalization or an explicitly supplied correction Valid after final check?
+> STAFF-REVIEWABLE DRAFT
+> validated entries + provenance + action trace
+> BLOCK AND ESCALATE
+> unresolved or unsupported values go to human review
+> AUDIT LOG (across every step): source key • observed field • entered value • rule result • correction • final route
+
+Figure 1. Schema-grounded architecture. The four numbered roles share the same source record, schema, and working context. The Error Corrector uses only supported corrections, after which the Validator checks the state again. Unresolved cases are blocked for staff review. 
+
+Four logical roles are implemented across SelectorBot, FillerBot, and ValidatorBot; error correction is a distinct ValidatorBot operation. The Selector finds visible con-trols and triggers known dependencies. The Filler maps source-supported values and normalizes formats. The Validator checks required fields, options, patterns, date order, ranges, and conditional rules. The Error Corrector may use deterministic normaliza-tion or an explicit corrected value already in the record, after which validation repeats. Valid cases become reviewable drafts; unresolved cases are blocked, and observations, actions, rule results, corrections, and routes are logged. During the 24,000-episode benchmark, these modules issued prompts through Qwen/Qwen2.5-0.5B-Instruct and logged call metadata. The main executor used the model interface for role-specific prompting, but model-generated content did not au-thorize benchmark actions; execution was governed by schemas, deterministic match-ing, validation, and bounded correction. The environment and schema drove selec-tion, deterministic matching drove filling, explicit rules drove validation, and evidence-bounded logic drove correction. Thus, the roles are LLM-instrumented hybrid agent 5modules rather than autonomous LLM agents. The strict-output audit separately used model-generated mappings as executable inputs. In intended use, CLAIRE returns a draft and trace for staff review; it may reformat supported data but cannot invent facts, change a service code, or submit consequential forms independently (Figs. 1 and A1). 
+
+3.2. Dataset and terminology 
+
+Deterministic templates generated five form families—patient intake, prior authoriza-tion, benefit verification, provider credentialing, and claims resubmission—with one schema and 100 indexed records per family. Fixed rules varied synthetic names, identi-fiers, and dependency-triggering choices, so regeneration produces the same 500 clean records. No patient data, protected health information, or free-text clinical notes were used; the values exercise form logic rather than represent a clinical population. Together, the 500 clean records and a 500-record validation-stress copy yielded 1,000 records. The stress copy inserted invalid NPIs and reversed dates into prior-authorization records, malformed claim identifiers and negative amounts into claims records, and invalid primary-care-provider NPIs into benefit records. Explicit corrected values were stored separately so correction could use supplied evidence instead of guessing; intake and credentialing remained unchanged controls. A record is one case, a schema defines one form family, an interface variant changes presentation without changing meaning, a comparator is an evaluated configuration, a suite groups a data condition, and an episode is one record–schema–variant–comparator run (Fig. A2). 
+
+3.3. Internal benchmark design and comparators 
+
+The clean and validation-stress suites each contained 500 records, following synthetic-data and de-identification principles Walonoski et al. (2018); U.S. Department of Health and Human Services (2024). Each record was tested with original labels, syn-onym labels, obfuscated identifiers, and shuffled layout to expose dependence on exact identifiers, wording, or order. The six comparators were Exact ID (direct identifier matches), Labels only (visible-label matching), Monolithic (one schema-aware step), CLAIRE without schema, CLAIRE without the Validator, and full CLAIRE. Crossing 1,000 records, four vari-ants, and six comparators produced 24,000 episodes (Fig. A2; Table 2). Episode success required every expected visible and conditionally revealed field to match the answer key with no final validation error. Field accuracy measured correct final values over expected fields; required-field and dependency completion measured whether mandatory and revealed controls were complete. We also recorded remaining validation errors, corrections, actions, and model calls. These complementary mea-sures distinguish a form that contains several correct values from one that is safe and complete at the episode level. 
+
+3.4. Operational simulation 
+
+We ran a mathematical operational simulation over full CLAIRE traces, not a usabil-ity study or live deployment. Clean and stress records under four variants supplied 2,000 episodes each. A third 2,000-episode escalation suite removed explicit correc-tions from fixed stress cases and the clinical reason from a fixed prior-authorization 6Table 2. Internal benchmark design. 
+
+Component Description Schemas Patient intake, prior authorization, benefit verification, provider credentialing, and claims resubmission. Records 1,000 deterministic synthetic source records: 500 clean records and a 500-record validation-stress copy. Interface variants Original labels, synonym labels, obfuscated identifiers, and shuffled layout. Comparators Exact ID, Labels only, Monolithic, CLAIRE without schema, CLAIRE without the Validator, and full CLAIRE. Metrics Episode success, field accuracy, required-field completion, dependency completion, validation errors, corrections, and model calls. subset, testing whether unsupported cases were blocked. Specifically, corrected NPIs and dates were removed from selected prior-authorization records, corrected identi-fiers and amounts from claims records, and corrected NPIs from benefit-verification records. The construction tests the route taken when normalization is insufficient and no supported replacement remains. For each trace, we counted fields, dependencies, Validator interceptions, corrections, and unresolved errors. Manual entry assumed 45 seconds to open a case, 18 seconds per field, 20 seconds per dependency, and 45 seconds per rework event. Assisted review assumed 20 seconds to open the trace, 4 seconds per field, 20 seconds per correction, 25 seconds after an interception, and 60 seconds plus 20 seconds per unresolved error for escalation. These pre-specified round numbers make the scenario reproducible; they were not participant measurements or literature-derived per-action standards. Published evi-dence provides scale rather than validation: CAQH reports average prior-authorization transaction times of 24 minutes manually and 10 minutes electronically CAQH (2024), while a survey of 1,010 provider employees reported role-specific median burdens of 1–11 hours per week Sahni et al. (2024). The outputs are therefore scenario estimates, not observed productivity, and should be replaced with prospective time measurements and sensitivity analyses. 
+
+3.5. Strict-output LLM audit and external alignment 
+
+A strict-output audit isolated direct LLM mapping: Qwen2.5-1.5B and Qwen2.5-7B had to return parseable JSON connecting source values to fields without prose or Mark-down Yang et al. (2024). Malformed output, unsupported mappings, incomplete de-pendencies, or final validation errors could therefore prevent episode success even when individual fields were correct. For each model and suite, 100 episodes were balanced across variants. Labels only supplied visible labels; Schema loop added schema con-text and repeated rounds; Schema + correction also exposed explicit corrections. Full CLAIRE was the guarded reference. We measured success, field accuracy, parse valid-7ity, validation errors, and mapping agreement. A secondary check used 230 healthcare-like FormFactory answer-key examples; because it tested mappings rather than screen-shot coordinates or action trajectories, Appendix B reports alignment rather than full benchmark reproduction. 
+
+4. Results 4.1. Internal benchmark comparison 
+
+Across 24,000 internal episodes, full CLAIRE achieved 1.000 episode success, field accuracy, required-field completion, and dependency completion in both suites, with zero final validation errors (Table 3; Fig. 2). These values mean that every expected visible and conditionally revealed field matched the answer key at the end of each controlled episode. They do not mean that the system is ready for arbitrary live portals; the result applies to the synthetic schemas, rules, and interface changes defined in Section 3.3.                                                                                
+
+> Table 3. Internal benchmark results by suite. Lower values are better for validation errors.
+> Suite Comparator Success Field accuracy Required Dependency Validation errors Clean Exact ID 0.389 0.705 0.700 0.518 1.912 Clean Labels only 0.150 0.784 0.878 0.518 0.824 Clean Monolithic 0.518 0.941 0.934 0.518 0.482 Clean CLAIRE no schema 0.200 0.857 0.960 0.942 0.250 Clean CLAIRE no validator 1.000 1.000 1.000 1.000 0.000
+> Clean CLAIRE 1.000 1.000 1.000 1.000 0.000
+> Stress Exact ID 0.263 0.634 0.700 0.518 2.512 Stress Labels only 0.150 0.695 0.878 0.518 1.574 Stress Monolithic 0.350 0.845 0.934 0.518 1.282 Stress CLAIRE no schema 0.200 0.863 0.966 0.942 0.200 Stress CLAIRE no validator 0.500 0.894 1.000 1.000 0.900 Stress CLAIRE 1.000 1.000 1.000 1.000 0.000
+
+The comparator pattern explains the perfect full CLAIRE score. Exact ID was dis-rupted by obfuscated identifiers. Labels only often filled individual fields correctly but left dependencies or validation errors unresolved, so its episode success was 0.150 in both suites. Monolithic schema-aware filling improved field accuracy but still missed dynamic completion. Removing schema hints reduced episode success to 0.200 in both suites. Removing the Validator preserved 1.000 clean-suite success but reduced validation-stress success to 0.500 and left 0.900 errors per episode. Thus, schema grounding helps map the right evidence, while validation and correction are specif-ically important when source values violate rules. 
+
+4.2. Operational simulation 
+
+The operational simulation produced three routes (Table 4). In the 2,000 clean episodes, all cases reached a staff-reviewable draft; 48.2% still triggered focused review because a Validator interception occurred in the trace. In the 2,000 validation-stress episodes, 65.0% were intercepted and corrected before the final check, all reached 8a reviewable draft, and no final validation errors remained. In the 2,000 escalation-challenge episodes, 31.4% were blocked, 68.6% reached a draft, unsafe-case capture was 100.0%, and the false-reassurance rate was 0.0%. In plain terms, correctable cases were fixed using supplied evidence, while cases without that evidence were held for staff. Under the pre-specified timing scenario, the estimated savings were 149.7 sec-onds per clean case, 165.5 seconds per validation-stress case, and 152.2 seconds per escalation-challenge case. These are calculated scenario outputs, not observed staff times. The more defensible operational finding is the routing behavior—routine draft, focused review, or escalation—because it follows directly from trace and validation state; the time estimates require prospective measurement.                              
+
+> Table 4. Operational simulation metrics from 6,000 healthcare administrative form episodes. Time values are calculated from trace-derived field counts, validation events, correction events, and explicit time-motion assumptions.
+> Suite Episodes Ready Focused review Escalated Intercepted Time saved/case Hours saved Clean dynamic forms 2000 1.000 0.482 0.000 0.482 149.7s (68.6%) 83.2 Validation stress 2000 1.000 0.650 0.000 0.650 165.5s (65.8%) 92.0 Escalation challenge 2000 0.686 0.336 0.314 0.650 152.2s (61.6%) 84.6
+
+4.3. Strict-output LLM audit 
+
+The strict-output audit asks a narrower question than the internal benchmark: can an LLM return the correct field–value mapping in machine-readable JSON when it receives labels alone, schema context, or schema context plus explicit correction? The result is counted at the episode level only when the final mapped state is complete and valid. Both models benefited from structure, but neither direct-model condition matched the guarded executor across both suites (Table 5; Fig. 3). For Qwen2.5-1.5B, validation-stress success rose from 0.230 with labels only to 0.480 with the schema loop and 0.900 with schema plus correction. For Qwen2.5-7B, schema-conditioned stress success was 0.840, with no additional success gain from explicit correction in this sample. Full CLAIRE reached 1.000 because mapping was followed by determin-istic checks and controlled correction. The practical conclusion is not that an LLM is unnecessary; it is that flexible mapping should not be treated as the final safety decision. 
+
+5. Discussion 
+
+The results support constrained autonomy with workflow accountability. Removing schema context reduced success to 0.200; removing validation reduced stress-suite suc-cess from 1.000 to 0.500 while leaving clean performance unchanged; and direct LLM mapping improved with schema context but remained less dependable than guarded execution. Discovery, validation, evidence-bounded correction, escalation, and traces therefore contributed distinct safeguards rather than acting as interchangeable mod-ules. This differs from benchmarks that score only plausible output and from robotic process automation that assumes stable selectors. 9Exact ID Labels only Monolithic No schema No validator CLAIRE 00.20.40.60.810.39 0.15 0.52 0.2110.26 0.15 0.35 0.20.51
+
+> Episode success
+
+Clean dynamic forms Validation stress   
+
+> Figure 2. Episode success in the full internal benchmark. CLAIRE maintains complete success across clean and validation-stress suites, while validation removal specifically degrades performance under dirty source values.
+> Table 5. Focused strict LLM audit. Values are averaged across four variants and 100 episodes per suite, model, and condition.
+
+Model Suite Condition Success Field accuracy Qwen2.5-1.5B Clean Labels only 0.310 0.883 Qwen2.5-1.5B Clean Schema loop 0.810 0.926 Qwen2.5-1.5B Clean Schema + correction 0.810 0.926 Qwen2.5-1.5B Stress Labels only 0.230 0.779 Qwen2.5-1.5B Stress Schema loop 0.480 0.864 Qwen2.5-1.5B Stress Schema + correction 0.900 0.967 Qwen2.5-7B Clean Labels only 0.260 0.830 Qwen2.5-7B Clean Schema loop 0.650 0.952 Qwen2.5-7B Clean Schema + correction 0.650 0.952 Qwen2.5-7B Stress Labels only 0.290 0.881 Qwen2.5-7B Stress Schema loop 0.840 0.975 Qwen2.5-7B Stress Schema + correction 0.840 0.976 Guarded executor Both Full CLAIRE 1.000 1.000 
+
+10 Labels Schema Schema+correction Guarded CLAIRE 00.20.40.60.810.31 0.81 0.81 10.23 0.48 0.91
+
+> Episode success
+
+Qwen2.5-1.5B clean Qwen2.5-1.5B stress Labels Schema Schema+correction Guarded CLAIRE 00.20.40.60.810.26 0.65 0.65 10.29 0.84 0.84 1
+
+> Episode success
+
+Qwen2.5-7B clean Qwen2.5-7B stress 
+
+Figure 3. Strict LLM decision audit on a focused subset. Direct labels-only mappings are weak; schema conditioning and explicit correction improve performance substantially, but the guarded CLAIRE executor remains the most reliable condition. 
+
+11 The operational simulation extended correctness into workflow routing by separat-ing routine drafts, focused review, and blocked escalation. This distinction resembles administrative work queues, where supported cases can proceed and exceptions re-quire attention. However, the time savings remain scenario estimates until measured with staff. Likewise, the perfect internal score means only that CLAIRE handled the failure types represented in this deterministic synthetic benchmark. It does not estab-lish performance on arbitrary portals, authentication, CAPTCHA, uploads, scanned documents, or asynchronous behavior. This scope matters because form automation can cause silent operational harm through omitted dependencies, malformed codes, or unsupported values. Such errors may not directly change a diagnosis, but they can delay access, contribute to denial, or create rework. Medical-informatics evaluation should therefore include validation, escalation, traceability, and workflow fit, not field accuracy alone. 
+
+5.1. Workflow integration and governance implications 
+
+A practical deployment would start from an EHR or administrative work item, draft portal or API entries, attach source evidence and validation traces, and return status to the work queue. CLAIRE is therefore a staff-review accelerator, not an indepen-dent submitter. It must not infer missing facts, alter source meaning, or proceed after unresolved validation; traces should support review, appeals, security, and governance Kelly et al. (2019); Lekadir et al. (2025); National Institute of Standards and Technol-ogy (2023). FHIR Questionnaire and QuestionnaireResponse can represent questions, answers, and constraints, while SMART on FHIR supports EHR integration HL7 In-ternational (2023a,b); Mandel et al. (2016). The architecture complements these APIs where portals and exception workflows remain. 
+
+6. Limitations 
+
+This evaluation used deterministic synthetic administrative records and computable schemas. That design protects privacy and makes every expected value reproducible, but it does not capture the full diversity, missingness, ambiguity, coding practices, or distribution shifts of real organizations. Two form families were unchanged controls inside the validation-stress suite, and the represented errors were deliberately chosen to match implemented rules; the perfect full CLAIRE score must therefore be interpreted within that constructed coverage. The evaluation also did not test authentication, file uploads, scanned documents, CAPTCHA, production portal latency, or policy changes. The primary benchmark also does not establish autonomous LLM-agent compe-tence. Although the role modules called a shared language model, the returned model content did not control benchmark actions. The perfect score therefore evaluates the deterministic guarded executor under the represented schemas and perturbations; di-rect LLM mapping performance is limited to the separate strict-output audit. The operational time model used assumed task durations rather than observed staff behavior. It cannot establish real productivity, workload, trust, or adoption. The next evidence step is a prospective staff-facing simulation using synthetic or appropri-ately de-identified cases. Administrative staff, care coordinators, billing specialists, or trained reviewers should compare manual completion with trace-assisted review while measuring observed time, correct submit-or-escalate decisions, unsafe-case blocking, 12 workload, and perceived trust. A later non-production portal study should then test browser failures and workflow integration before any live submission is considered. 
+
+7. Future work 
+
+Future work should progress from public interactive benchmarks to staff-facing tests, non-production portals, and EHR-integrated work queues before live deployment. DECIDE-AI can guide early live evaluation Vasey et al. (2022); CONSORT-AI and SPIRIT-AI would become relevant only for a later trial testing whether CLAIRE changes a process of care Liu et al. (2020); Cruz Rivera et al. (2020). 
+
+8. Conclusion 
+
+CLAIRE demonstrates that healthcare administrative form completion can be made more reliable by placing language-model reasoning inside explicit medical-informatics controls. In a 24,000-episode benchmark, schema grounding and validation were nec-essary for robust performance under interface perturbations and validation-stress con-ditions. In a 6,000-episode operational simulation, the guarded workflow produced re-viewable drafts, focused review, and escalation capture, while calculated time savings of 149.7–165.5 seconds per case remained dependent on explicit timing assumptions. These findings support a design principle for healthcare administrative automation in which language-assisted mapping is embedded within structured information-system controls and remains subject to validation, traceability, human review, and escalation. 
+
+Ethics statement 
+
+This study used synthetic healthcare administrative records and public benchmark-derived answer-key data. No real patient records, protected health information, or human-subject data were used. The experiments did not evaluate diagnosis, treatment recommendation, or patient-facing clinical decision-making. Any deployment on real healthcare data would require institutional privacy, security, compliance, and workflow review. 
+
+CRediT authorship contribution statement 
+
+Garapati Keerthana: Conceptualization, Methodology, Software, Investigation, Data curation, Formal analysis, Writing - original draft, Visualization. Manik Gupta: Su-pervision, Conceptualization, Methodology, Writing - review and editing. 
+
+Funding 
+
+This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors. 13 Declaration of competing interest 
+
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper. 
+
+Data availability statement 
+
+No patient data or protected health information were used. The synthetic records, computable schemas, and derived benchmark materials supporting the findings are available from the corresponding author on reasonable request. 
+
+Declaration of generative AI and AI-assisted technologies in the manuscript preparation process 
+
+During preparation of this manuscript, the authors used AI-assisted tools for language editing and grammar checks. The authors reviewed and edited the output as needed and take full responsibility for the content of the published article. 
+
+Appendix A. AI, reproducibility, and implementation transparency appendix 
+
+This appendix provides transparency material for an AI-enabled medical-informatics workflow study, consistent with medical-AI self-assessment guidance Cabitza and Cam-pagner (2021). CLAIRE is a workflow-agent architecture rather than a diagnostic pre-diction model. The reported system did not train a clinical model on patient data. The 24,000-episode executor called Qwen/Qwen2.5-0.5B-Instruct through each role’s prompt interface, but only model-call metadata was logged and returned model content was not used to authorize actions; execution relied on schemas, deterministic match-ing, validation, and controlled correction. The separate strict-output audit evaluated executable mappings from Qwen2.5-1.5B and Qwen2.5-7B. 
+
+• Task: Healthcare administrative form completion for intake, prior authorization, benefit verification, credentialing, and claims correction. 
+
+• Input data: Synthetic structured records and computable form schemas; no patient data or protected health information were used. 
+
+• Models: The main executor issued prompts to Qwen2.5-0.5B but used rule-governed schema logic for actions; the strict audit used Qwen2.5-1.5B and Qwen2.5-7B for executable source-to-field mapping checks. 
+
+• Evaluation: Clean and validation-stress suites, four interface variants, strict-output LLM audit, and 6,000-episode operational simulation. 
+
+• Operational metrics: Staff-reviewable draft rate, focused-review rate, blocked-escalation rate, validator-intercept rate, time saved per case, hours saved, false-reassurance rate, and unsafe-case capture. 
+
+• Human role: Staff review is required for unresolved ambiguity, missing source support, validation failure, or escalation. 
+
+• Prospective instrument: A staff-facing pilot protocol and trust survey template were prepared for follow-on evaluation with synthetic or de-identified cases. 14 • Deployment status: Evaluated in reproducible benchmark and operational simu-lation settings before live clinical or payer deployment. Where CLAIRE fits in a healthcare administrative workflow 
+
+1 WORK ITEM ARRIVES 
+
+> EHR task, referral, claim, roster, or payer request
+
+2 CLAIRE PREPARES A DRAFT 
+
+> selects, fills, validates, and corrects only supported values
+
+3 STAFF REVIEWS 
+
+> checks the draft, source provenance, warnings, and audit trace
+
+4 APPROVED RESULT 
+
+> staff submits to the payer/vendor interface and updates the work queue
+
+UNRESOLVED OR UNSUPPORTED? 
+
+> Stop automatic progress and route the case for correction or escalation.
+
+SAFETY BOUNDARY  
+
+> CLAIRE drafts and checks. Staff retain authority to approve, correct, escalate, or stop submission. validation fails staff resolves
+
+Figure A1. Intended workflow placement. CLAIRE prepares a validated draft and trace from an incoming administrative work item. Staff retain authority to approve, correct, escalate, or stop submission to a payer or vendor interface. 
+
+Appendix B. External answer-key alignment check 
+
+A secondary check used 230 healthcare-like examples extracted from released FormFac-tory answer-key data, across four variants and five comparators. Exact ID automation reached 0.750 success. Labels only, Monolithic, CLAIRE without schema, and full CLAIRE reached 1.000 success because the adapter flattened the answer key into field–value mappings. This result supports semantic field–value alignment but should not be interpreted as a full FormFactory interactive-coordinate reproduction, external clinical validation, or real-world workflow evaluation. 15 Internal benchmark: the same test conditions are applied to every comparator 
+
+5 FORM SCHEMAS 
+
+intake • prior authorization • benefits • credentialing • claims 
+
+1,000 RECORDS 
+
+500 clean + 500 validation-stress 
+
+4 INTERFACE VARIANTS 
+
+original • synonym labels • obfuscated IDs • shuffled layout 
+
+6 COMPARATORS 
+
+Exact ID • Labels only • Monolithic • No schema • No validator • Full CLAIRE 
+
+1,000 records × 4 variants × 6 comparators = 24,000 benchmark episodes 
+
+CLEAN SUITE 
+
+valid source values; conditional fields still need to be discovered 
+
+VALIDATION-STRESS SUITE 
+
+invalid formats or ranges plus explicit corrected source values 
+
+EPISODE-LEVEL METRICS 
+
+success • field accuracy • required-field completion • dependency completion • validation errors Figure A2. Internal benchmark design. The same schemas, records, and interface variants were applied to all six comparators. How one synthetic record becomes a benchmark form-completion episode 
+
+FORM SCHEMA (what the form expects) 
+
+Field Rule 
+
+provider_npi 10 digits, required prior_auth_needed Yes / No clinical_reason shown only when prior_auth_needed = Yes end_date must follow start_date 
+
+CLEAN SOURCE RECORD (supported values) 
+
+record_id: pa_000 provider_npi: 1234500000 prior_auth_needed: Yes clinical_reason: Persistent symptoms start_date: 2026-08-01 end_date: 2026-08-15 
+
+VALIDATION-STRESS RECORD (dirty value + explicit correction) 
+
+record_id: stress_pa_000 provider_npi: BAD-NPI provider_npi_corrected: 1234509999 start_date: 2026-08-01 end_date: 2026-07-01 end_date_corrected: 2026-08-20 
+
+ONE EPISODE = one record × its schema × one interface variant × one comparator 
+
+KEY TERMS 
+
+Suite: a named group of episodes with the same data condition. Interface variant: a changed presentation of the same form. 
+
+Comparator: one system configuration evaluated under the same episodes. 
+
+Figure A3. Synthetic-data example. The schema defines the target, while the stress record contains invalid values and explicit corrections. All displayed names and identifiers are synthetic. 
+
+16 References 
+
+Moiz Sadiq Awan and Maryam Raza. AI-generated prior authorization letters: Strong clinical content, weak administrative scaffolding, 2026. URL https://arxiv.org/ab s/2603.29366. Suhana Bedi, Ryan Welch, Ethan Steinberg, Michael Wornow, Taeil Matthew Kim, Haroun Ahmed, Peter Sterling, Bravim Purohit, Qurat Akram, Angelic Acosta, Es-ther Nubla, Pritika Sharma, Michael A. Pfeffer, Sanmi Koyejo, and Nigam H. Shah. HealthAdminBench: Evaluating computer-use agents on healthcare administration tasks, 2026. URL https://arxiv.org/abs/2604.09937. Hichem Belgacem, Xiaochen Li, Domenico Bianculli, and Lionel C. Briand. A ma-chine learning approach for automated filling of categorical fields in data entry forms. ACM Transactions on Software Engineering and Methodology , 32(2):47:1– 47:40, 2023. . URL https://arxiv.org/abs/2202.08572. Federico Cabitza and Andrea Campagner. The need to separate the wheat from the chaff in medical informatics: Introducing a comprehensive checklist for the (self)-assessment of medical AI studies. International Journal of Medical Informatics , 153: 104510, 2021. . CAQH. 2024 CAQH index report: From transactions to trust: Building better care through healthcare automation. Technical report, CAQH, 2024. URL https://ww w.caqh.org/hubfs/Index/2024%20Index%20Report/CAQH IndexReport 2024 FIN AL.pdf. Accessed 15 July 2026. Centers for Medicare & Medicaid Services. National provider identifier standard (NPI), 2024a. URL https://www.cms.gov/Regulations-and-Guidance/Administrative-S implif ication/NationalProvIdentStand. Page last modified 2024-09-10; accessed 2026-07-05. Centers for Medicare & Medicaid Services. CMS interoperability and prior authoriza-tion final rule (CMS-0057-F), 2024b. URL https://www.cms.gov/newsroom/fac t-sheets/cms-interoperability-prior-authorization-final-rule-cms-0057-f. Accessed 2026-07-05. Chrome for Developers. Puppeteer, 2026. URL https://pptr.dev/. Accessed 2026-07-05. Samantha Cruz Rivera, Xiaoxuan Liu, An-Wen Chan, Alastair K. Denniston, Melanie J. Calvert, et al. Guidelines for clinical trial protocols for interventions involving artificial intelligence: The SPIRIT-AI extension. Nature Medicine , 26(9): 1351–1363, 2020. . Xiang Deng, Yu Gu, Boyuan Zheng, Shijie Chen, Samuel Stevens, Boshi Wang, Huan Sun, and Yu Su. Mind2Web: Towards a generalist agent for the web. In Advances in Neural Information Processing Systems , 2023. URL https://arxiv.org/abs/2306 .06070. Alexandre Drouin, Maxime Gasse, Massimo Caccia, Issam H. Laradji, Manuel Del Verme, Tom Marty, Leo Boisvert, Megh Thakkar, Quentin Cappart, David Vazquez, Nicolas Chapados, and Alexandre Lacoste. WorkArena: How capable are web agents at solving common knowledge work tasks?, 2024. URL https: //arxiv.org/abs/2403.07718. Hongliang He, Wenlin Yao, Kaixin Ma, Wenhao Yu, Yong Dai, Hongming Zhang, Zhenzhong Lan, and Dong Yu. WebVoyager: Building an end-to-end web agent with large multimodal models, 2024. URL https://arxiv.org/abs/2401.13919. HL7 International. FHIR resource questionnaire - content, 2023a. URL https://hl7. org/fhir/questionnaire.html. FHIR Release 5.0.0, accessed 2026-07-05. 17 HL7 International. FHIR resource questionnaireresponse - content, 2023b. URL https: //hl7.org/fhir/questionnaireresponse.html. FHIR Release 5.0.0, accessed 2026-07-05. Yupan Huang, Tengchao Lv, Lei Cui, Yutong Lu, and Furu Wei. LayoutLMv3: Pre-training for document AI with unified text and image masking. In Proceedings of the 30th ACM International Conference on Multimedia , pages 4083–4091. Association for Computing Machinery, 2022. . URL https://arxiv.org/abs/2204.08387. Sayash Kapoor, Benedikt Stroebl, Zachary S. Siegel, Nitya Nadgir, and Arvind Narayanan. AI agents that matter, 2024. URL https://arxiv.org/abs/2407.01502. Christopher J. Kelly, Alan Karthikesalingam, Mustafa Suleyman, Greg Corrado, and Dominic King. Key challenges for delivering clinical impact with artificial intelli-gence. BMC Medicine , 17(1):195, 2019. . Jing Yu Koh, Robert Lo, Lawrence Jang, Vikram Duvvur, Ming Chong Lim, Po-Yu Huang, Graham Neubig, Shuyan Zhou, Ruslan Salakhutdinov, and Daniel Fried. VisualWebArena: Evaluating multimodal agents on realistic visual web tasks, 2024. URL https://arxiv.org/abs/2401.13649. Thibault Le Sellier De Chezelles, Maxime Gasse, Alexandre Drouin, Massimo Caccia, Leo Boisvert, Megh Thakkar, Tom Marty, Rim Assouel, Sahar Omidi Shayegan, Lawrence Keunho Jang, Xing Han Lu, Ori Yoran, Dehan Kong, Frank F. Xu, Siva Reddy, Quentin Cappart, Graham Neubig, Ruslan Salakhutdinov, Nicolas Chapa-dos, and Alexandre Lacoste. The BrowserGym ecosystem for web agent research, 2024. URL https://arxiv.org/abs/2412.05467. Karim Lekadir, Alejandro F. Frangi, Antonio R. Porras, et al. FUTURE-AI: Inter-national consensus guideline for trustworthy and deployable artificial intelligence in healthcare. BMJ , 388:e081554, 2025. . Bobo Li, Yuheng Wang, Hao Fei, Juncheng Li, Wei Ji, Mong-Li Lee, and Wynne Hsu. FormFactory: An interactive benchmarking suite for multimodal form-filling agents, 2025. URL https://arxiv.org/abs/2506.01520. Xiaoxuan Liu, Samantha Cruz Rivera, David Moher, Melanie J. Calvert, Alastair K. Denniston, et al. Reporting guidelines for clinical trial reports for interventions involving artificial intelligence: The CONSORT-AI extension. Nature Medicine , 26 (9):1364–1374, 2020. . Joshua C. Mandel, David A. Kreda, Kenneth D. Mandl, Isaac S. Kohane, and Rachel B. Ramoni. SMART on FHIR: A standards-based, interoperable apps platform for electronic health records. Journal of the American Medical Informatics Association ,23(5):899–908, 2016. . Microsoft Playwright Team. Playwright: Reliable end-to-end testing for modern web apps, 2026. URL https://playwright.dev/. Accessed 2026-07-05. National Institute of Standards and Technology. Artificial intelligence risk manage-ment framework (AI RMF 1.0). Technical Report NIST AI 100-1, National Institute of Standards and Technology, 2023. Nikhil R. Sahni, Brooke Istvan, Celia Stafford, and David Cutler. Perceptions of prior authorization burden and solutions. Health Affairs Scholar , 2(9):qxae096, 2024. .URL https://doi.org/10.1093/haschl/qxae096. Selenium Project. Selenium browser automation, 2026. URL https://www.selenium .dev/. Accessed 2026-07-05. William H. Shrank, Teresa L. Rogstad, and Natasha Parekh. Waste in the US health care system: Estimated costs and potential for savings. JAMA , 322(15):1501–1509, 2019. . URL https://jamanetwork.com/journals/jama/article-abstract/2752664. U.S. Department of Health and Human Services. Guidance regarding methods for de-18 identification of protected health information in accordance with the HIPAA privacy rule, 2024. URL https://www.hhs.gov/hipaa/for-professionals/special-topics/de-i dentification/index.html. Accessed 2026-07-05. Baptiste Vasey, Myura Nagendran, Bruce Campbell, David A. Clifton, Gary S. Collins, et al. Reporting guideline for the early-stage clinical evaluation of decision support systems driven by artificial intelligence: DECIDE-AI. Nature Medicine , 28(5):924– 933, 2022. . Jason Walonoski, Mark Kramer, Joseph Nichols, Andre Quina, Chris Moesel, Dylan Hall, Carlton Duffett, Kudakwashe Dube, Thomas Gallagher, and Scott McLachlan. Synthea: An approach, method, and software mechanism for generating synthetic patients and the synthetic electronic health care record. Journal of the American Medical Informatics Association , 25(3):230–238, 2018. . URL https://academic.o up.com/jamia/article/25/3/230/4098271. Tianbao Xie, Danyang Zhang, Jixuan Chen, Xiaochuan Li, Siheng Zhao, Ruisheng Cao, Toh Jing Hua, Zhoujun Cheng, Dongchan Shin, Fangyu Lei, Yitao Liu, Yi-heng Xu, Shuyan Zhou, Silvio Savarese, Caiming Xiong, Victor Zhong, and Tao Yu. OSWorld: Benchmarking multimodal agents for open-ended tasks in real computer environments, 2024. URL https://arxiv.org/abs/2404.07972. Yiheng Xu, Minghao Li, Lei Cui, Shaohan Huang, Furu Wei, and Ming Zhou. Lay-outLM: Pre-training of text and layout for document image understanding. In Pro-ceedings of the 26th ACM SIGKDD International Conference on Knowledge Discov-ery & Data Mining , pages 1192–1200. Association for Computing Machinery, 2020. . URL https://arxiv.org/abs/1912.13318. An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, et al. Qwen2.5 technical report, 2024. URL https://arxiv.org/abs/2412.15115. Zhexin Zhang, Shiyao Cui, Yida Lu, Jingzhuo Zhou, Junxiao Yang, Hongning Wang, and Minlie Huang. Agent-SafetyBench: Evaluating the safety of LLM agents, 2024. URL https://arxiv.org/abs/2412.14470. Shuyan Zhou, Frank F. Xu, Hao Zhu, Xuhui Zhou, Robert Lo, Abishek Sridhar, Xianyi Cheng, Tianyue Ou, Yonatan Bisk, Daniel Fried, Uri Alon, and Graham Neubig. WebArena: A realistic web environment for building autonomous agents, 2023. URL https://arxiv.org/abs/2307.13854. 19

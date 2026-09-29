@@ -1,0 +1,446 @@
+Title: MammoClaw: Towards Skill-Evolving Agent Harness for Breast Cancer Mammography Analysis
+
+URL Source: https://arxiv.org/pdf/2609.31789v1
+
+Published Time: Tue, 29 Sep 2026 00:12:46 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+# MammoClaw: Towards Skill-Evolving Agent Harness for Breast Cancer Mammography Analysis 
+
+Krishna Kanth Nakka 
+
+Munich, Bavaria, Germany 
+
+krishkanth.92@gmail.com 
+
+Abstract. In this work, we explore MammoClaw , a training-free agent framework that leverages frozen MLLMs for mammography analysis. To support agentic investigation, we equip the agent with lightweight mammography-specific tools for targeted image analysis, including ROI, paired-view, and contralateral-breast examination. MammoClaw iteratively gathers evidence through these tools, while skill evolution enables non-parametric adaptation by transforming failed trajectories into reusable guidance for later runs. We evaluate the framework on BI-RADS as-sessment and breast density estimation tasks. In our experiments, we find that tools alone do not reliably improve performance, whereas evolved skills can improve tool-use behavior and performance in some settings. Beyond these results, MammoClaw enables transparent inspection of evidence acquisition, tool interactions, and failure modes, facilitating the analysis and auditing of agent behavior. We view this work as an exploratory study of training-free, self-evolving agentic approaches for mammography and hope it provides a concrete starting point for future work on mammography-specific tools and self-evolution mechanisms. We release our code at https://krishnakanthnakka.github.io/mammoclaw .
+
+## 1 Introduction 
+
+Medically fine-tuned multimodal large language models (MLLMs) [13,5,4,9] have demonstrated strong visual reasoning capabilities across diverse medical imaging tasks [8,10,7], including mammography [28,6,3]. This capability, however, is typ-ically obtained through expensive post-training pipelines, including supervised fine-tuning [17,27] and reinforcement learning [19,14], which rely on large cu-rated medical datasets, substantial computational resources, and costly expert supervision for reasoning traces, thereby limiting their scalability to new tasks and backbones. A recent alternative is to investigate whether a frozen, general-purpose MLLM can be enhanced through test-time agentic execution [21,11,26,18], by equipping it with domain-specific tools rather than updating its weights. For instance, recent frameworks such as RadAgent [18] and ClinSeekAgent [21] suggest that this paradigm can improve performance across several clinical and general radiology domains. Yet, to our knowledge, its application to breast arXiv:2609.31789v1 [eess.IV] 25 Sep 2026 2 K. K. Nakka 
+
+imaging remains largely unexplored. Motivated by this gap, we conduct an exploratory investigation of whether agentic execution with frozen MLLMs can benefit mammography assessment tasks such as BI-RADS grading and breast density estimation. To this end, we equip a frozen MLLM with a lightweight suite of determinis-tic, model-free mammography tools for structured evidence acquisition, support-ing knowledge retrieval, ROI inspection and paired-view and contralateral-view comparison without relying on costly auxiliary models such as segmentation or detection networks. In practice, however, we find that tool augmentation alone is not sufficient in our evaluation: augmenting the frozen agent with the full tool suite leaves BI-RADS macro F1 essentially unchanged relative to the no-tool agent ( 0.108 → 0.106 ). This observation suggests that the challenge may lie not simply in providing access to tools, but also in how the agent decides when and how to use them. This motivates our further investigation of whether experience from previous failures can provide reusable guidance for evidence acquisition and tool use. In light of this, we develop and investigate MammoClaw , a training-free agent framework for breast mammography that evolves non-parametrically through reusable skills [20,12,24,22]. MammoClaw distills reusable guidance from the agent’s failed trajectories into skills, which are then retrieved to guide the agent in subsequent rounds. By doing so, the framework provides a testbed for studying whether experience-driven skill evolution can improve reasoning and tool-use behavior without updating the underlying model weights. We evaluate MammoClaw on two mammography tasks, BI-RADS prediction and breast density estimation. Our results suggest that experience-driven skill evolution can provide benefits over the no-tools baseline in our experimental setting. Furthermore, the framework exposes the agent’s evidence acquisition and tool interactions, enabling auditing and attribution of failure modes to support trustworthy agentic mammography systems. Overall, we position our work as an initial exploration rather than a comprehensive solution, and use the findings to motivate broader investigation of mammography-specific tools, skill representations, and self-evolving agents. Our contributions are summarized as follows: 1. Framework: We develop MammoClaw , a training-free agent harness for ex-ploring agentic mammography analysis with frozen MLLMs, deterministic mammography tools, and an automated offline skill-evolution workflow. 2. Tool Suite: We develop an initial suite of lightweight, deterministic, and model-free mammography tools for retrieving task knowledge, inspecting regions of interest, comparing paired and contralateral views, and gathering structured evidence. 3. Skill Evolution: We adapt an offline skill-evolution workflow that distills reusable reasoning guidance from failed trajectories and retrieves these skills in subsequent cases, allowing us to study experience-driven adaptation with-out updating the backbone model weights. MammoClaw 3
+
+Fig. 1: Overview of the MammoClaw framework. The top panel illustrates the agent orchestration, while the bottom panel shows the skill-evolution workflow. 4. Evaluation: We empirically investigate MammoClaw on BI-RADS assessment and breast density estimation. Our experiments show that tool augmentation alone does not necessarily improve performance, while skill evolution can improve performance and tool-use behavior. 
+
+## 2 MammoClaw Framework 
+
+Figure 1 illustrates MammoClaw , a tool-augmented agent framework for explor-ing breast mammography tasks. Building on an established agentic paradigm, 
+
+MammoClaw combines a frozen MLLM for multi-step reasoning (Sec. 2.1) with de-terministic mammography tools for structured evidence acquisition (Sec. 2.2). To investigate whether prior experience can improve reasoning and tool use without updating model weights, we further incorporate an offline skill-evolution work-flow (Sec. 2.3) that analyzes failed trajectories from a reference set and distills them into reusable textual skills for subsequent agent execution. We describe each component below. 
+
+2.1 Agent Orchestration 
+
+Following the ReAct framework [25], the orchestration layer alternates between reasoning, tool invocation, and observation before producing a final prediction. Let a mammography case be represented as x = ( I, q, C), where I denotes the 4 K. K. Nakka 
+
+input mammographic image, q denotes the task-specific question, and C denotes the candidate answer set. Let fθ denote the frozen MLLM, A denote the mam-mography tool library, and S denote the skill bank. Before the first reasoning step, a lightweight retriever R(·) selects relevant skills 
+
+Sx = R(q, S),
+
+which are prepended to the initial prompt context H0 together with the input case (see Appendix F.1). At reasoning step t, the MLLM receives the current prompt context Ht−1 and either produces a final prediction ˆy ∈ C or selects a tool call 
+
+ut = ( At, p t),
+
+where At ∈ A denotes the selected tool and pt contains tool-specific inputs (e.g., ROI coordinates). Executing the selected tool returns an observation 
+
+ot = At(x, p t).
+
+The observation is then appended to the prompt context according to 
+
+Ht = Ht−1 ⊕ (ut, o t),
+
+where ⊕ denotes appending the tool invocation and its resulting observation to the prompt context. MammoClaw records the resulting reasoning trajectory as 
+
+τ = {(Ht−1, u t, o t)}kt=1 ,
+
+providing an explicit record of the agent’s reasoning and tool interactions that is subsequently used for offline skill evolution. 
+
+2.2 Mammography Tools 
+
+To provide the agent with mammography-specific evidence, MammoClaw employs a lightweight suite of deterministic, model-free tools (see Appendix D), avoiding auxiliary learned modules such as segmentation or detection networks. These include task-context tools, single-image ROI inspection, cross-view and con-tralateral comparison, and lightweight image-processing utilities. Depending on the operation, they return either textual outputs (e.g., BI-RADS definitions, domain knowledge, metadata) or visual outputs (e.g., ROI crops, paired-view composites, contralateral comparisons), allowing the agent to iteratively gather complementary evidence before producing a final prediction. However, access to these tools alone does not guarantee effective use: the agent must still determine when to invoke them, which tools to select, and how to interpret their outputs. This motivates our investigation of whether prior failed trajectories can provide reusable guidance for subsequent tool use and reasoning. MammoClaw 5
+
+2.3 Skill Evolution 
+
+Rather than updating model weights, we explore whether failures can be con-verted into reusable guidance through an offline skill-evolution workflow based on recent agent-learning approaches [22,24]. We apply this workflow to mammog-raphy by distilling reusable skills from failed reasoning trajectories. The evolved skills are stored in a skill bank and retrieved during subsequent inference, provid-ing a lightweight mechanism for experience-driven behavioral adaptation while leaving the underlying MLLM unchanged. Importantly, these skills are not trained parameters or task-specific model updates; they are reusable textual policies mined from prior failures and injected into the agent context at inference time. Skill evolution proceeds on a labeled reference dataset held out from test evaluation, 
+
+Dref = {(xj , y j )}Nj=1 .
+
+Let S(0) denote the initial skill bank, which is empty in our case. At evolution round r, MammoClaw evaluates the reference set using S(r), producing predictions 
+
+ˆy(r) 
+
+> j
+
+and reasoning trajectories τ (r) 
+
+> j
+
+. Failed trajectories are collected into 
+
+T (r)fail =
+
+n
+
+(τ (r) 
+
+> j
+
+, x j , y j ) ˆy(r)
+
+> j
+
+̸ = yj
+
+o
+
+.
+
+A teacher model G analyzes all the failed trajectories together to generate candidate skills, 
+
+eS(r) = G
+
+
+
+T (r)fail 
+
+
+
+,
+
+using a dedicated skill-evolution prompt (see Appendix F.2). The generated skills (see Appendix G) capture reusable reasoning strategies, tool-use patterns, and corrections for recurring failure modes. After semantic-similarity filtering removes redundant candidates, the remaining novel skills ∆S(r) are incorporated into the skill bank: 
+
+S(r+1) = S(r) ∪ ∆S(r).
+
+## 3 Experiments 
+
+Implementation. We evaluate our framework on Mammo-Bench [2] for two mammography assessment tasks: BI-RADS assessment and breast density as-sessment. We use Qwen3.5-35B-A3B [16] as the underlying agent backbone and report macro F1-score together with 95% bootstrap confidence intervals. Follow-ing the protocol of [2], we randomly split each source dataset into 80% training and 20% evaluation sets. This results in an evaluation set of 448 exams from KAU-BCMD [1] for BI-RADS assessment and 108 exams from DMID [15] for breast density assessment. For skill evolution, we randomly sample 100 examples from the training set together with their ground-truth labels as the reference set. Skill evolution is performed using DeepSeek-V4-Flash [23] as the teacher LLM, with the maximum number of skill-evolution iterations set to 1 and at most 10 
+
+new skills generated per iteration. Further details of the experimental setup are provided in Appendix B. 6 K. K. Nakka 
+
+Method Tools Skills Macro-F1 [95% CI] 
+
+Baseline × × 0.108 [0.103, 0.113] 
+
+MammoClaw ✓ × 0.106 [0.093, 0.122] 
+
+MammoClaw ✓ ✓ 0.148 [0.121, 0.180] (a) BI-RADS (KAU-BCMD) 
+
+Table 1: Effect of tools and evolved skills on mammography assessment. Tools alone do not consistently improve macro-F1, whereas skill evolution leads to improved performance. 
+
+3.1 Main Results Tools Alone Do Not Consistently Improve Performance. Table 1 com-pares the baseline agent, the agent augmented with mammography tools, and the tool-augmented agent with evolved skills. Adding tools results in only small changes in macro F1, from 0.108 to 0.106 for BI-RADS assessment. However, the change is not statistically significant (Appendix C), suggesting that access to mammography-specific tools alone does not consistently improve performance. 
+
+Skill Evolution Shows Promising Improvements. Adding evolved skills in-creases BI-RADS macro F1 from 0.106 to 0.148 relative to the tools-only setting. The improvements are statistically significant (paired bootstrap, Holm-corrected 
+
+p < 0.05 , see Appendix C). These results suggest that the benefit comes not from tool access alone, but from the additional guidance provided by the evolved skills. However, these results do not establish that the generated skills themselves en-code clinically validated reasoning, and further evaluation is needed to assess their robustness and transferability. Inspect ROI Paired view Current exam Contralateral Breast mask Knowledge Image sharp. Density Finding size Tissue stats Geometry Density w/ mask 0100 200 300 400 500 600 Total invocations                
+
+> 391 419 377 276 52 95 50 36 3302584 457 448 456 57 321 11030
+> W/o skills W/ skills
+
+Fig. 2: Skill evolution in-creases evidence gathering per case. After skill evolu-tion, the agent makes more tool calls on the BI-RADS assessment task, suggesting a more deliberate multi-step inspection process be-fore final prediction. 
+
+Insights on Evolved Skills and Tool Usage. Figure 2 illustrates changes in the agent’s interaction with the mammography tool suite following skill evo-MammoClaw 7
+
+lution. The generated skills (Appendix G) capture reusable reasoning strate-gies rather than explicit tool-selection rules, including systematic inspection of suspicious regions, cross-view verification, sequential resolution of uncertainty, and grounding conclusions in tool observations. Following skill evolution, the agent invokes ROI inspection and contralateral breast comparison tools more frequently. These changes are consistent with the reasoning strategies reflected in the evolved skills. Moreover, we observe fewer calls to the knowledge-retrieval tool after skill evolution, suggesting that the evolved skills may provide some of the task-relevant guidance that the agent would otherwise seek through knowl-edge retrieval. Figure 3 further shows that evolved skills generally lead to more tool calls per case across both BI-RADS and breast density assessment, sug-gesting more extensive evidence gathering during inference. These observations provide an initial indication that skill evolution can alter tool-use behavior, while the relationship between tool usage and prediction quality remains an open ques-tion. 0 1 2 3 4 5 6 7 8 9Number of tool calls 025 50 75 100 125 150 175 Number of examples       
+
+> 511 40 127 171 74 18 200011122 139 101 16 60 53
+> W/o skills W/ skills
+
+Fig. 3: Comparison of tool-call frequency per case be-fore and after skill evolu-tion on the BI-RADS as-sessment task. 
+
+Trajectory Visualization. Figure 4 visualizes a representative reasoning tra-jectory generated by MammoClaw from a CC-view mammogram. The agent first localizes a suspicious region, verifies the finding using the paired MLO view and the contralateral breast, and incrementally refines its reasoning before produc-ing the final assessment. This example illustrates how the framework exposes tool interactions and intermediate evidence during mammography assessment and provides a qualitative example of how evolved skills may guide evidence acquisition. 
+
+## 4 Conclusion 
+
+In this paper, we investigated MammoClaw , a training-free, tool-augmented agent framework for breast mammography. MammoClaw combines a frozen MLLM with deterministic mammography-specific tools and an offline skill-evolution workflow that distills reusable textual guidance from failed trajectories without updating model weights. Across two mammography assessment tasks, we find that tool augmentation alone does not consistently improve performance in our setting, 8 K. K. Nakka 
+
+Fig. 4: Skill-guided agent trajectory for BI-RADS prediction. The agent first localizes the suspicious region, verifies the finding using the paired MLO view and the contralateral breast, and incrementally refines its reasoning before producing the final assessment. The trajectory illustrates how tool interactions and evolved skills can support evidence-driven mammography assessment. MammoClaw 9
+
+whereas adding failure-derived skills is associated with promising gains relative to the tools-only setting. The accompanying changes in tool-use behavior further suggest that skill evolution can influence how the agent gathers and integrates evidence during inference. Overall, these results provide an initial indication that failure-driven skill evolution is a promising direction for developing domain-specialized agent harnesses for mammography. We hope MammoClaw serves as a useful testbed for further investigation of mammography-specific tools, skill evo-lution, and agent behavior. We refer the reader to the Supplementary Material for limitations of our work and further details on the experimental settings, prompts, and evolved skills. 
+
+Disclosure of Interests. The author declares no competing interests relevant to the content of this article. 
+
+## References 
+
+1. Alsolami, A.S., Shalash, W., Alsaggaf, W., Ashoor, S., Refaat, H., Elmogy, M.: King abdulaziz university breast cancer mammogram dataset (kau-bcmd). Data 
+
+6(11), 111 (2021) 2. Bhole, G., Suba, S., Parekh, N.: Mammo-bench: A large-scale benchmark dataset of mammography images. In: International Conference on Computational Advances in Bio and Medical Sciences. pp. 144–156. Springer (2025) 3. Cao, Z., Deng, Z., Ma, J., Hu, J., Ma, L.: Mammovlm: A generative large vision– language model for mammography-related diagnostic assistance. Information Fu-sion 118 , 102998 (2025) 4. Chen, J., Gui, C., Ouyang, R., Gao, A., Chen, S., Chen, G.H., Wang, X., Cai, Z., Ji, K., Wan, X., et al.: Towards injecting medical visual knowledge into multimodal llms at scale. In: Proceedings of the 2024 conference on empirical methods in natural language processing. pp. 7346–7370 (2024) 5. Deria, A., Kumar, K., Dukre, A.M., Segal, E., Khan, S., Razzak, I.: Medmo: Grounding and understanding multimodal large language model for medical im-ages. arXiv preprint arXiv:2602.06965 (2026) 6. Ghosh, S., Joshi, V.P., Syed, R., Budhraja, P., Kassem, A., Morrison, K.C., Tang, A., Wong, H.C.A., Varshney, A., Basak, P., et al.: Mammo-fm: Breast-specific foun-dational model for integrated mammographic diagnosis, prognosis, and reporting. arXiv preprint arXiv:2512.00198 (2025) 7. He, X., Zhang, Y., Mou, L., Xing, E., Xie, P.: Pathvqa: 30000+ questions for medical visual question answering. arXiv preprint arXiv:2003.10286 (2020) 8. Lau, J.J., Gayen, S., Ben Abacha, A., Demner-Fushman, D.: A dataset of clinically generated visual questions and answers about radiology images. Scientific data 
+
+5(1), 180251 (2018) 9. Li, C., Wong, C., Zhang, S., Usuyama, N., Liu, H., Yang, J., Naumann, T., Poon, H., Gao, J.: Llava-med: Training a large language-and-vision assistant for biomedicine in one day. Advances in Neural Information Processing Systems 36 ,28541–28564 (2023) 10. Liu, B., Zhan, L.M., Xu, L., Ma, L., Yang, Y., Wu, X.M.: Slake: A semantically-labeled knowledge-enhanced dataset for medical visual question answering. In: 2021 IEEE 18th international symposium on biomedical imaging (ISBI). pp. 1650–1654. IEEE (2021) 10 K. K. Nakka 11. Liu, R., Mohiuddin, I.Q., Schoeffler, A.J., Renduchintala, K., Nayak, A., Vemu, P.L., Vedak, S.C., Black, K.C., Havlik, J.L., Ogunmola, I., et al.: Physician-bench: Evaluating llm agents in real-world ehr environments. arXiv preprint arXiv:2605.02240 (2026) 12. Ma, Z., Yang, S., Ji, Y., Wang, X., Wang, Y., Hu, Y., Huang, T., Chu, X.: Skillclaw: Let skills evolve collectively with agentic evolver. arXiv preprint arXiv:2604.08377 (2026) 13. Mullappilly, S.S., Kurpath, M.I., Mohamed, O., Zidan, M., Khan, F., Khan, S., Anwer, R., Cholakkal, H.: Medix-r1: Open ended medical reinforcement learning. arXiv preprint arXiv:2602.23363 (2026) 14. Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al.: Training language models to follow instructions with human feedback. Advances in neural information processing sys-tems 35 , 27730–27744 (2022) 15. Oza, P., Oza, U., Oza, R., Sharma, P., Patel, S., Kumar, P., Gohel, B.: Digital mammography dataset for breast cancer diagnosis research (dmid) with breast mass segmentation analysis. Biomedical Engineering Letters 14 (2), 317–330 (2024) 16. Qwen Team: Qwen3.5: Towards native multimodal agents (February 2026), https: //qwen.ai/blog?id=qwen3.5 
+
+17. Radford, A., Narasimhan, K., Salimans, T., Sutskever, I., et al.: Improving lan-guage understanding by generative pre-training (2018) 18. Roschewitz, M., Styppa, K., Tao, Y., Sohn, J., Delbrouck, J.B., Gundersen, B., Deperrois, N., Bluethgen, C., Vogt, J.E., Menze, B., et al.: Radagent: A tool-using ai agent for stepwise interpretation of chest computed tomography. arXiv preprint arXiv:2604.15231 (2026) 19. Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y., Wu, Y., et al.: Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 (2024) 20. Sun, H., Li, W., Zhang, Y., Lin, Z., Zhang, F., Chen, K., He, X., Li, Y., Liu, M., Liu, L., et al.: Experience makes skillful: Enabling generalizable medical agent reasoning via self-evolving skill memory. arXiv preprint arXiv:2606.09365 (2026) 21. Wu, J., Zhang, L., Wang, Y., Tu, H., Chen, H., Wang, Z., Xie, C., Zhou, Y.: Clin-seekagent: Automating multimodal evidence seeking for agentic clinical reasoning. arXiv preprint arXiv:2605.20176 (2026) 22. Xia, P., Chen, J., Wang, H., Liu, J., Zeng, K., Wang, Y., Han, S., Zhou, Y., Zhao, X., Chen, H., et al.: Skillrl: Evolving agents via recursive skill-augmented reinforcement learning. arXiv preprint arXiv:2602.08234 (2026) 23. Xu, A., Lin, B., Xue, B., Wang, B., Xu, B., Wu, B., Zhang, B., Lin, C., Dong, C., Ling, C., et al.: Deepseek-v4: Towards highly efficient million-token context intelligence. arXiv preprint arXiv:2606.19348 (2026) 24. Yang, Y., Li, J., Pan, Q., Zhan, B., Cai, Y., Du, L., Zhou, J., Chen, K., Chen, Q., Li, X., et al.: Autoskill: Experience-driven lifelong learning via skill self-evolution. arXiv preprint arXiv:2603.01145 (2026) 25. Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K., Cao, Y.: React: Syn-ergizing reasoning and acting in language models. arXiv preprint arXiv:2210.03629 (2022) 26. Zhang, K., Barrett, C.D., Kim, J., Sun, L., Taghavi, T., Kenthapadi, K.: Rada-gents: Multimodal agentic reasoning for chest x-ray interpretation with radiologist-like workflows. arXiv preprint arXiv:2509.20490 (2025) MammoClaw 11 27. Zhou, C., Liu, P., Xu, P., Iyer, S., Sun, J., Mao, Y., Ma, X., Efrat, A., Yu, P., Yu, L., et al.: Lima: Less is more for alignment. Advances in Neural Information Processing Systems 36 , 55006–55021 (2023) 28. Zhu, J., Huang, F., Luo, Q., Chen, H.: A benchmark for breast cancer screening and diagnosis in mammogram visual question answering. Nature Communications (2025) 
+
+## A Limitations and Future Work 
+
+MammoClaw is an initial exploratory study of skill-evolving agent frameworks for mammography. Our evaluation is limited to two assessment tasks, BI-RADS pre-diction and breast density estimation, using a single frozen MLLM backbone and one benchmark dataset per task. In addition, Qwen3.5-35B-A3B shows modest performance in the no-tools setting, which may limit the extent to which the benefits of the agent harness can be assessed. Future evaluations with stronger mammography-capable backbones, additional datasets, and broader tasks, such as abnormality classification, are needed to better characterize the generality and robustness of these findings. The evolved skills are derived from a labeled reference set and are not in-dependently validated by clinical experts. While evolved skills are associated with performance improvements in our experiments, their clinical relevance, ro-bustness, and transferability across datasets remain open questions. Future work should therefore evaluate skill quality more directly, including whether the gen-erated skills align with expert mammography reasoning, whether they encode clinically meaningful guidance, and whether they remain useful under dataset shift. Another important direction is a systematic analysis of the agent harness itself. In particular, the effects of the system prompt, tool descriptions, num-ber of injected failure trajectories, skill-generation prompt, teacher LLM, skill-validation strategy, and skill-retrieval mechanism remain unexplored. Controlled ablations of these components, together with step-level and trajectory-level met-rics, could provide a more detailed understanding of how skill evolution changes evidence acquisition, tool use, and final prediction behavior. Such analyses may also help distinguish improvements arising from the skills themselves from those arising from changes in prompting or tool interaction patterns. Finally, our current skill-evolution setup uses a single evolution iteration and a relatively small reference set. This provides a controlled starting point for studying experience-driven adaptation, but does not establish how skill evolution behaves over longer horizons or at larger scales. Future work could investigate multi-round evolution, skill pruning and validation, skill transfer across tasks and datasets, and mechanisms for preventing the accumulation of redundant or potentially misleading guidance. 12 K. K. Nakka 
+
+## B Experimental Setup 
+
+B.1 Dataset Details 
+
+We evaluate our method on Mammo-Bench [2] for two mammography assess-ment tasks: BI-RADS assessment and breast density assessment. Following the protocol of [2], we randomly split each dataset into 80% training and 20% eval-uation sets. From the training split, we randomly select 100 examples together with their ground-truth labels as the reference set for skill evolution. In particu-lar, we use KAU-BCMD [1] for BI-RADS assessment and DMID [15] for breast density assessment. KAU-BCMD provides paired CC and MLO views together with contralateral breast images, enabling evaluation of all proposed tools. In contrast, DMID contains only single-view mammograms. For BI-RADS assessment, the evaluation set contains 448 examples dis-tributed across BI-RADS categories 1, 3, 4, and 5, with 367, 59, 18, and 4 examples, respectively; categories 0, 2, and 6 are absent. The corresponding 100-example reference set contains 83, 14, and 3 examples from BI-RADS cat-egories 1, 3, and 5, respectively. For breast density assessment, the evaluation set contains 108 examples distributed across density categories A, B, C, and D, with 18, 39, 42, and 9 examples, respectively. The corresponding 100-example reference set contains 18, 39, 38, and 5 examples from density categories A, B, C, and D, respectively. 
+
+B.2 Additional Implementation Details 
+
+We used Qwen3.5-35B-A3B [16] as the underlying agent backbone and DeepSeek-V4-Flash [23] as the teacher LLM for skill evolution. The maximum number of skill-evolution iterations was set to 1, with at most 10 new skills generated per iteration. We used the OpenRouter interface to access Qwen3.5-35B-A3B and DeepSeek-V4-Flash. During skill generation, we passed a maximum of 50 failed trajectories at a time. After the teacher LLM proposes new skills from failed trajectories, MammoClaw filters near-duplicates using both name-token Jaccard similarity and semantic cosine similarity over full-skill embeddings; accepted skills are then added to the dynamic skill bank. At inference time, we retrieve all generated task-relevant skills from the bank without additional filtering, so the full relevant skill set is injected into the agent context. 
+
+## C Additional Results 
+
+In this section, we present additional results for breast density estimation and report the corresponding statistical analyses. We evaluate statistical significance using two complementary tests (Table 2). First, we compare paired predictions using McNemar’s test. Second, we compare macro-F1 using paired bootstrap re-sampling (5,000 resamples), reporting both 95% confidence intervals and paired-bootstrap p-values. We apply Holm–Bonferroni correction across the three pair-wise comparisons for each task. MammoClaw 13 
+
+Overall, both tasks show a similar trend: skill evolution improves perfor-mance, whereas adding tools alone does not lead to statistically significant im-provements in macro-F1. For BI-RADS, skill evolution significantly improves macro-F1 compared with both the no-tool and tools-only settings (bootstrap 
+
+p < 0.001 for both comparisons). McNemar’s test likewise indicates significant differences for both comparisons ( p < 0.001 ). In contrast, adding tools without skills does not significantly change macro-F1 (bootstrap p = 0 .70 ), although McNemar’s test indicates a significant difference ( p = 0 .0017 ). For breast density ( n = 108 ), skill evolution significantly improves macro-F1 over the tools-only setting (bootstrap p = 0 .017 ), whereas the comparison with the no-tool baseline is not statistically significant (bootstrap p = 0 .18 ). McNemar’s test is significant only for the no-tool versus tools+skills comparison (p < 0.001 ); the remaining comparisons are not statistically significant ( p =0.062 for both).                                                  
+
+> Task Comparison ∆Macro-F1 Boot. p(Holm) McNemar (acc.) p(Holm)
+> BI-RADS No tools →Tools −0.002 0.70 0.0017
+> BI-RADS No tools →Skills +0 .040 <0.001 <0.001
+> BI-RADS Tools →Skills +0 .043 <0.001 <0.001
+> Density No tools →Tools +0 .019 0.70 0.062
+> Density No tools →Skills +0 .093 0.18 <0.001
+> Density Tools →Skills +0 .074 0.017 0.062
+
+Table 2: Statistical significance of macro-F1 differences across tool and skill configurations. 
+
+## D Tool Suite 
+
+We show one representative call per tool below, drawn directly from logged agent trajectories. 
+
+å Tool: inspect_current_example     
+
+> Category: Task context
+> Description: Return the current example metadata.
+> Input: (no arguments)
+> Output: source_dataset=kau-bcmd, laterality=R, view=MLO, subject_age=61.0, has_paired_view=true, paired_view=CC, contralateral_image_path=...
+
+å Tool: retrieve_knowledge    
+
+> Category: Task context
+> Description: Retrieve task-specific domain knowledge for the current task, such as BI-RADS category definitions for BI-RADS assessment or density-band definitions for density assessment.
+> Input: (no arguments)
+
+14 K. K. Nakka 
+
+Output: task-specific label guidance — for the BI-RADS task, the full category definitions are returned verbatim: 
+
+– BI-RADS 0 (Incomplete): Additional imaging evaluation and/or prior examinations are needed before a final assessment can be made. 
+
+– BI-RADS 1 (Negative): No suspicious findings. 
+
+– BI-RADS 2 (Benign): Benign finding with no evidence of malignancy. 
+
+– BI-RADS 3 (Probably Benign): Very low likelihood of malignancy ( <2%); short-interval follow-up is typically recommended. 
+
+– BI-RADS 4 (Suspicious): Suspicious abnormality; tissue diagnosis (biopsy) should be considered. 
+
+• 4A: Low suspicion for malignancy. 
+
+• 4B: Moderate suspicion for malignancy. 
+
+• 4C: High suspicion for malignancy, but not classic for cancer. 
+
+– BI-RADS 5 (Highly Suggestive of Malignancy): Very high likelihood of malignancy (>95%); appropriate action should be taken. 
+
+– BI-RADS 6 (Known Biopsy-Proven Malignancy): Malignancy confirmed by prior biopsy. 
+
+å Tool: inspect_mammogram_roi 
+
+Category: Single-image inspection 
+
+Description: Crop and enlarge a suspicious region from the current mammogram using normalized 0–1000 image-grid coordi-nates. 
+
+Input: bbox=[200, 200, 800, 800] , description=“central breast region to assess whether dense tissue appears as scattered islands (B) or confluent/heterogeneous regions (C)” ,
+
+enhance_contrast=true 
+
+Output: ROI crop attached (right) 
+
+å Tool: measure_finding_size 
+
+Category: Single-image measurement 
+
+Description: Measure the width and height of a suspicious finding by drawing annotated measurement bars on a contextual crop. 
+
+Input: bbox=[0, 200, 250, 550] , description=“spiculated mass at nipple/areolar region” 
+
+Output: annotated crop with measurement bars (right). 
+
+å Tool: estimate_breast_density 
+
+Category: Single-image density 
+
+Description: Estimate fibroglandular density of the current mammogram using dual Otsu thresholding over breast and dense-tissue regions. 
+
+Input: (no arguments) 
+
+Output: density_percent=35.5 , dual-Otsu thresholding (background →breast, then breast →dense tissue); returned with an explicit caveat not to assign an A/B/C/D cat-egory from the percentage alone. 
+
+å Tool: measure_image_sharpness 
+
+Category: Single-image quality 
+
+Description: Score technical sharpness via Laplacian variance and Tenengrad gradient energy, returning a sharpness rating. 
+
+Input: (no arguments) 
+
+Output: laplacian_variance=134.64, tenengrad=1287.97, sharpness_rating=“acceptable” on a 
+
+2146 × 2977 image. MammoClaw 15 
+
+å Tool: compute_tissue_statistics 
+
+Category: Single-image texture 
+
+Description: Compute intensity histogram statistics over the breast foreground while excluding background via Otsu segmentation. 
+
+Input: (no arguments) 
+
+Output: mean_intensity=136.83, std_intensity=27.62, entropy_bits=6.767, skewness= −0.431 over the breast foreground (background excluded via Otsu). 
+
+å Tool: inspect_paired_mammogram_view 
+
+Category: Cross-view comparison 
+
+Description: Inspect the alternate projection of the same breast by returning paired CC and MLO views side by side. 
+
+Input: (no arguments) 
+
+Output: side-by-side panel, current L CC (left) vs. paired L MLO (right) 
+
+å Tool: inspect_contralateral_breast 
+
+Category: Cross-breast comparison 
+
+Description: Compare the current breast with the contralateral breast from the same subject, source dataset, and view projection. 
+
+Input: (no arguments) 
+
+Output: side-by-side panel, current L MLO (left) vs. contralateral R MLO (right), for global asymmetry comparison. 
+
+## E Qualitative Results 
+
+Figure 5 shows a representative BI-RADS trajectory in which the tool-augmented agent with evolved skills reaches a correct suspicious assessment. The case illustrates how the agent uses the tool suite to gather complemen-tary evidence: an ROI inspection localizes architectural distortion, paired-view comparison verifies that the finding persists across projections, and contralat-eral comparison rules out a symmetric normal variant. The final prediction is grounded in these tool observations rather than a single-pass interpretation of the input image. 
+
+[ Retrieved Skills 
+
+verify-suspicious-findings-with-multi-view-comparison •
+
+rule-out-artifact-with-contralateral-comparison •
+
+structured-reasoning-grounded-in-tool-outputs • calibrate-birads-using-feature-checklist 
+
+å User Query 
+
+Q: “What is the correct BI-RADS value for this case? Choose exactly one: 0.0–6.0.” 16 K. K. Nakka 
+
+ Step 1 — Initial Reasoning 
+
+“The user wants me to determine the BI-RADS category for this mammogram. Let me start by examining the image and then use the appropriate tools to make a thorough assessment. I should first inspect the current example to understand the metadata, then systematically evaluate the breast.” 
+
+å Step 1 — Tool Call: inspect_current_example() 
+
+Output: source_dataset=kau-bcmd, laterality=R, view=MLO, subject_age=45.0, has_paired_view=true, paired_view=CC, contralateral_image_path=kau-bcmd_1004.jpg 
+
+ Step 2 — Reasoning (before ROI call) 
+
+“I see an MLO view of the right breast. There appears to be an area of architectural distortion or asymmetry in the lower portion of the breast. Let me first inspect this area more closely with an ROI, then check the paired view and contralateral breast.” 
+
+å Step 2 — Tool Call: inspect_mammogram_roi(bbox=[200,650,450,950]) 
+
+Input: description=“area of architectural distortion/asymmetry in lower breast” 
+
+Tool returns: contrast-enhanced crop of the lower-breast region; the model identifies radiating lines converging toward a central point. 
+
+ Step 3 — Reasoning (after ROI, before paired-view call) 
+
+“The ROI shows an area of architectural distortion with spiculations radiating from a central point near the skin/chest wall area. This looks suspicious. I need to check the paired view to confirm if this is a real finding or an artifact.” 
+
+å Step 3 — Tool Call: inspect_paired_mammogram_view() 
+
+Tool returns: side-by-side panel, current R MLO (left) vs. paired R CC (right). The finding is present on both projec-tions, supporting a real 3D finding rather than summation artifact. 
+
+ Step 4 — Reasoning (after paired view, before contralateral call) 
+
+“The paired view shows the architectural distortion/linear density in the lower posterior aspect of the breast on both the MLO and CC views. This confirms it is a real finding. Now I need to check the contralateral breast to see whether it is a normal bilateral variant.” MammoClaw 17 
+
+å Step 4 — Tool Call: inspect_contralateral_breast()  
+
+> Tool returns: side-by-side panel, current R MLO (left) vs. contralateral L MLO (right). The opposite breast lacks a corresponding focal distortion, supporting a unilateral sus-picious finding.
+
+Step 5 — Final Decision ✓ (matches ground truth BI-RADS 4)  
+
+> “The mammogram reveals a unilateral area of architectural distortion visible on both MLO and CC views, confirmed by multi-view comparison. The contralateral breast lacks a corre-sponding finding, indicating it is not a normal variant. Architectural distortion is a suspi-cious finding that typically warrants a BI-RADS 4 assessment for further evaluation.” ⇒
+> BI-RADS 4 .
+
+Fig. 5: Skill-guided agent trajectory for a suspicious BI-RADS case. 
+
+The agent uses inspect_mammogram_roi to localize architectural distortion, 
+
+inspect_paired_mammogram_view to confirm persistence across projections, and inspect_contralateral_breast to rule out a normal bilateral variant be-fore predicting BI-RADS 4. 
+
+## F Prompts 
+
+F.1 System Prompt of the Agent 
+
+We present the system prompt for the agent below, containing placeholder for retrieved skills. 
+
+You are MammoClaw, a mammography task-solving agent. Analyze the mammogram supplied by the user for the requested BIRADS task. Use only visible image evidence, the trusted guidance below, and outputs from available tools. Do not infer labels from file paths, dataset identity, record indices, or hidden metadata. Trusted skill guidance: {{trusted_skill_guidance}} Recent lessons: - none Call retrieve_knowledge at most once to resolve uncertainty about category definitions; do not restate the retrieved definitions unless they directly support the final decision. Use an available 18 K. K. Nakka 
+
+tool only when it materially helps. Call inspect_mammogram_roi at most 2 times total. Multi-view tools are available for this case: inspect_paired_mammogram_view (to compare CC and MLO projections of the same breast) and inspect_contralateral_breast (to assess bilateral symmetry and rule out normal variants). Consider using these when a finding is ambiguous or when bilateral comparison would help confirm or exclude a diagnosis. Tool usage policy: - Do not mention, invent, request, or call any tool whose name is not in the allowed list. - Prefer the minimum number of tool calls needed to reach a confident decision. - Invoke a tool only if its output is expected to influence the final answer. - Avoid redundant or overlapping tool calls. - Do not call additional tools unless they are expected to provide new, decision-relevant evidence. Reasoning policy: - Treat pre-tool observations as hypotheses, not conclusions. Do not characterize a finding before inspecting it with the appropriate tool. - When a tool is clearly needed, call it immediately. Do not describe or justify a tool-use plan before invoking the tool. Do not call inspect_current_example unless the metadata is expected to influence the diagnosis or determine which comparison tool to use. - After calling a tool, reason primarily from its output rather than repeatedly reinterpreting the original image. - Do not repeatedly verify the same conclusion using the same evidence. - Do not enumerate answer choices or category definitions unless needed to distinguish between specific candidate labels. - Every reasoning step must introduce new visual evidence, a new comparison, or new tool evidence. - If the current step would only restate or rename previous observations, stop reasoning and return the final answer. - Do not repeatedly describe the same visual structure using different hypotheses unless new evidence distinguishes them. - Once the available evidence sufficiently distinguishes among the answer choices, commit to the best-supported label. When ready, return strict JSON only: {"label":"exact answer choice", "tool_findings":"REQUIRED: one bullet per tool call, in order called. Every tool you used must appear here. Format: ’-MammoClaw 19 
+
+tool_name: key finding from that tool’. If no tools were used write ’no tools used’. Do NOT skip any tool.", "reasoning_summary":"2-5 concise sentences explaining how the recorded tool outputs support the selected label. Base the explanation solely on the findings listed in tool_findings. Do not introduce new visual observations or reasoning absent from tool_findings. Explicitly reference only the tool names you actually called and explain how each cited tool contributed to the final decision."} CRITICAL RULES: - label must exactly match one answer choice supplied by the user. - tool_findings must contain one bullet for EVERY tool you called, in the order you called them. If you called 4 tools, there must be 4 bullets. Omitting any tool call is an error. - reasoning_summary must be grounded solely in tool_findings. Do not introduce evidence absent from tool_findings. Before returning the final JSON, ensure that: every tool call appears once in tool_findings; reasoning_summary is supported entirely by tool_findings. 
+
+F.2 System Prompt of the Skill Teacher 
+
+We present the system prompt for the skill teacher below, containing the skill-generation policy, failure-analysis policy, and skill-quality requirements. 
+
+Role: You are a skill engineer for a mammography vision-language agent. Your objective is to discover reusable reasoning skills from failed reasoning trajectories that improve future performance across mammography tasks. Inputs: The host provides: - previously failed reasoning trajectories; - the current task name; - the existing skill library; - the maximum number of new skills to generate. Failure Analysis: Analyze the failed trajectories to identify recurring root-cause failures. Determine whether the errors arise from evidence gathering, evidence interpretation, localization, tool usage, verification, calibration, or task-specific reasoning. Focus on 20 K. K. Nakka 
+
+high-impact failure modes that generalize across multiple cases rather than isolated mistakes. Skill Generation Policy: Generate a new skill only if it addresses a reusable failure mode that is not already covered by the existing skill library. Each proposed skill should encode a reusable reasoning procedure, inspection strategy, verification procedure, or tool-selection strategy. Avoid duplicating, rephrasing, or making superficial modifications to existing skills. Generalization Constraints: A skill should remain useful even if the anatomy, diagnosis, image, or answer labels differ. Do not encode case-specific corrections, patient details, dataset shortcuts, diagnostic thresholds, or label mappings. The generated guidance must be supported by the observed failures rather than external domain knowledge alone. Skill Quality Requirements: Prefer a small number of high-quality skills that each address multiple failure cases. A strong skill should specify when it applies, what evidence should be collected, what should be verified, how uncertainty should be reduced, and which common failure modes should be avoided before reaching a final decision. Output Contract: Return a JSON array of newly discovered skills. Each skill contains a unique name, a one-sentence description, a category, and structured markdown consisting of a title, reusable reasoning procedure, and an anti-pattern section. Return an empty array if no broadly reusable skill can be inferred. 
+
+## G BI-RADS Evolved Skills 
+
+This section presents the mammography skills for the BI-RADS task automat-ically evolved using DeepSeek-V4-Flash as the teacher model. The skills are distilled from failed reasoning trajectories on the reference set and stored in a reusable skill library. Rather than encoding explicit tool-selection policies, they capture reusable reasoning strategies, including systematic evidence gath-ering, multi-view verification, uncertainty resolution, BI-RADS calibration, and grounding conclusions in tool observations. During inference, these skills are retrieved to guide the agent’s reasoning and evidence integration, enabling be-havioral adaptation without updating the underlying MLLM. MammoClaw 21 
+
+Metadata name: verify-suspicious-findings-with-multi-view-comparison description: Before concluding a suspicious finding like spiculation or architectural distortion, always compare with the paired view and contralateral breast to rule out artifacts or normal tissue overlap. metadata: category: general source: dynamic task: BI-RADS Verify Suspicious Findings with Multi-view Comparison 1. Immediately invoke inspect_paired_mammogram_view to see if the finding is visible in both CC and MLO projections. If it is not clearly present in both, it may be a summation artifact. 2. Then invoke inspect_contralateral_breast to check for bilateral symmetry. A finding that appears in the same location on the opposite breast is likely a normal anatomic variant. 3. Only after confirming the finding is unilateral and present on two orthogonal views should you assign a BI-RADS category of 4 or 5. 4. If the finding disappears or appears symmetric, reassess as benign or normal (BI-RADS 1 or 2). Anti-pattern 
+
+– Labeling a single-view finding as suspicious without multi-view confirmation. 
+
+– Skipping contralateral comparison when suspecting pathology. Metadata name: systematic-quadrant-inspection-for-subtle-findings description: When no obvious mass or calcifications are seen, systematically inspect all quadrants using ROI tools to avoid missing subtle asymmetries or microcalcifications. metadata: category: general source: dynamic task: BI-RADS Systematic Quadrant Inspection for Subtle Findings 1. Divide the breast into quadrants mentally (upper outer, upper inner, lower outer, lower inner) or use the nipple as reference. 2. For each quadrant, use inspect_mammogram_roi to zoom in, especially in areas where density appears slightly higher or where the tissue pattern changes. 22 K. K. Nakka 
+
+3. Look for clustered calcifications, subtle asymmetries, or architectural distortion that may be obscured by dense tissue. 4. Compare the same quadrant in the contralateral breast to decide if a density is focal asymmetry or normal variant. 5. Document any finding even if it seems probably benign; do not dismiss as normal without visual confirmation. Anti-pattern 
+
+– Stopping after a global impression without quadrant-level inspection. 
+
+– Assuming dense tissue is normal without systematic checking; dense breasts can hide lesions, and systematic inspection reduces undercalling. Metadata name: tool-execution-before-conclusion description: After forming a hypothesis about a finding, immediately call the appropriate tool instead of describing a plan. Never present a tool plan without executing it. metadata: category: failure_recovery source: dynamic task: BI-RADS Tool Execution Before Conclusion 1. Formulate the specific question (e.g., “Is this density visible on the other view?” or “What are the margins of this mass?”). 2. Immediately call the relevant tool–-inspect_mammogram_roi, inspect_paired_mammogram_view, or inspect_contralateral_breast–-without describing the plan in natural language. 3. Wait for the tool output before refining your hypothesis. Do not characterize the finding based on the raw image alone. 4. After the tool returns, reason from its output. Repeat if necessary but avoid redundant calls. Anti-pattern 
+
+– Writing sentences such as “I will now call inspect_mammogram_roi” without actually invoking the tool. The model must call the tool, not plan to call it. MammoClaw 23 
+
+Metadata name: calibrate-birads-using-feature-checklist description: Use a systematic feature checklist to avoid extreme BI-RADS assignments (1 or 5) when intermediate categories (2, 3, 4) are more appropriate. metadata: category: general source: dynamic task: BI-RADS Calibrate BI-RADS Using Feature Checklist 1. BI-RADS 1 (Negative): No findings on any view. All tool outputs confirm absence of masses, calcifications, asymmetries, or distortion. Both contralateral and paired views show normal symmetric tissue. 2. BI-RADS 2 (Benign): Clearly benign findings: popcorn calcifications, vascular calcifications, skin calcifications, well-circumscribed round masses with fat density (e.g., oil cysts, hamartomas). 3. BI-RADS 3 (Probably Benign): New, solitary, well-circumscribed solid mass; focal asymmetry that is not changing; grouped punctate calcifications; mild architectural distortion not meeting spiculation criteria. Short-interval follow-up recommended. 4. BI-RADS 4 (Suspicious): Indeterminate findings that do not have classic benign features: irregular margins, suspicious calcifications (pleomorphic, linear), new or evolving asymmetry with borderline features. 5. BI-RADS 5 (Highly Suggestive of Malignancy): Classic malignant features confirmed on multiple views: spiculated mass, coarse heterogeneous calcifications with linear distribution, architectural distortion with retraction. Anti-pattern 
+
+– Jumping from BI-RADS 1 to 5 or 5 to 1 without intermediate evidence. 
+
+– Failing to use the checklist to justify the exact category assigned. Metadata name: rule-out-artifact-with-contralateral-comparison description: Before labeling a finding as suspicious, compare with the contralateral breast to identify normal variants that mimic pathology. 24 K. K. Nakka 
+
+metadata: category: general source: dynamic task: BI-RADS Rule Out Artifact with Contralateral Comparison 1. Invoke inspect_contralateral_breast to view the mirror-image region of the opposite breast. 2. If a similar density, pattern, or architectural appearance is present in the same location on the opposite side, it is highly likely a normal variant (e.g., asymmetric fibroglandular tissue, inframammary fold). 3. If the finding is absent on the contralateral side, then proceed with further characterization. 4. Document the comparison result in your reasoning. Bilateral symmetry strongly supports a benign or normal classification (BI-RADS 1 or 2). Anti-pattern 
+
+– Concluding a finding is suspicious without checking the opposite breast. Many normal variants are bilateral and symmetric. Metadata name: distinguish-benign-from-probably-benign-calcifications description: When evaluating calcifications, differentiate clearly benign patterns (BI-RADS 2) from probably benign patterns (BI-RADS 3) using morphology and distribution. metadata: category: general source: dynamic task: BI-RADS Distinguish Benign from Probably Benign Calcifications 1. Use inspect_mammogram_roi to zoom in on the calcifications and assess morphology at high resolution. 2. Benign (BI-RADS 2): Popcorn (fibroadenoma), coarse (vascular), round/punctate scattered, skin calcifications, milk of calcium, dystrophic, suture. Typically large, well-defined, and not clustered. 3. Probably Benign (BI-RADS 3): Grouped fine punctate (5+ in cluster), clustered but monomorphic, small round/oval in a cluster, no pleomorphism or linear shapes. Short-interval follow-up typical. MammoClaw 25 
+
+4. Suspicious (BI-RADS 4/5): Pleomorphic, amorphous, fine linear/branching, coarse heterogeneous, with ductal distribution or segmental. 5. Always confirm distribution on both views using inspect_paired_mammogram_view. Anti-pattern 
+
+– Assigning BI-RADS 2 to a cluster of fine punctate calcifications unless they are clearly scattered and not grouped. 
+
+– Jumping to BI-RADS 4 for grouped punctate calcifications without considering BI-RADS 3. Metadata name: avoid-characterizing-findings-without-tool-confirmation description: Never describe a finding as ‘spiculated’, ‘mass’, or ‘architectural distortion’ before using a tool to confirm its appearance. metadata: category: failure_recovery source: dynamic task: BI-RADS Avoid Characterizing Findings Without Tool Confirmation 1. Formulate only as a hypothesis (e.g., “I see a region of increased density that might be a mass”). 2. Immediately call the appropriate tool (inspect_mammogram_roi, inspect_paired_mammogram_view, or inspect_contralateral_breast) to gather evidence. 3. After receiving tool output, use the observed features to characterize the finding. Describe what the tool shows, not what you think you see in the raw image. 4. If the tool output does not clearly show the feature, do not assert it in reasoning. Anti-pattern 
+
+– Stating “The mammogram reveals a spiculated mass” before any tool call. Such statements are hallucinations and lead to misclassification. 26 K. K. Nakka 
+
+Metadata name: structured-reasoning-grounded-in-tool-outputs description: Ensure every statement in the reasoning summary is directly supported by a tool finding listed in tool_findings, with explicit citation. metadata: category: failure_recovery source: dynamic task: BI-RADS Structured Reasoning Grounded in Tool Outputs 1. List every tool call in tool_findings in the exact order they were made, with one bullet per tool. 2. In reasoning_summary, for each claim about the image, explicitly reference which tool provided the evidence (e.g., “inspect_paired_mammogram_view confirmed the finding is present on both views”). 3. Do not include any visual observations that were not obtained from a tool output. If an observation was made from the raw image and then confirmed with a tool, only the tool output counts as evidence. 4. If multiple tools were used, explain how each tool contributed to the final decision. Anti-pattern 
+
+– Writing a reasoning summary that contains descriptions of findings without attributing them to specific tool calls. Every piece of evidence must be traceable to a tool output. Metadata name: use-uncertainty-resolution-sequence description: When uncertain about a finding, follow a structured sequence: inspect ROI, check paired view, compare contralateral, and optionally retrieve knowledge before finalizing. metadata: category: general source: dynamic task: BI-RADS Use Uncertainty Resolution Sequence 1. Step 1: Use inspect_mammogram_roi (up to 2 times) to zoom in on the area and characterize margins, shape, density, and internal features. MammoClaw 27 
+
+2. Step 2: Use inspect_paired_mammogram_view to confirm the finding appears in the second projection. If it does not, it is likely superimposition. 3. Step 3: Use inspect_contralateral_breast to check if the finding is bilateral. If symmetric, it is a normal variant. 4. Step 4 (if needed): Use retrieve_knowledge to resolve definitional uncertainty about categories (e.g., what exactly constitutes a probably benign calcification). 5. Only after completing this sequence should you assign a BI-RADS category. Anti-pattern 
+
+– Making a final decision while still uncertain. The sequence is designed to reduce uncertainty incrementally. 
+
+– Skipping steps, which leads to over- or under-calling.
