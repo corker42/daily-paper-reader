@@ -1,0 +1,400 @@
+Title: SCOPE-AD: Sequential cost-aware ordinal-belief planning with energy-based models for diagnostic agents
+
+URL Source: https://arxiv.org/pdf/2610.01278v1
+
+Published Time: Fri, 02 Oct 2026 01:15:23 GMT
+
+Number of Pages: 5
+
+Markdown Content:
+# SCOPE-AD: SEQUENTIAL COST-AWARE ORDINAL-BELIEF PLANNING WITH ENERGY-BASED MODELS FOR DIAGNOSTIC AGENTS 
+
+# Ziwen Yu 1, Ivan Koychev 2, Elizabeth Coulthard 1, Ting Zhou 1, Bolin Chen 1,Dian Hong 4, Zinuo You 1, Yujiao Wang 3, Anthony Mulholland 1, Qiang Liu 11University of Bristol, Bristol, UK 
+
+> 2
+
+# Imperial College London, London, UK 
+
+> 3
+
+# Manchester Metropolitan University, Manchester, UK 
+
+> 4
+
+# Hunan Normal University, Changsha, China 
+
+ABSTRACT 
+
+Alzheimer’s disease (AD) diagnosis requires sequential evidence ac-quisition under heterogeneous test costs and patient burden. Fixed-modality predictors do not jointly decide which test to acquire or when the available evidence is sufficient for diagnosis. We propose SCOPE-AD (Sequential Cost-Aware Ordinal-Belief Planning with Energy-Based Models for Diagnostic Agents) for cost-aware clas-sification of cognitively normal (CN), mild cognitive impairment (MCI), and AD cases. A mask-aware ordinal model represents un-certainty along the ordered CN–MCI–AD continuum. Retrospec-tive training records provide sampled Bellman targets for an energy-based teacher, whose action distributions are distilled into a Qwen policy. At deployment, the agent selects acquisition or diagnosis actions under availability and budget constraints without access to unacquired values. After each acquisition, the evidence and ordi-nal belief are updated before the next decision. On ADNI, SCOPE-AD achieves 77.70% Macro-F1 at an average acquisition cost of $50.46, exceeding the strongest evaluated baseline by 9.34 percent-age points. Full-modality evaluation raises Macro-F1 by only 1.89 points while increasing acquisition cost by 116.7 times. These re-sults support selective acquisition for cost-effective diagnosis. 
+
+Index Terms — Alzheimer’s disease, sequential diagnosis, cost-aware test acquisition, ordinal learning, energy-based models 
+
+1. INTRODUCTION 
+
+Alzheimer’s disease (AD) is a progressive neurodegenerative dis-ease, with clinical status commonly characterized as cognitively nor-mal (CN), mild cognitive impairment (MCI), and AD along an or-dered severity continuum [1, 2]. Accurate discrimination among these clinical states is important for timely diagnosis and disease management. In practice, AD diagnosis is not necessarily a one-shot prediction problem, but often a sequential evidence-acquisition process in which decisions are made from partially observed patient information [3]. Clinicians must repeatedly determine whether the currently available evidence is sufficient for diagnosis or whether an additional test should be acquired, while candidate tests can differ substantially in monetary cost, invasiveness, and patient burden [4]. This gives rise to a central decision problem in AD diagnosis: when should the current evidence be considered sufficient, and, if it is not, which additional diagnostic modality is worth acquiring next? Existing work on sequential diagnosis spans several method-ological directions. Benchmarks such as MIMIC-CDM, MediQ, and AgentClinic evaluate interactive information seeking under incom-plete clinical evidence [5, 6, 7], whereas systems such as AMIE and MAI-DxO use self-play, dialogue fine-tuning, or multi-agent orches-tration to support iterative diagnosis [8, 9]. A second line learns test-selection policies more directly: LA-CDM and DiagAgent op-timize large language model (LLM) agents through supervised and reinforcement learning (RL), while ED-Copilot combines language-model representations with an RL controller [10, 11, 12]. Other ap-proaches replace reward-driven policy learning with explicit proba-bilistic criteria; ACTMED applies Bayesian Experimental Design to select tests with the greatest expected reduction in diagnostic uncer-tainty [13]. In parallel, non-LLM active feature acquisition methods formulate diagnostic testing as a Markov decision process (MDP) and learn cost-sensitive policies through deep, batch, or model-based RL [14, 15]. Despite these advances, most methods target differen-tial diagnosis among alternative disease hypotheses and do not ex-plicitly represent uncertainty along an ordered disease continuum. This limitation is particularly relevant to AD diagnosis. Arti-ficial intelligence (AI)-based AD studies remain dominated by bi-nary tasks such as AD–CN, MCI–CN, and AD–MCI, while multi-modal models commonly assume that all required MRI, PET, CSF, or clinical measurements are available before prediction [4, 1, 16]. Ordinal models explicitly encode label order, unlike conventional multiclass models, but encoding this order alone does not determine which modality to acquire or when to stop [2]. Conversely, recent acquisition-aware approaches, including UMoS, uncertainty-based MRI-to-PET referral, ProMUSE, and AD-specific RL policies, pro-vide only partial solutions: they focus on conversion prediction or binary classification, use restricted modality sequences, or learn ac-tions from categorical patient states [17, 18]. Consequently, an open problem is how to represent diagnostic uncertainty along the ordered CN–MCI–AD continuum from partially observed multimodal evi-dence, and how to place terminal diagnoses and acquisition trajec-tories in a unified decision space where diagnostic risk can be com-pared with the cost-adjusted value of further acquisition. To address this gap, we propose SCOPE-AD (Sequential Cost-Aware Ordinal-Belief Planning with Energy-Based Models for Diag-nostic Agents), which uses ordinal beliefs to guide modality acqui-sition and diagnostic stopping under cost and feasibility constraints. Fig. 1 provides an overview. Our contributions are: • We formulate CN–MCI–AD diagnosis as cost-aware sequen-tial decision-making with ordinal beliefs and acquisition and terminal-diagnosis actions. • We develop SCOPE-AD, combining cross-fitted ordinal be-arXiv:2610.01278v1 [cs.AI] 1 Oct 2026 2 Frozen belief and state  3 EBM–Qwen integrated planner 
+
+Energy-Based Model 
+
+(EBM) 
+
+> Input:
+> Predict 10 action energies
+> Cognitive
+> Select lowest-energy
+> valid action a t*
+
+Qwen planning 
+
+head 
+
+(student policy)    
+
+> DKL (π EBM ∥πQwen )
+> Action a t*selected by EBM (deployed planner)
+
+St ∈ ℝ87                          
+
+> APOE
+> Blood
+> CSF
+> sMRI
+> Amyloid PET
+> Tau PET
+> Diagnose CN
+> Diagnose MCI
+> Diagnose AD
+> 7−0.11
+> 6−0.24
+> 5−0.90
+> 40.28
+> 30.44
+> 2−0.32
+> 1−1.51
+> 10 0.73
+> 90.61
+> 80.35
+> Distribution matching
+> Teacher
+> πθ(·|s t)
+> Student
+> πφ(·|P t)
+> 10 masked
+> actions
+> 10 masked
+> actions
+> Input: Unstructured
+> data
+> Frozen ordinal model
+> Demographics
+> ⋮64 → 64 ⋮
+> Cognitive
+> ⋮64 → 64 ⋮
+> sMRI / …
+> ⋮64 → 64 ⋮
+> Σ / n Masked
+> mean · 64
+> Observed mask · 7
+> 1110110
+
+⊕         
+
+> 64
+> z
+> Severity axis
+> (latent z)
+> CN MCI AD
+> κ₁κ₂
+> p(CN) p(MCI) p(AD)
+> State assembly
+> Fixed encoding 64
+> ⋮
+> 64
+> Belief 7
+> ⋮
+> 7
+> Masks 14
+> ⋮
+> 14
+> Cost / budget 2
+> ⋮
+> 2
+> ⊕
+> 87
+> Sₜ∈ℝ⁸⁷ → EBM
+> 1
+
+Evidence  4 Execute 
+
+Demographics 
+
+Age · Sex · Edu 
+
+> Always visible
+
+Cognitive 
+
+APOE 
+
+Blood 
+
+CSF 
+
+sMRI 
+
+Amyloid PET 
+
+Tau PET  
+
+> Acquired Hidden
+
+Diagnose 
+
+> CN | MCI | AD
+
+Stop 
+
+Acquire 
+
+> Replan
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6
+> 7
+> 8
+> 9
+> 10
+
+Fig. 1 . Overview of SCOPE-AD. Calibrated ordinal beliefs and the current acquisition context form the planner state. A finite-horizon energy-based model (EBM) planner uses soft Bellman backups to evaluate modality-acquisition and terminal diagnosis actions under cost and feasibility constraints. The planner’s policy is distilled into a Qwen agent conditioned on structured prompts. After each acquisition, the state is updated and the Qwen policy selects the next action until a terminal diagnosis is reached. liefs, an offline-trained EBM teacher, and policy distillation into a deployed Qwen agent. • We construct a sequential ADNI evaluation protocol, where SCOPE-AD achieves 77.70% Macro-F1 at an average acqui-sition cost of $50.46. 
+
+2. PROPOSED METHOD 2.1. Overview 
+
+SCOPE-AD constructs ordinal beliefs from observed evidence, trains an offline EBM teacher on retrospective Bellman targets, and distills its policy into Qwen for sequential acquisition and diagnosis. 
+
+2.2. Ordinal Belief Model 
+
+For participant i at decision step t, let x(0)  
+
+> i
+
+be always-visible infor-mation and x(m) 
+
+> i
+
+features of requestable modality m ∈ M . The observation mask oi,t = [ o(m) 
+
+> i,t
+
+]m∈M ∈ { 0, 1}|M| uses 1 for ac-quired modalities. Independent encoders ϕ0, ϕ m embed these in-puts; masked fusion and the ordinal head ford yield severity ηi,t .Ordered thresholds at boundaries B = {CN , MCI } and temperature calibration give the CN–MCI–AD posterior: 
+
+¯ei,t = ϕ0(x(0)  
+
+> i
+
+) + P 
+
+> m∈M
+
+o(m) 
+
+> i,t
+
+ϕm(x(m) 
+
+> i
+
+)1 + P 
+
+> m∈M
+
+o(m)
+
+> i,t
+
+,ηi,t = ford ([¯ ei,t ; oi,t ]) ,κMCI = κCN + softplus( ρ) + ϵ, F (b) 
+
+> i,t
+
+= σ
+
+ κb − ηi,t 
+
+Tcal 
+
+
+
+, b ∈ B ,
+
+pi,t =
+
+h
+
+F (CN)  
+
+> i,t
+
+, F (MCI)  
+
+> i,t
+
+− F (CN)  
+
+> i,t
+
+, 1 − F (MCI) 
+
+> i,t
+
+i
+
+.
+
+(1) Here, ¯ei,t denotes the fused embedding, κb is the threshold for boundary b, and F (b) 
+
+> i,t
+
+is the corresponding cumulative probability. The ordinal model learns parameters ψ by minimizing the negative log-likelihood of the ground-truth diagnosis: 
+
+Lordinal (ψ) = − 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+log pyi
+
+> ψ,i
+
+, (2) where N counts training samples and pyi 
+
+> ψ,i
+
+is the posterior probability of ground-truth diagnosis yi.Here, ρ is an unconstrained threshold-gap parameter, ϵ > 0
+
+ensures strict ordering, σ is the logistic sigmoid, and Tcal > 0
+
+is the calibration temperature. Patient-level cross-fitting provides out-of-fold training beliefs; a fixed feature-hashing encoder gives fold-consistent observed-feature representations hi,t . The state in-cludes posterior entropy Hi,t = − P 
+
+> y∈Y
+
+pyi,t log pyi,t , expected ordinal rank μi,t = P 
+
+> y∈Y
+
+r(y)pyi,t , two boundary-evidence scores 
+
+δi,t , and normalized accumulated cost eCi,t and remaining budget 
+
+eBi,t . The availability mask ui identifies requestable modalities before any action without revealing outcomes. The planner state is si,t = [ hi,t ; pi,t ; Hi,t ; μi,t ; δi,t ; oi,t ; ui; eCi,t ; eBi,t ], with belief 
+
+p(y | si,t ) := pyi,t for y ∈ Y = {CN , MCI , AD }.
+
+2.3. Offline Energy-Based Planning 
+
+Actions request modalities or terminate with diagnosis k. The hard valid-action mask M (s, a ) ∈ { 0, 1} excludes unavailable, observed, over-budget, or beyond-horizon requests; all acquisition methods mask unavailable modalities. Requesting m incurs normalized cost penalty gm; terminal risk Rk (s) combines expected classification er-ror and ordinal distance. Training transition Ti(s, m ) reveals partic-ipant i’s recorded modality outcome and updates the state, yielding record-specific sampled Bellman targets for energy predictor Eθ :Rk (s) = X
+
+> y∈Y
+
+p(y | s) [ λcls I(y̸ = k) + λord |r(y) − r(k)|] ,
+
+bEi,d (s, a ) = 
+
+(
+
+Rk (s), a = DIAGNOSE k ,gm + γ bVi,d −1(Ti(s, m )) , a = REQUEST m,
+
+bVi,d (s) = −τE log X 
+
+> a:M(s,a )=1
+
+exp[ − bEi,d (s, a )/τ E ],πθ (a | s) = M (s, a ) exp[ −Eθ (s, a )/τ E ]
+
+P 
+
+> a′
+
+M (s, a ′) exp[ −Eθ (s, a ′)/τ E ] ,
+
+LEBM = Huber M (Eθ , bEi,d ) + λrank DKL (bπi,d ∥ πθ ).
+
+(3) Here, θ denotes EBM parameters, I the indicator function, and 
+
+λcls , λ ord , λ rank weight classification error, ordinal distance, and policy matching, respectively. The targets bEi,d and bVi,d are sam-pled action energies and soft state values. The function r(·) gives diagnosis rank; γ is the continuation factor and τE > 0 the soft-backup temperature. For horizon D and one acquisition per step, remaining depth d = D − P 
+
+> m∈M
+
+o(m) 
+
+> i,t
+
+is determined by the state mask; d = 0 permits only terminal diagnoses. The target bπi,d is the masked soft policy induced by bEi,d . Masked Huber loss fits valid-action energies; DKL denotes Kullback–Leibler (KL) divergence for policy matching. The fitted Eθ uses only the current state to provide the distillation teacher policy πθ .
+
+2.4. Planner-to-Agent Policy Distillation 
+
+EBM rollouts on training records reveal outcomes only after re-quests, forming Dteacher of states, valid-action masks, and soft policies. The multilayer perceptron (MLP) student receives numer-ical states; Qwen receives structured prompts encoding observed information, belief, availability, costs, budget, and valid actions. Both student policies πφ match the masked teacher policy: 
+
+πφ(a | s) = M (s, a ) exp[ ℓφ(s, a )/τ D ]
+
+P 
+
+> a′
+
+M (s, a ′) exp[ ℓφ(s, a ′)/τ D ] ,
+
+Ldistill = Es∼D teacher [DKL (πθ (· | s) ∥ πφ(· | s))] .
+
+(4) Here, φ denotes student parameters, ℓφ action logits, and τD >
+
+0 the distillation temperature. At deployment, Qwen acts under the hard mask without EBM calls or unacquired values. Acquisitions update evidence, accumulated cost, remaining budget, and the ob-servation mask, then recompute the ordinal belief and state; terminal diagnoses end the sequence. 
+
+3. EXPERIMENTS AND ANALYSIS 
+
+On the ADNI benchmark, we compared SCOPE-AD with LA-CDM [10], ReAct [19], ACTMED [13], SM-DDPO [15], and LLM baselines MedGemma-27B and Qwen2.5-32B. 
+
+3.1. Dataset ADNI. ADNI provides multimodal clinical and biomarker data for AD research [20, 21]. We constructed a retrospective sequential-acquisition benchmark using one baseline record per participant. We retained 2,218 participants with valid CN, MCI, or AD labels and used a subject-level split of 1,552/333/333 training, validation, and test cases. Demographics were initially visible, while the seven 
+
+Table 1 . Requestable ADNI modalities, input-feature dimensions, test-set availability, and acquisition costs. The total cost assumes that all seven modalities are available. Modality Input feature dims. Test availability Cost Cognitive scales 6 333 (100.0%) $50 APOE genotype 7 323 (97.0%) $283 Blood biomarkers 39 144 (43.2%) $232 CSF biomarkers 8 241 (72.4%) $574 Structural MRI 16 333 (100.0%) $1,431 Amyloid PET 28 264 (79.3%) $2,975 Tau PET 14 141 (42.3%) $2,975 Total 118 — $8,520 
+
+Table 2 . Evaluation results on ADNI. Method Recall (%) Macro-F1 (%) Avg. test cost CN MCI AD LA-CDM [10] 71.39 48.51 60.99 60.32 $794.33 MedGemma-27B 94.56 55.63 17.73 56.18 $49.77 
+
+Qwen2.5-32B 74.70 24.14 64.54 46.76 $4,784.50 SM-DDPO [15] 78.01 59.31 68.79 67.63 $138.74 ReAct [19] 62.65 34.25 75.18 50.38 $2,091.60 ACTMED [13] 79.43 62.53 64.54 68.36 $3,171.72 
+
+SCOPE-AD (Ours) 92.67 63.91 75.18 77.70 $50.46 modality groups in Tab. 1 were requestable. The six cognitive fea-tures were selected to exclude variables used to define the CN, MCI, and AD labels in our benchmark. Patient-level modality availability was known before the first action, but recorded modality values re-mained hidden until the corresponding request. Unavailable modali-ties were excluded through hard action masking. Each modality was assigned a prespecified acquisition cost in U.S. dollars, defining the benchmark’s performance–cost setting. 
+
+3.2. Experiment Setup 
+
+The ordinal belief model used two-layer 64-unit modality encoders, a 64-unit fusion layer, 0.20 dropout, temperature calibration, and five-fold patient-level cross-fitting, yielding an 87-dimensional plan-ner state. The EBM planner was a 256–256–128 Gaussian error linear unit (GELU) MLP with 0.10 dropout, trained using AdamW (learning rate 10 −3, weight decay 10 −4, and batch size 512) with planning horizon D = 7 , γ = 1 , and τE = 0 .3. The Qwen3.5-9B [22] agent used quantized low-rank adaptation (QLoRA) with 4-bit NormalFloat (NF4) quantization [23] ( r = 8 , α = 16 , dropout 0.05) and soft-target KL distillation with AdamW (learning rate 2 ×
+
+10 −4 and effective batch size 16). Results are reported as the mean over three runs with seeds 42, 123, and 2026. We report class-wise recall for CN, MCI, and AD, the macro-averaged F1 score (Macro-F1), and average test cost per patient. During evaluation, only suc-cessfully acquired modalities contributed to cost. 
+
+3.3. Comparison with State-of-the-Art Methods 
+
+Tab. 2 compares the deployed Qwen policy with language-model and active acquisition baselines. SCOPE-AD achieves the highest Macro-F1 of 77.70%, exceeding ACTMED, the strongest baseline Fig. 2 . Acquisition frequency and modality composition on ADNI. (a) Mean number of modality requests per case. Error bars indicate variability when available. (b) Percentage of requests per modality. on this metric, by 9.34 percentage points. It also achieves the highest MCI recall of 63.91% and ties with ReAct for the highest AD recall of 75.18%, while its CN recall of 92.67% is second to MedGemma. The average acquisition cost is $50.46, only $0.69 above MedGemma and 63.6% and 98.4% below SM-DDPO and ACTMED, respectively. These results indicate a favorable trade-off between diagnostic performance and acquisition cost under the evaluated protocol and prespecified costs. Compared with the strongest active-acquisition baselines, SCOPE-AD achieves higher Macro-F1 at markedly lower cost, indicating more efficient evidence acquisition. Fig. 2 shows that SCOPE-AD makes approximately one modal-ity request per case, with cognitive assessments accounting for 99.8% of all requests. The policy thus usually acquires cognitive evidence and stops without requesting expensive modalities. 
+
+3.4. Ablation and Cost–Utility Analysis 
+
+Tab. 3 reports component ablations and fixed-policy modality con-trols. The w/o Ordinal Belief and w/o EBM Planner variants achieve Macro-F1 scores of 67.20% and 61.10%, respectively, compared with 77.70% for SCOPE-AD. The modality controls reuse the same trained Qwen checkpoint without further fine-tuning and jointly characterize the cost–utility structure learned by the policy. Cognitive Only starts from demo-graphics and permits only cognitive acquisition and terminal diagno-sis actions, whereas the w/o Cognitive condition disables cognitive requests and forces the policy to select among the remaining modal-ities. Full-Modality reveals all available modalities and charges their corresponding acquisition costs, providing an empirical performance ceiling for the same deployed policy under the benchmark. Cognitive Only achieves 74.34% Macro-F1 at $50.00, showing 
+
+Table 3. Ablations of SCOPE-AD. Bold marks the highest recall/Macro-F1 and lowest cost, including ties. Variant Recall (%) Macro-F1 (%) Avg. test cost CN MCI AD w/o Ordinal Belief 78.72 60.69 68.79 67.20 $50.00 
+
+w/o EBM Planner 66.67 52.87 62.41 61.10 $120.50 SCOPE-AD (Full-modality) 82.98 70.34 78.72 79.59 $5,889.49 Cognitive Only 85.11 59.31 78.72 74.34 $50.00 
+
+w/o Cognitive 78.25 68.28 40.43 64.60 $1,839.49 
+
+SCOPE-AD (ours) 92.67 63.91 75.18 77.70 $50.46 that cognitive evidence alone provides high diagnostic utility at very low acquisition cost in this ADNI benchmark. SCOPE-AD improves this result to 77.70% at only $50.46, while its learned policy assigns 99.8% of acquisition requests to cognitive assessments. In contrast, when cognitive acquisition is disabled, the same policy redirects ac-quisition toward alternative modalities and retains 64.60% Macro-F1, although at a substantially higher average cost of $1,839.49. This indicates that the policy is not restricted to a fixed cognitive-only acquisition rule, but can exploit non-cognitive evidence when the preferred modality is unavailable. Full-Modality reaches 79.59% Macro-F1 at $5,889.49. Thus, revealing all available modalities improves Macro-F1 by only 1.89 percentage points over SCOPE-AD while increasing acquisition cost to 116.7 times that of SCOPE-AD. Taken together, these controls suggest that the predominance of cognitive acquisition reflects the cost–utility structure of the benchmark rather than an inability to use other modalities: cognitive assessments provide most of the attain-able diagnostic benefit at low cost, whereas additional modalities offer comparatively limited marginal diagnostic gain relative to their acquisition cost. These findings support selective acquisition over full-modality use. The learned policy therefore tends to stop after ac-quiring cognitive evidence when its expected marginal benefit from further testing does not justify the additional cost, while retaining the ability to follow alternative acquisition trajectories when necessary. 
+
+4. CONCLUSION 
+
+In this work, we proposed SCOPE-AD, a cost-aware ordinal belief– energy planning framework for sequential CN–MCI–AD diagnosis from partially observed multimodal evidence. By integrating ordi-nal belief estimation, EBM-based planning, and planner-to-agent policy distillation, SCOPE-AD jointly determines whether to ac-quire evidence or make a terminal diagnosis. Experiments on the ADNI-based sequential diagnostic benchmark show that SCOPE-AD achieves 77.70% Macro-F1 at an average cost of $50.46, while full-modality acquisition provides only a 1.89-point additional gain at substantially higher cost. These results demonstrate that SCOPE-AD balances diagnostic performance and acquisition cost by avoid-ing tests with limited marginal diagnostic benefit. The ablation and cost–utility analyses further indicate that both ordinal uncertainty modeling and unified acquisition–diagnosis planning contribute to this favorable performance–cost trade-off. Overall, SCOPE-AD pro-vides an effective framework for cost-aware sequential diagnosis un-der partial multimodal evidence. Future work will extend to longitu-dinal patient records and dynamic disease progression. Code avail-able: https://github.com/chijiaozima/SCOPE-AD .5. REFERENCES 
+
+[1] Clifford R Jack Jr, J Scott Andrews, Thomas G Beach, Teresa Buracchio, Billy Dunn, Ana Graf, Oskar Hansson, Carole Ho, William Jagust, Eric McDade, et al., “Revised criteria for di-agnosis and staging of alzheimer’s disease: Alzheimer’s asso-ciation workgroup,” Alzheimer’s & Dementia , vol. 20, no. 8, pp. 5143–5169, 2024. [2] Alexa Pichet Binette, Ruben Smith, Gemma Salvad´ o, Pontus Tideman, Isabelle Glans, Danielle Van Westen, Colin Groot, Rik Ossenkoppele, Erik Stomrud, Piero Parchi, et al., “Evalu-ation of the revised criteria for biological and clinical staging of alzheimer disease,” JAMA neurology , vol. 82, no. 7, pp. 666–675, 2025. [3] Giulia Grande, Martina Valletta, Debora Rizzuto, Xin Xia, Chengxuan Qiu, Nicola Orsini, Matilda Dale, Sarah Anders-son, Claudia Fredolini, Bengt Winblad, et al., “Blood-based biomarkers of alzheimer’s disease and incident dementia in the community,” Nature Medicine , vol. 31, no. 6, pp. 2027–2035, 2025. [4] Giovanni B Frisoni, Oskar Hansson, Emma Nichols, Valentina Garibotto, Suzanne E Schindler, Wiesje M van der Flier, Frank Jessen, Nicolas Villain, Eider M Arenaza-Urquijo, Lucia Criv-elli, et al., “New landscape of the diagnosis of alzheimer’s disease,” The Lancet , vol. 406, no. 10510, pp. 1389–1407, 2025. [5] Samuel Schmidgall, Rojin Ziaei, Carl Harris, Eduardo Reis, Jeffrey Jopling, and Michael Moor, “Agentclinic: a multimodal agent benchmark to evaluate ai in simulated clinical environ-ments,” 2025. [6] Paul Hager, Friederike Jungmann, Robbie Holland, Kunal Bhagat, Inga Hubrecht, Manuel Knauer, Jakob Vielhauer, Mar-cus Makowski, Rickmer Braren, Georgios Kaissis, et al., “Evaluation and mitigation of the limitations of large language models in clinical decision-making,” Nature medicine , vol. 30, no. 9, pp. 2613–2622, 2024. [7] Shuyue S Li, Vidhisha Balachandran, Shangbin Feng, Jonathan S Ilgen, Emma Pierson, Pang W Koh, and Yulia Tsvetkov, “Mediq: Question-asking llms and a benchmark for reliable interactive clinical reasoning,” Advances in Neu-ral Information Processing Systems , vol. 37, pp. 28858–28888, 2024. [8] Tao Tu, Mike Schaekermann, Anil Palepu, Khaled Saab, Jan Freyberg, Ryutaro Tanno, Amy Wang, Brenna Li, Mohamed Amin, Yong Cheng, et al., “Towards conversational diagnostic artificial intelligence,” Nature , vol. 642, no. 8067, pp. 442– 450, 2025. [9] Harsha Nori, Mayank Daswani, Christopher Kelly, Scott Lund-berg, Marco Tulio Ribeiro, Marc Wilson, Xiaoxuan Liu, Vik-nesh Sounderajah, Jonathan Carlson, Matthew P. Lungren, Bay Gross, Peter Hames, Mustafa Suleyman, Dominic King, and Eric Horvitz, “Sequential diagnosis with language models,” July 2025, arXiv:2506.22405 [cs]. [10] David Bani-Harouni, Chantal Pellegrini, Ege ¨Ozsoy, Nas-sir Navab, and Matthias Keicher, “Language agents for hypothesis-driven clinical decision making with reinforcement learning,” in ICLR , 2026. [11] Pengcheng Qiu, Chaoyi Wu, Junwei Liu, Qiaoyu Zheng, Yusheng Liao, Haowen Wang, Yun Yue, Qianrui Fan, Shuai Zhen, Jian Wang, Jinjie Gu, Yanfeng Wang, Ya Zhang, and Weidi Xie, “Evolving interactive diagnostic agents in a virtual clinical environment,” 2025. [12] Liwen Sun, Abhineet Agarwal, Aaron Kornblith, Bin Yu, and Chenyan Xiong, “ED-copilot: Reduce emergency depart-ment wait time with language model diagnostic assistance,” in 
+
+Proceedings of the 41st International Conference on Machine Learning . 2024, vol. 235 of PMLR , pp. 46942–46956, PMLR. [13] Silas Ruhrberg Est´ evez, Nicol´ as Astorga, and Mihaela van der Schaar, “Timely clinical diagnosis through active test selec-tion,” arXiv preprint arXiv:2510.18988 , 2025. [14] Mengxiao Zhu and Haogang Zhu, “Learning a diagnostic strat-egy on medical data with deep reinforcement learning,” IEEE Access , vol. 9, pp. 84122–84133, 2021. [15] Zheng Yu, Yikuan Li, Joseph Kim, Kaixuan Huang, Yuan Luo, and Mengdi Wang, “Deep reinforcement learn-ing for cost-effective medical diagnosis,” arXiv preprint arXiv:2302.10261 , 2023. [16] Ziwen Yu, Anthony Mulholland, Tianyan Huang, and Qiang Liu, “Multimodal ai for alzheimer disease diagnosis: System-atic review of datasets, models, and modalities,” Journal of Medical Internet Research , vol. 28, pp. e85414, 2026. [17] Long Doan, Branden Chen, Ethan Litton, Huan Huang, Jiajing Huang, Yixin Xie, Weihua Zhou, Nandakumar Narayanan, and Chen Zhao, “Promuse: Progressive multi-modal uncertainty-guided staged evidential alzheimer disease classification,” 2026. [18] Zhiyang Zheng, Yi Su, Kewei Chen, David Weidman, Teresa Wu, ShihChung Lo, Fleming Lure, Jing Li, and Alzheimer’s Disease Neuroimaging Initiative, “Uncertainty-driven modal-ity selection for data-efficient prediction of alzheimer’s dis-ease,” IISE Transactions on Healthcare Systems Engineering ,vol. 14, no. 1, pp. 18–31, 2024. [19] Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao, “React: Synergizing rea-soning and acting in language models,” 2023. [20] Michael W Weiner, Dallas P Veitch, Paul S Aisen, Laurel A Beckett, Nigel J Cairns, Robert C Green, Danielle Harvey, Clifford R Jack Jr, William Jagust, John C Morris, et al., “The alzheimer’s disease neuroimaging initiative 3: Continued inno-vation for clinical trial improvement,” Alzheimer’s & Demen-tia , vol. 13, no. 5, pp. 561–571, 2017. [21] Clifford R Jack Jr, Matt A Bernstein, Nick C Fox, Paul Thomp-son, Gene Alexander, Danielle Harvey, Bret Borowski, Paula J Britson, Jennifer L. Whitwell, Chadwick Ward, et al., “The alzheimer’s disease neuroimaging initiative (adni): Mri meth-ods,” Journal of Magnetic Resonance Imaging: An Official Journal of the International Society for Magnetic Resonance in Medicine , vol. 27, no. 4, pp. 685–691, 2008. [22] Qwen Team, “Qwen3.5: Towards native multimodal agents,” February 2026. [23] Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, and Luke Zettlemoyer, “Qlora: Efficient finetuning of quantized llms,” 
+
+Neurips , vol. 36, pp. 10088–10115, 2023.
