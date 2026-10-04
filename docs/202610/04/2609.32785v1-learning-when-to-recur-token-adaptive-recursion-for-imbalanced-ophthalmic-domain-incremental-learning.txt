@@ -1,0 +1,674 @@
+Title: Learning When to Recur: Token-Adaptive Recursion for Imbalanced Ophthalmic Domain Incremental Learning
+
+URL Source: https://arxiv.org/pdf/2609.32785v1
+
+Published Time: Tue, 29 Sep 2026 01:16:00 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Learning When to Recur: Token-Adaptive Recursion for Imbalanced Ophthalmic Domain Incremental Learning 
+
+## Nanxi Yu b, Kang Li a,∗, Ye Du b, Xiaowei Hu c, Weihua Yang d and Shujun Wang b,∗
+
+> a
+
+School of Mechanical and Electrical Engineering, University of Electronic Science and Technology of China, Sichuan, China 
+
+> b
+
+Department of Biomedical Engineering and Sports Technology, The Hong Kong Polytechnic University, Hong Kong SAR, China 
+
+> c
+
+School of Future Technology, South China University of Technology, Guangdong, China 
+
+> d
+
+Shenzhen Eye Hospital, Shenzhen Eye Medical Center, Southern Medical University, Guangdong, China 
+
+A R T I C L E I N F O 
+
+Keywords :Domain Incremental Learning Token-Adaptive Recursion Class Imbalance Ophthalmic Image Analysis. 
+
+A B S T R A C T 
+
+Domain incremental learning is essential for adapting ophthalmic deep learning models to sequen-tial clinical domains while preserving diagnostic expertise. Existing domain incremental learning methods predominantly address the domain shift induced by style variations. However, they often overlook the severe class imbalance inherent in real-world clinical scenarios, such as clinical referral systems. Institutions in these systems encounter drastic fluctuations in class priors, resulting in label distribution shift, a critical form of domain shift that triggers severe catastrophic forgetting. To address these challenges, we propose ToRe, a rehearsal-free and parameter-efficient framework that leverages frozen ophthalmic foundation models for robust incremental adaptation. ToRe employs a parameter isolation strategy to decouple domain-specific optimization paths, thereby helping mitigate catastrophic forgetting driven by both label distribution shift and style variations. Simultaneously, it introduces token-adaptive recursion that adaptively allocates additional computational depth across tokens, allowing simple tokens to exit the recursion loop early while subjecting complex tokens, such as those associated with lesions, to deeper recursive processing. This mechanism enhances the feature representations for minority classes, thereby supporting generalization throughout the domain incremental learning process. Extensive evaluations on nine heterogeneous datasets demonstrate that ToRe consistently outperforms state-of-the-art methods in overall performance across the three benchmarks, while maintaining near-zero forgetting. Together, these results support the applicability of ToRe to dynamic and imbalanced clinical environments. The code is available at https://github. com/Nancyolo/ToRe .
+
+## 1. Introduction 
+
+Ophthalmic diseases, such as diabetic retinopathy (DR) and age-related macular degeneration (AMD), constitute a primary cause of preventable blindness globally (Steinmetz et al., 2021). While deep learning has shown remarkable potential in diagnosing these diseases (Burlina et al., 2017; Gulshan et al., 2016), its clinical utility is often limited by the nonstationary nature of real-world environments (Lee and Lee, 2020; Parisi et al., 2019). In practice, ophthalmic data streams originate sequentially from various medical institu-tions with heterogeneous imaging devices, acquisition pro-tocols, and patient demographics, collectively characterizing a pronounced domain shift (Bhati et al., 2023; Jiang et al., 2017). Consequently, an ideal diagnostic model requires the capability to continually adapt to these new domains (e.g., centers), without losing previously acquired expertise. To this end, domain incremental learning (DIL) has emerged as a critical paradigm for cumulative knowledge acquisition across diverse clinical settings. (Van de Ven et al., 2022). The primary challenge in DIL is catastrophic forget-ting , where adapting to new domains degrades perfor-mance on previous ones due to the aforementioned domain shift (Li et al., 2022; Li and Hoiem, 2017). To mitigate 
+
+> ∗
+
+Corresponding authors.  
+
+> kangli@uestc.edu.cn
+
+(K. Li); shu-jun.wang@polyu.edu.hk (S. Wang) Backbone 
+
+A. Class Imbalance & LDS 
+
+> Domain 1 Domain 2 Domain 3
+
+B. Parameter Isolation 
+
+> Better Representation for complex tokens
+> 3 steps 2 steps 1 step
+> Module 1
+> Module 2 Disease Severity Density Density Density
+
+C. Token-Adaptive Recursion 
+
+> Module 3
+> Module 3
+> 𝒌 = 𝟏 𝒌 = 𝟑 𝒌 = 𝟐
+> Screening Center Referral Hospital
+> Label Distribution Shift
+
+Fig. 1: Conceptual overview of ToRe for imbalanced oph-thalmic DIL. (A) Challenges : Fluctuating class priors across screening and referral institutions create severe imbalance and 
+
+label distribution shift (LDS), leading to severe catastrophic forgetting. (B) Parameter Isolation : Domain-specific paths are optimized independently to reduce interference driven by LDS and style variations. (C) Token-Adaptive Recursion : Breaking the uniform depth constraint of standard Vision Transformers, this mechanism adaptively increases computational depth for complex tokens, such as those associated with small lesions, to support representation learning for minority classes. 
+
+this, existing DIL strategies primarily rely on regularization-based (Kirkpatrick et al., 2017; Li and Hoiem, 2017) or replay-based (Chaudhry et al., 2019; Chrysakis and Moens, 2020; Kim et al., 2020; Lopez-Paz and Ranzato, 2017) approaches, which have been actively explored for medical imaging (Li et al., 2022, 2024; Perkonigg et al., 2021; 
+
+Nanxi Yu et al.: Preprint Page 1 of 14 arXiv:2609.32785v1 [cs.LG] 26 Sep 2026 ToRe 
+
+Srivastava et al., 2021; Wu et al., 2024). Despite their effectiveness, these approaches are often inapplicable to practical clinical deployment, limited by two critical bot-tlenecks. First, data privacy regulations can restrict the construction of replay buffers (Verma et al., 2023). Second, the computational burden of full fine-tuning or computing complex regularization terms is often prohibitive for local clinical deployment (Li and Hoiem, 2017). Consequently, these constraints necessitate a transition to a rehearsal-free, parameter-efficient fine-tuning (PEFT) paradigm (Houlsby et al., 2019; Hu et al., 2022; Jia et al., 2022; Lester et al., 2021). Specifically, PEFT enables model adaptation by optimizing only a small subset of parameters while keeping the backbone frozen. Current PEFT-based DIL methods primarily focus on addressing the domain shift induced by style variations, such as image contrast variations among fundus camera vendors (Luo et al., 2025; Smith et al., 2023; Wang et al., 2025, 2022a,b,c; Zhu et al., 2024). However, these meth-ods exhibit critical vulnerabilities in ophthalmic scenarios due to two primary gaps: (i) a lack of specialized founda-tional representations tailored for retinal features to initialize model generalization capability (Chia et al., 2024; Shi et al., 2024; Zhou et al., 2023), and (ii) more importantly, the neglect of an essential aspect: the severe class imbalance 
+
+and the resulting label distribution shift (LDS) , a critical form of domain shift that is frequently observed in clinical referral systems. As illustrated in Fig. 1 A, distributions are naturally skewed across institutions: screening centers are normally dominated by healthy cases, whereas specialized referral hospitals receive a high concentration of minority classes (Asia Pacific Tele-Ophthalmology Society (APTOS) and Kaggle, 2019; Decencière et al., 2014; Porwal et al., 2018). This causes class priors to fluctuate drastically, creat-ing the LDS phenomenon. Overcoming these challenges remains difficult given the structural conventions of current PEFT-based DIL models. These models typically adopt standard vision transformers (ViTs) as their backbones, which process all image tokens with uniform depth, regardless of their semantic impor-tance (Rao et al., 2021; Yin et al., 2022). In imbalanced ophthalmic data, this uniformity causes the model to favor abundant healthy regions, whereas sparse lesions are left with insufficient processing. When further tackling these varying class imbalance situations in sequentially arriving domains, the lack of specific precautions for LDS causes the model to overfit the current majority class. Consequently, the fragile representations of previously learned minority classes are easily overwritten, triggering catastrophic forget-ting. To address catastrophic forgetting while improving di-agnostic performance under class imbalance and the re-sulting LDS, we propose ToRe , a PEFT framework that leverages frozen ophthalmic foundation models (FMs) to tackle both the LDS and style variations across domains. Our approach adopts a parameter isolation paradigm, assigning independent optimization paths for domain-specific modules to decouple the learning process of various domains (Fig. 1 B). Within each domain, we introduce token-adaptive recur-sion to address the class imbalance challenge by learning which tokens should continue through the recursion loop. By breaking the uniform depth constraint of standard ViT, this mechanism adaptively allocates computational depth: simple tokens exit the recursion loop early, whereas complex tokens, such as those associated with small lesions, undergo recursive processing (Fig. 1 C). This improves discrimina-tive diagnostic representations under class imbalance. At inference, we employ feature-based domain identification to select the matching domain-specific module for prediction. Together, parameter isolation and domain identification help preserve and retrieve the discriminative knowledge acquired via token-adaptive recursion under LDS and style variations across domains, thereby mitigating catastrophic forgetting and improving diagnostic performance under class imbal-ance. In summary, our main contributions are summarized as follows: • We propose ToRe , a novel rehearsal-free DIL frame-work that combines token-adaptive recursion with parameter isolation to address class imbalance and LDS. • We employ a parameter isolation strategy to reduce optimization interference across domains and a do-main identification mechanism to select the module that best matches the input feature representation at in-ference. Together, they preserve and retrieve domain-specific knowledge under LDS and style variations. • We introduce token-adaptive recursion that adap-tively increases the computational depth for complex tokens. By breaking the uniform depth constraint of standard ViTs, this mechanism addresses class im-balance by improving the representation of minority classes. • We conduct extensive evaluations on three ophthalmic benchmarks. ToRe consistently outperforms state-of-the-art methods in overall performance across these benchmarks. Notably, it demonstrates strong diagnos-tic performance under severe class imbalance while achieving near-zero forgetting. 
+
+## 2. Related Work 
+
+This section reviews literature across three relevant re-search streams. We first survey domain incremental learning in Sec. 2.1. Building on this, Sec. 2.2 examines the challenge of class imbalance in sequential streams. Finally, Sec. 2.3 ex-plores adaptive computation and token-dependent recursion. 
+
+2.1. Domain Incremental Learning 
+
+2.1.1. Traditional Methods for Medical DIL 
+
+DIL addresses scenarios where the label space remains fixed, whereas the input distribution shifts sequentially (Wu et al., 2024). Traditional approaches   
+
+> Nanxi Yu et al.: Preprint Page 2 of 14 ToRe
+
+mitigate catastrophic forgetting through mechanisms such as regularization (Aljundi et al., 2018; Kirkpatrick et al., 2017), replay (Chaudhry et al., 2019; Lopez-Paz and Ranzato, 2017), and distillation (Li and Hoiem, 2017; Rebuffi et al., 2017). In the medical domain, extensive studies have adapted these paradigms across modalities (Bayasi et al., 2024; Derakhshani et al., 2022; González et al., 2023; Li et al., 2022, 2024; Perkonigg et al., 2021; Srivastava et al., 2021; Wu et al., 2024; Zhang et al., 2023b). Specifically, prominent frameworks rely heavily on experience replay or maintaining dynamic memory banks to preserve historical knowledge. Other approaches employ regularization or pruning techniques (Bayasi et al., 2024) to mitigate bias without storing raw data. Although effective in research settings, these heavy frameworks typically require accessing historical patient data or substantial computation. This dependency violates ophthalmic data privacy regulations and compromises the computational efficiency required for local clinical deployment. 
+
+2.1.2. Parameter-Efficient Fine-Tuning for DIL 
+
+To circumvent these barriers, PEFT has emerged as a dominant solution. Rather than full fine-tuning, PEFT strate-gies inject lightweight modules, such as LoRA (Hu et al., 2022), Prompts (Wang et al., 2022c), or Adapters (Zhang et al., 2023a), into a frozen backbone to facilitate adaptation. Existing PEFT-based DIL approaches generally fall into two categories: parameter sharing and parameter isolation. 
+
+Parameter sharing strategies (e.g., L2P (Wang et al., 2022c), DualPrompt (Wang et al., 2022b), CODA-Prompt (Smith et al., 2023), HiDe-PET (Wang et al., 2025)) maintain shared parameters like prompt pools to facilitate knowledge trans-fer. However, under LDS, optimizing shared parameters can modify representations used by earlier domains and thereby create cross-domain interference. Conversely, parameter iso-lation strategies (e.g., S-Prompts (Wang et al., 2022a)) in-stantiate independent modules for each domain to decou-ple optimization. S-Prompts learns prompts independently across domains and uses K-NN to identify the domain of each test sample during inference. Although recent medical adaptations have explored this paradigm to handle domain shift induced by style variations (e.g., histopathology stain differences (Zhu et al., 2024)), they overlook the critical impact of class imbalance in retinal streams. In such im-balanced scenarios, standard isolated parameters often fail to robustly capture sparse features, creating a performance bottleneck. 
+
+2.2. Class Imbalance in Sequential Settings 
+
+Addressing class imbalance in sequential streams is tra-ditionally achieved by manipulating the replay buffer to enforce balanced storage (Chrysakis and Moens, 2020; Kim et al., 2020). Other approaches optimize buffer update poli-cies using KL-divergence losses (Nikoloutsopoulos et al., 2022) or employ two-stage training with balanced sam-pling (Liu et al., 2022). Essentially, these methods rely on physically re-balancing the training distribution via memory. However, in our rehearsal-free setting mandated by privacy, such buffer-based strategies are inapplicable. Alternative strategies like Logit Adjustment (Menon et al., 2021), al-though buffer-free, are designed for static long-tailed recog-nition and fail to address the catastrophic forgetting inherent to DIL. Recent attempts like DCE (Li et al., 2025) try to mitigate this by calibrating classifiers, but relying on a static feature space limits their ability to robustly process minority classes across shifting domains. This necessitates a mechanism to dynamically enhance the quality of feature representations directly within the feature extractor. 
+
+2.3. Adaptive Computation 
+
+Adaptive computation aims to allocate resources condi-tioned on input complexity. Early works like the Mixture-of-Experts (Shazeer et al., 2017) introduced conditional routing to activate specific expert subsets. Subsequent research in vision transformers optimized efficiency through dynamic token reduction. Methods like DynamicViT (Rao et al., 2021) and A-ViT (Yin et al., 2022) learn to progressively prune uninformative tokens, whereas token merging (Bolya et al., 2023) aggregates redundant features. Recently, the Mixture-of-Recursions (Bae et al., 2025) extended this idea to token-dependent recursion, allowing complex tokens to undergo deeper recursive processing. Our work draws inspi-ration from this concept but adapts it to address the class imbalance challenge. 
+
+## 3. Methodology 
+
+In this section, we propose ToRe , a rehearsal-free frame-work tailored for ophthalmic domain incremental learning. We first formalize the ophthalmic DIL problem in Sec. 3.1, identifying the specific challenges of class imbalance and distribution shifts. Building on this, Sec. 3.2 details our framework architecture, and Sec. 3.3 introduces the core token-adaptive recursion, which provides adaptive compu-tational depth for complex token features. 
+
+3.1. Problem Formulation and Analysis 
+
+3.1.1. DIL Setup 
+
+We consider the DIL setting where data streams arrive from 𝑇 distinct domains, denoted as  = { 1, … , 𝑇 }. At any time step 𝑡 ∈ {1 , … , 𝑇 }, the model only has access to the current domain 𝑡 = {( 𝑥 𝑖 , 𝑦 𝑖 )} 𝑁 𝑡 
+
+> 𝑖 =1
+
+, which consists of retinal images 𝑥 ∈  and diagnostic labels 𝑦 ∈ , represented as a class index for the single-label benchmarks or a multi-hot vector for the multi-label benchmark. Consistent with the DIL paradigm, the label space  remains fixed across domains, whereas the underlying data statistics vary due to the nonstationary clinical environment. Ideally, DIL aims to minimize the cumulative risk across all domains encoun-tered up to the current time 𝑡 , with 𝑃 𝑘 (𝑋, 𝑌 ) denoting the joint distribution of the 𝑘 -th domain: 
+
+𝜃 ∗ = arg min 
+
+> 𝜃 𝑡
+
+∑
+
+> 𝑘 =1
+
+𝔼 (𝑥,𝑦 )∼ 𝑃 𝑘 (𝑋,𝑌 )
+
+[(𝑓 𝜃 (𝑥 ), 𝑦 )]. (1)   
+
+> Nanxi Yu et al.: Preprint Page 3 of 14
+
+ToRe Training at 𝒟 !    
+
+> 𝒢 !Gate
+> ℒ!LoRA
+> 𝐶 !
+> Classification head Recursion
+> Recursion Step  (𝑘)
+> 123Complex token Simple token
+> Tokens
+> 𝒟 "𝒟 !
+
+Time 1
+
+> Module 1
+> (𝒢 !, ℒ !, 𝐶 !)
+
+Time 𝑡 Current 
+
+> Module Bank
+
+…… Module t 
+
+> (𝒢 ", ℒ ", 𝐶 ")
+> Module 1
+> (𝒢 !, ℒ !, 𝐶 !)
+> Module t-1
+> (𝒢 "-!, ℒ "-!, 𝐶 "-!)
+> Module Bank
+
+Time 𝑡 − 1 
+
+> 𝒟 !#"
+> Module Bank
+
+…Module 1  
+
+> (𝒢 !, ℒ !, 𝐶 !)
+> Module t-1
+> (𝒢 "-!, ℒ "-!, 𝐶 "-!)
+
+Recursion Step 1 End 
+
+Visualization of tokens in Recursive Block 
+
+Recursion Step 3 
+
+> Layer
+> 𝐶 !
+> Label
+
+…
+
+Recursive Block Image 
+
+Recursion Step 2 
+
+> 𝒢 "#-!, ℒ "#-!
+> 𝒢 "#, ℒ "#
+
+… 𝒢 !$    
+
+> ℒ!$
+> Attn MLP
+> 𝒜 !
+> 𝐻 (%) 𝐻 (')
+> Tokens Indices for selected tokens
+> 𝒢 "#, ℒ "#
+> 𝒢 !$
+> ℒ!$
+> Attn MLP
+> 𝒜 (
+> 𝐻 (!)
+> 𝒢 !$
+> ℒ!$
+> Attn MLP
+> 𝒜 '
+> 𝐻 (()
+
+…
+
+> Layer Layer Layer
+> 𝐻 𝒜
+
+Fig. 2: Training Process of ToRe. (Top) Sequential Domain Stream: The model learns from a sequence of domains ( 1 … 𝑡 )via parameter isolation . For each new domain 𝑡 , a specific set of modules (Gating Module 𝑡 , LoRA 𝑡 , and Classification head 
+
+𝑡 ) is initialized and trained, whereas previous modules remain frozen. After training, the domain-specific module and its domain key are registered in the module bank. (Middle) Training at 𝑡 : The left panel illustrates the model architecture for domain 𝑡 .The right panel unrolls a single recursive block with recursion steps 1–3 ( 𝐾 max = 3 ). (Bottom) Visualization of token dynamics in a single recursive block: At each recursion step, the gating module selects tokens for recursive processing. Selected tokens receive recursive feature updates, while unselected tokens retain their current states. Module Bank  
+
+> Module 1
+> (𝒢 !, ℒ !, 𝐶 !)𝑘 !
+> Module 𝑡̂ (𝒢 "#, ℒ "#, 𝐶 "#)
+> 𝑘 "#
+> Module T
+> (𝒢 $, ℒ $, 𝐶 $)
+> 𝑘 $
+> 0.2 0.7 0.1 query
+
+…
+
+> Image Layer Layer Layer
+> Layer
+> 𝐶 "̂
+> Label
+
+…
+
+> Image
+
+… 
+
+> 𝒢 "#&-!, ℒ "#&-!
+> 𝒢 "#&, ℒ "#&
+> Layer Layer
+> Inject Similarity match Backbone 𝑓 %
+
+……
+
+Inference  
+
+> ToRe model
+
+Fig. 3: Inference Flow with Domain Identification. At infer-ence, a query vector is extracted by the frozen backbone 𝑓 Φ
+
+and matched against pre-computed domain keys ( 𝑘 1 … 𝑘 𝑇 )in the module bank via cosine similarity. The module ( Θ̂𝑡 ={̂𝑡 , ̂𝑡 , ̂𝑡 }) corresponding to the highest similarity score is re-trieved and injected to perform the final diagnostic prediction. 
+
+In practice, the sequential nature of domain arrival and the lack of a rehearsal buffer prevent the direct joint optimiza-tion of Eq. (1), necessitating domain incremental learning strategies. 
+
+3.1.2. Analysis of the Compound Challenge 
+
+Under these sequential-access and no-rehearsal con-straints, optimization at step 𝑡 is restricted to the current-domain objective: 
+
+𝜃 𝑡 = arg min 
+
+> 𝜃
+
+𝔼 𝑦 ∼𝑃 𝑡 (𝑌 )
+
+[
+
+𝔼 𝑥 ∼𝑃 𝑡 (𝑋 |𝑦 )
+
+[(𝑓 𝜃 (𝑥 ), 𝑦 )]]
+
+. (2) To understand why current PEFT methods struggle in oph-thalmic DIL, we decompose the joint distribution of the current domain into two components: 𝑃 𝑡 (𝑋, 𝑌 ) = 𝑃 𝑡 (𝑋 |𝑌 ) ⋅
+
+𝑃 𝑡 (𝑌 ). This decomposition highlights the dual nature of domain shifts. The first component, 𝑃 𝑡 (𝑋 |𝑌 ), represents the domain shift on the input side (i.e., style variations), caused by variations in imaging devices. More critically, the second component, the label distribution 𝑃 𝑡 (𝑌 ), introduces class imbalance and label distribution shift, which represents the domain shift on the label side. Here, the outer expec-tation 𝔼 𝑦 ∼𝑃 𝑡 (𝑌 ) implies that the loss is explicitly weighted by the label distribution of the current domain. Together, changes in the label distribution 𝑃 𝑡 (𝑌 ) and conditional in-put distribution 𝑃 𝑡 (𝑋 |𝑌 ) create two coupled optimization challenges. First, the skew in the label distribution (class imbalance) leads to what we term representation deficiency: as training is dominated by majority samples, minority-class representations can remain insufficiently learned. Sec-ond, updating shared parameters across domains under these distribution changes can alter parameters used by earlier domains and create cross-domain interference. These cou-pled challenges motivate us to adopt a parameter-isolation 
+
+Nanxi Yu et al.: Preprint Page 4 of 14 ToRe 
+
+strategy to separate domain-specific optimization pathways, while the token-adaptive recursion refines minority-class representations. 
+
+3.2. Overall Framework 
+
+To address the limitations of ophthalmic DIL identified in Sec. 3.1, we propose the framework, ToRe. As illustrated in Fig. 2 and Fig. 3, the overall architecture comprises three architectural elements: 1) A frozen backbone derived from a foundation model to extract general features; 2) a module bank that stores isolated, domain-specific modules to reduce cross-domain interference; 3) recursive blocks that inject these domain-specific modules into the backbone to enable token-adaptive recursion for feature updates. In the follow-ing, we detail the architectural composition (Sec. 3.2.1), training with parameter isolation (Sec. 3.2.2), and the infer-ence mechanism (Sec. 3.2.3). 
+
+3.2.1. Framework Architecture 
+
+We construct our framework upon a backbone 𝑓 Φ, ini-tialized from an ophthalmic foundation model (e.g., RET-Found (Zhou et al., 2023)). Adhering to the PEFT-based DIL paradigm, we freeze all backbone parameters Φ to pre-serve their retinal feature representations. Simultaneously, to enable adaptation to sequential domains, we introduce lightweight trainable modules to capture domain-specific knowledge. Structurally, these modules are organized within a module bank and injected into the backbone via recursive blocks to perform the diagnostic classification. 
+
+module bank ( 𝕄 ): To reduce cross-domain interference, we establish a module bank 𝕄 = {Θ 1, … , Θ𝑇 }, acting as a repository of domain-specific modules. As shown in Fig. 2 (Top), for each incoming domain 𝑡 , we instantiate a new set of trainable parameters Θ𝑡 = { 𝑡 , 𝑡 , 𝑡 }, which contain gating modules 𝑡 , LoRA parameters 𝑡 , and a classifier head 𝑡 . By assigning a separate parameter set to each domain, we separate the optimization pathways. This design addresses the challenge discussed in Sec. 3.1: under changes in class priors 𝑃 𝑡 (𝑌 ) and class-conditional input distributions 𝑃 𝑡 (𝑋 |𝑌 ), current-domain optimization updates only the current module Θ𝑡 , leaving previously learned mod-ules unchanged. Consequently, optimization for each new domain can focus on improving the diagnostic performance of its domain-specific module under class imbalance. 
+
+Recursive Block Injection: To address representation deficiency, we inject the current module Θ𝑡 during training or the identified module Θ̂ 𝑡 during inference into the specific backbone layers, enabling the model to recursively update the representations of tokens selected by the domain-specific module. This injection reconfigures backbone layers into re-cursive blocks . As detailed in Fig. 2 (Middle), inside a recur-sive block, the frozen layer provides base feature extraction, whereas the injected domain-specific module introduces a learnable recursion loop (Sec. 3.3). This mechanism grants the model adaptive computational depth, improving class-discriminative diagnostic representations while the back-bone parameters remain fixed. 
+
+Algorithm 1 Recursive Forward Pass in a Recursive Block                                                              
+
+> 1: Input: Token states 𝐻 (0) ∈ℝ𝑁 ×𝑑 , Max depth 𝐾 max
+> 2: Params: Frozen Φ, Trainable Θ𝑡 ={𝑡 ,𝑡 }, Embeddings
+> {𝐸 𝑘
+> iter }
+> 3: Init candidate indices 0←{1 ,…, 𝑁 }
+> 4: for 𝑘 = 1 to 𝐾 max do
+> 5: 1. Embed: 𝐻 in ←𝐻 (𝑘 −1) +𝐸 𝑘
+> iter
+> 6: 2. Gate: Compute mask 𝑀 (𝑘 )via Eq. (6) using 𝐻 in
+> 7: Update selected set 𝑘 ←{𝑖 ∈𝑘 −1 ∣𝑀 (𝑘 )
+> 𝑖 = 1}
+> 8: if 𝑘 = ∅ break
+> 9: 3. Update: Compute 𝐻 (𝑘 )
+> 𝑘 via Eq. (7)
+> 10: 𝐻 (𝑘 )∉𝑘 ←𝐻 (𝑘 −1) ∉𝑘 (Skip unselected)
+> 11: end for
+> 12: Return 𝐻 (𝑘 )
+
+3.2.2. Training with Parameter Isolation 
+
+During current-domain training, the instantiated mod-ule Θ𝑡 is injected into the designated recursive blocks and optimized, while the backbone Φ and previous modules remain fixed. For the current domain 𝑡 , we optimize only the learnable parameters Θ𝑡 under the local decomposed distribution: 
+
+Θ∗ 
+
+> 𝑡
+
+= arg min 
+
+> Θ𝑡
+
+𝔼 𝑦 ∼𝑃 𝑡 (𝑌 )
+
+[
+
+𝔼 𝑥 ∼𝑃 𝑡 (𝑋 |𝑦 )
+
+[(𝑓 Φ(𝑥 ; Θ 𝑡 ), 𝑦 )]]
+
+. (3) 
+
+3.2.3. Inference with Domain Identification 
+
+During inference, the domain identity of a test sample 
+
+𝑥 new is unknown. We employ a domain-identification mech-anism that leverages the feature space of the frozen backbone (Fig. 3). 
+
+Domain Key Construction: After training on domain 
+
+𝑡 , we compute a domain key 𝑘 𝑡 , defined as the centroid of the domain’s training samples in the frozen feature space: 
+
+𝑘 𝑡 = 1
+
+|𝑡 |∑
+
+> 𝑥 ∈𝑡
+
+𝑓 Φ(𝑥 ). (4) We then register the association (𝑘 𝑡 , Θ𝑡 ) in the module bank. 
+
+Similarity Matching: For a test sample, we extract its query vector 𝑞 = 𝑓 Φ(𝑥 new ) and identify the most relevant domain index ̂ 𝑡 via cosine similarity: ̂𝑡 = arg max  
+
+> 𝑗 ∈{1 ,…,𝑇 }
+
+𝑞 ⋅ 𝑘 𝑗 
+
+‖𝑞 ‖‖ 𝑘 𝑗 ‖ . (5) As shown in Fig. 3, we then retrieve the module Θ̂ 𝑡 from the bank and inject it into the backbone to perform the final diagnostic prediction. 
+
+3.3. Token-Adaptive Recursion 
+
+To address the representation deficiency of minority classes, we focus on a critical question: how to effectively improve representation for minority classes under severe class imbalance? We observe that standard ViTs process all image patches with uniform computational depth. In oph-thalmic diagnosis, this uniformity contributes to representa-tion deficiency. The vast majority of tokens represent healthy tissue (e.g., optic disc), which can contain relatively simple   
+
+> Nanxi Yu et al.: Preprint Page 5 of 14 ToRe
+
+and abundant visual patterns. Conversely, lesion-associated tokens (e.g., those containing exudates) can carry complex diagnostic features, yet they receive the same computational depth as background tokens. Consequently, the model is dominated by the easy, majority patterns, leaving critical signatures of minority classes under-represented. To break this uniformity constraint, we propose token-adaptive recursion . Its core intuition is to allocate additional computation based on feature complexity: complex tokens receive recursive updates, while simple tokens retain their previous states. To build on the pretrained representations of the frozen backbone, the recursion loop in each recursive block starts from the token representations initially produced by its LoRA-augmented layer. For example, as visualized in Fig. 2 (Bottom), a lesion-associated token selected for recur-sion can undergo deeper recursive processing over recursion steps 1–3, whereas unselected tokens retain their current states. This strategy allocates additional computation to im-prove discriminative representations under class imbalance. 
+
+3.3.1. Structural Composition 
+
+To implement this logic within a foundation model, we reconfigure specific backbone layers into recursive blocks .Each block integrates two functional components into the frozen architecture. First, the gating module ( 𝑡 ) acts as the “selector.” It is a lightweight linear projection that learns a token-selection policy through the classification task loss. Second, the LoRA-augmented layer acts as the “refiner.” It integrates trainable LoRA parameters 𝑡 into the frozen at-tention mechanism, allowing the model to perform domain-specific feature updates while retaining the robustness of the foundation model. 
+
+3.3.2. The Recursion Loop 
+
+As illustrated in Fig. 2 (Middle), the recursion loop executes a Select-and-Update cycle for a maximum of 𝐾 max 
+
+steps. Let 𝐻 ∈ ℝ(𝑁 +1)× 𝑑 denote the current token states, with index 0 denoting the class token (CLS) and indices 
+
+1, … , 𝑁 denoting image patch tokens. We initialize the candidate set as 0 = {1 , … , 𝑁 }.
+
+Token-Adaptive Gating: At recursion step 𝑘 , the gate determines which tokens continue through the recursion loop based on their current states 𝐻 . Since the gating module shares parameters across recursion steps within the same block and domain, it does not explicitly receive the cur-rent step index. Therefore, to enable the gate to perceive the current recursion step, we inject a learnable iteration embedding 𝐸 𝑘  
+
+> iter
+
+into the input. The gate then computes a probability map. We employ the Straight-Through Estimator (STE) (Yin et al., 2019) to train the gate from the current-domain classification loss through discrete token selection: 
+
+𝑀 (𝑘 ) = STE (𝜎 (𝑡 (𝐻 + 𝐸 𝑘 
+
+> iter
+
+))) , (6) where 𝜎 (⋅) is the sigmoid function. The selected set is 𝑘 ={𝑖 ∈ 𝑘 −1 ∣ 𝑀 (𝑘 ) 
+
+> 𝑖
+
+= 1} . A token can be selected only if it belonged to the preceding candidate set, so 𝑘 ⊆ 𝑘 −1 and the set size is non-increasing. If no tokens are selected, the current recursion loop ends.                                                                
+
+> Table 1
+> Statistics of class and label distributions across domains. For OCT, IRF, SRF, and PED denote per-label positive B-scan counts. The labels are non-exclusive, and Total denotes all B-scans, including those without any of the three target biomarkers. Bench. Domain C0 C1 C2 C3 C4 Total DR APTOS 1805 370 999 193 295 3662 Messidor-2 1017 270 347 75 35 1744 IDRiD 168 25 168 93 62 516 Bench. Domain Normal AMD Total AMD ODIR 2290 207 2497 ADAM 622 178 800 HYAMD 799 415 1214 Bench. Domain IRF SRF PED Total OCT RETOUCH 2128 1427 1438 6936 AMD-SD 2084 1789 727 3049 APTOS-2021 2399 971 525 2850
+
+Recursive Feature Updating: Once the selected set 𝑘 
+
+is identified, we apply a selective update. The selected tokens and CLS are processed by the LoRA-augmented layer with the current iteration embedding. Denoting its input token states by 𝐻 , the update rule is defined as: 
+
+𝐻 ← Layer (𝐻 ; Φ , 𝑡 
+
+) . (7) Here, Layer (⋅) denotes the full computation of the trans-former layer. Through this recursive pass, the LoRA-aug-mented layer progressively updates the features of selected tokens. Unselected tokens retain their current states and do not participate as keys or values in the current recursion step. This recursion loop continues until 𝐾 max is reached or no tokens are selected. All token states then proceed to the next backbone block. The recursion loop is summarized in Algorithm 1. 
+
+## 4. Experiments 
+
+In this section, we evaluate the efficacy of the proposed framework, ToRe. We first detail the experimental setup, including the benchmarks, baselines, evaluation metrics, and implementation protocols in Sec. 4.1. We then present the main quantitative comparisons against state-of-the-art DIL methods in Sec. 4.2, followed by ablation studies validating our architectural choices and routing reliability on DR in Sec. 4.3. Finally, we analyze the gating module from comple-mentary quantitative and qualitative perspectives in Sec. 4.4. 
+
+4.1. Experimental Setup 
+
+4.1.1. Datasets and Benchmarks 
+
+We evaluate ToRe on three domain incremental learn-ing benchmarks constructed from heterogeneous ophthalmic tasks. The first is diabetic retinopathy grading, a 5-class classification task using color fundus photographs (CFP)   
+
+> Nanxi Yu et al.: Preprint Page 6 of 14
+
+ToRe 
+
+Table 2 
+
+Performance comparison on the DR Grading benchmark. Per-domain accuracy and overall metrics are reported as mean (std) over three seeds. Best results are in bold , second best are underlined.                                                                                                               
+
+> Per-Domain Accuracy (%) Overall Metrics
+> Method APTOS Messidor-2 IDRiD Avg.ACC (%) ↑Avg. F1 (%) ↑Avg. BAcc (%) ↑Avg. MCC ↑Forgetting (%) ↓
+> FT-Seq 60.79(1.48) 66.22(0.48) 52.56(2.42) 59.86(0.30) 46.40(1.45) 46.75(1.31) 0.40(0.01) 13.25(1.07) EWC (Kirkpatrick et al., 2017) 64.24(5.02) 63.44(1.81) 52.56(7.22) 60.08(4.19) 44.12(0.44) 44.16(0.41) 0.41(0.04) 10.49(3.41) LwF (Li and Hoiem, 2017) 68.18(7.27) 65.02(1.33) 49.68(3.89) 60.96(3.74) 41.71(3.83) 42.80(3.68) 0.41(0.04) 10.78(0.51) L2P (Wang et al., 2022c) 72.67(0.95) 59.95(0.61) 51.28(1.47) 61.30(0.46) 37.40(1.06) 37.80(0.93) 0.36(0.02) 3.16(0.26) DualPrompt (Wang et al., 2022b) 64.21(3.99) 62.42(0.94) 55.13(2.42) 60.59(1.99) 41.04(3.18) 42.05(2.28) 0.37(0.03) 7.26(2.18) S-Prompts (Wang et al., 2022a) 78.33(1.59) 62.04(0.55) 41.02(7.22) 60.47(1.91) 37.27(2.05) 38.53(1.90) 0.38(0.03) 0.54(0.15) CODA-Prompt (Smith et al., 2023) 64.12(9.78) 63.25(0.61) 53.53(7.22) 60.30(1.15) 42.26(2.11) 42.38(1.70) 0.38(0.01) 8.37(5.89) HiDe-Prompt (Wang et al., 2025) 75.30(0.38) 63.62(2.28) 50.00(5.35) 62.98(2.64) 55.09(3.22) 53.67(3.44) 0.48(0.04) 3.86(0.34) HiDe-LoRA (Wang et al., 2025) 75.42(1.75) 61.28(2.00) 46.15(2.54) 60.95(0.91) 53.69(1.14) 51.90(1.99) 0.45(0.00) 4.44(0.88) DCE (Li et al., 2025) 74.15(4.55) 59.57(3.09) 46.60(7.33) 60.11(4.55) 50.40(4.56) 52.73(4.40) 0.43(0.06) 0.19(0.16)
+> ToRe (Ours) 82.21(0.47) 68.31(0.77) 56.41(4.44) 68.98(1.68) 56.43(1.68) 55.25(1.93) 0.52(0.02) 0.10(0.16)
+> Joint Training 83.12(0.34) 71.42(0.29) 57.69(0.96) 70.74(0.50) 57.55(0.32) 56.53(0.82) 0.55(0.01) –
+
+(Normal, Mild, Moderate, Severe, Proliferative DR) com-prising a sequence of three datasets: APTOS (Asia Pacific Tele-Ophthalmology Society (APTOS) and Kaggle, 2019) (India), Messidor-2 (Abràmoff et al., 2013; Decencière et al., 2014) (France), and IDRiD (Porwal et al., 2018) (India). The second is age-related macular degeneration grading, a binary classification (Normal vs. AMD) task using CFP comprising ODIR (Li et al., 2020) (China), ADAM (Fu et al., 2020) (China), and HYAMD (Meisel et al., 2025) (Israel). The third is an OCT multi-label biomarker prediction task comprising RETOUCH (Bogunović et al., 2019), AMD-SD (Hu et al., 2024), and APTOS-2021 (Zhang et al., 2026). The task predicts the presence of intraretinal fluid, subretinal fluid, and pigment epithelial detachment in individual B-scans. These datasets originate from diverse clinical centers with varied imaging protocols and patient demographics, resulting in significant style variations across domains. Fur-thermore, Table 1 details the class and label distributions, highlighting the severe class imbalance and label distribu-tion shift. 
+
+4.1.2. Baselines 
+
+We compare ToRe against five distinct categories of methods: 1 (i) Standard baselines: Joint training and sequen-tial full fine-tuning (FT-Seq). FT-Seq sequentially fine-tunes the full model using the current-domain training data at each stage and serves as a full-parameter sequential reference. Joint Training uses pooled training data from all domains si-multaneously and serves as an upper-bound reference for the DIL setting. (ii) Classic DIL: EWC (Kirkpatrick et al., 2017) and LwF (Li and Hoiem, 2017). (iii) Parameter-sharing DIL: L2P (Wang et al., 2022c), DualPrompt (Wang et al., 2022b), CODA-Prompt (Smith et al., 2023), and HiDe-PET (Wang et al., 2025) (including both HiDe-Prompt and HiDe-LoRA variants). (iv) Parameter-isolation DIL: S-Prompts (Wang 
+
+> 1
+
+For the multi-label OCT benchmark, HiDe-Prompt, HiDe-LoRA, and DCE are not included because their available implementations are designed for single-label classification and would require method-level redesign for this protocol. 
+
+et al., 2022a). (v) Classifier-calibration DIL: DCE (Li et al., 2025). 
+
+4.1.3. Evaluation Metrics 
+
+We utilize seven metrics to assess performance: (i) Aver-age accuracy (Avg.ACC): Measures overall performance on the final model trained on domain 𝑇 , defined as 1
+
+> 𝑇
+
+∑𝑇 𝑖 =1 𝐴 𝑇 ,𝑖 .(ii) Average F1 score (Avg. F1): Assesses robustness to class imbalance, computed as the average of per-domain Macro-F1 scores: 1
+
+> 𝑇
+
+∑𝑇 𝑖 =1 F1 𝑇 ,𝑖 . (iii) Average Balanced Ac-curacy (Avg. BAcc): Measures class-balanced performance as the domain average of the mean recall across classes. (iv) Average Matthews Correlation Coefficient (Avg. MCC): Measures the correlation between predicted and true labels, averaged across domains on its coefficient scale of [−1 , 1] .(v) Average Macro Average Precision (Avg. Macro AP): Computes Macro Average Precision for each OCT domain and then averages it across domains. (vi) Average Area Under the Receiver Operating Characteristic Curve (Avg. AUROC): Averages the per-domain AUROC for threshold-independent evaluation on OCT. (vii) Forgetting: Measures the average reduction in the designated benchmark metric on previous domains after learning the complete sequence. The designated metric is accuracy for DR and AMD. Macro AP is used for OCT, allowing the same stability definition to apply to both single-label and multi-label benchmarks. 
+
+4.1.4. Implementation Details 
+
+All experiments were conducted using the pre-trained RETFound (Zhou et al., 2023) backbones (RETFound-CFP for the DR and AMD benchmarks and RETFound-OCT for the OCT benchmark) on one NVIDIA RTX 4090 GPU. Images were resized to 224 × 224 . We used cross-entropy loss for the single-label DR and AMD benchmarks and binary cross-entropy with logits for OCT, with each OCT target encoded as a multi-hot vector. We employed the AdamW optimizer for ToRe and PEFT baselines, and SGD for EWC and LwF. Training involved a batch size of 64 for 100 epochs with early stopping (patience=10). For the DR 
+
+Nanxi Yu et al.: Preprint Page 7 of 14 ToRe 
+
+Table 3 
+
+Numbers of samples in the training, validation, and test partitions. Counts denote fundus images for DR and AMD and individual B-scans for OCT.                                      
+
+> Benchmark Dataset Total used Training Validation Testing DR APTOS 2019 3,662 2,048 514 1,100 Messidor-2 1,744 972 246 526 IDRiD 516 329 84 103 AMD ODIR 2,497 1,798 199 500 ADAM 800 361 39 400 HYAMD 1,214 866 95 253 OCT RETOUCH 6,936 4,865 610 1,461 AMD-SD 3,049 2,060 288 701 APTOS-2021 2,850 2,030 279 541
+
+benchmark, we adopted the official data splits provided by RETFound (Zhou et al., 2023). For AMD, we retained the existing held-out test sets and split the remaining training data into training and validation sets using a stratified 90:10 split. 2 For OCT, the group-disjoint training, validation, and test splits contain 49, 6, and 15 volumes for RETOUCH; 109, 16, and 31 eyes for AMD-SD; and 154, 22, and 44 patients for APTOS-2021. 3 Table 3 gives the image and B-scan counts for these splits. We selected models using the validation sets and evaluated them on the held-out test sets. All experiments were repeated with three random seeds. For ToRe, LoRA modules (rank=8) were injected into the final 8 blocks with a default recursion depth of 𝐾 max = 3 .To ensure a rigorous comparison, we optimized the hyperpa-rameters for all baselines via grid search on our ophthalmic benchmarks. 
+
+4.2. Main Results 
+
+4.2.1. Overall Performance 
+
+Table 2 and Table 4 summarize the quantitative compar-ison on the DR and AMD benchmarks, respectively. Table 5 presents the OCT multi-label biomarker prediction results. Fig. 4 further compares per-domain Macro-F1 scores on DR and AMD after learning the complete domain sequence. Joint Training is included as an upper-bound reference for the DIL setting. ToRe improves Avg. ACC by 6.00 percentage points over HiDe-Prompt on DR ( 𝑝 = 0 .0204 ) and by 3.66 percentage points over HiDe-LoRA on AMD ( 𝑝 = 0 .0178 ). On OCT, ToRe improves Avg. Macro AP and Avg. AUROC by 6.20 and 3.95 percentage points, respectively, over S-Prompts, with 𝑝 = 0 .00219 for Avg. Macro AP. These p-values are from exploratory two-sided paired t-tests over three matched seeds. ToRe also performs consistently well under class imbal-ance, achieving the highest mean Avg. F1, Avg. BAcc, and     
+
+> 2The ODIR subset comprised normal and AMD-only images, with multilabel cases excluded. All HYAMD images whose filenames matched entries in the annotation CSV were retained.
+> 3For APTOS-2021, the labeled training release was used after ex-cluding one patient group with conflicting annotations (14 B-scans); the source validation split was excluded because ground-truth annotations were unavailable. APTOS Messidor2 IDRiD
+> 020 40 60 80 100
+> F1 Score (%) DR - Per-Domain F1 Score ODIR ADAM HYAMD
+> 020 40 60 80 100
+> F1 Score (%) AMD - Per-Domain F1 Score
+> FT-Seq EWC LwF L2P DualPrompt S-Prompts CODA-Prompt HiDe-LoRA HiDe-Prompt DCE ToRe
+
+Fig. 4: Per-domain Macro-F1 scores on the DR and AMD benchmarks, evaluated after the final task. (Left) Comparison on the DR domains. (Right) Comparison on the AMD domains. 
+
+Avg. MCC among the compared DIL methods on both DR and AMD. The Avg. F1 gain is particularly marked on AMD, reaching 5.71 percentage points over HiDe-LoRA. Standard fine-tuning (FT-Seq) suffers from severe for-getting (AF: 13.25% on DR), confirming the inherent chal-lenge of DIL. PEFT baselines generally reduce this effect, whereas ToRe maintains low forgetting across all three benchmarks, with 0.10% on DR, 0.03% on AMD, and 0.21% on OCT. 
+
+4.3. Ablation Studies 
+
+4.3.1. Component Analysis 
+
+Table 6 presents a component-wise study of token-adaptive recursion on the DR benchmark. We compare uni-form computation without gating, learned token selection, and iteration embedding (IE). The two no-gate settings show that uniformly increasing recursion from one to three steps does not improve Avg. F1 or Avg. BAcc. By contrast, learned token selection at three steps improves Avg. F1 by 5.29 percentage points and Avg. BAcc by 4.75 percentage points over the no-gate setting. This contrast supports learning which tokens require deeper recursive processing. Adding IE further improves these mean scores by 2.88 and 2.65 percentage points, re-spectively, giving Full ToRe the highest mean scores across all four metrics. This additional gain is consistent with IE helping the shared gate distinguish recursion steps. 
+
+4.3.2. Sensitivity to Recursion Depth ( 𝐾 max )
+
+We next examine sensitivity to maximum recursion depth on the DR test set. Table 7 reports the results for 
+
+𝐾 max = 1 , 3, 5, and 10 . Our default 𝐾 max = 3 achieves the highest mean scores across all four metrics. Across these settings, ToRe maintains strong predictive performance, with Avg. F1 ranging from 52.48% to 56.43% and Avg. BAcc from 51.74% to 55.25%. 
+
+4.3.3. Sensitivity to LoRA Rank and Insertion Depth 
+
+To assess whether the default ToRe configuration is sen-sitive to adaptation capacity and insertion depth, we evaluate LoRA rank and the number of recursive blocks on the DR benchmark using Avg. F1 and Avg. BAcc. 
+
+Nanxi Yu et al.: Preprint Page 8 of 14 ToRe 
+
+Table 4 
+
+Performance comparison on the AMD Grading benchmark. Per-domain accuracy and overall metrics are reported as mean (std) over three seeds. Best results are in bold , second best are underlined. 
+
+Per-Domain Accuracy (%) Overall Metrics              
+
+> Method ODIR ADAM HYAMD Avg.ACC (%) ↑Avg. F1 (%) ↑Avg. BAcc (%) ↑Avg. MCC ↑Forgetting (%) ↓
+
+FT-Seq 86.87(4.44) 81.67(3.45) 67.06(2.97) 78.53(0.65) 61.35(15.44) 67.12(14.88) 0.29(0.25) 8.57(0.62) EWC (Kirkpatrick et al., 2017) 90.13(4.82) 84.67(3.21) 65.88(5.16) 80.23(2.67) 62.62(7.15) 61.82(5.46) 0.34(0.08) 4.47(2.97) LwF (Li and Hoiem, 2017) 92.87(1.33) 84.00(4.39) 66.80(1.04) 81.22(1.73) 66.23(11.86) 65.01(9.08) 0.41(0.15) 5.38(2.63) L2P (Wang et al., 2022c) 90.60(0.20) 82.42(3.51) 66.93(0.82) 79.98(1.35) 55.72(4.72) 56.23(3.06) 0.21(0.07) 1.46(1.44) DualPrompt (Wang et al., 2022b) 91.53(0.12) 81.08(3.61) 64.95(0.60) 79.19(1.42) 51.89(5.98) 54.11(3.21) 0.15(0.07) 1.37(1.08) S-Prompts (Wang et al., 2022a) 91.27(0.58) 78.50(1.30) 57.31(1.04) 75.69(0.30) 49.25(2.65) 51.78(2.08) 0.05(0.08) 0.17(0.13) CODA-Prompt (Smith et al., 2023) 90.53(1.33) 80.67(3.11) 66.27(0.91) 79.16(0.79) 54.59(5.29) 55.41(3.40) 0.18(0.08) 1.90(1.24) HiDe-Prompt (Wang et al., 2025) 91.47(1.30) 84.58(0.80) 64.30(1.50) 80.12(0.35) 73.48(0.71) 78.29(0.56) 0.49(0.01) 3.93(0.38) HiDe-LoRA (Wang et al., 2025) 89.67(1.70) 87.33(1.01) 69.70(1.99) 82.23(0.96) 74.56(0.82) 78.56(0.13) 0.51(0.01) 3.23(1.11) DCE (Li et al., 2025) 81.40(1.71) 80.42(4.47) 60.21(0.99) 74.01(0.65) 56.85(5.37) 57.52(5.58) 0.16(0.10) 0.37(0.14) 
+
+ToRe (Ours) 96.00(0.53) 91.58(0.63) 70.09(1.65) 85.89(0.79) 80.27(1.00) 79.30(0.85) 0.61(0.02) 0.03(0.06) 
+
+Joint Training 97.00(0.00) 89.67(0.29) 69.87(1.05) 85.51(0.25) 80.11(0.11) 79.48(0.06) 0.61(0.00) –
+
+Table 5 
+
+Performance comparison on the OCT multi-label biomarker prediction benchmark. Per-domain Macro AP and overall metrics are reported as mean (std) over three seeds. Best results are in bold , second best are underlined. 
+
+Per-Domain Macro AP (%) ↑ Overall Metrics          
+
+> Method RETOUCH AMD-SD APTOS-2021 Avg. Macro AP (%) ↑Avg. AUROC (%) ↑Forgetting (%) ↓
+
+FT-Seq 89.26(0.03) 74.25(2.44) 86.36(0.29) 83.29(0.73) 86.86(0.66) 12.74(1.16) EWC (Kirkpatrick et al., 2017) 90.13(0.23) 73.94(0.93) 84.73(0.40) 82.93(0.23) 85.06(0.58) 11.24(0.55) LwF (Li and Hoiem, 2017) 91.02(0.22) 80.38(0.83) 85.29(0.65) 85.56(0.55) 87.26(0.46) 6.76(0.33) L2P (Wang et al., 2022c) 50.60(1.55) 78.68(0.68) 54.14(2.94) 61.14(1.34) 70.80(0.50) 1.36(0.53) DualPrompt (Wang et al., 2022b) 86.04(1.12) 74.42(4.90) 83.24(2.53) 81.23(1.26) 86.18(0.54) 7.26(2.36) CODA-Prompt (Smith et al., 2023) 88.44(1.48) 72.65(3.20) 82.64(0.73) 81.24(0.60) 86.54(0.49) 7.51(1.24) S-Prompts (Wang et al., 2022a) 90.27(1.84) 87.55(0.13) 80.31(1.18) 86.04(0.50) 89.58(0.28) 0.31(0.30) 
+
+ToRe (Ours) 94.48(0.43) 91.79(0.47) 90.46(0.47) 92.24(0.08) 93.53(0.07) 0.21(0.08) 
+
+Joint Training 96.22(0.51) 92.95(0.48) 91.05(0.36) 93.40(0.19) 94.69(0.13) –
+
+Table 6 
+
+Ablation study of token-adaptive recursion on the DR test set. Results are reported as mean (std) over three seeds. IE denotes iteration embedding. Best means are in bold ; second-best means are underlined.         
+
+> Setting Avg. ACC (%) ↑Avg. F1 (%) ↑Avg. BAcc (%) ↑Avg. MCC ↑
+
+w/o gate, 1 step 65.34(1.27) 49.13(2.43) 48.49(2.43) 0.47(0.02) w/o gate, 3 steps 66.61(2.16) 48.26(2.09) 47.85(1.58) 0.49(0.03) w/ gate, 3 steps 67.55(1.63) 53.55(2.40) 52.60(2.30) 0.50(0.02) Full ToRe (+IE) 68.98(1.68) 56.43(1.68) 55.25(1.93) 0.52(0.02) 
+
+Avg. F1 and Avg. BAcc across different LoRA ranks are reported in Fig. 5. Rank 8, our default setting, achieves the highest mean scores on both metrics among the tested settings, whereas rank 64 yields the lowest. Avg. F1 and Avg. BAcc across different insertion depths are reported in Fig. 6. Among the settings shown, using the final eight blocks achieves the highest Avg. F1, whereas using twelve blocks achieves the highest Avg. BAcc. Both metrics decrease when the insertion depth increases to six-teen blocks. We retain eight recursive blocks as the default 
+
+Table 7 
+
+Sensitivity to maximum recursion depth 𝐾 max on the DR test set. Results are reported as mean (std) over three seeds. Best means are in bold ; second-best means are underlined.         
+
+> 𝐾 max Avg. ACC (%) ↑Avg. F1 (%) ↑Avg. BAcc (%) ↑Avg. MCC ↑
+
+1 66.77(0.67) 52.48(0.50) 51.74(0.86) 0.49(0.01) 3 68.98(1.68) 56.43(1.68) 55.25(1.93) 0.52(0.02) 
+
+5 67.98(2.50) 53.82(3.65) 53.88(3.78) 0.51(0.03) 10 67.66(0.60) 52.91(0.88) 52.79(0.98) 0.50(0.01) 
+
+configuration, maintaining strong predictive performance while limiting the number of blocks involved in recursion. 
+
+4.3.4. Routing Reliability 
+
+We further evaluate domain identification on the DR, AMD, and OCT benchmarks by measuring routing accuracy and examining the diagnostic impact of route mismatches. 
+
+Domain Identification Accuracy: Overall Route Accu-racy is the proportion of all test images assigned to the correct domain. Macro Route Accuracy first computes this accuracy separately for each domain and then averages the domain-specific values equally. Overall and Macro Route 
+
+Nanxi Yu et al.: Preprint Page 9 of 14 ToRe 1 2 4 8 16 32 64   
+
+> LoRA rank
+> 50 55 60
+> Performance (%)  LoRA-rank sensitivity Avg.F1 Avg. BAcc
+
+Fig. 5: Sensitivity of Avg. F1 and Avg. BAcc to LoRA rank on the DR test set over three seeds. Shaded bands show one standard deviation. 1 2 4 8 12 16    
+
+> Number of fi nal blocks
+> 50 55 60
+> Performance (%)  Insertion-depth sensitivity Avg.F1 Avg. BAcc
+
+Fig. 6: Sensitivity of Avg. F1 and Avg. BAcc to insertion depth on the DR test set over three seeds. Shaded bands show one standard deviation. APTOS Messidor-2 IDRiD       
+
+> APTOS Messidor-2IDRiD
+> 99.7 0.3 0.0 1.7 79.5 18.8 0.0 23.1 76.9
+
+(a) DR       
+
+> ODIR ADAM HYAMD
+> ODIR ADAM HYAMD
+> 78.4 18.0 3.6 11.8 88.2 0.0 0.8 0.4 98.8
+
+(b) AMD       
+
+> RETOUCH AMD_SD APTOS_2021
+> RETOUCH AMD_SD APTOS_ 2021
+> 97.5 0.0 2.5 0.0 100.0 0.0 0.0 0.0 100.0
+
+(c) OCT 
+
+> True domain
+> Predicted domain
+
+Fig. 7: Row-normalized domain-routing confusion matrices (%) on the (a) DR, (b) AMD, and (c) OCT test sets. Rows indicate true domains, and columns indicate predicted domains, in the same domain order within each panel. 
+
+Accuracy are 92.20% and 85.37% on DR, 86.30% and 88.49% on AMD, and 98.67% and 99.18% on OCT, respec-tively. Fig. 7 shows the row-normalized confusion matrices. Most DR errors occur between Messidor-2 and IDRiD, while AMD errors mainly involve ODIR and ADAM. 
+
+Impact of Route Mismatch: To determine how domain mismatches affect diagnostic performance, we evaluate all misrouted images under both the predicted route and their true-domain route. The predicted route uses the module selected by domain identification, whereas the true-domain route uses the module associated with the image’s true domain. The true-domain route is used only as an analysis reference because it is unavailable during inference. 
+
+Table 8 
+
+Diagnostic performance on misrouted test images under the predicted and true-domain routes. Results are reported as mean (std) over three seeds. Misrouted (%) indicates the percentage of each benchmark’s test set assigned to an incorrect domain. Pred. and True denote the predicted and true-domain routes, respectively. Acc. denotes ACC for DR and AMD and subset accuracy for OCT, which requires all three biomarker labels to be correct. Δ denotes true-domain minus predicted-route accuracy in percentage points.                  
+
+> Benchmark Misrouted (%) Pred. Acc. (%) True Acc. (%) Δ(pp)
+> DR 7.80 63.21(1.13) 63.70(1.48) 0.49(2.60) AMD 13.70 89.87(1.27) 90.30(0.73) 0.42(0.73) OCT 1.33 56.48(11.23) 85.19(3.21) 28.70(11.23)
+
+Table 8 shows that ToRe achieves slightly lower mean ACC under predicted routing than under true-domain rout-ing on the misrouted DR and AMD images, with gaps below 0.5 percentage points. On OCT, all 36 route mismatches occurred from RE-TOUCH to APTOS-2021. The lower accuracy under pre-dicted routing mainly results from additional false positives on these images. In particular, predicted routing produces 7 to 15 IRF false positives per seed, compared with none under true-domain routing. Overall, predicted routing yields 6 to 14 fewer fully correct predictions per seed, corresponding to a mean decrease of 28.70 percentage points in subset accuracy. This drop highlights the importance of selecting the appropriate domain-specific module for biomarker pre-diction. In future work, we will explore how to improve domain identification for these mismatch cases. 
+
+4.4. Gating Module Analysis 
+
+We analyze the gating module from complementary quantitative and qualitative perspectives. The recursion-depth statistics measure how recursive computation is al-located across tokens, the lesion token analysis evaluates selection behavior against external pathological masks, and the visualization shows how the selected tokens evolve across recursive steps. 
+
+4.4.1. Quantitative Analysis 
+
+Mean Recursion Depth measures the number of recur-sive updates received by each token at each recursive block. “All tokens” averages this count over every token, whereas “selected tokens” includes only tokens selected for at least one recursive update. The statistics pool tokens across all test images and recursive blocks within each seed; the class token is excluded. Table 9 reports the mean and standard deviation over three seeds. Across all three benchmarks, selected tokens receive more than two recursive updates on average, whereas the mean over all tokens is lower. This difference shows that the gate concentrates recursive computation on a selected subset. 
+
+Nanxi Yu et al.: Preprint Page 10 of 14 ToRe (a) Step 1: 124/196 Step 2: 107/196 Step 3: 93/196 Step 1: Heatmap Step 2: Heatmap Step 3: Heatmap (b) Step 1: 118/196 Step 2: 59/196 Step 3: 51/196 Step 1: Heatmap Step 2: Heatmap Step 3: Heatmap 
+
+Fig. 8: Evolution of active-token selection across recursive steps. Rows (a) and (b) show two examples. Columns 1–3 show active-token overlays at Steps 1–3, with the number of selected tokens above each image; Columns 4–6 show the corresponding gating activation maps. 
+
+Table 9 
+
+Mean recursion depth on the DR, AMD, and OCT test sets. Results are reported as mean (standard deviation) over three seeds. Benchmark All tokens Selected tokens DR 1.37(0.32) 2.70(0.08) AMD 1.15(0.08) 2.69(0.08) OCT 1.27(0.45) 2.61(0.21) 
+
+To examine the gating module more directly, we use the lesion-segmentation dataset provided by the IDRiD chal-lenge, which contains pixel-level annotations for four lesion types: haemorrhages, hard exudates, microaneurysms, and soft exudates (Porwal et al., 2018). For each image, we compare the mean selection rates of lesion and non-lesion tokens across recursive blocks, recursion steps, and three seeds. We also compare the mean selection rates of the two groups at each block-step combination across all images and seeds. The mean selection rate is higher for lesion tokens in 80 of 81 images (98.77%) and 22 of 24 block-step com-binations (91.67%). Across three seeds, the mean selection rates are 45.30% for lesion tokens and 38.74% for non-lesion tokens, with a mean difference of 6.56 ± 2.53 percentage points. These results show that the gating module more frequently selects lesion tokens for recursive processing. This preference is consistent with our motivation to allocate additional computation to complex tokens, such as lesion-associated tokens. 
+
+4.4.2. Qualitative Analysis 
+
+The quantitative results above characterize the overall token-selection behavior, while Fig. 8 illustrates how the active-token set evolves across recursive steps in individual examples. The upper example, which contains more spatially extensive lesions, retains a broader active set, with 124, 107, and 93 tokens selected at Steps 1–3, respectively. In contrast, the active-token count in the lower example decreases more rapidly from 118 to 59 and 51. Thus, although the active set contracts in both examples as recursion proceeds, the different contraction patterns show that the gating module adaptively narrows recursive computation according to the input. 
+
+## 5. Discussion 
+
+Ophthalmic DIL involves a compound setting in which within-domain class imbalance coexists with across-domain changes in label distributions and imaging styles; its evalu-ation should therefore consider both imbalance-aware final diagnostic performance and how well previously learned knowledge is preserved. Effective DIL requires strong final diagnostic perfor-mance after learning all domains while keeping forgetting low, because lower forgetting indicates that knowledge learned from earlier domains is better preserved (Chaudhry et al., 2019; Lopez-Paz and Ranzato, 2017). This joint cri-terion makes S-Prompts (Wang et al., 2022a) a useful refer-ence for ToRe: both methods use domain-specific parameter isolation, which reduces direct cross-domain optimization interference and is consistent with their low forgetting on DR and AMD. However, their class-balanced diagnostic performance differs substantially on the class-imbalanced DR and AMD benchmarks (Table 1). S-Prompts reaches Avg. BAcc values of 38.53% and 51.78%, respectively, whereas ToRe reaches 55.25% and 79.30% (Tables 2 and 4). ToRe also shows lower mean forgetting on DR (0.10% vs. 0.54%) and AMD (0.03% vs. 0.17%). On OCT, ToRe achieves a higher Avg. Macro AP than S-Prompts (92.24% vs. 86.04%), while both methods maintain low forgetting (0.21% vs. 0.31%; Table 5). ToRe is designed for imbalanced ophthalmic DIL by co-ordinating complementary roles within one framework. Dur-ing current-domain training, parameter isolation confines 
+
+Nanxi Yu et al.: Preprint Page 11 of 14 ToRe                                                   
+
+> Table 10
+> Parameter and computational cost comparison. Computational costs are means over three seeds, averaged equally across DR, AMD, and OCT; †indicates averages over DR and AMD only. Params denotes the reported trainable parameters (M), FLOPs is estimated per image (G/image), Throughput is reported in images/s, and Memory denotes peak allocated GPU memory (GiB). Method Params FLOPs Throughput Memory FT-Seq 303.31 119.61 131.36 1.890 EWC 303.31 119.61 103.82 2.649 LwF 303.31 119.61 125.97 1.896 L2P 0.12 279.27 51.35 3.441 DualPrompt 0.97 247.01 52.78 3.440 S-Prompts 0.09 259.79 49.57 1.487 CODA-Prompt 16.90 239.25 58.79 1.421 HiDe-Prompt †2.17 247.22 46.07 4.992 HiDe-LoRA †7.49 325.39 38.32 5.351 DCE †14.28 133.14 87.74 1.514 ToRe 0.92 354.18 20.68 1.630
+
+optimization to the current module while the frozen back-bone and earlier modules remain fixed, and token-adaptive recursion refines token representations within that module. At inference, domain identification uses the stored domain keys to retrieve the corresponding module, within which token-adaptive recursion refines token representations. To-gether, these components enable ToRe to achieve strong class-balanced performance while maintaining low forget-ting on the imbalanced ophthalmic DIL benchmarks. Alongside these diagnostic benefits, ToRe uses a small number of learned parameters and has moderate inference memory requirements. Across the three benchmarks, its accumulated learned parameters average 0.92M, approxi-mately 0.30% of the full model, while peak allocated GPU memory averages 1.63 GiB. These results complement the diagnostic performance reported in Tables 2, 4, and 5. Table 10 summarizes the parameter and computational costs. We evaluate final-stage checkpoints on an NVIDIA RTX 4090 with batch size 32 and AMP FP16. Measurements include domain identification and model forward compu-tation, excluding data loading, host-to-device transfer, and metric computation. However, the small number of learned parameters does not remove the computational cost of recursion. Although the same parameters are reused within each recursive block, repeated computation results in an average forward cost of 354.18 GFLOPs per image. Throughput was measured with the FLOPs profiler enabled. ToRe achieves a throughput of 20.68 images/s, reflecting a trade-off between additional recursive computation and inference speed. Future work will investigate more efficient execution of the recursion loop, with the aim of reducing redundant computation and improv-ing throughput while preserving diagnostic performance. Beyond computational cost, a limitation of this work is that the gating module learns to select tokens via the optimization of the classification loss, lacking explicit guid-ance on what constitutes a “lesion signature.” This implicit learning process may not always align perfectly with oph-thalmic semantics. Future work will explore multimodal integration. By incorporating clinical text reports as aux-iliary supervision, we aim to explicitly guide the gating module to associate visual tokens with ophthalmic concepts (e.g., “hemorrhage,” “exudates”). This could help the model learn policies that are semantically aligned with ophthalmic knowledge, potentially improving interpretability and ro-bustness to complex disease cases. Building on this semantic guidance, future work could introduce task-specific spatial supervision and dense-prediction heads to extend the token-adaptive recursion mechanism from image-level diagnosis to lesion localization and segmentation. A further limitation concerns how ToRe handles new do-mains in more complex data streams. The current method as-sumes that the training samples from each incoming domain are provided together. These samples are used to train a new domain-specific module and compute its domain key while the frozen backbone and earlier modules remain fixed; the domain key and its associated module are then added to the module bank. At inference, a test query is compared with the stored domain keys to select a module, so no domain label is required for the test image. However, the method does not automatically determine when a new domain emerges or which samples belong to it in mixed or gradually shifting streams. Future work will explore uncertainty-aware routing, open-set domain identification, and automatic detection of new domains. 
+
+## 6. Conclusion 
+
+In this work, we present ToRe, a parameter-efficient framework for imbalanced ophthalmic DIL under label dis-tribution shift and style variations across domains. ToRe co-ordinates a parameter isolation strategy and domain identifi-cation to support domain-specific adaptation, while token-adaptive recursion refines the representations of selected tokens through the recursion loop. Extensive experiments across three ophthalmic DIL benchmarks demonstrate that ToRe achieves strong diagnostic performance under class imbalance while maintaining low forgetting. Future work will investigate more flexible domain routing and explore extensions of ToRe to volumetric, multimodal, and dense-prediction ophthalmic settings, including lesion localization and segmentation. 
+
+## Declaration of generative AI and AI-assisted technologies in the manuscript preparation process 
+
+During the preparation of this work, the authors used ChatGPT in order to polish the English language. After using this tool, the authors reviewed and edited the content as needed and take full responsibility for the content of the published article.   
+
+> Nanxi Yu et al.: Preprint Page 12 of 14
+
+ToRe 
+
+## References 
+
+Abràmoff, M.D., Folk, J.C., Han, D.P., Walker, J.D., Williams, D.F., Rus-sell, S.R., Massin, P., Cochener, B., Gain, P., Tang, L., Lamard, M., Moga, D.C., Quellec, G., Niemeijer, M., 2013. Automated analysis of retinal images for detection of referable diabetic retinopathy. JAMA Ophthalmol. 131, 351–357. doi: 10.1001/jamaophthalmol.2013.1743 .Aljundi, R., Babiloni, F., Elhoseiny, M., Rohrbach, M., Tuytelaars, T., 2018. Memory aware synapses: Learning what (not) to forget, in: European conference on computer vision, pp. 144–161. doi: 10.1007/ 978-3-030-01219-9_9 .Asia Pacific Tele-Ophthalmology Society (APTOS) and Kaggle, 2019. Aptos 2019 blindness detection. https://www.kaggle.com/ c/aptos2019-blindness-detection . Accessed 18 September 2026. Bae, S., Kim, Y., Bayat, R., Kim, S., Ha, J., Schuster, T., Fisch, A., Harutyunyan, H., Ji, Z., Courville, A., Yun, S.Y., 2025. Mixture-of-recursions: Learning dynamic recursive depths for adaptive token-level computation, in: Advances in Neural Information Processing Systems 38, pp. 107088–107133. doi: 10.52202/085713-3229 .Bayasi, N., Fayyad, J., Bissoto, A., Hamarneh, G., Garbi, R., 2024. Bi-aspruner: Debiased continual learning for medical image classifica-tion, in: International conference on medical image computing and computer-assisted intervention, Springer. pp. 90–101. doi: 10.1007/ 978-3-031-72117-5_9 .Bhati, A., Gour, N., Khanna, P., Ojha, A., 2023. Discriminative kernel convolution network for multi-label ophthalmic disease detection on imbalanced fundus image dataset. Comput. Biol. Med. 153, 106519. doi: 10.1016/j.compbiomed.2022.106519 .Bogunović, H., Venhuizen, F., Klimscha, S., Apostolopoulos, S., Bab-Hadiashar, A., Bagci, U., Beg, M.F., Bekalo, L., Chen, Q., Ciller, C., et al., 2019. Retouch: The retinal oct fluid detection and segmentation benchmark and challenge. IEEE Trans. Med. Imaging 38, 1858–1874. doi: 10.1109/TMI.2019.2901398 .Bolya, D., Fu, C.Y., Dai, X., Zhang, P., Feichtenhofer, C., Hoffman, J., 2023. Token merging: Your vit but faster, in: International Conference on Learning Representations. URL: https://openreview.net/forum?id= JroZRaRw7Eu .Burlina, P.M., Joshi, N., Pekala, M., Pacheco, K.D., Freund, D.E., Bressler, N.M., 2017. Automated grading of age-related macular degeneration from color fundus images using deep convolutional neural networks. JAMA Ophthalmol. 135, 1170–1176. doi: 10.1001/jamaophthalmol.2017. 3782 .Chaudhry, A., Rohrbach, M., Elhoseiny, M., Ajanthan, T., Dokania, P., Torr, P., Ranzato, M., 2019. Continual learning with tiny episodic memories, in: Workshop on Multi-Task and Lifelong Re-inforcement Learning. URL: https://ora.ox.ac.uk/objects/uuid% 3A6e7580c4-85c9-4874-a52d-e4184046935c .Chia, M.A., Antaki, F., Zhou, Y., Turner, A.W., Lee, A.Y., Keane, P.A., 2024. Foundation models in ophthalmology. Br. J. Ophthalmol. 108, 1341–1348. doi: 10.1136/bjo-2024-325459 .Chrysakis, A., Moens, M.F., 2020. Online continual learning from imbalanced data, in: Proceedings of the International Conference on Machine Learning (PMLR 119), PMLR. pp. 1952–1961. URL: https: //proceedings.mlr.press/v119/chrysakis20a.html .Decencière, E., Zhang, X., Cazuguel, G., Lay, B., Cochener, B., Trone, C., Gain, P., Ordóñez-Varela, J.R., Massin, P., Erginay, A., et al., 2014. Feed-back on a publicly distributed image database: the messidor database. Image Anal. Stereol. 33, 231–234. doi: 10.5566/ias.1155 .Derakhshani, M.M., Najdenkoska, I., van Sonsbeek, T., Zhen, X., Mahap-atra, D., Worring, M., Snoek, C.G., 2022. Lifelonger: A benchmark for continual disease classification, in: International conference on medical image computing and computer-assisted intervention, Springer. pp. 314– 324. doi: 10.1007/978-3-031-16434-7_31 .Fu, H., Li, F., Orlando, J.I., Bogunović, H., Sun, X., Liao, J., Xu, Y., Zhang, S., Zhang, X., 2020. [dataset] adam: Automatic detection challenge on age-related macular degeneration. IEEE Dataport. doi: 10.21227/ dt4f-rt59 .González, C., Ranem, A., Pinto dos Santos, D., Othman, A., Mukhopad-hyay, A., 2023. Lifelong nnu-net: a framework for standardized medical continual learning. Sci. Rep. 13, 9381. doi: 10.1038/s41598-023-34484-2 .Gulshan, V., Peng, L., Coram, M., Stumpe, M.C., Wu, D., Narayanaswamy, A., Venugopalan, S., Widner, K., Madams, T., Cuadros, J., et al., 2016. Development and validation of a deep learning algorithm for detection of diabetic retinopathy in retinal fundus photographs. JAMA 316, 2402– 2410. doi: 10.1001/jama.2016.17216 .Houlsby, N., Giurgiu, A., Jastrzebski, S., Morrone, B., De Laroussilhe, Q., Gesmundo, A., Attariyan, M., Gelly, S., 2019. Parameter-efficient transfer learning for nlp, in: Proceedings of the International Conference on Machine Learning (PMLR 97), PMLR. pp. 2790–2799. URL: https: //proceedings.mlr.press/v97/houlsby19a.html .Hu, E.J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., Chen, W., 2022. LoRA: Low-rank adaptation of large language models, in: International Conference on Learning Representations. URL: https: //openreview.net/forum?id=nZeVKeeFYf9 .Hu, Y., Gao, Y., Gao, W., Luo, W., Yang, Z., Xiong, F., Chen, Z., Lin, Y., Xia, X., Yin, X., et al., 2024. Amd-sd: An optical coherence tomography image dataset for wet amd lesions segmentation. Sci. Data 11, 1014. doi: 10.1038/s41597-024-03844-6 .Jia, M., Tang, L., Chen, B.C., Cardie, C., Belongie, S., Hariharan, B., Lim, S.N., 2022. Visual prompt tuning, in: European conference on computer vision, Springer. pp. 709–727. doi: 10.1007/978-3-031-19827-4_41 .Jiang, J., Liu, X., Zhang, K., Long, E., Wang, L., Li, W., Liu, L., Wang, S., Zhu, M., Cui, J., et al., 2017. Automatic diagnosis of imbalanced ophthalmic images using a cost-sensitive deep convolutional neural network. Biomed. Eng. Online 16, 132. doi: 10.1186/s12938-017-0420-1 .Kim, C.D., Jeong, J., Kim, G., 2020. Imbalanced continual learning with partitioning reservoir sampling, in: European conference on computer vision, Springer. pp. 411–428. doi: 10.1007/978-3-030-58601-0_25 .Kirkpatrick, J., Pascanu, R., Rabinowitz, N., Veness, J., Desjardins, G., Rusu, A.A., Milan, K., Quan, J., Ramalho, T., Grabska-Barwinska, A., et al., 2017. Overcoming catastrophic forgetting in neural networks. Proc. Natl. Acad. Sci. U.S.A. 114, 3521–3526. doi: 10.1073/pnas. 1611835114 .Lee, C.S., Lee, A.Y., 2020. Clinical applications of continual learning machine learning. Lancet Digit. Health 2, e279–e281. doi: 10.1016/ S2589-7500(20)30102-3 .Lester, B., Al-Rfou, R., Constant, N., 2021. The power of scale for parameter-efficient prompt tuning, in: Proceedings of the 2021 confer-ence on empirical methods in natural language processing, pp. 3045– 3059. doi: 10.18653/v1/2021.emnlp-main.243 .Li, K., Yu, L., Heng, P.A., 2022. Domain-incremental cardiac image segmentation with style-oriented replay and domain-sensitive feature whitening. IEEE Trans. Med. Imaging 42, 570–581. doi: 10.1109/TMI. 2022.3211195 .Li, K., Zhu, Y., Yu, L., Heng, P.A., 2024. A dual enrichment synergistic strategy to handle data heterogeneity for domain incremental cardiac segmentation. IEEE Trans. Med. Imaging 43, 2279–2290. doi: 10.1109/ TMI.2024.3364240 .Li, L., Zhou, D.W., Ye, H.J., Zhan, D.C., 2025. Addressing imbalanced domain-incremental learning through dual-balance collaborative ex-perts, in: Forty-second International Conference on Machine Learning (PMLR 267), PMLR. pp. 36974–36992. URL: https://proceedings. mlr.press/v267/li25eb.html .Li, N., Li, T., Hu, C., Wang, K., Kang, H., 2020. A benchmark of ocular disease intelligent recognition: One shot for multi-disease detection, in: International symposium on benchmarking, measuring and optimiza-tion, Springer. pp. 177–193. doi: 10.1007/978-3-030-71058-3_11 .Li, Z., Hoiem, D., 2017. Learning without forgetting. IEEE Trans. Pattern Anal. Mach. Intell. 40, 2935–2947. doi: 10.1109/TPAMI.2017.2773081 .Liu, X., Hu, Y.S., Cao, X.S., Bagdanov, A.D., Li, K., Cheng, M.M., 2022. Long-tailed class incremental learning, in: European conference on com-puter vision, Springer. pp. 495–512. doi: 10.1007/978-3-031-19827-4_29 .Lopez-Paz, D., Ranzato, M., 2017. Gradient episodic memory for continual learning. Advances in Neural Information Processing Systems 30. URL: https://proceedings.neurips.cc/paper/2017/hash/ f87522788a2be2d171666752f97ddebb-Abstract.html .
+
+Nanxi Yu et al.: Preprint Page 13 of 14 ToRe 
+
+Luo, Y., Li, W., Chen, C., Li, X., Liu, T., Niu, T., Yuan, Y., 2025. Llm-guided decoupled probabilistic prompt for continual learning in medical image diagnosis. IEEE Trans. Med. Imaging 44, 3439–3450. doi: 10. 1109/TMI.2025.3566105 .Meisel, M., Cohen, B.A., Baskin, M., Tiosano, B., Behar, J.A., Berkowitz, E., 2025. Hyamd high-resolution fundus image dataset for age related macular degeneration (amd) diagnosis. arXiv preprint arXiv:2505.04230 doi: 10.48550/arXiv.2505.04230 .Menon, A.K., Jayasumana, S., Rawat, A.S., Jain, H., Veit, A., Kumar, S., 2021. Long-tail learning via logit adjustment, in: International Conference on Learning Representations. URL: https://openreview. net/forum?id=37nvvqkCo5 .Nikoloutsopoulos, S., Koutsopoulos, I., Titsias, M., 2022. Online continual learning from imbalanced data with kullback-leibler-loss based replay buffer updates, in: Human in the Loop Learning (HiLL) workshop, in Conference on Neural Information Processing Systems (NeurIPS). URL: 
+
+> https://mm.aueb.gr/leadingedge/pubs/2022_NeurIPS-HILL.pdf
+
+.Parisi, G.I., Kemker, R., Part, J.L., Kanan, C., Wermter, S., 2019. Continual lifelong learning with neural networks: A review. Neural Netw. 113, 54–71. doi: 10.1016/j.neunet.2019.01.012 .Perkonigg, M., Hofmanninger, J., Herold, C.J., Brink, J.A., Pianykh, O., Prosch, H., Langs, G., 2021. Dynamic memory to alleviate catastrophic forgetting in continual learning with medical imaging. Nat. Commun. 12, 5678. doi: 10.1038/s41467-021-25858-z .Porwal, P., Pachade, S., Kamble, R., Kokare, M., Deshmukh, G., Sa-hasrabuddhe, V., Meriaudeau, F., 2018. Indian diabetic retinopathy image dataset (idrid): a database for diabetic retinopathy screening research. Data 3, 25. doi: 10.3390/data3030025 .Rao, Y., Zhao, W., Liu, B., Lu, J., Zhou, J., Hsieh, C.J., 2021. Dy-namicvit: Efficient vision transformers with dynamic token sparsi-fication. Advances in Neural Information Processing Systems 34, 13937–13949. URL: https://proceedings.neurips.cc/paper/2021/hash/ 747d3443e319a22747fbb873e8b2f9f2-Abstract.html .Rebuffi, S.A., Kolesnikov, A., Sperl, G., Lampert, C.H., 2017. icarl: Incre-mental classifier and representation learning, in: 2017 IEEE conference on computer vision and pattern recognition (CVPR), IEEE. pp. 5533– 5542. doi: 10.1109/CVPR.2017.587 .Shazeer, N., Mirhoseini, A., Maziarz, K., Davis, A., Le, Q., Hinton, G., Dean, J., 2017. Outrageously large neural networks: The sparsely-gated mixture-of-experts layer, in: International Conference on Learning Representations. URL: https://openreview.net/forum?id=B1ckMDqlg .Shi, D., Zhang, W., Chen, X., Liu, Y., Yang, J., Huang, S., Tham, Y.C., Zheng, Y., He, M., 2024. Eyefound: a multimodal generalist foundation model for ophthalmic imaging. arXiv preprint arXiv:2405.11338 doi: 10. 48550/arXiv.2405.11338 .Smith, J.S., Karlinsky, L., Gutta, V., Cascante-Bonilla, P., Kim, D., Arbelle, A., Panda, R., Feris, R., Kira, Z., 2023. Coda-prompt: Continual decom-posed attention-based prompting for rehearsal-free continual learning, in: 2023 IEEE/CVF conference on computer vision and pattern recog-nition (CVPR), IEEE. pp. 11909–11919. doi: 10.1109/CVPR52729.2023. 01146 .Srivastava, S., Yaqub, M., Nandakumar, K., Ge, Z., Mahapatra, D., 2021. Continual domain incremental learning for chest x-ray classification in low-resource clinical settings, in: MICCAI Workshop on Domain Adaptation and Representation Transfer, Springer. pp. 226–238. doi: 10. 1007/978-3-030-87722-4_21 .Steinmetz, J.D., Bourne, R.R., Briant, P.S., Flaxman, S.R., Taylor, H.R., Jonas, J.B., Abdoli, A.A., Abrha, W.A., Abualhasan, A., Abu-Gharbieh, E.G., et al., 2021. Causes of blindness and vision impairment in 2020 and trends over 30 years, and prevalence of avoidable blindness in relation to vision 2020: the right to sight: an analysis for the global burden of disease study. Lancet Glob. Health 9, e144–e160. doi: 10.1016/S2214-109X(20) 30489-7 .Van de Ven, G.M., Tuytelaars, T., Tolias, A.S., 2022. Three types of incremental learning. Nat. Mach. Intell. 4, 1185–1197. doi: 10.1038/ s42256-022-00568-3 .Verma, T., Jin, L., Zhou, J., Huang, J., Tan, M., Choong, B.C.M., Tan, T.F., Gao, F., Xu, X., Ting, D.S., et al., 2023. Privacy-preserving continual learning methods for medical image classification: a comparative anal-ysis. Front. Med. 10, 1227515. doi: 10.3389/fmed.2023.1227515 .Wang, L., Xie, J., Zhang, X., Su, H., Zhu, J., 2025. Hide-pet: continual learning via hierarchical decomposition of parameter-efficient tuning. IEEE Trans. Pattern Anal. Mach. Intell. 47, 6687–6702. doi: 10.1109/ TPAMI.2025.3562534 .Wang, Y., Huang, Z., Hong, X., 2022a. S-prompts learning with pre-trained transformers: An occam’s razor for domain incremental learning. Advances in Neural Information Processing Systems 35, 5682–5695. doi: 10.52202/068431-0411 .Wang, Z., Zhang, Z., Ebrahimi, S., Sun, R., Zhang, H., Lee, C.Y., Ren, X., Su, G., Perot, V., Dy, J., et al., 2022b. Dualprompt: Comple-mentary prompting for rehearsal-free continual learning, in: European conference on computer vision, Springer. pp. 631–648. doi: 10.1007/ 978-3-031-19809-0_36 .Wang, Z., Zhang, Z., Lee, C.Y., Zhang, H., Sun, R., Ren, X., Su, G., Perot, V., Dy, J., Pfister, T., 2022c. Learning to prompt for continual learning, in: 2022 IEEE/CVF conference on computer vision and pattern recognition (CVPR), IEEE. pp. 139–149. doi: 10.1109/CVPR52688.2022. 00024 .Wu, X., Xu, Z., Tong, R.K.y., 2024. Continual learning in medical image analysis: A survey. Comput. Biol. Med. 182, 109206. doi: 10.1016/j. compbiomed.2024.109206 .Yin, H., Vahdat, A., Alvarez, J.M., Mallya, A., Kautz, J., Molchanov, P., 2022. A-vit: Adaptive tokens for efficient vision transformer, in: 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), IEEE. pp. 10799–10808. doi: 10.1109/CVPR52688.2022.01054 .Yin, P., Lyu, J., Zhang, S., Osher, S.J., Qi, Y., Xin, J., 2019. Understanding straight-through estimator in training activation quantized neural nets, in: International Conference on Learning Representations. URL: https: //openreview.net/forum?id=Skh4jRcKQ .Zhang, W., Chotcomwongse, P., Li, Y., Xu, P., Yao, R., Zhou, L., Zhou, Y., Feng, H., Zhou, Q., Wang, X., et al., 2026. Predicting diabetic macular edema treatment responses using oct: Dataset and methods of aptos competition. Med. Image Anal. 109, 103942. doi: 10.1016/j.media. 2026.103942 .Zhang, W., Huang, Y., Zhang, T., Zou, Q., Zheng, W.S., Wang, R., 2023a. Adapter learning in pretrained feature extractor for continual learning of diseases, in: International conference on medical image computing and computer-assisted intervention, Springer. pp. 68–78. doi: 10.1007/ 978-3-031-43895-0_7 .Zhang, Y., Li, X., Chen, H., Yuille, A.L., Liu, Y., Zhou, Z., 2023b. Continual learning for abdominal multi-organ and tumor segmenta-tion, in: International conference on medical image computing and computer-assisted intervention, Springer. pp. 35–45. doi: 10.1007/ 978-3-031-43895-0_4 .Zhou, Y., Chia, M.A., Wagner, S.K., Ayhan, M.S., Williamson, D.J., Struyven, R.R., Liu, T., Xu, M., Lozano, M.G., Woodward-Court, P., et al., 2023. A foundation model for generalizable disease detection from retinal images. Nature 622, 156–163. doi: 10.1038/s41586-023-06555-x .Zhu, Y., Li, K., Yu, L., Heng, P.A., 2024. Memory-efficient prompt tuning for incremental histopathology classification, in: Proceedings of the AAAI Conference on Artificial Intelligence, pp. 7802–7810. doi: 10. 1609/aaai.v38i7.28615 .
+
+Nanxi Yu et al.: Preprint Page 14 of 14
