@@ -1,0 +1,266 @@
+Title: Can large language models unlock discrete data in ophthalmic diagnostic reports?
+
+URL Source: https://arxiv.org/pdf/2610.00795v1
+
+Published Time: Fri, 02 Oct 2026 00:38:05 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+1
+
+# Can large language models unlock discrete data in ophthalmic diagnostic reports? 
+
+Umair A. Zaidi 1; An-Lun Wu, MD 2; Wei-Chun Lin, MD, PhD 2; Thomas S. Hwang, MD 2; Michelle R. Hribar, PhD 2,3 
+
+> 1
+
+Division of Informatics, Clinical Epidemiology and Translational Data Science, Oregon Health & Science University, Portland, OR 
+
+> 2
+
+Casey Eye Institute, Department of Ophthalmology, Oregon Health & Science University, Portland, OR 
+
+> 3
+
+Department of Ophthalmology and Visual Sciences, University of Illinois Chicago, Chicago, IL 
+
+Correspondence: Michelle R. Hribar, PhD, 1747 W Roosevelt Rd, Rm. 247, Chicago, IL 60608 
+
+Presented at the Association for Research in Vision and Ophthalmology (ARVO) Annual Meeting, Denver, Colorado, May 4, 2026. 
+
+## Abstract 
+
+Objective: To assess the accuracy and efficiency of a large language model (LLM) using two prompt strategies for extracting structured data from ophthalmic diagnostic reports in portable document format (PDF). 
+
+Design: Evaluation of Technology and Software 
+
+Subjects, Participants, and/or Controls: Twenty deidentified diagnostic reports comprising visual field and three optical coherence tomography (OCT) report types. 
+
+Methods, Intervention, or Testing: Structured data from twenty de-identified diagnostic reports (Visual Field, OCT Glaucoma Overview, OCT retinal nerve fiber layer (RNFL) Single Exam, OCT Thickness Map; n = 5 each) were extracted using two different GPT-4o-assisted pipelines and were evaluated against a consensus ground truth from manual abstraction. The first pipeline, Schema-Constrained, used Structured Output mode with a predefined JSON Schema and minimal prompt to return schema-compliant JSON directly. The second pipeline, Prompt-Only, extracted text according to a detailed instruction prompt producing a key –value string that was converted to JSON using Python. 
+
+Main Outcome Measures: Value accuracy, formatting accuracy, and extraction time. 
+
+Results: Schema-Constrained achieved 100.00% value accuracy for Visual Field and RNFL Single Exam, 97.45% ± 5.69% for Glaucoma Overview, and 98.00% ± 4.47% for Thickness Map; Prompt-Only achieved 100.00% across all four report types. Formatting accuracy was 100.00% for Schema-Constrained across all report types, and 100.00% for Prompt-Only except RNFL Single Exam (90.14% ± 5.98%). Mean per-report extraction time was 56.51 s for manual review versus 5.04 s (Schema-Constrained) and 4.70 s (Prompt-Only), an ~92% reduction. 
+
+Conclusions: In this small proof-of-concept dataset, general-purpose LLM-assisted pipelines extracted structured data from ophthalmic diagnostic PDFs with high accuracy and substantially reduced processing time. Under the tested configuration, Prompt-Only achieved the highest value accuracy, while Schema-Constrained produced schema-compliant output with 100% formatting accuracy. These complementary strengths support further evaluation of hybrid, validation-aware workflows for research and clinical data abstraction. 
+
+Keywords: large language models; optical coherence tomography; data extraction; interoperability; natural language processing; visual fields 
+
+## Introduction 
+
+Ophthalmic diagnostics such as automated perimetry (visual fields) and optical coherence tomography (OCT) provide quantitative measures that are integral to clinical decision-making and research. In glaucoma, functional loss on visual field testing and structural change in the retinal nerve fiber layer (RNFL), optic nerve head, and macula measured by OCT are used together for diagnosis, risk stratification, treatment targets, and longitudinal monitoring. 1 In retinal disease, OCT is a standard imaging modality for diagnosing and monitoring age-related macular degeneration, diabetic retinopathy, and other maculopathies. OCT-derived biomarkers such as central subfield thickness and nerve fiber layer thickness guide therapy decisions and assessment of the response. 2,3 
+
+Despite their clinical importance, the discrete data within these diagnostics are often contained only in human-readable reports, commonly portable document format (PDFs), that are not readily machine-readable or interoperable across systems. Device vendors frequently use proprietary formats, and report layouts can vary by model and software version, complicating automated extraction and aggregation. The American Academy of Ophthalmology and others have explicitly called for adoption of existing standards (e.g., DICOM) and development of ophthalmology-specific implementation guides to enable seamless data exchange with electronic health records (EHRs) and registries. 4–6 Traditional deterministic approaches (rule-based templates or 2
+
+OCR pipelines) can work when formats are fixed, but they are brittle to layout changes over time and heterogeneous designs between devices that are common in real-world practice. 7,8 As a result, discrete data from these reports are often not directly integrated into EHRs, limiting their potential for clinical decision support, big data analysis, or quality monitoring and improvement. 
+
+Recent advances in large language models (LLMs) present an opportunity to bridge this gap by transforming semi-structured or unstructured clinical text into machine-readable, structured outputs. In non-ophthalmic domains, LLM-based systems have achieved strong performance in extracting structured data from clinical notes and radiology reports and even mapping content into standards such as HL7-FHIR. 9–12 Within ophthalmology, natural language processing (NLP) has been highlighted as a promising yet still emerging approach for leveraging the rich unstructured data generated in care, and early studies are beginning to demonstrate feasibility of LLMs for extracting key variables from ophthalmic documentation. 13,14 However, these efforts have predominantly targeted free-text clinical notes, extracting variables such as visual acuity, intraocular pressure, and disease diagnoses from narrative provider documentation. 13 Diagnostic imaging reports represent a distinct document class: they are device-generated, vendor-specific PDFs containing dense numeric fields organized by anatomic sector and laterality within fixed visual layouts, rather than narrative prose. Extracting structured data from these reports requires preserving precise field-to-value associations across heterogeneous templates, a challenge that has received little attention in ophthalmic NLP to date. 
+
+In this study, we present a proof-of-concept evaluation of LLM-assisted extraction from ophthalmic diagnostic reports using two different prompting strategies, focusing on both accuracy and consistency of extracted values. By demonstrating the feasibility of this approach, we aim to highlight the potential of LLMs to enhance research, clinical workflows, and interoperability in ophthalmology. 
+
+## Methods 
+
+Study Setting 
+
+This study was conducted at the Casey Eye Institute, Oregon Health & Science University (OHSU), using a subset of ophthalmic diagnostic reports. The project was designed as a proof-of-concept evaluation of automated data extraction using large language models (LLMs). This study adhered to the tenets of the Declaration of Helsinki and was approved by the Institutional Review Board at OHSU (STUDY00026815) and by the AI Governance Committee. 
+
+Diagnostic Reports 
+
+A total of 20 diagnostic reports were sampled from the ophthalmic Picture Archiving and Communication System Continuum (Integrated Ophthalmic Systems, Inc., Woburn, Massachusetts). We sampled 5 each of 4 report types: Single Field Analysis from Humphrey Field Analyzer (Zeiss Oberkochen, Germany) and OCT Glaucoma Overview, OCT Retinal Nerve Fiber Layer Single Exam, and OCT Thickness Map generated by Spectralis OCT (Heidelberg, Germany). We included only reports in PDF format with machine-readable embedded texts to enable direct text extraction. Reports consisting solely of scanned images were excluded, as image-based parsing was outside the scope of this study. All reports were de-identified prior to analysis by removing the 18 HIPAA identifiers, including patient name, medical record number, date of birth, and exam date, from both the PDF metadata and the visible report fields. De-identification was verified by a second reviewer before the reports entered the extraction pipeline. The specific clinical data fields targeted for extraction are listed in Table 1. 3
+
+Table 1. Clinical data fields targeted for extraction. Abbreviations: OS = Oculus Sinister; OD = Oculus Dexter; GHT = Glaucoma Hemifield Test; VFI = Visual Field Index; MD = Mean Deviation; PSD = Pattern Standard Deviation; OCT = Optical Coherence Tomography; BMO = Bruch's Membrane Opening; MRW = Minimum Rim Width; RNFL = Retinal Nerve Fiber Layer; RNFLT = Retinal Nerve Fiber Layer Thickness; HAAT = Horizontal Angle Asymmetry Test; directional sectors: S = Superior, N = Nasal, T = Temporal, I = Inferior; compound sectors: NS = Nasal-Superior, TS = Temporal-Superior, NI = Nasal-Inferior, TI = Temporal-Inferior; G = Global.      
+
+> Report Type Field Name
+> Visual Field Eye OS/OD
+> Pupil Diameter
+> Test Type, Strategy, Fovea, Fixation Monitor, Fixation Target
+> Fixation Losses, False Positive Errors, False Negative Errors
+> GHT, VFI, MD, PSD
+> Threshold Value Points
+> OCT Glaucoma Overview Eye: OS/OD
+> Circle Diameter, BMO Area
+> MRW Values (NS, TS, N, G, T, NI, TI), MRW Classification
+> RNFLT Values (NS, TS, N, G, T, TI, NI), RNFLT Classification
+> HAAT (Superior, Inferior)
+> OCT RNFL Single Exam Eye: OS/OD
+> Circle Diameter, BMO Area
+> RNFL Thickness by Sector 1 (S, N, T, I)
+> RNFL Thickness by Sector 2 (NS, TS, N, G, T, TI, NI)
+> Classification
+> OCT Thickness Map Eye: OS/OD
+> Circle Diameter
+
+Manual Data Extraction (Ground Truth) 
+
+Manual transcription was performed by a trained research assistant with prior experience in ophthalmic data abstraction. Each report was reviewed in Adobe Acrobat Pro, and data values were transcribed into Microsoft Excel. The primary transcription was independently verified by two additional reviewers (A.W. and U.Z.), who compared each field against the source PDF. Discrepancies identified during verification were resolved by consensus, and the reconciled dataset was designated as the ground truth. The time required for manual extraction was measured using a stopwatch. 
+
+Automated Parsing Workflows 
+
+We implemented two different automated parsing workflows using plain text extracted from the PDF reports. Plain text was extracted from each PDF using the pdfplumber and PyMuPDF (fitz) Python libraries, which preserves reading order and numeric tokens from embedded text layers. No OCR was applied, as all reports contained machine-readable text. Page headers, footers, and device watermarks were retained as-is before submission to the model. No normalization of units, minus signs, or laterality codes (OS/OD) was performed prior to LLM input; these conventions were handled by the model according to the prompt or schema specification. Fields not present in a given report were returned as null by the model. The same extracted text string was supplied to both pipelines to ensure a fair comparison. An overview of the end-to-end workflow, from PDF text extraction to LLM parsing and output, is shown in Figure 1. 4 
+
+> Figure 1. Pipeline overview for LLM-assisted extraction. Plain text is extracted from diagnostic PDFs with a Python tool, then processed via two branches: Prompt-Only Parsing (prompted LLM returns a key –value string that is subsequently converted to JSON) and Schema-Constrained Parsing (LLM returns schema-compliant JSON using a predefined schema and minimal prompt).
+
+The extracted text was then processed using two distinct pipelines: 
+
+Schema-Constrained Parsing: Extracted text was submitted to GPT-4o using Structured Output mode. In this pipeline, the model was provided with a predefined JSON Schema and a minimal prompt (Figure 2). The output was a valid, schema-compliant JSON file, eliminating the need for additional formatting or text-to-JSON conversion (Figure 3). 5
+
+Figure 2. Schema-Constrained configuration. Minimal prompt and excerpt of the predefined JSON Schema used with Structured Output mode to enforce field names, types, and structure. 
+
+Figure 3. Schema-Constrained output example (RNFL Single Exam). Representative JSON showing valid, schema-compliant fields and values. 
+
+Prompt-Only Parsing: Extracted text was submitted to GPT-4o along with a detailed instruction prompt (Figure 4). The prompt specified the target fields and output conventions and returned loosely structured key-value text requiring post-processing (Figure 5). 6  
+
+> Figure 4. Prompt-Only configuration. System and user prompts specifying target fields and formatting for key-value text output.
+> Figure 5. Prompt-Only output example (RNFL Single Exam). Representative key-value string produced by the Prompt-Only method prior to rule-based conversion to JSON.
+
+Evaluation Metrics 
+
+The 20 reports were processed five times each with both parsing pipelines (prompt-only parsing and schema-constrained parsing). For any pipeline –report-type combination achieving less than 100% accuracy, discrepant fields were reviewed against the source PDF and ground truth. Each discrepancy was classified as a value error or a formatting error. Error frequency and affected fields were tabulated by report type and pipeline to identify systematic patterns. 
+
+Value Accuracy (684 data points per trial): The proportion of extracted values that matched the ground truth. Only the value component of each key-value pair was assessed. 
+
+Formatting Accuracy (1,368 data points per trial): The proportion of extracted values whose formatting (e.g., units, punctuation, field structure) matched the ground truth. Both the key and value components of each key-value pair were evaluated. 
+
+Extraction Time (20 data points per trial): The total time required for parsing each report. 
+
+All LLM processing was conducted using the GPT-4o model via the OpenAI API; no local installations or fine-tuning were performed. 
+
+## Results 
+
+Dataset and runs. Twenty de-identified diagnostic reports were analyzed (Visual Field, OCT Glaucoma Overview, OCT RNFL Single Exam, OCT Thickness Map; n = 5 each). Each report was processed five times per method (Prompt-Only and Schema-Constrained). Target fields are listed in Table 1. 
+
+Value accuracy. Initial manual transcription value accuracy was 98.32% for Visual Field, 99.13% for Glaucoma Overview, 95.17% for RNFL Single Exam, and 100.00% for Thickness Map. Schema-Constrained achieved 100.00% ± 0.00% value accuracy for Visual Field and OCT RNFL Single Exam reports. For Glaucoma Overview, Schema-Constrained achieved 97.45% ± 5.69% due to incorrectly extracted numeric values. For Thickness Map, Schema-Constrained achieved 98.00% ± 4.47% due to laterality confusion, in which OS values were assigned to the OD field and vice versa. Prompt-Only parsing achieved 100.00% ± 0.00% value accuracy across all report types (Table 2).                 
+
+> Table 2. Value accuracy (mean ± standard deviation, %) per report type by abstraction method: Manual, Schema-Constrained, and Prompt-Only. Abbreviations: OCT = optical coherence tomography; RNFL = retinal nerve fiber layer.
+> Type of Report Manual Schema-Constrained Prompt-Only
+> Visual Field 98.32% 100.00% ± 0.00% 100.00% ± 0.00%
+> OCT Glaucoma Overview 99.13% 97.45% ± 5.69% 100.00% ± 0.00%
+> OCT RNFL Single Exam 95.17% 100.00% ± 0.00% 100.00% ± 0.00%
+> OCT Thickness Map 100.00% 98.00% ± 4.47% 100.00% ± 0.00%
+
+Formatting accuracy. Manual transcription formatting accuracy was 99.16% for Visual Field and 100.00% for all other report types. Schema-Constrained parsing achieved 100.00% ± 0.00% formatting accuracy across all report types. Prompt-Only parsing achieved 100.00% ± 0.00% for Visual Field, Glaucoma Overview, and Thickness Map, and 90.14% ± 5.98% for RNFL Single Exam. The errors in RNFL reports came from omission 7
+
+of a required space between section headings and their values (e.g., "Sector Map:S:105" instead of the expected "Sector Map: S:105") (Table 3).                 
+
+> Table 3. Formatting accuracy (mean ± standard deviation, %) per report type by abstraction method: Manual, Schema-Constrained, and Prompt-Only. Abbreviations: OCT = optical coherence tomography; RNFL = retinal nerve fiber layer.
+> Type of Report Manual Schema-Constrained Prompt-Only
+> Visual Field 99.16% 100.00% ± 0.00% 100.00% ± 0.00%
+> OCT Glaucoma Overview 100.00% 100.00% ± 0.00% 100.00% ± 0.00%
+> OCT RNFL Single Exam 100.00% 100.00% ± 0.00% 90.14% ± 5.98%
+> OCT Thickness Map 100.00% 100.00% ± 0.00% 100.00% ± 0.00%
+
+Extraction time. Manual extraction times ranged from 11.09 s (Thickness Map) to 82.34 s (Visual Field), with a mean of 56.51 s per report. Schema-Constrained averaged 5.04 s per report (range 2.82 –7.75 s), and Prompt-Only averaged 4.70 s (range 1.93 –7.23 s), corresponding to mean reductions of ~92% vs. manual for both methods (Table 4).                 
+
+> Table 4. Mean extraction time (seconds ± standard deviation) per report by abstraction method: Manual, Schema-Constrained, and Prompt-Only. Abbreviations: OCT = optical coherence tomography; RNFL = retinal nerve fiber layer.
+> Type of Report Manual (s) Schema-Constrained (s) Prompt-Only (s)
+> Visual Field 82.34 4.64 ± 1.08 7.23 ± 3.35
+> OCT Glaucoma Overview 64.27 4.94 ± 1.74 4.31 ± 0.87
+> OCT RNFL Single Exam 68.35 7.75 ± 2.56 5.31 ± 0.88
+> OCT Thickness Map 11.09 2.82 ± 0.89 1.93 ± 0.46
+
+## Discussion 
+
+Summary 
+
+This proof-of-concept study demonstrates that a general-purpose LLM can accurately and efficiently extract structured data from ophthalmic diagnostic reports, producing machine-readable outputs from PDF reports. 
+
+LLM parsing may offer a practical alternative to manual abstraction 
+
+Due to incomplete adoption of data standards and challenges in integration and interoperability, discrete data from ophthalmic diagnostics are often not directly integrated into the EHR. 15 While manual transcription is sometimes used for clinical use, this process is labor-intensive, time-consuming, and prone to error, making it unsuitable for large datasets. 16 Studies have shown that human transcription error rates can exceed 20% even under double-review protocols, and manual extractors account for over a quarter of all discrepancies when compared with automated methods. 17,18 
+
+In this study, automated parsing reduced mean per-report processing time by approximately 92% while maintaining high accuracy compared with the reconciled consensus ground truth. These findings suggest that general-purpose LLMs can achieve high accuracy in extracting structured values from semi-structured clinical reports in this pilot setting, offering a viable alternative to manual transcription. Comparable improvements have been observed in other domains: NLP systems for breast-cancer recurrence and medication abstraction have achieved equivalent or superior accuracy while reducing manual chart-review volume by nearly 90% and producing data consistent with manual abstraction for most inpatient medications. 17,19 These performance gains suggest potential operational benefits. General-purpose LLMs can process reports at scale, and in doing so shift human effort from transcription toward targeted validation and quality control. 16,18 This scalability supports rapid dataset creation for both retrospective analyses and prospective studies, facilitating faster research cycles and continuous dataset updates with limited staff involvement. 19 
+
+Performance was consistent across the four report formats tested, suggesting that the approach may be adaptable to additional report types with limited engineering 
+
+The LLM system evaluated in this study achieved high performance across four distinct diagnostic report types (Visual Field, OCT Glaucoma Overview, OCT RNFL Single Exam, and OCT Thickness Map) demonstrating 100% formatting accuracy for Schema-Constrained across all four report types and 100% formatting accuracy for Prompt-Only on three report types (90.14% for RNFL Single Exam) without model fine-tuning or architecture changes. While the target fields for extraction were tailored to each report format, the overall system design, 8
+
+including prompt structure and parsing strategy, remained unchanged. This adaptability suggests that similar pipelines may be deployable across heterogeneous imaging devices or evolving software versions with limited development overhead. Adapting the pipeline to new report formats could require relatively minor modifications rather than extensive system redevelopment, supporting scalable implementation in both research and clinical settings. 
+
+This portability has practical implications for scaling structured data extraction pipelines in real-world ophthalmology environments, where imaging devices and software versions can vary across and within institutions. Systems that require minimal engineering effort to accommodate new formats reduce implementation barriers and speed up deployment timelines. 20 Moreover, adaptability across distinct input styles may mitigate the brittleness often associated with deterministic rule-based approaches, which can fail when faced with layout or phrasing variation. 7,8,21 These findings complement prior work in other clinical domains that also underscore the potential of general-purpose LLMs to perform robustly across heterogeneous clinical document types without retraining. 10,11,19 
+
+This approach may facilitate standardization and interoperability by converting heterogeneous report content into structured, machine-readable data 
+
+The structured outputs produced by this pipeline also point toward broader goals of data standardization and interoperability in ophthalmology. By converting human-readable diagnostic PDFs into machine-readable formats (e.g., JSON or key –value representations), systems like the one evaluated here could, in principle, facilitate data exchange among EHRs, registries, research databases, and other downstream systems. 4–7
+
+Because these outputs are structured and timestamped, they could support auditability and reproducibility and may facilitate compliance with applicable regulatory requirements. 22,23 In clinical practice, this could enable automated population of structured fields, longitudinal tracking of disease metrics, and integration of extracted diagnostic data into downstream decision-support systems. 8,23 Because the system can parse multiple report formats and consistently output structured representations, these outputs could serve as an intermediate step toward mapping vendor-specific report data to interoperability standards such as DICOM attributes or HL7 FHIR resources. 7
+
+These same properties can also benefit research. Retrospective studies often rely on harmonizing large volumes of imaging data generated across devices, software versions, and time periods. Structured extraction could enable aggregation of heterogeneous data into analyzable cohorts —supporting retrospective registry construction, multisite research collaboration, and large-scale quality improvement initiatives. 4,23,24 
+
+Taken together, these capabilities lay the groundwork for more connected, scalable, and standards-aligned ophthalmic data infrastructure across both clinical and research domains. 
+
+Limitations and Future Directions 
+
+This initial pilot study used a small sample (n = 20) of de-identified reports intentionally selected for embedded machine-readable text; scanned image PDFs and handwritten annotations were excluded. Only one model (GPT-4o) and two prompting strategies were evaluated. Additionally, this study evaluated four report types at one institution, and performance may differ across models, institutions, vendors, and report formats. Despite evaluating only GPT-4o, we observed consistently high accuracy across the tested report types. Future work should investigate whether these findings extend to newer models. 
+
+These constraints limit generalizability but also demonstrate feasibility with minimal configuration. Future work will expand evaluation to larger and more diverse datasets, incorporate OCR and multimodal pipelines for image-only reports, and compare alternative models on accuracy, latency, and cost. Prospective testing in real-world environments will further assess robustness and the potential of LLM-assisted parsing to streamline ophthalmic data integration at scale. 
+
+In this pilot evaluation, LLM-assisted parsing extracted discrete data from human-readable ophthalmic diagnostic PDFs with high accuracy and substantially reduced processing time. These findings support further investigation of schema-guided extraction and targeted validation as potential steps toward closing the long-standing interoperability gap in ophthalmic research and patient care. 
+
+## Funding 
+
+Supported by the National Institutes of Health (NIH), Bethesda, MD (R01EY030929, R01EY013178, R50EY038047, R21EY037312, T15LM007088, P30EY010572 [OHSU core grant], and P30EY001792 [UIC core grant]); the Malcolm M. Marquis, MD Endowed Fund for Innovation; and unrestricted departmental grants from Research to Prevent Blindness, New York, NY, to the Casey Eye Institute, Department of Ophthalmology, 9
+
+Oregon Health & Science University, and to the Department of Ophthalmology and Visual Sciences, University of Illinois Chicago. The sponsors and funding organizations had no role in the design or conduct of this research. 
+
+## Conflict of Interest 
+
+No conflicting relationship exists for any author. 
+
+## Ethics Approval 
+
+This study adhered to the tenets of the Declaration of Helsinki and was approved by the Institutional Review Board at Oregon Health & Science University (STUDY00026815) and by the AI Governance Committee. 
+
+## Abbreviations 
+
+AI = artificial intelligence; API = application programming interface; DICOM = Digital Imaging and Communications in Medicine; EHR = electronic health record; GHT = Glaucoma Hemifield Test; HAAT = Horizontal Angle Asymmetry Test; HIPAA = Health Insurance Portability and Accountability Act; HL7-FHIR = Health Level Seven Fast Healthcare Interoperability Resources; IRB = Institutional Review Board; JSON = JavaScript Object Notation; LLM = large language model; MD = Mean Deviation; MRW = Minimum Rim Width; NLP = natural language processing; OCR = optical character recognition; OCT = optical coherence tomography; OD = oculus dexter; OHSU = Oregon Health & Science University; OS = oculus sinister; PDF = portable document format; PSD = Pattern Standard Deviation; RNFL = retinal nerve fiber layer; RNFLT = retinal nerve fiber layer thickness; VFI = Visual Field Index 
+
+## References 
+
+1. Gedde SJ, Vinod K, Wright MM, et al. Primary Open-Angle Glaucoma Preferred Practice Pattern®. Ophthalmology. 2021;128(1):P71-P150. doi:10.1016/j.ophtha.2020.10.022 
+
+2. Metrangolo C, Donati S, Mazzola M, et al. OCT Biomarkers in Neovascular Age-Related Macular Degeneration: A Narrative Review. J Ophthalmol. 2021;2021:9994098. doi:10.1155/2021/9994098 
+
+3. Rosenfeld PJ. Optical Coherence Tomography and the Development of Antiangiogenic Therapies in Neovascular Age-Related Macular Degeneration. Invest Ophthalmol Vis Sci. 2016;57(9):OCT14-OCT26. doi:10.1167/iovs.16-19969 
+
+4. Lee AY, Campbell JP, Hwang TS, Lum F, Chew EY. Recommendations for Standardization of Images in Ophthalmology. Ophthalmology. 2021;128(7):969-970. doi:10.1016/j.ophtha.2021.03.003 
+
+5. Halfpenny W, Baxter SL. Towards effective data sharing in ophthalmology: data standardization and data privacy. Curr Opin Ophthalmol. 2022;33(5):418-424. doi:10.1097/ICU.0000000000000878 
+
+6. Baxter SL, Reed AA, Maa A, et al. Ocular Health and National Data Standards: A Case for Including Visual Acuity in the United States Core Data for Interoperability (USCDI). Ophthalmol Sci. 2022;2(4). doi:10.1016/j.xops.2022.100210 
+
+7. Zhang Q, Wang B, Huang VSJ, et al. Document Parsing Unveiled: Techniques, Challenges, and Prospects for Structured Information Extraction. arXiv. Preprint posted online April 16, 2025:arXiv:2410.21169. doi:10.48550/arXiv.2410.21169 
+
+8. Hsu E, Malagaris I, Kuo YF, Sultana R, Roberts K. Deep learning-based NLP data pipeline for EHR-scanned document information extraction. JAMIA Open. 2022;5(2):ooac045. doi:10.1093/jamiaopen/ooac045 
+
+9. Huang J, Yang DM, Rong R, et al. A critical assessment of using ChatGPT for extracting structured data from clinical notes. Npj Digit Med. 2024;7(1):106. doi:10.1038/s41746-024-01079-8 
+
+10. Dada A, Ufer TL, Kim M, et al. Information extraction from weakly structured radiological reports with natural language queries. Eur Radiol. 2024;34(1):330-337. doi:10.1007/s00330-023-09977-3 
+
+11. Bergomi L, Buonocore TM, Antonazzo P, et al. Reshaping free-text radiology notes into structured reports with generative question answering transformers. Artif Intell Med. 2024;154:102924. doi:10.1016/j.artmed.2024.102924 
+
+12. Delaunay J, Girbes D, Cusido J. Evaluating the Effectiveness of Large Language Models in Converting Clinical Data to FHIR Format. Appl Sci. 2025;15(6):3379. doi:10.3390/app15063379 
+
+13. Chen JS, Baxter SL. Applications of natural language processing in ophthalmology: present and future. Front Med. 2022;9. doi:10.3389/fmed.2022.906554 
+
+14. Satheakeerthy S, Jesudason D, Bahrami B, et al. Zero-shot LLM-based visual acuity extraction: a pilot study. BMC Ophthalmol. 2025;25(1):359. doi:10.1186/s12886-025-04193-7 
+
+15. Goetz KE, Reed AA, Chiang MF, et al. Accelerating Care: A Roadmap to Interoperable Ophthalmic Imaging Standards in the United States. Ophthalmology. 2024;131(1):12-15. doi:10.1016/j.ophtha.2023.10.001 
+
+16. Lee RY, Kross EK, Torrence J, et al. Assessment of Natural Language Processing of Electronic Health Records to Measure Goals-of-Care Discussions as a Clinical Trial Outcome. JAMA Netw Open. 2023;6(3):e231204. doi:10.1001/jamanetworkopen.2023.1204 
+
+17. Yin AL, Guo WL, Sholle ET, et al. Comparing automated vs. manual data collection for COVID-specific medications from electronic health records. Int J Med Inf. 2022;157:104622. doi:10.1016/j.ijmedinf.2021.104622 
+
+18. Garza MY, Williams T, Myneni S, et al. Measuring and controlling medical record abstraction (MRA) error rates in an observational study. BMC Med Res Methodol. 2022;22(1):227. doi:10.1186/s12874-022-01705-7 10 
+
+19. Carrell DS, Halgrim S, Tran DT, et al. Using Natural Language Processing to Improve Efficiency of Manual Chart Abstraction in Research: The Case of Breast Cancer Recurrence. Am J Epidemiol. 2014;179(6):749-758. doi:10.1093/aje/kwt441 
+
+20. Rahimi AK, Pienaar O, Ghadimi M, et al. Implementing AI in Hospitals to Achieve a Learning Health System: Systematic Review of Current Enablers and Barriers. J Med Internet Res. 2024;26(1):e49655. doi:10.2196/49655 
+
+21. Mehta N, Devarakonda MV. Machine learning, natural language programming, and electronic health records: The next step in the artificial intelligence journey? J Allergy Clin Immunol. 2018;141(6):2019-2021.e1. doi:10.1016/j.jaci.2018.02.025 
+
+22. Electronic Systems, Electronic Records, and Electronic Signatures in Clinical Investigations: Questions and Answers; Guidance for Industry; Availability. Federal Register. October 2, 2024. Accessed November 1, 2025. https://www.federalregister.gov/documents/2024/10/02/2024-22562/electronic-systems-electronic-records-and-electronic-signatures-in-clinical-investigations-questions 
+
+23. Mun Y, Kim J, Noh KJ, et al. An innovative strategy for standardized, structured, and interoperable results in ophthalmic examinations. BMC Med Inform Decis Mak. 2021;21(1):9. doi:10.1186/s12911-020-01370-0 
+
+24. Shweikh Y, Sekimitsu S, Boland MV, Zebardast N. The Growing Need for Ophthalmic Data Standardization. Ophthalmol Sci. 2022;3(1):100262. doi:10.1016/j.xops.2022.100262

@@ -1,0 +1,562 @@
+Title: Trajectory-Derived Confidence for Reliable, Resource-Aware Clinical Text-to-SQL Agents
+
+URL Source: https://arxiv.org/pdf/2610.04156v1
+
+Published Time: Tue, 06 Oct 2026 00:27:11 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Trajectory-Derived Confidence for Reliable, Resource-Aware Clinical Text-to-SQL Agents 
+
+Mincheol Daniel Song Joshua Ward Jake Jung Guang Cheng 
+
+University of California, Los Angeles 
+
+danielsong05@g.ucla.edu, joshuaward@ucla.edu, jakejung27@g.ucla.edu, guangcheng@stat.ucla.edu 
+
+Abstract 
+
+LLM agents for clinical text-to-SQL applications reason autonomously over multi-ple steps but cannot assess whether their own reasoning or outputs can be trusted. In high leverage applications such as healthcare, this presents a critical risk where system mistakes can be costly. These reliability failures are also resource failures: an incorrect reasoning trajectory spends computation budget on outputs that must be discarded. We introduce Sentinel, a trajectory-derived, classifier-based confi-dence layer that analyzes an agent’s reasoning, code and database outputs to decide at three points whether to stop: refusing unanswerable questions before the agent runs, halting doomed trajectories mid-run, and withholding untrustworthy answers at delivery. Here, utilizing Chow’s rule, we optimize decisions under the EHRSQL shared task’s Reliability Score, which penalizes incorrect answers given a utility weighting, and find on the benchmark EHRSQL that Sentinel raises this score from 
+
++0 .08 to +0 .24 when mistakes have a low utility weighting, well above the +0 .03 
+
+earned by refusing every question, with delivered-answer accuracy rising from 54% to 69% as coverage falls from 84% to 55%. At higher stakes the agents we test rarely answer reliably enough to deliver, and Sentinel detects this on its own, abstaining to that same +0 .03 where the unmonitored agent scores −3.02 . The same stopping decisions cut computation: at low stakes, where the system still answers, Sentinel eliminates 13–28% of agent steps at little or no reliability cost. 
+
+1 Introduction 
+
+Recent advances in LLMs have shifted tabular reasoning from its traditional Table QA framework [Pasupat and Liang, 2015, Zhong et al., 2017, Yu et al., 2018] to increasingly autonomous agents that can reason through their decision-making. Rather than producing a final answer in one pass, these agents can issue SQL queries or table operations, inspect the intermediate results, and revise their next steps based on that feedback [Yao et al., 2023, Wang et al., 2024, Kwok et al., 2026b]. With this autonomy comes a new risk: an agent given full freedom to reason must also discern for itself whether that reasoning and resulting response can be trusted. In clinical settings, the cost of a wrong answer is high, explicit, and often greater than the cost of declining [Swaminathan et al., 2024]. There are two failure modes we consider that carry distinct harms. The first is incorrectness , where the database has enough information to answer the question, but the agent returns an answer that differs from the correct result. For example, the agent may return a wrong lab value, medication count, or cohort size, but is delivered in the same fluent, confident register as a correct one. Clinicians are rarely positioned to audit the SQL that produced it, and tend to accept confident machine output even when it is wrong [Goddard et al., 2012]. The second failure mode is unanswerability , where the database lacks the information needed to answer the question. In this case, the correct behavior is to abstain rather than return an unsupported answer. Yet agents                              
+
+> 40th Conference on Neural Information Processing Systems (NeurIPS 2026). Workshop: Workshop on Resource-Aware Agentic AI. arXiv:2610.04156v1 [cs.CL] 2 Oct 2026 Q1 Vanilla agent, UNANSWERABLE "Does patient 10211 have an appointment in another department?"
+> agent
+> SELECT admission_location … subject_id = 10211 run ×2
+> admission_location
+> phys referral/normal deli
+> Answer: "phys referral/normal deli"
+> an admission-source field, presented as an appointment
+> Reliability fabrication: the worst-scored outcome Compute 2 LLM steps spent; output discarded
+> Q2 Vanilla agent, ANSWERABLE, HARD "What is the daily minimum bicarbonate value for patient 10624 during this hospital encounter?"
+> agent
+> MIN(valuenum) … subject_id = 10624 GROUP BY date run ×2
+> date min bicarbonate
+> 2104-09-02 19.0
+> 2105-12-09 17.0
+> Answer: 19.0 and 17.0, from two past years
+> pooled every admission; this encounter's minimum is 10.0
+> Reliability a wrong value delivered as fact Compute 2 steps spent, then rework downstream
+> Same agent + confidence monitor. A small classifier reads the transcript and decides when to stop.
+> Q1
+> ans. monitor
+> t = 0 : reads the question
+> p̂ ans (0)
+> θ
+> 0.00 REFUSE before the agent runs
+> steps 1–2 never happen
+> Q2 ans. monitor
+> p̂ ans , every step
+> θ
+> 1.00 runs as in Q2 corr. monitor
+> delivery : reads the transcript
+> p̂ corr
+> τ
+> WITHHOLD (Chow's rule)
+> the wrong value is never delivered
+> Reliability a correct refusal; a wrong answer withheld Compute Q1: no steps spent. Q2: same steps as the vanilla run, nothing wrong delivered
+> 0.01
+
+Figure 1: Diagram of failure modes Q1: on an unanswerable question the vanilla ReAct agent queries an unrelated admission field twice and commits it as an answer. Q2: on a question scoped to the current encounter, it pools every past admission and delivers a wrong value as fact. Bottom panel: the answerability head (purple) refuses Q1 before the agent runs; the correctness head (blue) withholds Q2’s wrong answer at delivery; each panel’s Compute row prices the steps spent or spared. Gauges show actual out-of-fold monitor estimates against thresholds θ and τ .routinely fabricate: in our runs, even the strongest agent we test ( GPT-4o ; Section 4) commits an answer to a third of unanswerable questions. These reliability failures are simultaneously resource failures. Each agent step is a full, costly LLM call [Chen et al., 2024] over a growing context, so a trajectory that should never have started wastes computation and a user’s time, producing an output the system must discard. Responses to unanswerable questions show some of the highest costs because the correct action, abstention, is available at step zero; everything afterward is waste by construction. In our experimentation, a vanilla GPT-4o agent on average spends 2.5 reasoning steps per unanswerable question before failing. When it fabricates an answer, it takes 3.35 steps on average, 58% more than the 2.12 steps it takes on average when it correctly refuses (per-agent step economics in Appendix K). Knowing when to stop , before the first step, mid-trajectory, or at delivery, is therefore one decision problem serving two goals at once: not delivering costly mistakes, and not paying for them. The obstacle is that the agent cannot reliably assess its own correctness. LLMs can be poorly calibrated when verbalizing confidence, and may express high confidence even when their answers are wrong [Xiong et al., 2024]. More fundamentally, the model’s stated reasoning may not reflect the actual reasons behind its final answer, making chain-of-thought an unreliable indicator of model behavior [Turpin et al., 2023, Lanham et al., 2023]. The interaction trajectory, however, includes externally grounded signals that the agent does not control, including executed SQL, error messages, empty result sets, and failed schema references. A separate monitor can learn how these externally observed patterns correlate with eventual success across past trajectories, allowing it to estimate reliability without depending on the agent’s own explanation or confidence estimate. Figure 1 demonstrates both failures modes and Sentinel, a trajectory-derived confidence layer 
+
+wrapping an unmodified ReAct agent [Yao et al., 2023]. Two small text classifiers read the agent’s own transcript: an answerability head powers an exit gate that halts trajectories on unanswerable questions, while a correctness head provides a calibrated estimate that stops doomed trajectories mid-run and, via Chow’s rule [Chow, 1970], withholds untrustworthy answers at delivery. Rather than training the agent to be more correct, the system delivers less costly mistakes by refraining from answering, and stops paying for trajectories that will not end in a delivered correct answer. Our contributions can be summarized as follows: • Stakes-aware reliability. We formulate reliability for clinical text-to-SQL agents as a stakes-dependent decision problem, where the cost of an incorrect answer can exceed the cost of abstaining. 2• Trajectory-derived monitoring. Sentinel introduces a confidence layer that scores the agent’s evolving trajectory rather than relying solely on its final output or self-reported confidence (Figure 2). The monitor operates before execution, during reasoning, and at delivery, allowing it to refuse unanswerable questions, stop low-confidence trajectories, and withhold unreliable final answers across five agent models. • Resource-aware early stopping. We show that the same confidence estimates can reduce computation by stopping trajectories that are unlikely to produce a useful answer, reducing unnecessary reasoning steps and latency while preserving reliability at several operating points. 
+
+2 Related work 
+
+Text-to-SQL over EHRs and abstention. Early text-to-SQL systems focused on mapping natural-language questions to executable SQL, including Seq2SQL [Zhong et al., 2017] and the Spider benchmark for complex cross-domain querying [Yu et al., 2018]. Later work introduced multi-step reasoning, decomposition, and execution feedback to improve performance on complex queries [Pourreza and Rafiei, 2023, Wang et al., 2018]. In the clinical domain, EHRSQL [Lee et al., 2022] introduced unanswerable questions, making abstention a first-class capability for clinical text-to-SQL. TrustSQL [Lee et al., 2024a] introduced the penalty-based Reliability Score, later the official metric of the EHRSQL 2024 shared task [Lee et al., 2024b], and evaluated pipelines that split abstention into unanswerable-question detection and SQL-error detection, the same decomposition our two heads adopt. Shared-task systems such as ProbGate [Kim et al., 2024] filter unanswerable questions by thresholding token log-probabilities; our training-free telemetry baseline uses the same token-level signals. The nearest reliability baseline is the IDK filter of Broecker et al. [2026], a trainable uncertainty filter for function-calling agents whose IDK score coincides with RS(1) on answerable questions; Appendix K compares gains on that shared scale. Unlike these approaches, Sentinel derives confidence from the agent’s reasoning trajectory and applies that signal at multiple decision points to refuse unanswerable questions, stop low-confidence trajectories early, and withhold unreliable final answers. 
+
+Selective prediction and agent confidence. Classification with a reject option dates to Chow [1957, 1970]. Modern selective-prediction methods allow a model to abstain on low-confidence inputs and study the resulting trade-off between coverage, the fraction of inputs on which the model makes a prediction, and selective risk, the error on those retained predictions [Geifman and El-Yaniv, 2017, Kamath et al., 2020, Hendrickx et al., 2024]. We apply this framing at two distinct checkpoints of an agentic trajectory rather than to a single prediction. First, we use confidence during execution to see whether an ongoing trajectory should be stopped early when unlikely to succeed. Second, we use confidence at delivery time to decide whether the completed answer should be returned or withheld. Uncertainty signals have been drawn from token probabilities and entropy, verbalized confidence, and learned confidence heads [Kadavath et al., 2022, Xiong et al., 2024]. Our trajectory features draw from three different approaches: token-level confidence estimation [Kadavath et al., 2022, Kim et al., 2024, Somov and Tutubalina, 2025], execution-guided text-to-SQL [Wang et al., 2018], and clause-level SQL verification [Gong et al., 2025] or tool-grounded verification of table-reasoning steps [Zou et al., 2026]. We adapt signals from these three methods into features computed over the agent’s trajectory, with per-feature sources provided in Appendix I. Closest to us is work on process supervision for intermediate table-reasoning states, where learned or deterministic reward signals score each step of a trajectory and are used to guide, rerank, or halt the reasoning policy, or as a training reward [Zou et al., 2026, Kwok et al., 2026c,a]. In contrast, we never steer or select the agent’s reasoning: we only observe its trajectory, predict whether it will end in a correct delivered answer, and use that prediction to stop or withhold under a reliability objective. 
+
+3 Method 
+
+3.1 Problem formulation Setting. A question q is posed against a database D. Let a ∈ { 0, 1} indicate whether q is answerable 
+
+from D; a is not observed by the system. Formally, q is answerable iff there exists a SQL query over 
+
+D whose results yield the correct answer; otherwise the question is deemed unanswerable (e.g., a 3EHR Question         
+
+> "What is the daily minimum
+> bicarbonate for patient 10624
+> during this encounter?"
+> ReAct Agent
+> Trajectory Transcript
+> t = 0
+> Question Only
+> Step 1
+> SELECT MIN(valuenum)…
+> Obs: 2 Rows
+> …Delivery
+> Final Answer
+> ModernBERT Monitor — Answerability Head · Correctness Head
+> p̂ ans (t)
+> Still Answerable?
+> p̂ corr (t), Calibrated
+> On Track To Be Correct?
+> p̂ corr (delivery)
+> Hybrid: BERT + Features
+> Decision Layer
+> EXIT GATE
+> p̂ ans (t) < θ ⇒Exit
+> EARLY STOP
+> p̂ corr (t) < s λ⇒Exit
+> CHOW'S RULE
+> p̂ corr ≥ τ ⇒Deliver, Else Withhold
+> Exit
+> Reliable Output
+> Confident Answers Delivered; Abstention Otherwise
+
+Figure 2: The Sentinel pipeline. A frozen ReAct agent appends each reasoning/SQL/result step to a serialized transcript. Two ModernBERT heads score every prefix, including t=0 , so an unanswerable question can be refused before the agent runs a single step. Answerability drives the exit gate ( θ); calibrated correctness drives early stopping ( sλ) and Chow’s rule at delivery ( τ ). coffee shop’s order database cannot answer which paper introduced attention mechanisms under any query). Thus a is determined by (q, D ) alone, rather than by intuition. An agent processes q
+
+as a trajectory of states s0, s 1, . . . , s T : the initial state s0 = ( q) contains only the question, and each subsequent state appends one reasoning step, st = st−1 ⊕ (rt, u t, o t), where rt is the agent’s reasoning text, ut an (optional) SQL query, and ot the observed execution result. Let ˆy denote the agent’s committed output at the terminal state, outputting either an answer or the abstention symbol 
+
+⊥ (the agent’s FINAL: null ). When the agent answers and a = 1 , let y ∈ { 0, 1} indicate whether ˆy
+
+is correct. Two events harm the user: answering an unanswerable question, {a = 0 , ˆy̸ = ⊥} , and delivering a wrong answer to an answerable question, {a = 1 , ˆy̸ = ⊥, y = 0 }; the first event wastes all compute, since ⊥ was available at s0.
+
+Reliability Score (RS). Both failure events carry real cost in high-stakes environments. In a clinical setting, a delivered mistake can directly harm the user, and in every setting it wastes the compute spent producing it. Our method adopts the Reliability Score (RS) of TrustSQL [Lee et al., 2024a], the official metric of the EHRSQL 2024 shared task [Lee et al., 2024b], which rewards correct answers and correct refusals and penalizes delivered mistakes at a stakes parameter λ:
+
+RS( λ) = 
+
+
+
++1 ˆy̸ = ⊥, a = 1 , y = 1 (correct answer) 
+
++1 ˆy = ⊥, a = 0 (correct refusal) 
+
+0 ˆy = ⊥, a = 1 (missed answer) 
+
+−λ otherwise (wrong or unanswerable answered) (1) The stakes are evaluated at λ ∈ { 1, 4, 9} so that the corresponding optimal delivery thresholds (Section 3.2) cover low, medium, and high stakes: at λ = 1 , a delivered mistake cancels a point earned from a correct answer or refusal, while at λ = 9 , a single mistake accounts for nine accumulated points. 
+
+3.2 Decisions 
+
+Our goal is to reduce costly mistakes under RS( λ) while spending as little compute as possible. To accomplish this, we wrap the vanilla agent in a confidence layer (Figure 2) that may intervene on the agent’s own trajectory in two different ways. At every state st (t = 0 , . . . , T ), the layer may EXIT the trajectory and output ⊥ at any given moment t, disregarding the remaining T − t steps. At delivery, if the agent committed to an answer, the layer may WITHHOLD , outputting ⊥ instead of ˆy. Both interventions convert a potential −λ output into one worth at least 0 (exactly 0 if the question in fact was answerable, +1 for correctly abstaining), since the act of abstention is never penalized under 
+
+RS( λ).4Optimal delivery: Chow’s rule. For the intervention WITHHOLD , the optimal rule requires no tuning; it follows directly from the RS( λ) payoffs. Suppose the agent has committed an answer, 
+
+ˆy̸ = ⊥, at the terminal state. Let p = P (a = 1 , y = 1 | sT , ˆy) denote the probability that the committed answer scores +1 (note that 1 − p covers both failure modes: a wrong answer, or an unanswerable question answered). Delivering has expected utility p(+1) + (1 − p)( −λ), while withholding is worth 0 on an answerable question, so delivering is optimal iff 
+
+p ≥ λ
+
+1 + λ =: τλ, (2) which represents Chow’s rule [Chow, 1970]. Plugging in the stakes λ ∈ { 1, 4, 9}, we get delivery thresholds τλ = 0 .5, 0.8, 0.9. A chance ε that the question is unanswerable raises the exact bar to (λ + ε)/(1 + λ); the gate keeps ε small, and the exact bar changes no reported score by more than 0.01 (Appendix F). Chow’s rule is only optimal for honest probabilities, so the estimate of p is calibrated before thresholding (Section 3.4). The intervention EXIT has no closed form. Stopping a trajectory that Chow’s rule would later withhold leaves the score unchanged and saves the unrun steps, but an intermediate estimate can also stop a trajectory that would have been delivered, so early stoppage can move the score in either direction. Because RS( λ) assigns no value to the steps saved, the EXIT triggers are set empirically (Section 3.4). 
+
+3.3 Estimating confidence from trajectories 
+
+The decisions of Section 3.2 require two conditional probabilities, each available at every intermediate state: the probability that the question is answerable, ˆpans (t) = P (a = 1 | st), and the probability that the trajectory will end in a delivered correct answer, ˆpcorr (t) = P (ˆ y̸ = ⊥, a = 1 , y = 1 | st).Note that answerability is part of the event that ˆpcorr predicts; by chain rule, ˆpcorr (t) factors into 
+
+ˆpans (t) times correctness given answerability, so a trajectory on a likely unanswerable question scores low even when its SQL looks plausible. Either probability can justify an EXIT , since both instances lead to wasted compute. W ITHHOLD uses the terminal estimate ˆpcorr (T ) = P (a = 1 , y = 1 | sT , ˆy),which is exactly the quantity p referenced in Section 3.2. 
+
+Two trajectory-reading heads. We estimate both probabilities with text classifiers (ModernBERT-base [Warner et al., 2024]; Appendix C) that read a plain-text rendering of the state st: the question 
+
+q, followed by each step’s reasoning, query, and result (ri, u i, o i) for i ≤ t. The rendering is left-truncated so that the most recent steps are always retained (2,048 tokens in training, 4,096 at scoring; fewer than 0.1% of transcripts reach either cap). The answerability head estimates ˆpans (t) and is trained with unanswerable ( a = 0 ) as the positive class. Its score at t = 0 is computed from s0 = ( q)
+
+alone, before the agent runs a single step, and serves as a pre-filter. The correctness head is trained on answered answerable questions ( ˆy̸ = ⊥, a = 1 ) and therefore estimates correctness conditional on answerability; Section 3.4 describes how its output is calibrated to the joint quantity ˆpcorr (t) that the decisions require. Neither head consumes hand-engineered features; hand-crafted trajectory features enter only the delivery-time estimator selection of Section 3.4. 
+
+Prefix training. Each collected trajectory is expanded into prefix snapshots at t = 0 , 1, . . . , T , and every snapshot is labeled with the trajectory’s eventual outcome. The final answer line is included only in the terminal snapshot, so each prefix contains exactly what was knowable at that state. All training-pool estimates reported in this paper are out-of-fold: 5-fold cross-validation grouped by question template, so all prefixes of a trajectory, and all questions sharing a template, stay within one fold. 
+
+3.4 Inference procedure 
+
+At inference, the confidence layer applies, in order: 
+
+(1) EXIT gate. EXIT triggers the exact moment ˆpans (t) drops below a gate threshold θ, and the t = 0 reading can refuse a question before the agent runs a single step. θ is predetermined as the largest threshold that wrongly exits at most 0.5% of answerable questions on the calibration pool. The gate is the system’s defense against unanswerable questions. 
+
+(2) Early EXIT (resource-aware mode). Mid run, EXIT also triggers when ˆpcorr (t), calibrated by isotonic regression (a monotone, nonparametric recalibration map; Zadrozny and Elkan, 2002) fit 5on the calibration pool’s prefix snapshots, falls below a stop threshold sλ. Since RS( λ) assigns no value to steps (Section 3.2), sλ is chosen empirically on the calibration pool to maximize RS( λ), ties broken toward more steps saved. 
+
+(3) Chow’s rule at delivery. Once the trajectory reaches the final step T , only committed answers are checked. The correctness estimate is calibrated by a separate isotonic regression fit on every answer delivered in the calibration pool, with answers to unanswerable questions counted as incorrect, so the calibrated value estimates the joint probability p of Section 3.2. Deliver iff the calibrated estimate 
+
+ˆpcorr ≥ τλ = λ/ (1 + λ) (Eq. (2)) and otherwise WITHHOLD . The exact delivery estimator is selected on the calibration pool (Appendix I); we report calibration error before and after. All thresholds, calibration maps, and the estimator selection are frozen on the calibration pool, and held-out pools are evaluated exactly once. 
+
+4 Experiments 
+
+4.1 Setup 
+
+We compare the vanilla agent against the full confidence layer at stakes λ ∈ { 1, 4, 9}, and evaluate its parts separately: the two checks in isolation (gate-only and Chow-only), and the resource-aware mode (early EXIT ), which trades delivered answers for saved compute. 
+
+Benchmark. We use EHRSQL [Lee et al., 2022] on MIMIC-III [Johnson et al., 2016], a benchmark of natural-language questions over a de-identified ICU database that includes questions unanswerable from the schema. From the official train and validation splits we construct three pools with no question template shared between pools: a train pool (6,179 questions; 231 unanswerable), a calibration pool (2,160; 71), and a held-out pool (2,101; 60), evaluated exactly once. The official test split is left untouched. 
+
+Agents. The vanilla agent is a ReAct loop [Yao et al., 2023] in which the model, at each step, produces a thought and optionally SQL, observes the execution result, and finally commits an answer or abstains. Five agent models run under an identical harness and protocol, namely GPT-4o [OpenAI, 2024a] and GPT-4o-mini [OpenAI, 2024b], Qwen2.5-Coder-7B [Hui et al., 2024], Llama-3.1-8B 
+
+[Grattafiori et al., 2024], and Phi-4-mini [Microsoft, 2025]. Full experimental details, including the agent prompt and decoding configuration, are in Appendices H and M. 
+
+Correctness labels. EHRSQL’s official metric is exact execution match, which is strict for an agent that writes its own final query: the executed result can express the gold answer in a different form, such as 90 against a gold 90.0 . We therefore use a semantic label, in which an LLM judge (GPT-4o-mini , itself one of the evaluated agents) deems an answer correct if its executed result is equivalent to the gold query’s executed result; exact matches are auto-correct. The semantic label is primary throughout; labeling details and strict-label scoring are in Appendices B and F. 
+
+Delivery estimator. A pre-registered rule selects, per agent, between the correctness head alone and a gradient-boosted hybrid of the head with ten trajectory features, whichever scores higher on the calibration pool, preferring the simpler within 0.005 . Feature definitions are in Appendix I. 
+
+4.2 Reliability 
+
+Table 1 gives the cross-agent result. The vanilla agents become increasingly unreliable as the cost of an incorrect answer rises. Even the strongest, GPT-4o , is wrong on 46% of the answers it delivers, so its reliability score barely clears zero at λ=1 and falls to −3.02 at λ=9 , and the weakest agents reach 
+
+−5.72 . The reference point is a system that refuses every question, which scores +0 .03 at every stakes level because abstention is never penalized. At λ=1 the full system clears it for every agent, significantly for four of the five: GPT-4o delivers 55% of questions at 69% accuracy and gains +0 .21 .At λ=4 and λ=9 the system delivers little or nothing and matches always abstaining within noise. We read this as a gating result: at these stakes no agent produces enough reliable answers to deploy, and the layer reaches that verdict from the trajectories alone, where the vanilla agent scores −3.02 .6Table 1: Cross-agent reliability. Vanilla acc. = accuracy of the answers the raw agent delivers on the held-out pool (answers to unanswerable questions count as wrong); monitor quality = correctness / answerability head AUROC on the same pool. Always abstain refuses every question and scores the unanswerable fraction at any λ. †: gain over always abstaining whose 95% bootstrap interval excludes zero (Appendix F). Per-agent early-EXIT results are in Table 8.                                                                   
+
+> Vanilla Monitor AUROC Vanilla RS( λ)Full System RS( λ)
+> Agent Acc. Corr. Ans. 149149
+> GPT-4o-mini 48% 0.787 0.923 −0.02 −1.34 −3.53 +0 .21 †+0 .08 +0 .04
+> GPT-4o 54% 0.762 0.981 +0 .08 −1.08 −3.02 +0 .24 †+0 .02 +0 .03
+> Llama-3.1-8B 31% 0.707 0.903 −0.23 −1.61 −3.91 +0 .06 +0 .03 +0 .03
+> Qwen2.5-Coder-7B 22% 0.920 0.959 −0.46 −2.43 −5.72 +0 .10 †+0 .03 +0 .03
+> Phi-4-mini 8.7% 0.921 0.987 −0.46 −2.03 −4.64 +0 .04 †+0 .03 +0 .03
+> Always abstain ————+0 .03 +0 .03 +0 .03
+
+Of the two checks, Chow’s rule at delivery accounts for nearly all of the gain. The gate on its own moves RS( λ) by +0 .01 to +0 .14 , since unanswerable questions are only 3% of the pool; at the 20–33% rates of EHRSQL’s own evaluation splits the gate’s share grows and the λ=1 gain over always abstaining remains (Appendix F). Viewed as a single binary detector of answers that should be withheld, the layer separates wrong deliveries from right ones at 0.76 AUC on held-out committed answers (Figure 3a). 
+
+4.3 Resource savings 
+
+Early EXIT applies the delivery logic sequentially, stopping a trajectory as soon as its calibrated per-step correctness estimate falls below the stop threshold. Table 2 shows what this buys on GPT-4o .At λ=1 , where the system still answers over half of the questions, it eliminates 13% of all agent steps with no loss in reliability, and 13–28% across agents at a cost of at most 0.01 RS(1) (Appendix K). At λ=4 and λ=9 the saving rises to 42% (up to 70% on other agents), but there the system delivers almost nothing, so this is compute recovered from trajectories whose answers would have been withheld; refusing every question outright would recover all of it. At a measured 1.9 seconds per agent step, each avoided step is also one fewer LLM call and one fewer live SQL query against the clinical database. Table 2: Resource savings (GPT-4o ). Agent steps, generated tokens, and wall-clock time never spent. The monitor’s two ModernBERT-base passes per step are not subtracted. Token accounting in Appendix G.                             
+
+> System Steps Saved Gen. Tokens Saved Total Time Saved (λ=1 /4/9)(λ=1 /4/9)(λ=1 /4/9)+EXIT gate / + Chow delivery 1% 1% 3min + early EXIT 13 %/42 %/42 %16% /47% /47% 29 min / 1.5h / 1.5h
+
+5 Discussion 
+
+The signal is in the trajectory, not the question. Reading the question alone, the correctness head scores 
+
+0.705 AUROC for GPT-4o ; at delivery it reaches 0.762 , and on Qwen2.5-Coder-7B a single step of execution evidence lifts it from 0.742 to 0.898 (Figure 3b; Appendix F). Training-free telemetry does not suffice; mean token entropy reaches only 0.565 for correctness on GPT-4o-mini , mirroring Somov and Tutubalina [2025], who find selective classifiers catch unanswerable-question errors more readily than wrong-but-plausible SQL. The raw head is also overconfident, and the isotonic map fit on the calibration pool holds on the held-out pool (Figure 3c; Appendix D), as does the deployed estimate (held-out ECE 0.03 –0.07 vs. 0.25 raw), so the thresholds operate on honest probabilities. For GPT-4o the calibrated delivery estimate exceeds 0.9 on only three held-out questions, which is why the system abstains almost entirely at λ=9 . The layer also adapts to how each agent fails. 
+
+Phi-4-mini fabricates answers to half of its unanswerable questions, and the layer’s verdict is near-total refusal, the appropriate response. Qwen2.5-Coder-7B answers 84% of questions at 22% accuracy, and the layer still delivers 21% of questions at 68% accuracy at λ=1 .70.00 0.25 0.50 0.75 1.00         
+
+> Correct Answers Flagged (FPR)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Incorrect Answers Flagged (TPR)
+> λ=1
+> λ=4
+> λ=9
+> AUC 0.76
+> (a) Withholding As Detection
+> 024
+> Step t(Prefix Scored)
+> 0.6 0.7 0.8 0.9 1.0
+> AUROC (Held-Out)
+> (b) Signal By Trajectory Step
+> correctness answerability 0.00 0.25 0.50 0.75 1.00
+> Predicted Correctness
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Actual Accuracy
+> (c) Calibration Transfers
+> raw calibrated
+
+Figure 3: Behavior of the confidence layer. (a) The full system as a single withhold classifier, with dots marking Chow’s rule at τλ = 0 .5, 0.8, 0.9. (b) AUROC of each head scored on the prefix at step 
+
+t; later points cover only the longer runs still going. (c) Reliability diagram of the correctness head before and after the isotonic map fit on the calibration pool. How monitorable an agent is tracks not its capability but how legibly it fails. The two loudest failers, whose trajectories fill with execution errors and fast fabrications, are the easiest to read ( 0.920 , 0.921 ), while GPT-4o , whose rare failures resemble its successes, and Llama-3.1-8B , which meanders through the longest trajectories of the five, are the hardest ( 0.762 , 0.707 ). As agents improve and their failures get quieter, the signal this approach reads may fade. 
+
+Limitations. Our primary correctness label is an LLM judge; a two-rater audit finds it unbiased in aggregate but at odds with the raters on 26% of its hardest cases, and that error propagates to every reported number (Appendix B). The evaluation is limited to a single benchmark and database, and EHRSQL is generous to answerability detection in particular. Its unanswerable questions come from a small set of short templates, and a question-only baseline already reaches 0.955 AUROC, so part of the answerability head’s near-ceiling performance is benchmark structure rather than skill (audit in Appendix A); the design absorbs this, since θ is set by a wrongly-refused tolerance rather than tuned for detection accuracy, but detection will be harder in deployment. This mostly affects the gate, which moves RS( λ) by at most +0 .14 at our 3% unanswerable rate and carries more of the gain at the benchmark’s own 20–33% (Appendix F); correctness given answerability is measured on answerable questions only and draws its signal from the trajectory. We ran no competing confidence method and report one training seed. The confidence heads are also trained per agent on that agent’s own trajectories, so a new agent requires a new collection run, and a monitor frozen at deployment faces an agent whose behavior may drift from the training distribution. 
+
+6 Conclusion and Future Work 
+
+Agentic systems seemingly fail, and in high-stakes settings, the cost of a single delivered mistake can potentially do more damage than one right answer does good. We showed that Sentinel, two small text classifiers reading the agent’s transcript behind utility-derived thresholds, raises the reliability of five text-to-SQL agents at low stakes and, as stakes rise, recognizes on its own when their answers are not reliable enough to deliver. The agent is never modified. Reliability does not have to be built into the agent; our results show that it can be added on top. The confidence signal currently only abstains, and the natural next step is to let it act. At training time, the monitor could serve as a cheap verifier that labels preference pairs or supplies rewards for DPO- or GRPO-style fine-tuning of the agent [Rafailov et al., 2023, Shao et al., 2024], though an agent trained against a fixed monitor may learn to look confident rather than to be correct, and this needs to be tested. At inference time, a budget policy could resample a low-confidence trajectory and rerank the candidates instead of stopping it [Lightman et al., 2024, Zou et al., 2026]. The heads should also be tested on a new database such as eICU, since a monitor that transfers across schemas is far more useful than one that needs to be rebuilt per database. 8Acknowledgments and Disclosure of Funding 
+
+This research used the DeltaAI advanced computing and data resource, which is supported by the National Science Foundation (award OAC 2320345) and the State of Illinois. DeltaAI is a joint effort of the University of Illinois Urbana-Champaign and its National Center for Supercomputing Applications. The authors acknowledge the National Artificial Intelligence Research Resource (NAIRR) Pilot (award NAIRR250187) and NCSA DeltaAI for contributing to this research result. 
+
+References 
+
+Stefan Broecker, Mason del Rosario, Boris Selitser, and Thomas Strohmer. The “I don’t know” filter: Enhancing agentic reliability in function calling. arXiv preprint arXiv:2607.04034 , 2026. Lingjiao Chen, Matei Zaharia, and James Zou. FrugalGPT: How to use large language models while reducing cost and improving performance. Transactions on Machine Learning Research , 2024. C. K. Chow. An optimum character recognition system using decision functions. IRE Transactions on Electronic Computers , EC-6(4):247–254, 1957. C. K. Chow. On optimum recognition error and reject tradeoff. IEEE Transactions on Information Theory , 16(1):41–46, 1970. Yonatan Geifman and Ran El-Yaniv. Selective classification for deep neural networks. In Advances in Neural Information Processing Systems , volume 30, pages 4878–4887, 2017. Kate Goddard, Abdul Roudsari, and Jeremy C. Wyatt. Automation bias: a systematic review of frequency, effect mediators, and mitigators. Journal of the American Medical Informatics Association , 19(1):121–127, 2012. Yue Gong, Chuan Lei, Xiao Qin, Kapil Vaidya, Balakrishnan Narayanaswamy, and Tim Kraska. SQLens: An end-to-end framework for error detection and correction in text-to-SQL. In Advances in Neural Information Processing Systems , 2025. Aaron Grattafiori et al. The Llama 3 herd of models. arXiv preprint arXiv:2407.21783 , 2024. Kilian Hendrickx, Lorenzo Perini, Dries Van der Plas, Wannes Meert, and Jesse Davis. Machine learning with a reject option: A survey. Machine Learning , 113:3073–3110, 2024. doi: 10.1007/ s10994-024-06534-x. Binyuan Hui et al. Qwen2.5-Coder technical report. arXiv preprint arXiv:2409.12186 , 2024. Alistair E. W. Johnson, Tom J. Pollard, Lu Shen, Li-wei H. Lehman, Mengling Feng, Mohammad Ghassemi, Benjamin Moody, Peter Szolovits, Leo Anthony Celi, and Roger G. Mark. MIMIC-III, a freely accessible critical care database. Scientific Data , 3:160035, 2016. Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, et al. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221 , 2022. Amita Kamath, Robin Jia, and Percy Liang. Selective question answering under domain shift. In Proceedings of the Annual Meeting of the Association for Computational Linguistics , pages 5684–5696, 2020. Sangryul Kim, Donghee Han, and Sehyun Kim. ProbGate at EHRSQL 2024: Enhancing SQL query generation accuracy through probabilistic threshold filtering and error handling. In Proceedings of the 6th Clinical Natural Language Processing Workshop , pages 687–696, 2024. Tung Sum Thomas Kwok, Xinyu Wang, Hengzhi He, Xiaofeng Lin, Peng Lu, Liheng Ma, Chunhe Wang, Chun Ho Mak, Yuyu Luo, Ying Nian Wu, Lei Ding, and Guang Cheng. Enhancing table reasoning with deterministic table-state rewards. arXiv preprint arXiv:2601.22530 , 2026a. Tung Sum Thomas Kwok, Xinyu Wang, Xiaofeng Lin, Peng Lu, Chunhe Wang, Changlun Li, Hanwei Wu, Nan Tang, Elisa Kreiss, and Guang Cheng. TABQAWORLD: Optimizing multimodal reasoning for multi-turn table question answering. arXiv preprint arXiv:2604.03393 , 2026b. 9Tung Sum Thomas Kwok, Zeyong Zhang, Xinyu Wang, Chunhe Wang, Xiaofeng Lin, Hanwei Wu, Lei Ding, Guang Cheng, and Zhijiang Guo. From table to cell: Attention for better reasoning with TABALIGN. arXiv preprint arXiv:2605.14465 , 2026c. Tamera Lanham, Anna Chen, Ansh Radhakrishnan, Benoit Steiner, Carson Denison, Danny Hernan-dez, Dustin Li, Esin Durmus, Evan Hubinger, Jackson Kernion, et al. Measuring faithfulness in chain-of-thought reasoning. arXiv preprint arXiv:2307.13702 , 2023. Gyubok Lee, Hyeonji Hwang, Seongsu Bae, Yeonsu Kwon, Woncheol Shin, Seongjun Yang, Minjoon Seo, Jong-Yeup Kim, and Edward Choi. EHRSQL: A practical text-to-SQL benchmark for electronic health records. In Advances in Neural Information Processing Systems (Datasets and Benchmarks) , 2022. Gyubok Lee, Woosog Chay, Seonhee Cho, and Edward Choi. TrustSQL: Benchmarking text-to-SQL reliability with penalty-based scoring. arXiv preprint arXiv:2403.15879 , 2024a. Gyubok Lee, Sunjun Kweon, Seongsu Bae, and Edward Choi. Overview of the EHRSQL 2024 shared task on reliable text-to-SQL modeling on electronic health records. In Proceedings of the 6th Clinical Natural Language Processing Workshop , pages 644–654, 2024b. Hunter Lightman, Vineet Kosaraju, Yura Burda, Harri Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. Let’s verify step by step. In International Conference on Learning Representations , 2024. Microsoft. Phi-4-Mini technical report: Compact yet powerful multimodal language models via mixture-of-LoRAs. arXiv preprint arXiv:2503.01743 , 2025. OpenAI. GPT-4o system card. arXiv preprint arXiv:2410.21276 , 2024a. OpenAI. GPT-4o mini: Advancing cost-efficient intelligence. https://openai.com/index/ gpt-4o-mini-advancing-cost-efficient-intelligence/ , 2024b. Accessed 2026-09-27. Panupong Pasupat and Percy Liang. Compositional semantic parsing on semi-structured tables. In 
+
+Proceedings of the Annual Meeting of the Association for Computational Linguistics , 2015. Mohammadreza Pourreza and Davood Rafiei. DIN-SQL: Decomposed in-context learning of text-to-SQL with self-correction. In Advances in Neural Information Processing Systems , 2023. Rafael Rafailov, Archit Sharma, Eric Mitchell, Stefano Ermon, Christopher D. Manning, and Chelsea Finn. Direct preference optimization: Your language model is secretly a reward model. In Advances in Neural Information Processing Systems , 2023. Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang, Mingchuan Zhang, Y. K. Li, Y. Wu, and Daya Guo. DeepSeekMath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 , 2024. Oleg Somov and Elena Tutubalina. Confidence estimation for error detection in text-to-SQL systems. In Proceedings of the AAAI Conference on Artificial Intelligence , 2025. Akshay Swaminathan, Ivan Lopez, William Wang, Ujwal Srivastava, Edward Tran, Aarohi Bhargava-Shah, Janet Y. Wu, Alexander L. Ren, Kaitlin Caoili, Brandon Bui, et al. Selective prediction for extracting unstructured clinical data. Journal of the American Medical Informatics Association , 31 (1):188–197, 2024. doi: 10.1093/jamia/ocad182. Miles Turpin, Julian Michael, Ethan Perez, and Samuel R. Bowman. Language models don’t always say what they think: Unfaithful explanations in chain-of-thought prompting. In Advances in Neural Information Processing Systems , 2023. Chenglong Wang, Kedar Tatwawadi, Marc Brockschmidt, Po-Sen Huang, Yi Mao, Oleksandr Polozov, and Rishabh Singh. Robust text-to-SQL generation with execution-guided decoding. arXiv preprint arXiv:1807.03100 , 2018. 10 Zilong Wang, Hao Zhang, Chun-Liang Li, Julian Martin Eisenschlos, Vincent Perot, Zifeng Wang, Lesly Miculicich, Yasuhisa Fujii, Jingbo Shang, Chen-Yu Lee, and Tomas Pfister. Chain-of-table: Evolving tables in the reasoning chain for table understanding. In International Conference on Learning Representations , 2024. Benjamin Warner, Antoine Chaffin, Benjamin Clavié, Orion Weller, Oskar Hallström, Said Taghadouini, Alexis Gallagher, Raja Biswas, Faisal Ladhak, Tom Aarsen, Nathan Cooper, Griffin Adams, Jeremy Howard, and Iacopo Poli. Smarter, better, faster, longer: A modern bidirectional encoder for fast, memory efficient, and long context finetuning and inference. arXiv preprint arXiv:2412.13663 , 2024. Miao Xiong, Zhiyuan Hu, Xinyang Lu, Yifei Li, Jie Fu, Junxian He, and Bryan Hooi. Can LLMs ex-press their uncertainty? An empirical evaluation of confidence elicitation in LLMs. In International Conference on Learning Representations , 2024. Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. ReAct: Synergizing reasoning and acting in language models. In International Conference on Learning Representations , 2023. Tao Yu, Rui Zhang, Kai Yang, Michihiro Yasunaga, Dongxu Wang, Zifan Li, James Ma, Irene Li, Qingning Yao, Shanelle Roman, Zilin Zhang, and Dragomir Radev. Spider: A large-scale human-labeled dataset for complex and cross-domain semantic parsing and text-to-SQL task. In 
+
+Proceedings of the Conference on Empirical Methods in Natural Language Processing , 2018. Bianca Zadrozny and Charles Elkan. Transforming classifier scores into accurate multiclass probabil-ity estimates. In Proceedings of the Eighth ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pages 694–699, 2002. Victor Zhong, Caiming Xiong, and Richard Socher. Seq2SQL: Generating structured queries from natural language using reinforcement learning. arXiv preprint arXiv:1709.00103 , 2017. Jiaru Zou, Soumya Roy, Vinay Kumar Verma, Ziyi Wang, David Wipf, Pan Lu, Sumit Negi, James Zou, and Jingrui He. TaTToo: Tool-grounded thinking PRM for test-time scaling in tabular reasoning. In International Conference on Learning Representations , 2026. 
+
+A Leakage and artifact battery 
+
+Recomputed from the collected batch alone ( audit_metrics.csv ): training-free telemetry baselines for answerability — mean entropy 0.947; max entropy, mean log-probability, and the ending-only heuristic (abstained ⇒ unanswerable) in audit_metrics.csv ; question-only TF–IDF 0.955; full-transcript TF–IDF 0.966; three shuffled-label controls 0.47–0.49; zero duplicate transcripts across CV folds; BERT-training-loop shuffle control 0.490 (loss at ln 2 ). Question-only TF–IDF for correctness 
+
+reaches 0.689 under the semantic label — the question-difficulty prior the trajectory improves upon. In the training batch, EHRSQL’s unanswerable questions are drawn from ∼16 short topic-label templates (median 17 characters) vs. ∼100 full-question answerable templates, explaining the format signal. 
+
+B Label decision record 
+
+Strict label: official execution match. Semantic label (primary): GPT judge ( GPT-4o-mini , tempera-ture 0) compares the agent answer’s executed result with the gold query’s executed result; the judge prompt (verbatim, Appendix H) is instructed to reply with a single digit. Policy: strict-correct ⇒
+
+auto-correct; abstentions inherit strict; only answered strict-wrong cases are judged. Outcome: 1,294 of 5,119 answered questions (25.3%) flip strict-wrong → semantically-correct (the policy never shows the judge a strict-correct answer, so reverse flips cannot occur). Agent correctness is 59.9% semantic vs. 34.6% strict. The correctness head trained under each label: 0.889 under strict (single earlier run, different hardware configuration; see bert_prefix_metrics_modernbert_strict.csv ) vs. 
+
+0.748 under semantic — the judge’s label is a harder prediction target, not merely a more lenient one. 11 Human audit. Two authors independently re-rated a random sample of 100 judged verdicts on 
+
+GPT-4o-mini ’s trajectories (answered, strict-wrong cases, the only ones the judge sees), blind to the judge and to each other, using the judge’s own rule. The raters agreed on 93/100 (Cohen’s κ = 0 .86 ). On those 93, the judge matched the human verdict on 69 (74%, 95% CI 64–82%), with errors in both directions (11 false positives, 13 false negatives), so it marks slightly fewer answers correct than the raters (38 vs. 40) and does not inflate correctness, including on its own agent’s answers. 
+
+C Encoder decision record 
+
+Adoption rule: a stronger encoder is adopted if it improves AUROC by ≥ 0.02 . DistilBERT (512-token window): correctness 0.841, answerability 0.944, with late-step collapse (0.641 at t=5 ). ModernBERT-base (2,048): 0.889 / 0.986, flat per-step profiles — the late-step decay was a truncation artifact of the 512-token window, not a property of deep trajectories. Rule fired on both heads. 
+
+D Confidence bins 
+
+Delivered-answer accuracy by confidence bin (GPT-4o-mini shown; every agent’s 
+
+confidence_bins_*.csv ships with the pipeline). On the calibration pool the raw cor-rectness scores are bimodal and overconfident: 44% of delivered answers score [0 .9, 1.0] raw yet are correct only 71% of the time, while 30% score [0 , 0.1] and are correct 23% of the time. After isotonic calibration, bin accuracy tracks stated confidence, and the map transfers to held-out dev_test: 
+
+[0 .5, 0.6] → 51% correct, [0 .7, 0.8] → 77 .7% , [0 .9, 1.0] → 100% . Only ∼4% of dev_test answers score ≥ 0.8 under this head-alone calibration, and the deployed hybrid estimator delivers 17% of questions at λ=4 (Table 3): the agent produces few answers that are genuinely that reliable, and the system correctly declines the rest. 
+
+E Operating characteristics 
+
+Table 3: Operating characteristics ( GPT-4o-mini , dev_test): the fraction of questions each system answers (cov.) and the accuracy of the answers it delivers (acc.), at each stakes level. The GPT-4o 
+
+equivalents appear in the main text (Section 4.2).                           
+
+> λ=1 λ=4 λ=9
+> System Cov. Acc. Cov. Acc. Cov. Acc. vanilla agent 0.84 0.48 0.84 0.48 0.84 0.48
+> + Chow delivery 0.38 0.73 0.17 0.86 0.03 0.95
+> + early stopping 0.37 0.73 0.09 0.86 0.01 0.89
+
+F Always-abstain comparison and robustness 
+
+A policy that refuses every question scores the unanswerable fraction of the pool, +0 .029 here, at every λ, with no monitor and no agent calls. Table 4 reports the full system’s gain over that policy with 95% intervals from a cluster bootstrap over the held-out pool’s 41 question templates (2,000 resamples). The gain is significant at λ=1 for four agents and indistinguishable from zero elsewhere, including GPT-4o ’s small deficit at λ=4 .
+
+Unanswerable proportion. The pools merge EHRSQL’s train split, which has no unanswerable questions, with its validation split, so 3% of questions are unanswerable against 20–33% in the benchmark’s own evaluation splits. Reweighting the held-out pool to 20% / 33% leaves the λ=1 
+
+gain over always abstaining at +0 .16 / +0 .12 for GPT-4o and +0 .15 / +0 .12 for GPT-4o-mini , and raises the gate’s share of the λ=1 gain over the vanilla agent from 4% to about half for GPT-4o at 33%, since the gate’s effect scales with the unanswerable fraction. 12 Table 4: Full-system RS( λ) minus the always-abstain score (dev_test), with 95% template-cluster bootstrap intervals.                                  
+
+> Agent λ=1 λ=4 λ=9
+> GPT-4o-mini +0 .177 [+0 .088 ,+0 .270] +0 .048 [ −0.017 ,+0 .130] +0 .015 [ −0.014 ,+0 .040]
+> GPT-4o +0 .209 [+0 .113 ,+0 .306] −0.010 [ −0.058 ,+0 .034] +0 .001 [+0 .000 ,+0 .004]
+> Llama-3.1-8B +0 .029 [ −0.016 ,+0 .081] +0 .000 [+0 .000 ,+0 .002] +0 .000 [+0 .000 ,+0 .001]
+> Qwen2.5-Coder-7B +0 .075 [+0 .022 ,+0 .135] +0 .001 [+0 .000 ,+0 .003] +0 .001 [+0 .000 ,+0 .003]
+> Phi-4-mini +0 .010 [+0 .002 ,+0 .021] +0 .000 [+0 .000 ,+0 .000] +0 .000 [+0 .000 ,+0 .000]
+
+Exact threshold. Replacing τλ with the exact bar (λ + ε)/(1 + λ), where ε is the calibrated answerability estimate that the question is unanswerable, changes no full-system entry of Table 1 by more than 0.01 .
+
+Strict scoring. Scoring the same decisions under EHRSQL’s strict execution-match label, the λ=1 
+
+gain over always abstaining falls to +0 .03 (GPT-4o ) and +0 .05 (GPT-4o-mini ), and at λ=4 both fall below it ( −0.11 , −0.07 ). GPT-4o ’s delivered answers are 69% and 79% correct under the judge at λ=1 and 4 but 52% and 66% under strict matching, and the thresholds were calibrated to the semantic label, so the size of the gains depends on the judge. 
+
+Question-only baselines. The head scored on the question alone ( t=0 ) is each agent’s question-only baseline (Table 5). The trajectory adds +0 .04 to +0 .18 AUROC to correctness on every agent. For answerability the question alone carries nearly all of the signal, and on Llama-3.1-8B it is higher than the delivery-time reading. Table 5: Held-out AUROC of each head on the question alone ( t=0 ) and at delivery. 
+
+Correctness Answerability Agent t=0 Delivery t=0 Delivery 
+
+GPT-4o-mini 0.699 0.787 0.910 0.923 
+
+GPT-4o 0.705 0.762 0.988 0.981 
+
+Llama-3.1-8B 0.663 0.707 0.962 0.903 
+
+Qwen2.5-Coder-7B 0.742 0.920 0.961 0.959 
+
+Phi-4-mini 0.782 0.921 0.968 0.987 
+
+G Token-cost efficiency 
+
+GPT-4o-mini collection measured 2.50M completion tokens (142/step) and an estimated ∼17 Mprompt tokens across 17,571 steps. Weighted by generated tokens (exact, from the logged per-token telemetry), the GPT-4o savings of Table 2 are: gate alone 1%; early stopping 16%/47%/47% at 
+
+λ = 1 /4/9 — slightly above the step fractions, since eliminated steps skew late and long. 
+
+H Prompts 
+
+The agent’s system prompt, verbatim; {schema} is replaced by the serialized table schema at run time: 
+
+> You are a careful clinical data analyst answering questions against a hospital SQL database (SQLite). {schema} IMPORTANT - database time: this database’s "current time" is 2105-12-31 23:59:00 (records span roughly 2100-2105). You may use datetime(’now’) and relative times; they are automatically mapped to that clock. "This year", "current", etc. refer to that timeline, not the real world.
+
+13 Protocol - reply with exactly one action per turn: THOUGHT: <brief reasoning> SQL: <one exploratory SQLite query> (to inspect data; keep LIMIT small) OR, when you know how to answer: THOUGHT: <brief reasoning> FINAL_SQL: <the single SQLite query whose result answers the question> OR, ONLY if the database truly cannot answer this question (the needed information is not stored in any table): THOUGHT: <brief reasoning> FINAL: null Rules: - Your goal is ALWAYS to end with FINAL_SQL. Even if you can already see the answer in an exploration result, you must still provide the FINAL_SQL query that produces it - the query IS your answer. - An empty result does not mean the question is unanswerable; it may mean your query or time window is wrong. Reconsider before giving up. - Use FINAL: null only when the schema genuinely lacks the information (e.g., data the hospital does not record). Optionally add on its own line: BEST_SO_FAR: <your current best final query, or null> Notes: use lowercase table/column names as given; do not modify data. 
+
+The judge prompt, verbatim, sent to GPT-4o-mini at temperature 0 with the system message “Respond with only the single digit 1 or 0.”; the three placeholders are filled per question, the latter two with executed results: 
+
+> You are evaluating an answer against a ground truth reference. Question: {question} Ground Truth Answer: {ground_truth} Predicted Answer: {answer} RULES 1. If the answer is correct, score it as 1. If the answer is incorrect, score it as 0 2. You are not looking for exact string matches, but the answer should be very clearly correct
+
+I Feature definitions 
+
+The ten trajectory features (Section 4.1) are of three kinds. Token-level telemetry never appears in the transcript, and the schema checks consult a schema file the head never sees, so neither can be recovered from the rendered text. The execution aggregates (empty-result rate, error rate, step count) are visible in the text; they are included as exact counts that the head would otherwise have to infer. Purely linguistic signals such as hedging or self-correction phrasing are excluded: the head already reads those. Every feature is computable from the first t steps alone, with neutral defaults for not-yet-observed quantities; the temporal analyses and gate replays consume exactly this prefix form. 
+
+Uncertainty [Kadavath et al., 2022, Kim et al., 2024, Somov and Tutubalina, 2025]. 
+
+• lp_mean : mean over steps of the per-step mean chosen-token log-probability. • lp_min : minimum chosen-token log-probability across the whole trajectory. • ent_mean : mean over steps of the per-step mean token entropy, computed over the top-5 alternatives at each position (a lower bound on the full entropy). • ent_max : maximum per-token entropy over the trajectory, same truncation; the official EHRSQL baseline thresholds this maximum over the full vocabulary [Lee et al., 2022]. 
+
+Execution [Wang et al., 2018, Gong et al., 2025]. 
+
+• empty_rate : fraction of executed steps whose query returned zero rows. 14 • error_rate : fraction of executed steps whose query raised a SQL error. • n_steps : number of steps taken so far; doubles as the observability index t in the prefix form. 
+
+Schema grounding [Gong et al., 2025]. 
+
+• failed_refs : count, over all logged queries, of table or column references that do not resolve against the database schema, via an alias-aware parser; identifiers that cannot be confidently resolved are conservatively not counted as failures. • bad_joins : count of equality join predicates whose column pair is not backed by a declared foreign-key relationship. • ungrounded_frac : fraction of literal values in the committed SQL traceable to neither the question text nor any previously observed execution result (the database’s shifted time constants are exempt); ungrounded literals are the fabrication signature. 
+
+J Feature analysis: the label-dependent screen 
+
+Each feature is screened for incremental ∆AUROC over BERT-alone (95% CI, template-level cluster bootstrap, 1,000 resamples over fixed out-of-fold predictions). Under the semantic label, the gradient-boosted hybrid improves on BERT-alone by +0 .028 AUROC (CI [+0 .011 , +0 .047] ); the failed-reference count survives the per-feature screen, while inside the hybrid the execution family carries the weight: removing it costs −0.015 , and the uncertainty and schema families add little. Under the strict label the same screen yields no survivors: a strong text reader saturates a clean execution-match target, while externally observed execution events add signal when the target is the noisier semantic judgment. On the calibration pool the hybrid scores 0.780 vs. 0.746 for BERT-alone, so the pre-registered selection rule deploys the hybrid at delivery. The selection replicates on all five agents (Table 1), with the execution family load-bearing every time (knockouts −0.009 to −0.038 ); the margin is largest on the agent whose transcript is least legible to the text reader ( Llama-3.1-8B ,
+
+0.748 vs 0.691 ), the pattern expected if features compensate where text reading fails. The per-feature survivor matrix is Table 6; per-agent screen details, including each feature’s ∆AUROC and CI, ship in hybrid_feature_screen.csv .Table 6: Which features individually survive the screen, per agent (train pool, out-of-fold; ✓
+
+= incremental ∆AUROC over BERT-alone with 95% cluster-bootstrap CI excluding zero; not a held-out result). Survivor counts are highest for the two agents the head reads worst, though five agents cannot establish a trend; only aggregate rulings are agent-general.                                                        
+
+> Agent
+> lp_mean lp_min ent_mean ent_max empty_rate error_rate n_steps failed_refs bad_joins ungrounded_frac
+> Survivors
+> GPT-4o-mini ×××××××✓××1
+> GPT-4o ✓✓✓✓✓×✓×✓×7
+> Llama-3.1-8B ××××✓✓✓✓✓×5
+> Qwen2.5-Coder-7B ××××××××××0
+> Phi-4-mini ×××××✓×✓××2
+
+K Per-agent exhibits 
+
+Every single-agent exhibit in the main text is replicated for all five agents (Table 1); the released pipeline ships each agent’s complete results CSVs (system ladders, risk–coverage sweeps, confidence bins, per-step metrics). Figure 3’s GPT-4o panels are reproduced below for each remaining agent, alongside the GPT-4o-mini exhibits (the development agent on which the labels, audits, and feature analyses were built). 15 Table 7: System ladder for GPT-4o-mini (dev_test, 2,100 questions, evaluated once): each decision component’s reliability and compute contribution. 
+
+System RS(1) RS(4) RS(9) Steps Saved ( λ=1 /4/9)vanilla agent −0.02 −1.34 −3.53 —+ exit gate −0.01 −1.29 −3.43 2% 
+
++ Chow delivery +0 .21 +0 .08 +0 .04 2% 
+
++ early stopping +0 .20 +0 .06 +0 .03 28% / 64% / 70% 0.00 0.25 0.50 0.75 1.00 
+
+Correct Answers Flagged (FPR) 
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Incorrect Answers Flagged (TPR)
+> λ=1
+> λ=4
+> λ=9
+
+AUC 0.80 
+
+(a) Withholding As Detection   
+
+> 024
+
+Step t (Prefix Scored) 
+
+> 0.6 0.7 0.8 0.9 1.0
+> AUROC (Held-Out)
+
+(b) Signal By Trajectory Step     
+
+> correctness answerability 0.00 0.25 0.50 0.75 1.00
+
+Predicted Correctness 
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Actual Accuracy
+
+(c) Calibration Transfers 
+
+> raw calibrated
+
+Figure 4: The Figure 3 panels for GPT-4o-mini (dev_test; withhold-classifier AUC 0.80 ). 0.00 0.25 0.50 0.75 1.00 
+
+Correct Answers Flagged (FPR)  
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Incorrect Answers Flagged (TPR)
+> λ=1 λ=4, 9
+
+AUC 0.92 
+
+(a) Withholding As Detection   
+
+> 024
+
+Step t (Prefix Scored) 
+
+> 0.6 0.7 0.8 0.9 1.0
+> AUROC (Held-Out)
+
+(b) Signal By Trajectory Step     
+
+> correctness answerability 0.00 0.25 0.50 0.75 1.00
+
+Predicted Correctness 
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Actual Accuracy
+
+(c) Calibration Transfers 
+
+> raw calibrated
+
+Figure 5: The Figure 3 panels for Qwen2.5-Coder-7B (dev_test; withhold-classifier AUC 0.92 ). 0.00 0.25 0.50 0.75 1.00 
+
+Correct Answers Flagged (FPR) 
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Incorrect Answers Flagged (TPR)
+> λ=1
+> λ=4, 9
+
+AUC 0.72 
+
+(a) Withholding As Detection   
+
+> 024
+
+Step t (Prefix Scored) 
+
+> 0.6 0.7 0.8 0.9 1.0
+> AUROC (Held-Out)
+
+(b) Signal By Trajectory Step     
+
+> correctness answerability 0.00 0.25 0.50 0.75 1.00
+
+Predicted Correctness 
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Actual Accuracy
+
+(c) Calibration Transfers 
+
+> raw calibrated
+
+Figure 6: The Figure 3 panels for Llama-3.1-8B (dev_test; withhold-classifier AUC 0.72 ). 16 0.00 0.25 0.50 0.75 1.00          
+
+> Correct Answers Flagged (FPR)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Incorrect Answers Flagged (TPR)
+> λ=1 λ=4, 9
+> AUC 0.93
+> (a) Withholding As Detection
+> 024
+> Step t(Prefix Scored)
+> 0.6 0.7 0.8 0.9 1.0
+> AUROC (Held-Out)
+> (b) Signal By Trajectory Step
+> correctness answerability 0.00 0.25 0.50 0.75 1.00
+> Predicted Correctness
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Actual Accuracy
+> (c) Calibration Transfers
+> raw calibrated
+
+Figure 7: The Figure 3 panels for Phi-4-mini (dev_test; withhold-classifier AUC 0.93 ). Table 8: Early-stop mode per agent (dev_test): RS( λ) with sequential stopping, and the fraction of agent steps never executed. 
+
+Early-Stop RS( λ) Steps Saved Agent 1 4 9 1 4 9
+
+GPT-4o-mini +0 .20 +0 .06 +0 .03 28% 64% 70% 
+
+GPT-4o +0 .24 +0 .02 +0 .03 13% 42% 42% 
+
+Llama-3.1-8B +0 .06 +0 .03 +0 .03 14% 53% 53% 
+
+Qwen2.5-Coder-7B +0 .10 +0 .03 +0 .03 22% 62% 62% 
+
+Phi-4-mini +0 .04 +0 .03 +0 .03 15% 32% 32% 
+
+Table 9: Step economics of unanswerable questions per agent (train pool, mean steps): fabricating an answer vs. correctly refusing (an explicit abstention; runs that hit the 8-step cap are excluded) vs. a typical answerable question. Four of five agents work harder on the fabrication than on the correct refusal; Phi-4-mini is the exception, fabricating as fast as it refuses. 
+
+Agent Fabrication Correct Refusal Typical Answerable 
+
+GPT-4o-mini 3.29 2.12 2.86 
+
+GPT-4o 3.35 2.12 3.01 
+
+Llama-3.1-8B 5.26 4.46 4.97 
+
+Qwen2.5-Coder-7B 2.25 1.68 1.96 
+
+Phi-4-mini 1.75 1.70 3.36 
+
+The Phi-4-mini reversal is informative. For the other four agents fabrication is effortful : the agent explores, retrieves something adjacent-looking, and rationalizes it into an answer, so the fabrication carries the cost of the investigation that produced its misleading evidence (Figure 1, Q1). Phi-4-mini 
+
+shows no such signature: both of its outcomes on unanswerable questions are near-instant ( 1.75 vs. 
+
+1.70 steps) while its rare attempts to explore them run to the step cap, consistent with fabrication by reflex — committing from the question’s surface form without gathering evidence — rather than by rationalization. The same shallowness is what makes its transcripts the easiest to monitor (Table 1): a reflex fabrication leaves no competent-looking trail for the correctness head to be fooled by. 
+
+External reference point. For external context on the shared scale of Broecker et al. [2026]: this agent’s λ=1 lift ( −0.02 → +0 .21 ) is comparable to the ≈+0 .2 IDK-score gain their filter reports for a Llama-3.2-3B agent on APIGen ( 0.34 → 0.54 ). The IDK score counts abstentions as 0, so it coincides with RS(1) only on answerable questions. Early stopping prices its one real trade on this agent: at λ=4 it buys 64% of steps for 0.02 RS(4) , from a stop threshold tuned where calibration-pool coverage was thin; the timed serial rerun measures 2.2 seconds per step for this agent. 17 L Example rendered transcript 
+
+One full rendering, exactly as the heads read it (question d7c5f51c , train pool): an unanswerable question (department scoping is not represented in the schema) on which the agent performs seven steps of plausible-looking exploration before abstaining on its own. The answerability head is not distracted by the productive-looking activity: its out-of-fold ˆpans stays below 10 −3 at every step including t=0 , so the exit gate would have refused before step 1, saving all seven steps. 
+
+QUESTION: Can you provide me with all the prescriptions received by patient 16879 in another department? STEP 1 THOUGHT: I need to find the prescriptions for patient 16879 and check if there are any records indicating that these prescriptions were given in a department other than the one they were admitted to. However, the prescriptions table does not directly include department information. I will need to join it with the admissions table to determine the department. STEP 1 SQL: SELECT p.* FROM prescriptions p JOIN admissions a ON p.subject_id = a.subject_id AND p.hadm_id = a.hadm_id WHERE p.subject_id = 16879 AND a.admission_location != ’ICU’ STEP 1 RESULT: empty (0 rows) STEP 2 THOUGHT: The result indicates that there are no prescriptions found for patient 16879 in the current query setup. It’s possible that the admission location I used (’ICU’) was incorrect or too restrictive. I will try checking all prescriptions for patient 16879 without restricting the admission location and then look for any department-related information in the admissions table. STEP 2 SQL: SELECT p.* FROM prescriptions p JOIN admissions a ON p.subject_id = a.subject_id AND p.hadm_id = a.hadm_id WHERE p.subject_id = 16879 STEP 2 RESULT: empty (0 rows) STEP 3 THOUGHT: Since there are no prescriptions found for patient 16879, I need to verify if this patient has any admissions recorded. If there are no admissions, it would explain the absence of prescriptions. I will query the admissions table to check for any records related to patient 16879. STEP 3 SQL: SELECT * FROM admissions WHERE subject_id = 16879 STEP 3 RESULT: 1 rows x 13 cols; sample [[’313’, ’16879’, ’123812’, ’2103-09-13 10:21:00’, ’2103-10-07 18:00:00’, ’elective’, ’phys referral/normal deli’, ’home health care’, ’medicaid’, ’None’, ’married’, ’asian’, ’31’]] STEP 4 THOUGHT: Patient 16879 has one admission recorded, which indicates that they were admitted on 2103-09-13 and discharged on 2103-10-07. Since there are no prescriptions linked to this patient in the previous queries, I will check if there are any procedures or diagnoses recorded during this admission that may provide additional context or confirm the patient’s treatment during their hospital stay. STEP 4 SQL: SELECT * FROM procedures_icd WHERE subject_id = 16879 STEP 4 RESULT: 7 rows x 5 cols; sample [[’627’, ’16879’, ’123812’, ’9904’, ’2103-10-07 18:00:00’], [’628’, ’16879’, ’123812’, ’3891’, ’2103-10-07 18:00:00’], [’629’, ’16879’, ’123812’, ’9955’, ’2103-10-07 18:00:00’]] STEP 5 THOUGHT: Patient 16879 has several procedures recorded during their admission. However, I still need to find any prescriptions that may have been associated with these procedures or the admission itself. I will check if there are any diagnoses associated with patient 16879 during the same admission. STEP 5 SQL: SELECT * FROM diagnoses_icd WHERE subject_id = 16879 STEP 5 RESULT: 7 rows x 5 cols; sample [[’3053’, ’16879’, ’123812’, ’42833’, ’2103-09-13 10:21:00’], [’3054’, ’16879’, ’123812’, ’4280’, ’2103-09-13 10:21:00’], [’3055’, ’16879’, ’123812’, ’4019’, ’2103-09-13 10:21:00’]] STEP 6 THOUGHT: Patient 16879 has several diagnoses recorded during their admission. While I have gathered information about their admissions, procedures, and diagnoses, I still have not found any prescriptions associated with this patient. Since I have confirmed the patient has an admission and procedures, I will now check if 
+
+18 there are any prescriptions linked to their admission by looking for prescriptions associated with their HADM_ID. STEP 6 SQL: SELECT * FROM prescriptions WHERE hadm_id = 123812 STEP 6 RESULT: empty (0 rows) STEP 7 THOUGHT: The absence of prescriptions for patient 16879, despite having an admission and procedures, suggests that this patient may not have received any medications during their hospital stay. This could be due to the nature of their treatment or other clinical decisions made at that time. Therefore, I will conclude that there are no prescriptions received by patient 16879 in any department. FINAL: null (abstained) 
+
+M Reproducibility and cost 
+
+Seed 42 is the run of record for every agent (a one-time three-seed check on GPT-4o-mini , retained in the released seed_variance.csv , put the terminal-AUROC SD at ±0.009 ; seed reruns were dropped thereafter as not worth the compute). transformers==4.56.2 pinned; the decision layer runs in one environment with scikit-learn==1.6.1 , since the gradient-boosted hybrid’s fit varies across versions; collection gaps leave 2,099 held-out questions for GPT-4o and Qwen2.5-Coder-7B 
+
+and 2,100 for GPT-4o-mini , and each agent’s metrics are computed over the questions it com-pleted; template-to-question pool manifest shipped with the code; two-tier reproducibility (exact artifacts released; retraining reproduces statistically). Compute and cost are per-agent: the primary 
+
+GPT-4o-mini run took approximately 2 GPU-hours per head-training run and roughly $4 of API spend for collection plus labeling (estimates; not instrumented). Open-source agents spend API only on the judge (the agent itself is served on a local GPU); a flagship GPT-4o run is substantially more expensive ( ∼$110 : 30M prompt + 3.6M completion tokens at list prices, computed from the logged telemetry). Confidence intervals via template-level cluster bootstrap (1,000 resamples), not seed reruns. 19

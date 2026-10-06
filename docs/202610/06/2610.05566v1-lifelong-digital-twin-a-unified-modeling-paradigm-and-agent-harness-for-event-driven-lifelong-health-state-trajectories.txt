@@ -1,0 +1,1380 @@
+LifeLong Digital Twin
+A Unified Modeling Paradigm and Agent Harness
+for Event-Driven Lifelong Health State Trajectories
+Jin Jiang1,2
+Sean Yates1,2
+Jasper Chong2
+Raymond Brooks2
+Alex Lawson2
+Yuqin Qin1
+Liangcai Gao
+1
+1Peking University
+2VITA-Med Group
+Correspondence: jiangjin@stu.pku.edu.cn, gaoliangcai@pku.edu.cn
+Abstract. Human health is a continuous, dynamic trajectory shaped by the cumulative
+interplay of biological processes, clinical events, behaviors and environmental exposures
+across the life course.
+Unifying the full breadth of lifelong health information, including
+longitudinal records, genetic variation, molecular profiles and environmental histories, is
+essential for whole-person modeling and remains a major challenge. We introduce LifeLong
+Digital Twin, a unified, event-driven modeling paradigm that organizes Life Events into daily
+Health States and accumulates them into Lifelong Health Context. An accompanying Agent
+Harness incorporates multimodal evidence beyond the language model’s textual context. We
+evaluate four language models across 25 disease endpoints on three tasks: Disease Trajectory
+Forecasting, Disease Risk Ranking and Multi-horizon Disease Prediction. The approach yields
+marked gains over the reference condition: model-averaged F1 increases by 22.0% for disease
+identification in trajectory forecasting and 18.3% for five-year disease outcomes; thyroid-
+disease F1 reaches 0.669. The framework provides a foundation for whole-person digital twins
+and research on personalized lifelong disease prevention.
+LifeLong  Digital  Twin
+An Event-Driven Unified Modeling Paradigm
+All of life,
+all of you.
+Birth geography
+Air pollution
+Disease care
+Physical activity
+Family history
+Lab tests
+Sleep
+Medications
+Cognitive function
+Vital signs
+Mood
+wellbeing
+Smoking & alcohol
+Microbiome
+& metabolomics
+Hospitalization
+Genetics
+Diet
+Accelerometry
+Greenness
+Procedures
+Stress &
+trauma
+Social network /
+loneliness
+Early life
+0–10
+Adolescence
+10–20
+Young adulthood
+20–40
+Midlife
+40–60
+Later life
+60+
+Background
+Physiological
+measurement
+Disease care
+Behavior &
+lifestyle
+Psychosocial
+Environmental
+exposure
+Multi-Disease
+Risk Prediction
+Counterfactual
+Intervention
+Biological Age
+Estimation
+Early Disease
+Detection
+Health State
+Longitudinal
+Evidence
+Time
+Skill Set
+PRS
+Exposure
+Imaging
+Omics
+Biosignals
+Agent Harness
+LifeTwin
+Disease Trajectory Forecasting
++
+6
+6
+.
+9
+Thyroid
++
+4
+9
+.
+4
+PD
++
+4
+1
+.
+2
+DEP
++
+3
+4
+.
+5
+IBD
++
+3
+3
+.
+0
+RA
++
+3
+1
+.
+2
+EPI
+Top 6 mean F1 gains vs Baseline (pts)
+Multi-horizon Disease Prediction
+0.1
+0.3
+0.5
+0.7
+Random
+6m
+1y
+2y
+3y
+5y
+10y
+Mean micro-F1:
+Baseline
+Harness
+
+
+LifeLong Digital Twin
+1 Introduction
+Human health unfolds through a lifetime of interacting biological processes, clinical encounters, behaviors
+and environmental exposures. Their effects accumulate across years, while the evidence available to describe
+them is fragmented across settings and moments in time. A diagnosis, an image or a change in physical
+activity gains meaning from the history of the person behind it. Realizing the promise of digital twins for
+personalized medicine [1] therefore requires a coherent, evolving account of the individual.
+Existing approaches address selected aspects of personal health modeling. Delphi-2M represents diagnoses
+and selected health attributes as discrete tokens, using longitudinal information for disease prediction. It is
+a dedicated GPT-based disease model, rather than an application of a pretrained general-purpose language
+model [2].
+Work on generalist medical AI and language-model agents offers complementary directions
+for multimodal interpretation and reasoning [3, 4]. Bringing these capabilities together requires a unifying
+paradigm that organizes diverse personal evidence across life stages into a coherent, evolving health context.
+We introduce LifeLong Digital Twin, a unified, event-driven modeling paradigm for integrating personal
+health information across the life course. Its organizing principle is Lifelong Health Context: the accumu-
+lated history through which observations become meaningful in relation to one another. The framework is
+designed to bring evidence from clinical narratives, medical imaging, genetic information, physical-activity
+trajectories and environmental exposures into this shared context. It places the individual and their evolv-
+ing history at the center of modeling, connecting information across health domains and life stages. This
+provides large language models (LLMs) with a common foundation for interpreting new observations and
+anticipating future disease.
+The paradigm begins with a unified organization of personal experience as Life Events. Events occurring
+or observed on the same day form a Health State, and successive states accumulate into Lifelong Health
+Context. An Agent Harness builds on this history, bringing specialized expertise to the individual’s health
+questions. It relates clinical, molecular, physiological and environmental evidence to the broader personal
+context, supporting reasoning across sources and over time. Together, event-driven modeling and the Agent
+Harness enable an evolving digital twin in which new evidence enriches the history available for subsequent
+health reasoning.
+Evaluation spans 25 disease endpoints and three complementary tasks: Disease Trajectory Forecasting,
+Disease Risk Ranking and Multi-horizon Disease Prediction.
+Compared with the baseline setting, the
+full framework delivers broad improvements in disease-event identification, diagnosis-year agreement and
+prediction across short and long horizons. Particularly large identification gains for thyroid disease and
+Parkinson disease illustrate the potential of the approach across distinct clinical domains. These findings
+support the predictive value of Lifelong Health Context and establish a foundation for whole-person digital
+twins and research on personalized lifelong disease prevention.
+2
+
+
+LifeLong Digital Twin
+2 LifeLong Digital Twin
+2.1 A Unified Event-Driven Modeling Paradigm
+LifeLong Digital Twin organizes a person’s evolving history into individual Life Events, daily Health States,
+and the accumulated Lifelong Health Context. This organization connects observations across health do-
+mains and life stages, providing a shared basis for interpreting new evidence and anticipating future disease.
+Figure 1 illustrates this organization through a synthetic history and a taxonomy of event categories.
+2.1.1 Life Events
+A Life Event is an information unit describing a personal experience, observation, or change. We write
+it as ei = (τi, ci, xi), where τi is its occurrence or observation time, ci its category and type, and xi its
+content. Source references, units, modality, recording time, and evidence availability accompany the event
+where applicable. A family-history report, for example, is an observation made on the report date and can
+also refer to an earlier period in a relative’s life.
+Six categories organize the events: Background (demographics, family history, early life); Physiological
+measurements (vital signs, laboratory and functional tests); Disease and clinical care (diagnoses, med-
+ications, procedures); Behavior and lifestyle (diet, activity, smoking, sleep); Psychosocial (well-being,
+relationships, stressors); and Environmental exposure (air pollution, noise, neighborhood conditions).
+Finer event types describe the observation within each category. Categories classify the available events;
+they do not specify fields that every daily state must contain.
+The event category describes what the information concerns, while modality describes its form. Text, codes,
+measurements, images, molecular assays, and signals can support different event categories. The source
+observation, a derived measurement, and an interpretation retain their respective provenance and evidential
+roles.
+2.1.2 Daily Health States and Lifelong Health Context
+For person p, a Health State on day d is the set of events occurring or observed on that day:
+Sp(d) = {ei : person(ei) = p, τi resolves to day d},
+Sp(d)̸ = ∅.
+(1)
+A state contains only the events of its own day. Days without events create no additional state. Thus a
+family-history observation and a blood-pressure measurement can form one state, while later reports of
+stopping smoking and moderate stress form another. The earlier observations remain in the history; the
+later state does not restate them or infer an updated blood pressure.
+For day-resolved events, the accumulated history through day t is
+Cp(t) = ⟨Sp(d1), Sp(d2), . . . , Sp(dm)⟩,
+d1 < d2 < · · · < dm ≤t.
+(2)
+This ordered component, together with events retaining coarser or unresolved time information, constitutes
+Lifelong Health Context. Month-only, year-only, and interval-dated events are carried alongside the daily
+states at their original precision. They are not assigned an invented day or forced into a same-day group.
+Recording time is stored separately from occurrence or observation time, so a later entry can add information
+about an earlier period while preserving when it was recorded.
+Health State is an organization of recorded events, and Lifelong Health Context is the cumulative record
+available for longitudinal reasoning. Neither requires complete observation of a person’s life. Evidence may
+be sparse, missing, or conflicting, and health can change between observations. The prediction tasks and
+their evaluation settings are defined in Section 3.
+3
+
+
+LifeLong Digital Twin
+a
+From events to lifelong context
+Lifelong Health Context
+One person · accumulated history
+Health State
+12 Mar 2018
+Life Event
+Family history
+Father: hypertension
+Life Event
+Blood pressure
+128/80 mmHg
+12 Mar 2018
+Health State
+20 Aug 2019
+Life Event
+Smoking
+Stopped smoking
+Life Event
+Well-being
+Moderate stress reported
+20 Aug 2019
+Health State
+05 Nov 2021
+Life Event
+Clinical review
+Persistent cough
+Life Event
+Spirometry
+FEV1: 2.8 L
+Life Event
+Air quality
+Daily PM2.5: 12 µg/m³
+05 Nov 2021
+Time
+Events on the same day form a Health State
+Model context
+12 Mar 2018
+Family history; blood pressure …
+20 Aug 2019
+Smoking; well-being …
+05 Nov 2021
+Clinical review; spirometry;
+air quality …
+Chronological event text
+LLM
+Large language model
+b
+Event categories and representative types
+Life
+Events
+Background
+Birth & demographics
+Family history
+Early life
+Self-reported traits
+Socioeconomic context
+Physiological measurements
+Vitals & anthropometry
+Medical imaging
+Omics & biological age
+Respiratory function
+Cardiac function
+Vascular function
+Organ function tests
+Bone health
+…
+Disease & clinical care
+Diagnoses
+Medications
+Procedures
+Hospitalizations
+Screening
+Symptoms & restrictions
+Medical history
+Cancer registry
+…
+Behavior & lifestyle
+Physical activity
+Sleep
+Diet
+Smoking & tobacco
+Alcohol use
+Sedentary behavior
+Transport & mobility
+Wearable activity
+…
+Psychosocial
+Well-being
+Mental health
+Social relationships
+Cognition
+Environmental exposure
+Air pollution
+Noise
+Built environment
+Residential environment
+Occupational exposure
+Illustrative history; category sectors do not represent proportions.
+Figure 1: From Life Events to Lifelong Health Context. a, Seven synthetic Life Events are grouped into three
+daily Health States containing two, two, and three events. The ordered states form an accumulated history,
+expressed as chronological event text for an LLM. Earlier events remain in the history without being copied into
+later states; ellipses indicate continuation. b, Six event categories and representative finer types. Colors link
+events to categories; the equal-sized sectors organize the taxonomy and do not indicate data proportions. The
+same illustrative history is expanded in Figure 2a.
+4
+
+
+LifeLong Digital Twin
+2.2 Direct Reasoning with Lifelong Health Context
+Lifelong Health Context provides a common information basis for personal health reasoning. In the direct
+Context formulation, the accumulated history is expressed as chronological event text and supplied to an
+LLM together with the task. The text preserves the grouping of events into Health States and the sequence
+through which the history develops (Figure 2a). The model therefore receives both earlier background and
+subsequent observations when interpreting a health question.
+This formulation allows a recent measurement, symptom, or lifestyle change to be considered in relation
+to the individual’s prior history. The same context can support questions about current observations and
+forecasts of future disease; the task specifies the requested outcome. This direct use of the accumulated
+history forms the starting point for the Agent Harness described next. The task summaries in Section 3.2
+illustrate the prediction questions posed against this personal history.
+2.3 An Agent Harness for Personal Health
+The Agent Harness extends direct reasoning with Context by connecting the same personal history to
+persistent evidence and specialized health capabilities. It retains the complete admitted textual Context
+as its foundation and adds three complementary components (Figure 2b): a Health State Workspace that
+organizes the history and linked evidence, Specialized Skills that relate domain-specific observations to their
+health meaning, and a Health Reasoning Agent that coordinates these resources around a task. Together,
+they support reasoning across sources while allowing accepted evidence to enrich Lifelong Health Context
+for later questions. We refer to this formulation as Harness in the evaluation.
+a Context
+Direct reasoning with
+lifelong history
+Chronological event text
+12 Mar 2018
+20 Aug 2019
+05 Nov 2021
+Family history: father with
+hypertension.
+Blood pressure:
+128/80 mmHg.
+Stopped smoking.
+Moderate stress reported.
+Persistent cough.
+FEV1: 2.8 L.
+PM2.5: 12 µg/m³.
+Task: predict future disease
+LLM
+Prediction
+b Agent Harness
+The same complete Context, with persistent evidence and specialized capabilities
+Health State Workspace
+File-based lifelong history
+12 Mar 2018
+20 Aug 2019
+Health State · 05 Nov 2021
+Clinical review: persistent cough
+Spirometry: FEV1: 2.8 L
+Air quality: PM2.5 12 µg/m³
+Linked evidence
+Report
+Signal
+Exposure
+Task
+Complete
+textual Context
+Runtime
+Health Reasoning Agent
+LLM
+History &
+evidence
+Specialized Skills
+Genetic risk
+PRS →
+inherited susceptibility
+Environmental exposure
+Air pollution →
+exposure context
+Medical imaging
+Report findings →
+organ phenotypes
+Omics
+Metabolites →
+molecular profiles
+Physiological signals
+Spirometry →
+respiratory function
+Consult
+Findings
+Prediction
+Accepted evidence enriches future Context
+Figure 2: Direct reasoning with Lifelong Health Context and the Agent Harness. a, Chronological event text
+preserves dated Health States and is supplied with a task to an LLM. b, The Agent Harness retains the same
+complete textual Context while connecting a file-based Health State Workspace, a runtime hosting the Health
+Reasoning Agent, and Specialized Skills. Accepted evidence can enrich subsequent Context; predictions remain
+separate task outputs. The example is synthetic. File cards illustrate logical organization rather than a prescribed
+file per day; Skills show representative capabilities.
+2.3.1 Health State Workspace
+The workspace maintains a file-based Lifelong Health Context that connects dated Health States and their
+events to supporting records and modality-specific evidence. It provides persistent access to the history and
+5
+
+
+LifeLong Digital Twin
+its details while the agent retains the complete textual Context as its starting information. Chronological
+and topic-based views offer complementary ways to navigate this common record.
+New observations enter the history with their own time and provenance. Accepted derived evidence can
+also enrich the context, with its derivation and availability recorded. Source observations, derived evidence,
+and model interpretations retain distinct roles. A prediction is a task output and is not automatically
+inserted as an event that has occurred. Reuse in later tasks remains subject to the applicable evidence
+policy.
+2.3.2 Specialized Skills
+Specialized Skills connect available domain evidence to its health meaning. The framework includes five
+complementary classes:
+• Genetic risk: an available polygenic risk score (PRS) characterizes inherited susceptibility, interpreted
+with its trait and population scope [5].
+• Environmental exposure: a time-compatible air-pollution estimate supplies exposure context for the
+person’s history.
+• Medical imaging: findings in an imaging report describe organ phenotypes associated with the acqui-
+sition.
+• Omics: metabolite measurements characterize molecular profiles, with their sample timing and assay
+context.
+• Physiological signals: spirometry curves provide evidence about respiratory function, with recording
+and quality information.
+These examples describe the framework’s scope. The task and available evidence determine which Skills are
+used; their run-specific configuration is a separate experimental property. Interpreting an existing imaging
+report or PRS uses derived evidence and does not imply analysis of raw images or genotypes.
+2.3.3 Health Reasoning Agent
+The agent receives the task and complete textual Context, consults the workspace and applicable Skills,
+and integrates relevant evidence into its answer. It relates specialized findings to the individual’s broader
+history, connecting earlier background, recent events, and complementary measurements. The Harness thus
+extends the evidence and capabilities available around the same Context foundation. Accepted evidence can
+expand the record; a forecast remains a possible future outcome, separate from events that have occurred.
+The reported evaluation conditions are described in Section 3.3.
+6
+
+
+LifeLong Digital Twin
+3 Evaluation Design
+This technical report evaluates whether a unified personal health history can support complementary forms
+of disease prediction. The evaluation covers disease trajectories, risk prioritization, and cumulative out-
+comes, using a common disease dictionary and three comparison conditions.
+3.1 Disease Outcomes
+The evaluation covers 25 disease endpoints across nine clinical categories. Each target is defined by quali-
+fying ICD-10 records. The outcome is the first recorded qualifying diagnosis after the prediction cutoff for
+an eligible endpoint; it does not denote biological onset or recurrence. The full definitions and exclusions
+are given in Table 2 in Appendix A.
+The broad all-malignant-neoplasms endpoint includes the four specified cancers: lung, colorectal, breast,
+and prostate cancer. These overlapping endpoints remain distinct prediction targets. For the primary B/C
+evaluation, they are combined into one cancer family, yielding 21 evaluation families. Clinical categories,
+prediction endpoints, and evaluation families therefore serve different purposes.
+3.2 Prediction Tasks
+Task A: Disease Trajectory Forecasting.
+Predict which eligible diseases will first be recorded over the
+next five years and assign each predicted disease to year 1, 2, 3, 4, or 5. The output is a list of disease–year
+pairs, with at most one event per disease. Evaluation distinguishes disease identification from agreement
+in event timing.
+Task B: Disease Risk Ranking.
+Rank the five most likely eligible diseases within a specified future
+window. The windows are 6 months and 1, 2, 3, 5, and 10 years. Each window has its own ranking; the list
+expresses relative priority rather than asserting that every listed disease will occur. Fewer than five entries
+are required when fewer than five candidates are eligible.
+Task C: Multi-horizon Disease Prediction.
+Predict whether each of the 25 diseases will have been
+recorded by each of the same six cumulative horizons. The output is a disease-by-horizon binary forecast.
+Once a disease is predicted to occur within one horizon, it remains positive at later horizons. This task
+measures how well a personal history supports disease prediction at different time scales.
+3.3 Models and Evaluation Settings
+Using UK Biobank data [6], we compare GPT-5.5, GPT-5.6 Terra, GPT-5.6 Sol, and GPT-6 Astra across
+Baseline, Context, and Harness. Baseline is the reference condition. Context uses the accumulated chrono-
+logical history for direct reasoning, and Harness extends this formulation through the Agent Harness (Sec-
+tions 2.2 and 2.3). The aggregate comparisons do not isolate the effects of individual Skills or other Harness
+components.
+Task B’s scored population varies by horizon because ranking evaluation requires suﬀicient follow-up and at
+least one relevant outcome (Appendix B.1). All horizons are evaluated relative to a case-specific prediction
+cutoff.
+An unobserved outcome with insuﬀicient follow-up remains unknown and is excluded from the
+relevant denominator, rather than counted as negative.
+The primary measures are five-year exact-endpoint F1 for A, family-level NDCG@5 at each horizon for B,
+and family-level micro-F1 for C, with five-year C performance as the primary readout. Timing agreement,
+precision, recall, and other supporting measures provide complementary views of performance. Appendix B
+gives the essential scoring definitions. Results are descriptive point estimates. The analysis boundaries are
+discussed in Section 4.3.
+7
+
+
+LifeLong Digital Twin
+4 Results
+4.1 Improved Prediction across Tasks and Models
+Both Context and Harness improve on Baseline in all 16 primary model–readout comparisons (Table 1;
+Figure 3). Across four models, mean disease-identification F1 in A rises from 0.422 to 0.504 with Context
+and 0.515 with Harness, corresponding to relative gains of 19.4% and 22.0%. Five-year C micro-F1 increases
+from 0.481 to 0.559 and 0.569 (16.2% and 18.3%). Year agreement and risk ranking also improve. Harness
+adds 0.30–1.45 score points over Context across these comparisons. A score point is 100 times a raw score
+difference; A uses exact endpoints and primary B/C scores use disease families.
+Table 1: Five-year primary scores. Context and Harness are two formula-
+tions of our framework.
+A: trajectory forecasting
+B: ranking
+C: prediction
+Model
+Condition
+Disease F1
+Within-1-year F1
+NDCG@5
+Micro-F1
+GPT-5.5
+Baseline
+0.4433
+0.3548
+0.6222
+0.4826
+Context (ours)
+0.5121
+0.4416
+0.6836
+0.5566
+Harness (ours)
+0.5249
+0.4504
+0.6903
+0.5644
+GPT-5.6 Terra
+Baseline
+0.3737
+0.3184
+0.5600
+0.4669
+Context (ours)
+0.4605
+0.4013
+0.6249
+0.5275
+Harness (ours)
+0.4719
+0.4096
+0.6368
+0.5420
+GPT-5.6 Sol
+Baseline
+0.4239
+0.3520
+0.6333
+0.4786
+Context (ours)
+0.5069
+0.4373
+0.6823
+0.5646
+Harness (ours)
+0.5162
+0.4473
+0.6875
+0.5734
+GPT-6 Astra
+Baseline
+0.4486
+0.3703
+0.6797
+0.4947
+Context (ours)
+0.5381
+0.4669
+0.7378
+0.5855
+Harness (ours)
+0.5487
+0.4798
+0.7408
+0.5946
+A uses exact endpoints; B/C use disease families. Bold marks the highest score within each model and readout.
+4.2 Performance across Prediction Horizons
+The gains extend across six horizons, from six months to ten years (Figure 4). In B, both Context and
+Harness exceed Baseline in all 24 model–horizon comparisons. In C, Harness improves in all 24, and Context
+in 23; its exception is Astra at six months, with an 8.81-point decrease. Mean Harness gains over Baseline
+in C range from 6.27 to 10.14 points across horizons. Task B uses horizon-specific scored populations, so
+these profiles do not track a fixed cohort.
+4.3 Broad Gains across Disease Outcomes
+Gains are distributed across the disease spectrum (Figure 5). Using equal-weight four-model means, Context
+and Harness improve F1 over Baseline for 22 and 24 of the 25 exact endpoints in A, and for 24 and 23
+in five-year C. Thyroid disease and Parkinson’s disease have the largest A gains with Harness: 66.94 and
+49.40 points, reaching F1 of 0.669 and 0.494 from mean Baseline F1 of zero. Effects vary by disease, model
+and horizon.
+Higher F1 also involves tradeoffs. For Astra at five years in C, Baseline, Context and Harness precision is
+0.653, 0.653 and 0.561, respectively, while recall is 0.398, 0.531 and 0.633. The fraction of fully observed
+zero-positive cases with any false positive rises from 0.647 to 0.721 and 0.868. All model averages are
+descriptive, not pooled participant estimates. Paired uncertainty, disease support counts and component
+ablations are unavailable; these comparisons do not establish statistical significance, effects of individual
+Skills or clinical utility.
+8
+
+
+LifeLong Digital Twin
+5.5
+5.6
+Terra
+5.6
+Sol
+6
+Astra
+0.35
+0.40
+0.45
+0.50
+0.55
+0.60
+Exact-endpoint F1
+5.5
+5.6
+Terra
+5.6
+Sol
+6
+Astra
+0.50
+0.55
+0.60
+0.65
+0.70
+0.75
+0.80
+Family NDCG@5
+5.5
+5.6
+Terra
+5.6
+Sol
+6
+Astra
+0.40
+0.45
+0.50
+0.55
+0.60
+0.65
+Family micro-F1
+Ctx
+H
+Ctx
+H
+Ctx
+H
+Ctx
+H
+A · Disease F1
+A · Within-1-year F1
+B · NDCG@5
+C · Micro-F1
++6.9
++8.2
++8.7
++9.8
++8.3
++9.2
++9.0
++10.0
++8.7
++9.6
++8.3
++9.1
++8.5
++9.5
++9.7
++10.9
++6.1
++6.8
++6.5
++7.7
++4.9
++5.4
++5.8
++6.1
++7.4
++8.2
++6.1
++7.5
++8.6
++9.5
++9.1
++10.0
+5.5
+5.6 Terra
+5.6 Sol
+6 Astra
+Gains from the unified framework
+Four models · three prediction tasks · five-year evaluation
+a
+Disease identification · A
+b
+Disease risk ranking · B
+c
+Cumulative prediction · C
+d
+Improvement over Baseline (score points)
+Ctx = Context; H = Harness. Both are ours. Larger scores are better; axes in a–c use focused ranges.
+Baseline
+Context (ours)
+Harness (ours)
+Figure 3: Overall performance of Context and Harness relative to Baseline. a–c, Reported five-year primary
+scores for each model; task-specific focused axes retain absolute values. d, Score-point gains over Baseline for
+identification, year agreement, ranking and cumulative prediction. A uses exact endpoints; B/C use families.
+Values are point estimates; Ctx denotes Context and H denotes Harness.
+9
+
+
+LifeLong Digital Twin
+6m
+1y
+2y
+3y
+5y
+10y
+0.4
+0.5
+0.6
+0.7
+0.8
+NDCG@5
+GPT-5.5
+6m
+1y
+2y
+3y
+5y
+10y
+GPT-5.6 Terra
+6m
+1y
+2y
+3y
+5y
+10y
+GPT-5.6 Sol
+6m
+1y
+2y
+3y
+5y
+10y
+GPT-6 Astra
+6m
+1y
+2y
+3y
+5y
+10y
+0.0
+0.2
+0.4
+0.6
+0.8
+Micro-F1
+GPT-5.5
+6m
+1y
+2y
+3y
+5y
+10y
+GPT-5.6 Terra
+6m
+1y
+2y
+3y
+5y
+10y
+GPT-5.6 Sol
+6m
+1y
+2y
+3y
+5y
+10y
+GPT-6 Astra
+6m
+1y
+2y
+3y
+5y
+10y
+5.5 · Ctx
+5.5 · H
+5.6 Terra · Ctx
+5.6 Terra · H
+5.6 Sol · Ctx
+5.6 Sol · H
+6 Astra · Ctx
+6 Astra · H
++4.1
++4.8
++6.0
++5.1
++6.1
++3.7
++4.5
++5.7
++6.6
++5.6
++6.8
++5.4
++4.3
++5.0
++6.3
++5.2
++6.5
++5.6
++6.2
++7.3
++7.8
++6.6
++7.7
++6.1
++4.9
++5.2
++4.7
++3.9
++4.9
++5.4
++5.4
++5.8
++5.8
++5.1
++5.4
++5.9
++7.1
++7.3
++7.4
++6.5
++5.8
++4.5
++7.9
++8.0
++8.2
++7.1
++6.1
++5.0
+B · NDCG@5
+6m
+1y
+2y
+3y
+5y
+10y
+5.5 · Ctx
+5.5 · H
+5.6 Terra · Ctx
+5.6 Terra · H
+5.6 Sol · Ctx
+5.6 Sol · H
+6 Astra · Ctx
+6 Astra · H
++4.3
++8.0
++7.3
++7.9
++7.4
++2.7
++6.7
++8.9
++8.4
++8.9
++8.2
++3.1
++7.9
++8.6
++7.7
++8.7
++6.1
++5.1
++8.9
++9.7
++8.8
++9.7
++7.5
++7.0
++1.2
++6.3
++8.7
++10.0
++8.6
++4.3
++6.1
++7.8
++9.7
++11.1
++9.5
++4.8
+-8.8
++3.1
++9.0
++9.8
++9.1
++9.3
++13.9
++11.2
++10.5
++10.8
++10.0
++10.3
+C · Micro-F1
+Prediction from six months to ten years
+All six evaluation horizons · each model shown separately
+a
+Disease risk ranking · B
+b
+Cumulative disease prediction · C
+c
+Improvement over Baseline at every horizon (points)
+Blue: gain; coral: decline. Ctx = Context; H = Harness. Ranking populations differ across horizons.
+Baseline
+Context (ours)
+Harness (ours)
+Figure 4: Performance across six cumulative horizons. a–b, Three-condition curves for every model, using family
+NDCG@5 for B and family micro-F1 for C. Horizons are shown as equally spaced categories; y-ranges are shared
+within each task. c, Gains over each model’s Baseline, with a common symmetric ±15-point color scale. Negative
+values are retained. B uses horizon-specific scored populations; curves do not track a fixed cohort.
+10
+
+
+LifeLong Digital Twin
+0
+25
+50
+75
+F1 gain (points)
+Primary hypertension
+Chronic ischaemic heart disease
+Atrial fibrillation / flutter
+Heart failure
+Pulm. hypertension / cor pulmonale
+Peripheral arterial disease
+Diabetes
+Thyroid disease
+COPD
+Asthma
+Chronic kidney disease
+Liver fibrosis / cirrhosis
+Inflammatory bowel disease
+Dementia
+Parkinson disease
+Epilepsy
+Depressive disorders
+Rheumatoid arthritis
+Osteoarthritis
+Osteoporosis
+All malignant neoplasms
+Lung cancer
+Colorectal cancer
+Breast cancer
+Prostate cancer
+A · Disease identification
+Improved: Ctx 22/25 · H 24/25
+0
+25
+50
+75
+F1 gain (points)
+C · Cumulative prediction
+Improved: Ctx 24/25 · H 23/25
+Ctx
+H
+Ctx
+H
+0.77
+0.77
+0.78
+0.77
+0.56
+0.56
+0.59
+0.59
+0.39
+0.40
+0.46
+0.53
+0.41
+0.44
+0.48
+0.54
+0.06
+0.08
+0.12
+0.19
+0.27
+0.27
+0.30
+0.31
+0.77
+0.74
+0.74
+0.73
+0.65
+0.67
+0.68
+0.69
+0.64
+0.64
+0.65
+0.66
+0.66
+0.69
+0.70
+0.71
+0.50
+0.49
+0.46
+0.45
+0.69
+0.66
+0.66
+0.63
+0.36
+0.38
+0.36
+0.41
+0.26
+0.26
+0.28
+0.29
+0.47
+0.49
+0.55
+0.53
+0.36
+0.39
+0.41
+0.47
+0.38
+0.44
+0.49
+0.50
+0.32
+0.34
+0.35
+0.36
+0.49
+0.52
+0.55
+0.56
+0.41
+0.39
+0.46
+0.47
+0.15
+0.19
+0.21
+0.26
+0.00
+0.04
+0.08
+0.13
+0.16
+0.18
+0.17
+0.15
+0.03
+0.06
+0.03
+0.04
+0.20
+0.22
+0.22
+0.25
+A
+C
+6m
+1y
+2y
+3y
+5y
+10y
+Primary hypertension
+Chronic ischaemic heart disease
+Atrial fibrillation / flutter
+Heart failure
+Pulm. hypertension / cor pulmonale
+Peripheral arterial disease
+Diabetes
+Thyroid disease
+COPD
+Asthma
+Chronic kidney disease
+Liver fibrosis / cirrhosis
+Inflammatory bowel disease
+Dementia
+Parkinson disease
+Epilepsy
+Depressive disorders
+Rheumatoid arthritis
+Osteoarthritis
+Osteoporosis
+Cancer family
+Context (ours)
+6m
+1y
+2y
+3y
+5y
+10y
+Harness (ours)
+−80
+0
+80
+F1 gain over Baseline (points)
+Broad gains across disease outcomes
+Four-model means · Context and Harness compared with the same Baseline
+a
+Five-year gains across all 25 exact endpoints
+Absolute F1
+b
+Cumulative prediction across diseases and time · 21 families
+0.2
+0.5
+0.8
+Circle area: F1
+Model means are descriptive. Exact cancer endpoints overlap; the lower map combines them into one family.
+Context (ours)
+Harness (ours)
+Figure 5: Disease coverage and temporal variation. All values are equal-weight means of four model-specific
+scores, not pooled participant estimates. a, Context and Harness F1 gains over Baseline for all 25 exact endpoints
+at five years, with absolute scores alongside. Improvement counts use unrounded values. b, All 21 C families
+across six horizons: circle area is absolute F1, and color is the gain over Baseline on a shared ±80-point scale;
+crosses mark zero F1. The five cancer endpoints overlap in a and form one family in b. Disease supports and
+paired uncertainty are unavailable.
+11
+
+
+LifeLong Digital Twin
+5 Future Work
+5.1 Counterfactual Interventions and Personal Health Management
+The event-based representation provides a basis for studying how a person’s future health might respond to
+a change in behavior, environment, or treatment. An intervention can be specified relative to the observed
+Lifelong Health Context, with its timing and affected factors made explicit. Estimating an intervention
+effect requires a causal estimand, identification assumptions, and a validation design that addresses con-
+founding, selection, and changes in measurement intensity. An altered text input and a new forecast alone
+cannot establish that effect.
+Future Skills could connect causal or mechanistic methods to the Health Reasoning Agent, returning
+assumptions and uncertainty alongside estimates. Observed daily Health States, simulated events, and
+forecasts would remain distinct, allowing personal health management scenarios to be evaluated against a
+stable account of the recorded history.
+5.2 Longitudinal Validation and Responsible Use
+Prospective and external evaluations are needed to test how Context and Harness perform as observations
+accumulate. Such studies should assess prediction quality, sensitivity to missing and conflicting evidence,
+attribution to source events, and the value of individual Skills. Component ablations and matched input
+conditions are needed to distinguish additional information from the effect of tool-assisted reasoning. Such
+studies would clarify when additional life-course information improves prediction and how its contribution
+changes across individuals and forecast horizons.
+Clinical use requires evidence that improved forecasts benefit patients. Prospective studies should assess
+this benefit alongside fairness, privacy, resource cost, and human oversight across populations and care
+settings. Versioned evidence and temporal access controls can support these studies by preserving which
+information informed each prediction. Such validation would test whether whole-person digital twins can
+translate accumulated health evidence into better decisions for personalized disease prevention throughout
+life.
+12
+
+
+LifeLong Digital Twin
+References
+[1] B. Björnsson, C. Borrebaeck, N. Elander, et al. Digital twins to personalize medicine. Genome Medicine,
+12:4, 2020. doi:10.1186/s13073-019-0701-3.
+[2] A. Shmatko, A. W. Jung, K. Gaurav, S. Brunak, L. H. Mortensen, E. Birney, T. Fitzgerald, and M.
+Gerstung. Learning the natural history of human disease with generative transformers. Nature, 2025.
+doi:10.1038/s41586-025-09529-3.
+[3] M. Moor, O. Banerjee, Z. Shakeri Hossein Abad, et al. Foundation models for generalist medical artificial
+intelligence. Nature, 616:259–265, 2023. doi:10.1038/s41586-023-05881-4.
+[4] S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. Narasimhan, and Y. Cao. ReAct: Synergizing Reason-
+ing and Acting in Language Models. In International Conference on Learning Representations, 2023.
+arXiv:2210.03629.
+[5] S. A. Lambert, L. Gil, S. Jupp, et al. The Polygenic Score Catalog as an open database for reproducibility
+and systematic evaluation. Nature Genetics, 53:420–425, 2021. doi:10.1038/s41588-021-00783-5.
+[6] C. Bycroft, C. Freeman, D. Petkova, et al. The UK Biobank resource with deep phenotyping and
+genomic data. Nature, 562:203–209, 2018. doi:10.1038/s41586-018-0579-z.
+13
+
+
+LifeLong Digital Twin
+A Disease Endpoint Definitions
+Table 2 lists the 25 targets in nine clinical categories. Categories organize the disease dictionary; evaluation
+families account for overlap between targets.
+Table 2: Disease endpoint dictionary: nine categories and 25 endpoints.
+Ranges include their component codes unless an exclusion is stated.
+ID
+Endpoint
+ICD-10 definition
+Circulatory disorders
+D01
+Essential (primary) hypertension
+I10
+D02
+Chronic ischaemic heart disease
+I25, excluding I25.2
+D03
+Atrial fibrillation and flutter
+I48
+D04
+Heart failure
+I50
+D05
+Pulmonary hypertension / chronic cor pulmonale
+I27
+D06
+Peripheral arterial disease
+I70, I73
+Endocrine and metabolic disorders
+D07
+Diabetes mellitus
+E10–E14
+D08
+Thyroid disorders
+E01–E07
+Respiratory disorders
+D09
+Chronic obstructive pulmonary disease
+J41–J44
+D10
+Asthma
+J45
+Renal disorders
+D11
+Chronic kidney disease
+N18
+Digestive disorders
+D12
+Hepatic fibrosis / cirrhosis
+K74, K70.3
+D13
+Inflammatory bowel disease
+K50–K51
+Neurological and neurocognitive disorders
+D14
+Dementia
+F00–F03, G30
+D15
+Parkinson’s disease
+G20
+D16
+Epilepsy
+G40
+Mental health disorders
+D17
+Depressive disorders
+F32–F33
+Musculoskeletal and immune disorders
+D18
+Rheumatoid arthritis
+M05–M06
+D19
+Osteoarthritis
+M15–M19
+D20
+Osteoporosis
+M80–M81
+Malignant neoplasms
+D21
+All malignant neoplasms
+C00–C97
+D22
+Lung cancer
+C34
+D23
+Colorectal cancer
+C18–C20
+D24
+Breast cancer
+C50
+D25
+Prostate cancer
+C61
+D22–D25 are contained within D21, whose wider definition also includes other malignancies.
+Primary
+B/C scoring combines D21–D25 into one cancer family and retains each of D01–D20 separately, giving 21
+families. The dictionary does not add acute myocardial infarction or stroke as separate targets, or K72.1
+as a standalone qualifying code for D12. Diabetes includes types beyond type 2; thyroid disorders and
+dementia are combined endpoints under their listed codes. Breast and prostate targets retain sex-specific
+eligibility. Prevalent and other ineligible endpoints are excluded from incident prediction denominators.
+14
+
+
+LifeLong Digital Twin
+B Essential Evaluation Details
+B.1 Eligibility and Follow-up
+Targets are first qualifying diagnoses recorded strictly after the prediction cutoff; records on that date
+belong to prior history. An eligible endpoint is positive if observed by the horizon, negative only with
+suﬀicient event-free follow-up, and otherwise unknown. Horizons use calendar months or years; follow-up
+accounts for death, loss to follow-up, and record coverage.
+Unknown and ineligible cells are excluded
+from denominators; missing predictions are not negatives. Task B additionally requires a valid ranking,
+complete follow-up, and at least one eligible candidate and positive family, yielding horizon-specific scored
+populations.
+B.2 Scoring Definitions
+Task A.
+Disease-set F1 ignores year and uses exact endpoints. Strict temporal matching requires the
+same endpoint and first-event year; tolerant matching allows |bj −j| ≤1. Unobserved follow-up intervals
+are excluded. A predicted specific cancer derives D21 in the same year only if D21 is eligible and has not
+occurred or been predicted earlier. Explicitly redundant same-year parent–child pairs are not permitted.
+Task B.
+Let Ki = min(5, Mi) for Mi eligible candidates, and Ri > 0 be the number of true positive
+families. For an endpoint at rank r, zr = 1 only if its family is positive and has not appeared earlier.
+Duplicate families retain their original ranks without further credit:
+NDCG@5i =
+PKi
+r=1 zr/ log2(r + 1)
+Pmin(Ki,Ri)
+r=1
+1/ log2(r + 1)
+.
+(3)
+Recall@5 is P
+r zr/Ri; MRR averages the reciprocal of the first credited positive rank, or zero if none is
+retrieved. Ranking metrics are averaged over scored cases. The exact view omits family collapse. Disease
+contributions sum to aggregate NDCG within the same scoring view.
+Task C.
+An eligible D21 must be positive when an eligible specific cancer is predicted positive; ineligible
+D21 stays zero and is excluded. A family’s prediction is the logical OR over eligible members. Its truth
+is positive if any member is observed positive, negative only if all are evaluably negative, and otherwise
+unknown. Each horizon is scored separately; observed positive cells remain evaluable when other cells are
+unknown.
+Pooled and subgroup metrics.
+For true positives (TP), false positives (FP), and false negatives (FN),
+micro metrics pool eligible, evaluable counts before division:
+P =
+TP
+TP + FP,
+R =
+TP
+TP + FN,
+F1 =
+2TP
+2TP + FP + FN.
+(4)
+Primary A uses exact endpoints; primary C uses families. Fully observed zero-positive cases contribute to
+micro false positives; their any-false-positive fraction and mean predicted-positive family count use that
+subgroup’s denominator. Analysis limits are given in Section 4.3.
+Random score-scale reference.
+The graphical abstract uses an independent, outcome-enriched label
+reference sample, separate from model evaluation. For independent positive guesses with probability q = 0.5
+and evaluable family-cell prevalence ph, F1,h ≈2phq/(ph + q) in large samples. At 6, 12, 24, 36, 60, and
+120 months, the reference F1 is 0.137, 0.183, 0.221, 0.246, 0.279, and 0.343. These analytical values are
+score-scale references, not a random-prediction experiment, a universal F1 threshold, or a matched-cohort
+comparison.
+15
