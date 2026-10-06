@@ -6,35 +6,37 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-10-04
-- 运行时间：2026-10-04 22:46:23 UTC
+- 最新运行日期：2026-10-06
+- 运行时间：2026-10-06 01:14:57 UTC
 - 运行状态：成功
 - 本次总论文数：5
-- 精读区：2
-- 速读区：3
+- 精读区：1
+- 速读区：4
 
 ### 今日简报（AI）
-今日精选5篇眼科AI研究，重点精读视网膜模型泛化基准与临床推理评估框架两篇8分论文。最值得关注的是从基础视觉编码器到多模态大模型的泛化评测，以及LLM临床推理评分标准如何组合补缺。普通读者可优先了解这两篇，思考AI眼科模型落地前需要哪些评估标准。
-- 详情：[/202610/04/README](/202610/04/README)
+今日日报共5篇，精读视网膜模型泛化基准FOCUS（8.0），速读覆盖胸部X光视觉语言模型可靠性、临床推理多模态学习与多智能体协作隐患。
+最值得看的是FOCUS对“基础视觉编码器到多模态大模型”的视网膜模型泛化评测，以及胸部X光模型可靠性压力测试与决策时路由的思路。
+普通读者可先浏览F
+- 详情：[/202610/06/README](/202610/06/README)
 
 ### 精读区论文标签
-1. [FOCUS: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal LLMs](/202610/04/2609.33158v1-focus-benchmarking-retinal-model-generalization-from-foundation-vision-encoders-to-multimodal-llms)  
+1. [FOCUS: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal LLMs](/202610/06/2609.33158v1-focus-benchmarking-retinal-model-generalization-from-foundation-vision-encoders-to-multimodal-llms)  
    标签：评分：8.0/10、query:retina-agent
-   evidence：面向视网膜眼底模型的跨数据集泛化基准
-2. [A rubric landscape for evaluating clinical reasoning in large language models: what exists, what is missing, and what needs to be combined](/202610/04/2610.01938v1-a-rubric-landscape-for-evaluating-clinical-reasoning-in-large-language-models-what-exists-what-is-missing-and-what-needs-to-be-combined)  
-   标签：评分：8.0/10、query:topic
-   evidence：系统梳理评估LLM临床推理的量规与基准
+   evidence：覆盖视觉编码器到多模态大模型的眼底视网膜模型基准
 
 ### 速读区论文标签
-1. [CFCH: Coarse-Fine Collaborative Hierarchical Learning for Anterior Segment Disease Analysis](/202610/04/2609.32559v1-cfch-coarse-fine-collaborative-hierarchical-learning-for-anterior-segment-disease-analysis)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：眼科疾病的层次化多分类
-2. [Learning When to Recur: Token-Adaptive Recursion for Imbalanced Ophthalmic Domain Incremental Learning](/202610/04/2609.32785v1-learning-when-to-recur-token-adaptive-recursion-for-imbalanced-ophthalmic-domain-incremental-learning)  
-   标签：评分：6.0/10、query:fundus-mc
-   evidence：眼科领域增量学习，应对类别不平衡与标签分布偏移
-3. [RoboAssist: Interactive Human-Humanoid Planning for Long-Horizon Surgical Assistance](/202610/04/2609.39384v1-roboassist-interactive-human-humanoid-planning-for-long-horizon-surgical-assistance)  
+1. [Reliability Stress Tests and Decision-Time Routing for Chest X-ray Vision-Language Models](/202610/06/2610.02270v1-reliability-stress-tests-and-decision-time-routing-for-chest-x-ray-vision-language-models)  
+   标签：评分：7.0/10、query:topic
+   evidence：面向医疗视觉语言模型多智能体工作流的可靠性压力测试
+2. [From Image Interpretation to Clinical Reasoning: Upstream Physician-Context-Aware Multimodal Learning with Causal Reinforcement Learning](/202610/06/2609.38924v1-from-image-interpretation-to-clinical-reasoning-upstream-physician-context-aware-multimodal-learning-with-causal-reinforcement-learning)  
+   标签：评分：6.0/10、query:med-rl-agent
+   evidence：面向多模态临床推理的因果强化学习框架
+3. [Right Answers, Wrong States: Hidden Information Failures in Multi-Agent Collaboration](/202610/06/2610.01244v1-right-answers-wrong-states-hidden-information-failures-in-multi-agent-collaboration)  
    标签：评分：6.0/10、query:topic
-   evidence：面向长时程手术辅助的智能体框架
+   evidence：医疗决策支持场景下的多代理协作评估
+4. [A Guideline-Augmented Multi-Agent Framework for Schema-as-Code Biomedical Named Entity Recognition](/202610/06/2610.02970v1-a-guideline-augmented-multi-agent-framework-for-schema-as-code-biomedical-named-entity-recognition)  
+   标签：评分：6.0/10、query:topic
+   evidence：生物医学领域的多智能体框架
 
 
 <div class="dpr-home-promo-card">

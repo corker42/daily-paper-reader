@@ -1,0 +1,293 @@
+Title: Reliability Stress Tests and Decision-Time Routing for Chest X-ray Vision-Language Models
+
+URL Source: https://arxiv.org/pdf/2610.02270v1
+
+Published Time: Mon, 05 Oct 2026 00:02:36 GMT
+
+Number of Pages: 6
+
+Markdown Content:
+> © 2026 IEEE. Personal use of this material is permitted. Permission from IEEE must be obtained for all other uses, in any current or future media, including reprinting/republishing this material for advertising or promotional purposes, creating new collective works, for resale or redistribution to servers or lists, or reuse of any copyrighted component of this work in other works. Accepted version of the paper published in the 2026 IEEE/ACM Conference on Connected Health: Applications, Systems and Engineering Technologies (CHASE), pp. 428–433, DOI: 10.1109/CHASE69719.2026.00073.
+
+# Reliability Stress Tests and Decision-Time Routing for Chest X-ray Vision-Language Models 
+
+Xinye Yang 
+
+Department of Computer Science Brown University 
+
+Providence, RI, USA xinye yang@brown.edu 
+
+Zhusi Zhong 
+
+Brown University Brown University Health 
+
+Providence, RI, USA zhusi zhong@brown.edu 
+
+Scott Collins 
+
+Brown University Brown University Health 
+
+Providence, RI, USA scollins1@brownhealth.org 
+
+Grayson Baird 
+
+Brown University Brown University Health 
+
+Providence, RI, USA grayson baird@brown.edu 
+
+Xuyu Wang 
+
+School of Computing and Information Sciences Florida International University 
+
+Miami, FL, USA xuywang@fiu.edu 
+
+Zhicheng Jiao* 
+
+Brown University Brown University Health 
+
+Providence, RI, USA zhicheng jiao@brown.edu 
+
+*Corresponding author 
+
+Abstract —Medical vision-language model (VLM) evaluation is sensitive to workflow design, prompting strategy, and benchmark construction, yet most studies treat these factors in isolation. We introduce a reliability stress test for chest X-ray interpretation built on two balanced datasets (a private report-backed set and a curated MIMIC subset). Three medical VLMs—CheXagent, MedGemma-4B, and MedGemma-27B—are evaluated across three prompt styles and two workflows (single-VLM and multi-agent), producing 36 configurations. We show that exact-match accuracy alone can overstate the effectiveness of conservative models that default to “Normal” predictions. Diagnostic reliabil-ity also depends heavily on model family and scale: multi-agent reasoning helps some configurations but hurts others. Build-ing on these observations, we propose a decision-time routing framework that selectively escalates to multi-agent inference only when beneficial, improving the cost–quality trade-off over fixed workflows. Our results highlight the need for evaluation protocols that jointly consider prompt sensitivity, failure-mode diversity, and workflow choice before clinical deployment. 
+
+Index Terms —Medical vision-language models, chest X-ray, reliability evaluation, decision-time routing, cost-aware inference 
+
+I. I NTRODUCTION 
+
+Medical vision-language models (VLMs) have rapidly ad-vanced automated chest X-ray interpretation, with the potential to reduce radiologist workload and widen access to expert-quality diagnostics. Yet as these systems move from bench-marks toward clinical prototypes, growing evidence shows that medical multimodal architectures are brittle under distribution shifts, complex reasoning tasks, and varied evaluation setups [1]–[3]. Two evaluation pitfalls are frequently overlooked. First, changes in prompt design and workflow structure alter not just headline accuracy but the entire distribution of clinical errors a model produces. Second, adding advanced reason-ing pipelines—multi-agent orchestration or chain-of-thought protocols—can improve diagnostic output for some cases while suppressing genuine pathological findings in others. We investigate these challenges through a controlled relia-bility stress test and treat the observed workflow instability as a practical routing problem rather than a mere evaluation artifact. Instead of proposing a new foundation model, we focus on two questions that are central to safe clinical integration: (i) How do prompt style and multi-stage workflow design interact with model family and scale for chest X-ray interpretation? (ii) When should a system escalate from fast, low-cost single-VLM inference to a more deliberate multi-agent workflow? 
+
+We evaluate CheXagent [4] alongside two MedGemma scales [5] on two balanced 50-case datasets. The primary dataset is a private cohort with paired clinical reports; the second is a curated MIMIC-CXR subset [1] that also provides matched report supervision. We test three prompt styles under two workflows: direct single-VLM inference and a lightweight, structured multi-agent pipeline. Our main contribution is a controlled, multi-dimensional evaluation together with a deployable routing strategy. The experiments support four claims:  
+
+> •
+
+Exact-match evaluation alone is misleading: conservative models hide weaknesses by over-predicting Normal . 
+
+> •
+
+System reliability depends strongly on model family and scale, not just prompt wording.  
+
+> •
+
+Multi-agent reasoning provides conditional, not universal, performance gains.  
+
+> •
+
+Decision-time routing is a practical deployment strategy: selective escalation consistently improves cost–quality trade-offs over fixed workflows. II. R ELATED WORK 
+
+Our work draws on three lines of research. First, domain-specific medical VLMs—LLaVA-Med, CheXagent, MedGemma [4]–[6]—are typically evaluated under fixed, single-pass inference, leaving open the question of how work-flow variations interact with model scale in practice. arXiv:2610.02270v1 [eess.IV] 1 Oct 2026 TABLE I DATASET SUMMARY .            
+
+> Dataset Cases Normal Abnormal Reports
+> Private formal 50 25 25 50 MIMIC formal 50 25 25 50
+
+Second, evaluation frameworks such as MultiMedEval [2] and XBench [7] cover broad visual-language grounding but often miss the interactive, multi-step nature of real-world diagnosis. We trade breadth for depth, stress-testing prompt robustness and multi-stage workflow reliability on a focused clinical task. Third, reliability benchmarks like MediConfusion [3] and PSF-Med [8] have revealed model brittleness through para-phrase sensitivity and hallucination rates. We extend these findings from static prompt perturbation to dynamic workflow behavior, showing that performance can shift substantially when the same model weights encounter different instructions or multi-agent pipelines. Separately, inference routing addresses cost-efficient de-ployment of large models. Building on FrugalGPT [9], meth-ods like AT-CXR [10] explore uncertainty-aware triage, while benchmarks such as VL-RouterBench [11] and routing frame-works [12]–[15] formalize cost–quality trade-offs. Unlike prior work that routes between distinct models or human experts, we frame routing as a binary decision-time choice—fast single-VLM inference versus deliberate multi-agent processing— using frozen model parameters. III. E XPERIMENTAL SETUP 
+
+A. Datasets 
+
+We use two evaluation cohorts, each with 50 chest X-ray studies evenly split between normal and abnormal cases. The private dataset’s labels come directly from the original clinical reports. The public MIMIC subset was curated from MIMIC-CXR [1] to ensure that every included case has a matched report. Table I summarizes the dataset configurations. The MIMIC subset provides a reproducible, public baseline with matched reports, reducing the risk that label-source mismatches distort the workflow comparisons. 
+
+B. Models, Prompts, and Workflows 
+
+We benchmark three medical VLMs: CheXagent-8B [4], MedGemma-4B-IT, and MedGemma-27B-IT [5]. Including two MedGemma scales lets us separate workflow effects from scaling effects. Each model is tested with three prompt styles:  
+
+> •
+
+Structured : Detailed, findings-oriented prompts with ex-plicit label constraints. (e.g., “Analyze this chest X-ray. Report key findings (lung fields, heart, pleural spaces) and your diagnosis from: [List]. Be concise. Important: Do NOT report a finding unless there is clear evidence for it...”)  
+
+> •
+
+Concise : Short prompts with minimal instruction. (e.g., “Analyze this chest X-ray. Mention only definite findings and then diagnose using labels from: [List].”)  
+
+> •
+
+Labels-only : Restrictive prompts requiring immediate label output with no reasoning. (e.g., “Analyze this chest X-ray. Use only labels from: [List]. Return exactly one line and nothing else.”) 
+
+Each prompt–model pair is run under two workflows:  
+
+> •
+
+Single-VLM : Direct, one-shot image-to-label inference.  
+
+> •
+
+Multi-agent : A four-stage sequential pipeline (illustrated in Figure 1). (1) An extraction pass asks the VLM to list all visible radiological findings without committing to a diagnosis. (2) A radiological formulation stage maps the extracted findings to candidate diagnostic labels using domain-specific reasoning. (3) An internal-medicine for-mulation stage re-evaluates the candidates from a clinical perspective, filtering implausible labels. (4) A synthesis 
+
+stage reconciles the two formulations and outputs the final label set. Each stage re-uses the same frozen model weights; no additional fine-tuning is performed. This design yields 36 experimental configurations: 2datasets × 3 models × 3 prompt styles × 2 workflows. 
+
+C. Evaluation Metrics 
+
+We report six complementary metrics to avoid the single-metric pitfalls discussed in Section I, alongside latency (s) and token count to quantify computational cost.  
+
+> •
+
+Exact match : Fraction of cases where predicted labels exactly equal ground truth.  
+
+> •
+
+Partial match : Any non-empty intersection between predicted and ground-truth sets.  
+
+> •
+
+Macro F1 : Averages per-class F1, penalizing ignorance of rare pathologies.  
+
+> •
+
+Hallucination FP (Hall FP) : Mean false-positive rate for absent labels.  
+
+> •
+
+Normal Accuracy (Normal Acc) : Accuracy on normal cases (reveals “Normal” bias).  
+
+> •
+
+Abnormal Partial (Abn Partial) : Partial-match rate isolating pathology sensitivity. IV. R ESULTS AND ANALYSIS 
+
+A. Primary Findings 
+
+Our analysis yields three key findings. Detailed performance metrics across all configurations are reported in Table II (MIMIC) and Table III (Private cohort). 
+
+1. Model Architecture and Scale Shape Performance. 
+
+On the MIMIC dataset, MedGemma-27B with a structured multi-agent pipeline achieved the highest macro F1 (0.335). However, the smaller MedGemma-4B was competitive under direct inference, outperforming MedGemma-27B in single-VLM macro F1 for both structured (0.239 vs. 0.138) and labels-only (0.252 vs. 0.171) prompts. This shows that per-formance depends on the interaction between parameter scale and prompt style, not on model size alone. Stage 1: 
+
+Single VLM 
+
+Inference 
+
+Decision 
+
+Router 
+
+Final 
+
+Diagnosis 
+
+Chest X-Ray 
+
+Stage 3: VLM Multi-Agent Pipeline 
+
+Direct Output 
+
+(Low Cost) 
+
+Routing 
+
+Features 
+
+Escalation 
+
+Extraction Agent  Formulation Agent 
+
+(Specialists) 
+
+Synthesis 
+
+Agent 
+
+Identify localized findings 
+
+Extract Features 
+
+Radiological review 
+
+Internal medicine context 
+
+Resolve conflicts 
+
+Generate final report Fig. 1. Decision-time routing framework for chest X-ray interpretation. A single-VLM pass produces initial predictions and routing features. The decision router then either returns the low-cost output directly or escalates the case to a multi-agent pipeline with extraction, formulation, and synthesis stages. 4.75 5.00 5.25 5.50 5.75 6.00 6.25    
+
+> Avg latency (s)
+> 0.10 0.15 0.20 0.25 0.30 0.35
+> Macro F1
+> mimic_formal_50 MedGemma-27B structured
+> 1.0 1.5 2.0 2.5
+> Avg latency (s)
+> 0.1 0.2 0.3 0.4 0.5
+> Macro F1
+> rih_formal_50 CheXagent-8B labels_only
+> learned_5fold always_single heuristic_a oracle heuristic_b always_multi
+
+Fig. 2. Routing trade-off surface: macro F1 versus average latency for different routing strategies. 
+
+2. Exact Match Does Not Reflect Diagnostic Utility. 
+
+MedGemma-4B illustrates this clearly. In the MIMIC labels-only single-VLM setting, it reached 52% exact match and 70% partial match with only 0.20s average latency, yet its macro F1 was just 0.252, indicating poor label coverage across pathologies. Accuracy metrics alone fail to expose such gaps (see Figure 3). 
+
+3. Multi-Agent Reasoning Helps Selectively. Sequential agentic reasoning substantially improved MedGemma-27B on MIMIC but had little effect on MedGemma-4B and actively hurt CheXagent on the private cohort. The performance differ-ence ( ∆ Macro F1) across configurations is shown in Figure 4. Table IV summarizes paired bootstrap evidence for these configuration-dependent shifts. 10 20 30 40 50 
+
+> Exact Match (%)
+> 0.10 0.15 0.20 0.25 0.30 0.35 0.40 0.45
+> Macro F1
+> MIMIC MG-4B labels-only single
+
+Exact Match Does Not Fully Track Label Coverage 
+
+> Single Multi
+
+Fig. 3. Comparison of exact-match and macro F1 scores. High exact-match scores alone can mask poor clinical coverage, because conservative models achieve them by defaulting to “Normal” while producing low macro F1. 
+
+B. Typology of Failure Modes 
+
+A closer look at error patterns clarifies why the results vary so much across configurations. We identify two dominant failure mechanisms. 
+
+Abnormal-to-normal collapse. A model labels a genuinely abnormal case as “Normal,” missing all pathology. On the MIMIC subset, MedGemma-27B (structured, single-VLM) collapsed abnormal cases in this way 30% of the time. The multi-agent pipeline reduced this rate to 10%, because the TABLE II COMPREHENSIVE FORMAL RESULTS ON THE CURATED MIMIC S UBSET .
+
+Model Prompt Workflow Exact Partial Macro F1 Hall FP Normal Acc Abn Partial Latency (s) Tokens 
+
+CheXagent structured single 6.0% 30.0% 0.118 0.351 12.0% 48.0% 1.32 22.2 CheXagent structured multi 24.0% 32.0% 0.160 0.089 40.0% 24.0% 6.30 144.5 CheXagent concise single 6.0% 28.0% 0.093 0.380 12.0% 44.0% 1.44 23.9 CheXagent concise multi 38.0% 42.0% 0.127 0.073 72.0% 12.0% 3.96 70.9 CheXagent labels-only single 6.0% 28.0% 0.094 0.367 12.0% 44.0% 1.37 23.3 CheXagent labels-only multi 32.0% 46.0% 0.127 0.125 64.0% 28.0% 2.92 49.7 MedGemma-4B structured single 50.0% 68.0% 0.239 0.047 96.0% 40.0% 0.76 30.2 MedGemma-4B structured multi 48.0% 64.0% 0.188 0.053 96.0% 32.0% 0.70 56.1 MedGemma-4B concise single 52.0% 76.0% 0.210 0.049 100.0% 52.0% 0.28 17.5 MedGemma-4B concise multi 44.0% 66.0% 0.236 0.058 88.0% 44.0% 0.67 53.5 MedGemma-4B labels-only single 52.0% 70.0% 0.252 0.047 96.0% 44.0% 0.20 7.5 MedGemma-4B labels-only multi 48.0% 66.0% 0.228 0.053 92.0% 40.0% 0.80 67.8 MedGemma-27B structured single 50.0% 60.0% 0.138 0.047 100.0% 20.0% 4.86 104.3 MedGemma-27B structured multi 46.0% 74.0% 0.335 0.053 92.0% 56.0% 6.27 135.1 MedGemma-27B concise single 52.0% 66.0% 0.263 0.051 100.0% 32.0% 3.41 72.9 MedGemma-27B concise multi 42.0% 62.0% 0.211 0.085 80.0% 44.0% 4.17 87.5 MedGemma-27B labels-only single 50.0% 60.0% 0.171 0.042 100.0% 20.0% 0.45 5.8 MedGemma-27B labels-only multi 50.0% 68.0% 0.248 0.056 96.0% 40.0% 3.51 73.2     
+
+> TABLE III COMPREHENSIVE FORMAL RESULTS ON THE PRIVATE DATASET .
+
+Model Prompt Workflow Exact Partial Macro F1 Hall FP Normal Acc Abn Partial Latency (s) Tokens 
+
+CheXagent structured single 36.0% 78.0% 0.436 0.147 64.0% 92.0% 0.95 13.7 CheXagent structured multi 52.0% 62.0% 0.317 0.038 96.0% 28.0% 4.58 54.2 CheXagent concise single 32.0% 74.0% 0.429 0.182 56.0% 92.0% 1.11 15.8 CheXagent concise multi 54.0% 62.0% 0.217 0.044 100.0% 24.0% 2.95 36.9 CheXagent labels-only single 46.0% 82.0% 0.457 0.129 84.0% 80.0% 1.00 11.9 CheXagent labels-only multi 50.0% 56.0% 0.118 0.049 100.0% 12.0% 2.61 21.9 MedGemma-4B structured single 52.0% 56.0% 0.118 0.047 88.0% 24.0% 0.35 20.0 MedGemma-4B structured multi 50.0% 60.0% 0.179 0.045 92.0% 28.0% 0.63 50.4 MedGemma-4B concise single 50.0% 56.0% 0.120 0.051 84.0% 28.0% 0.25 13.3 MedGemma-4B concise multi 42.0% 54.0% 0.158 0.058 80.0% 28.0% 0.62 48.9 MedGemma-4B labels-only single 52.0% 52.0% 0.084 0.047 96.0% 8.0% 0.18 6.4 MedGemma-4B labels-only multi 50.0% 56.0% 0.128 0.049 92.0% 20.0% 0.76 64.2 MedGemma-27B structured single 50.0% 54.0% 0.125 0.042 100.0% 8.0% 4.02 85.6 MedGemma-27B structured multi 46.0% 62.0% 0.174 0.049 88.0% 36.0% 5.77 123.7 MedGemma-27B concise single 50.0% 52.0% 0.092 0.053 100.0% 4.0% 2.88 60.8 MedGemma-27B concise multi 36.0% 64.0% 0.216 0.089 64.0% 64.0% 3.46 71.8 MedGemma-27B labels-only single 52.0% 54.0% 0.112 0.042 100.0% 8.0% 0.41 5.1 MedGemma-27B labels-only multi 52.0% 60.0% 0.163 0.053 100.0% 20.0% 3.25 67.1 
+
+additional extraction and formulation stages recovered findings that the single pass missed. MedGemma-4B, however, did not benefit similarly: it already achieved low collapse rates under single-VLM inference, so the multi-agent overhead introduced noise without compensating gains. 
+
+Over-regularization by multi-agent consensus. When the pipeline stages disagree, the synthesis step tends to default to “Normal” as a conservative fallback. This effect was most pronounced for CheXagent on the private dataset (labels-only): the single-VLM collapse rate of 10% rose to 44% after adding the multi-agent pipeline. Because CheXagent generates shorter, less structured outputs, the extraction stage often yields sparse evidence, leading downstream stages to discount legitimate but weakly expressed findings. These two mechanisms act in opposite directions. For large models with verbose outputs (MedGemma-27B), multi-agent processing rescues missed findings. For smaller or more terse models (MedGemma-4B, CheXagent), the same pipeline strips away genuine detections. This asymmetry is the root cause of the configuration-dependent routing gains reported in Section III-E. 
+
+C. Qualitative Case Examples 
+
+Two representative cases illustrate the dual-edged nature of multi-agent pipelines. TABLE IV KEY COMPARISONS SHOWING CONFIGURATION -DEPENDENT PERFORMANCE SHIFTS AND FAILURE TYPES .                            
+
+> Dataset Comparison Setting Pair ∆Macro F1 ∆Abn Partial Primary Failure Signal
+> MIMIC Multi vs. Single MedGemma-27B, structured +0.174 +0.362 Mitigation of residual normal overcalls Private Single vs. Multi CheXagent, labels-only +0.295 +0.678 Abnormal-to-normal pathological collapse MIMIC Model contrast (multi) MedGemma-27B vs. CheXagent, structured +0.160 +0.325 Reduced false-positive propensity in MedGemma-27B −0.3 −0.2 −0.1 0.0 0.1 0.2
+> ΔMacro F1 (multi - single)
+> RIH-CheXagent-labels_only RIH-CheXagent-concise RIH-CheXagent-structured MIMIC-MG27B-concise MIMIC-MG4B-structured MIMIC-MG4B-labels_only MIMIC-MG4B-concise MIMIC-CheXagent-labels_only MIMIC-CheXagent-concise RIH-MG4B-concise MIMIC-CheXagent-structured RIH-MG4B-labels_only RIH-MG27B-structured RIH-MG27B-labels_only RIH-MG4B-structured MIMIC-MG27B-labels_only RIH-MG27B-concise MIMIC-MG27B-structured
+> Configurations
+
+Workflow Gain Is Conditional Across 18 Configurations 
+
+Fig. 4. Performance difference ( ∆ Macro F1) between multi-agent and single-VLM workflows. The direction and magnitude of the change depend strongly on the base model and dataset. 
+
+Case 1: Improvement (MIMIC). In 
+
+mimic_formal_003 , the ground truth is 
+
+Cardiomegaly, Edema, Pleural Effusion .MedGemma-27B (single-VLM) misses all findings and outputs Normal . The multi-agent workflow correctly identifies Cardiomegaly, Edema , turning a complete miss into a useful partial match. 
+
+Case 2: Regression (Private). In 
+
+private_formal_043 , the report notes stable cardiomegaly with clear lungs. CheXagent (labels-only, single-VLM) correctly predicts Cardiomegaly . The multi-agent workflow collapses the same case to Normal ,illustrating the abnormal-to-normal suppression pattern seen in the aggregate statistics. 
+
+D. Decision-Time Routing Proof-of-Concept 
+
+The configuration-dependent gains described above motivate an inference routing approach (Figure 2): use features available from the initial single-VLM pass to decide whether multi-agent escalation is worthwhile. We tested four routing strategies on two representative configurations (MIMIC/MedGemma-27B/structured and Private/CheXagent/labels-only): static always-single, static always-multi, a hindsight oracle, two lightweight heuristics, and a supervised logistic regression router. Heuristic A
+
+triggers multi-agent escalation only when the single-VLM predicts “Normal” on a case flagged as complex (severity level 2). Heuristic B escalates whenever the single-VLM output has zero partial-match overlap with the ground-truth labels. The learned router uses features from the single-VLM pass (predicted label count, normality flag, token count, sever-ity level, and partial-match indicators). The training label is use_multi =1 when the multi-agent macro F1 exceeds the single-VLM macro F1 for that case. We train a cross-validated logistic regression model ( max_iter=500 , 5-fold) and aggregate predictions. Table V shows that routing consistently outperforms fixed workflows in balancing cost and diagnostic quality. On MIMIC, always-multi is a strong baseline (macro F1 0.335), but the oracle matches it (0.338) while escalating only 20% of cases. On the private dataset, where always-single (0.457) far exceeds always-multi (0.118), simple heuristics and the oracle both reach 0.488 with selective escalation. Two observations deserve further comment. First, Heuris-tic A escalates zero cases on MIMIC because MedGemma-27B already tends to predict “Normal” for most ambiguous inputs. Since the heuristic conditions on predicting “Normal” 
+
+and high pre-assessed complexity, the conjunction is rarely satisfied, making the rule too conservative for this model– dataset pair. Heuristic B, which uses a purely output-based trigger (empty partial-match overlap), avoids this issue and achieves near-oracle performance. Second, the learned router is limited by the small training set (50 cases per fold). With only 5–10 positive routing labels per fold, logistic regression cannot reliably separate the two classes; we expect this gap to narrow with larger cohorts. V. D ISCUSSION AND FUTURE DIRECTIONS 
+
+Our results show that chest X-ray VLM reliability depends on the joint interaction of model family, parameter scale, and workflow design. Smaller models perform well under direct inference but gain little—or even lose ground—from multi-agent deliberation that benefits larger counterparts. Hal-lucination rates reinforce this pattern: CheXagent in single-VLM mode produced Hall FP rates above 0.35 on MIMIC (Table II), which the multi-agent pipeline reduced below 0.13, whereas MedGemma models already had low hallucination rates ( <0.06) and sometimes lost true positives from the extra filtering. No single, fixed inference strategy is therefore optimal across configurations. Decision-time routing is a first step toward adaptive deploy-ment. Future work should extend this framework to federated, continuously learning routers that adapt to institutional disease TABLE V EVALUATION OF DECISION -T IME ROUTING TOPOLOGIES ACROSS CORE REPRESENTATIVE SETTINGS .
+
+Configuration Routing Strategy Macro F1 Latency (s) Tokens Multi-Agent Esc. (%) 
+
+MIMIC / MedGemma-27B / structured always-single 0.138 4.86 104.3 0.0 MIMIC / MedGemma-27B / structured always-multi 0.335 6.27 135.1 100.0 MIMIC / MedGemma-27B / structured oracle 0.338 5.08 109.0 20.0 MIMIC / MedGemma-27B / structured heuristic A 0.138 4.86 104.3 0.0 MIMIC / MedGemma-27B / structured heuristic B 0.331 5.26 112.5 40.0 MIMIC / MedGemma-27B / structured learned (5-fold LR) 0.162 4.78 102.2 10.0 Private / CheXagent / labels-only always-single 0.457 1.00 11.9 0.0 Private / CheXagent / labels-only always-multi 0.118 2.61 21.9 100.0 Private / CheXagent / labels-only oracle 0.488 1.17 13.6 10.0 Private / CheXagent / labels-only heuristic A 0.457 1.00 11.9 0.0 Private / CheXagent / labels-only heuristic B 0.488 1.31 15.0 18.0 Private / CheXagent / labels-only learned (5-fold LR) 0.463 1.03 12.0 2.0 
+
+prevalence and demographic variation, and to multi-modal inputs (e.g., EHR timelines combined with imaging) where routing decisions become richer. 
+
+Limitations. Both cohorts contain only 50 cases, limiting statistical power and the learned router’s training signal. The label space omits rare diagnoses (e.g., pneumomediastinum) that may expose additional failure modes. All experiments use frozen weights and greedy decoding; sampling strategies or prompt-tuning could alter the configuration rankings. VI. C ONCLUSION 
+
+We evaluated chest X-ray VLMs across 36 workflow con-figurations and found that blanket multi-agent deployment is not always best. Multi-agent reasoning substantially improved MedGemma-27B on public data, but simpler direct-prompting setups with CheXagent outperformed it on our private cohort, and the compact MedGemma-4B remained competitive under single-VLM inference. These results show that aggressive prompt chaining can over-regularize predictions and suppress real pathology. Our decision-time routing heuristic addresses this by escalating to multi-agent inference only when needed, approaching oracle-level performance while keeping latency low. For safe and scalable clinical deployment, VLM sys-tems should move beyond fixed workflows toward dynamic, cost-aware routing, systematically reducing unnecessary token costs while maintaining diagnostic integrity. REFERENCES [1] A. E. W. Johnson, T. J. Pollard, S. J. Berkowitz, N. R. Greenbaum, M. P. Lungren, C.-y. Deng, R. G. Mark, and S. Horng, “Mimic-cxr, a de-identified publicly available database of chest radiographs with free-text reports,” Scientific Data , vol. 6, no. 1, p. 317, 2019. [2] C. Royer, B. Menze, and A. Sekuboyina, “Multimedeval: A benchmark and a toolkit for evaluating medical vision-language models,” in Pro-ceedings of the 7th International Conference on Medical Imaging with Deep Learning , 2024, pp. 1310–1327. [3] M. S. Sepehri, Z. Fabian, M. Soltanolkotabi, and M. Soltanolkotabi, “Mediconfusion: Can you trust your ai radiologist? probing the re-liability of multimodal medical foundation models,” in International Conference on Learning Representations , 2025. [4] Z. Chen, M. Varma, J.-B. Delbrouck et al. , “Chexagent: Towards a foundation model for chest x-ray interpretation,” arXiv preprint arXiv:2401.12208 , 2024. [5] Google Research and Google DeepMind, “Medgemma technical report,” 
+
+arXiv preprint arXiv:2507.05201 , 2025. [6] C. Li, C. Wong, S. Zhang, N. Usuyama, H. Liu, J. Yang, T. Naumann, H. Poon, and J. Gao, “Llava-med: Training a large language-and-vision assistant for biomedicine in one day,” in Advances in Neural Information Processing Systems, Datasets and Benchmarks Track , 2023. [7] H. Luo, S. Z. Shu, Z. Zhou, S. Otalora, and M. Reyes, “Xbench: A comprehensive benchmark for visual-language explanations in chest radiography,” arXiv preprint arXiv:2510.19599 , 2025. [8] B. Sadanandan and V. Behzadan, “Psf-med: Measuring and explain-ing paraphrase sensitivity in medical vision language models,” arXiv preprint arXiv:2602.21428 , 2026. [9] L. Chen, M. Zaharia, and J. Zou, “Frugalgpt: How to use large language models while reducing cost and improving performance,” arXiv preprint arXiv:2305.05176 , 2023. [10] X. Li, M. Jiang, G. Xu, J. Xia, M. Jia, D. Chen, and Y. Shi, “At-cxr: Uncertainty-aware agentic triage for chest x-rays,” arXiv preprint arXiv:2508.19322 , 2025. [11] Z. Huang, B. Lin, J. Zhang, J. Wang, Y. Liu, N. Lu, T. Li, and X. Huang, “Vl-routerbench: A benchmark for vision-language model routing,” arXiv preprint arXiv:2512.23562 , 2025. [12] S. Vassef, S. R. Shimegekar, A. Goyal, K. Saha, P. Zonooz, and N. Kumar, “One vlm, two roles: Stage-wise routing and specialty-level deployment for clinical workflows,” arXiv preprint arXiv:2508.16839 ,2025. [13] C. Zhang, M. Xia, X. Zhang, D. Madrigal, A. Mallick, S. Kessler, V. Ruehle, and S. Rajmohan, “Budget-aware agentic routing via boundary-guided training,” arXiv preprint arXiv:2602.21227 , 2026. [14] S. Liu, X. Yuan, T. Chen, Z. Zhan, Z. Han, D. Zheng, W. Zhang, and S. Cao, “Caster: Breaking the cost-performance barrier in multi-agent orchestration via context-aware strategy for task efficient routing,” arXiv preprint arXiv:2601.19793 , 2026. [15] C. Lou, Z. Sun, X. Liang, M. Qu, W. Shen, W. Wang, Y. Li, Q. Yang, and S. Wu, “Adacot: Pareto-optimal adaptive chain-of-thought triggering via reinforcement learning,” arXiv preprint arXiv:2505.11896 , 2025.

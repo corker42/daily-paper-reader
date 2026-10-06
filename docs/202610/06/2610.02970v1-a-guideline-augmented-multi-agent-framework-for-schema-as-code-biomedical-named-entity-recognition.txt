@@ -1,0 +1,306 @@
+Title: A Guideline-Augmented Multi-Agent Framework for Schema-as-Code Biomedical Named Entity Recognition
+
+URL Source: https://arxiv.org/pdf/2610.02970v1
+
+Published Time: Mon, 05 Oct 2026 00:50:32 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# A Guideline-Augmented Multi-Agent Framework for Schema-as-Code Biomedical Named Entity Recognition 
+
+Songtao Li 1, Yijia Zhang 1, Shidi Zhang 1, Jianyuan Yuan 2, Fengyu Zhang 3, Hongfei Lin 41Dalian Maritime University 2Beijing Institute of Technology 
+
+{devin lee, zhangyijia, zhangshidi }@dlmu.edu.cn jianyuany@bit.edu.cn 
+
+> 3
+
+Northeastern University 4Dalian University of Technology fengyu.felix@gmail.com hflin@dlut.edu.cn 
+
+Abstract —Large language models (LLMs) have shown promis-ing potential for biomedical named entity recognition (BioNER) through instruction following and in-context learning. However, existing LLM-based BioNER methods still face two key limi-tations. First, retrieved demonstrations and external biomedical knowledge provide limited support for dataset-specific annotation semantics, leaving entity boundaries, type scopes, and annota-tion conventions ambiguous. Second, free-form generation lacks sufficient structural control, often leading to invalid formats, hallucinated mentions, duplicated entities, and boundary errors. To address these limitations, we propose GAMA, a guideline-augmented multi-agent framework for schema-as-code BioNER. GAMA first induces candidate annotation rules from labeled training instances and verifies them against annotated data to construct reliable dataset-specific guideline memory. Guided by these verified rules, a planning component generates ranked span-type hypotheses with rationales, and a coding component converts them into schema-constrained entity objects. A verifi-cation module then checks span grounding, type validity, and structural compliance, and performs dual-loop refinement to correct invalid or low-confidence predictions. Experiments on five widely used BioNER datasets with multiple LLM backbones show that GAMA consistently outperforms strong LLM-based baselines. Ablation and parameter analyses further verify the effectiveness of the proposed components. 
+
+Index Terms —biomedical named entity recognition, large lan-guage models, in-context learning, multi-agent 
+
+I. I NTRODUCTION 
+
+Biomedical named entity recognition (BioNER) aims to identify domain-specific entity mentions, such as diseases, chemicals, genes, proteins, and anatomical entities [1]. As a core task in biomedical information extraction, BioNER supports many downstream applications, including biomedical relation extraction [2] and biomedical event extraction [3]. Supervised neural models and domain-specific pretrained lan-guage models such as BioBERT [4] and PubMedBERT [5] have achieved substantial progress. Nevertheless, these ap-proaches require large-scale manually annotated corpora, which are costly due to the need for both linguistic expertise and domain knowledge. Large language models (LLMs) offer a promising alterna-tive, as they can perform downstream tasks using instructions and a few in-context examples without additional training [6]. Recent studies have mainly explored LLM-based BioNER from two perspectives: (i) retrieving similar annotated ex-amples as in-context demonstrations to provide instance-level evidence [7], [8], and (ii) incorporating external biomedical knowledge, such as entity semantics or UMLS information, to improve domain understanding [9], [10]. Despite their effectiveness, these approaches still face two major limitations. First, they provide limited support for dataset-specific anno-tation semantics. Retrieved examples usually reflect local an-notation decisions, while external knowledge mainly provides general biomedical information. As a result, dataset-specific entity boundaries, type scopes, and annotation conventions remain ambiguous, especially when entity definitions and annotation standards vary across datasets. Second, structural control remains insufficient. Since BioNER requires each pre-dicted entity to be grounded in the input sentence, assigned to a predefined type, and returned in a valid format, free-form LLM generation may produce invalid outputs, duplicated entities, hallucinated mentions, or boundary errors, which ordinary prompting cannot fully prevent. To address these limitations, we present GAMA, aguideline-augmented multi-agent framework for schema-as-code BioNER. Rather than prompting a single LLM to directly produce entity predictions, GAMA decomposes the extraction process into five specialized components: Annotation Rule In-duction, Rule Verification, Planning, Coding, and Verification with Dual-Loop Refinement, each responsible for a distinct stage of the task. GAMA is built upon three core principles: (1) Explicit Guideline Modeling , where the Annotation Rule Induction Agent summarizes dataset-specific annotation rules from training instances, and the Rule Verification Agent filters unreliable or overly instance-specific rules to construct explicit and reusable guideline memory; (2) Multi-Agent Decompo-sition , in which the Planning Agent generates mention-type hypotheses with explanatory rationales, ranks them according to their consistency with the input sentence, the predefined label schema, and the verified guideline rules, and the Coding Agent converts the most reliable hypotheses into schema-arXiv:2610.02970v1 [cs.CL] 2 Oct 2026 constrained code-style entity objects; (3) Schema-as-Code Verification , where each predicted entity object is validated for span grounding, type correctness, and structural validity, while a dual-loop refinement procedure corrects local object-level errors or revisits lower-confidence span–type hypotheses when necessary. Our main contributions are summarized as follows:  
+
+> •
+
+We introduce a guideline modeling mechanism that in-duces and verifies dataset-specific annotation rules, pro-viding explicit dataset-level guidance for entity bound-aries, type scopes, and annotation conventions.  
+
+> •
+
+We propose GAMA, a guideline-augmented multi-agent framework that decomposes BioNER into rule induc-tion, rule verification, guideline-guided planning, schema-constrained coding, and prediction verification.  
+
+> •
+
+We develop a schema-as-code verification mechanism with dual-loop refinement, which checks span grounding, type validity, and structural compliance to reduce invalid, hallucinated, and inconsistent predictions.  
+
+> •
+
+We conduct experiments on five widely used BioNER datasets with multiple LLM backbones. The results show that GAMA consistently outperforms strong LLM-based baselines, and ablation studies further verify the effec-tiveness of its key components. II. R ELATED WORK 
+
+A. BioNER with In-Context Learning 
+
+BioNER remains challenging due to domain-specific termi-nology, complex entity boundaries, and annotation ambiguity. Traditional supervised approaches often require large-scale annotated corpora, which are expensive and time-consuming to construct in the biomedical domain. To reduce such an-notation dependence, recent studies have explored in-context learning (ICL) with LLMs, where models perform entity extraction by conditioning on natural language instructions and a few contextual examples without updating model parameters. Early work focused on improving the content of prompts to enhance LLMs’ understanding of the task. For instance, Hu et al. [11] designed a clinical NER prompt framework by incorporating annotation guidelines, error-analysis-based instructions, and few-shot examples, while Ge et al. [7] further investigated structured static prompts that integrate dataset descriptions, high-frequency entities, UMLS knowledge, and error feedback, demonstrating that careful prompt construc-tion can substantially improve few-shot BioNER performance. Beyond prompt content, other studies aimed to strengthen LLMs’ domain awareness and reasoning capabilities. Bian et al. [9] reformulated BioNER as a two-step process of span extraction followed by entity type prediction, augmented with UMLS-based external knowledge to support accurate type determination. Similarly, Li et al. [12] introduced the RT framework, which leverages retrieved demonstrations com-bined with Chain-of-Thought reasoning, guiding LLMs to gradually recognize entities with higher accuracy. These works highlight that effective BioNER often requires domain-specific knowledge and reasoning beyond simple text generation. More recently, retrieval-augmented demonstration selection has been explored to improve example selection in ICL. EICL [8] introduces an entity-aware retrieval strategy that combines semantic similarity with domain-specific terminology overlap to select more relevant in-context examples for BioNER. 
+
+B. Multi-Agent Systems in Information Extraction 
+
+Recent advances in large language models have promoted the use of multi-agent collaboration for information extraction, where different agents are assigned specialized roles to im-prove structured prediction through cooperation, refinement, and verification. Wang et al. [13] proposed CMAS, which employs a self-annotator, a type-related feature extractor, a demonstration discriminator, and an overall predictor to construct and filter self-annotated demonstrations for zero-shot named entity recognition. Lu et al. [14] introduced CROSSAGENTIE, a cross-type and cross-task multi-agent framework for zero-shot information extraction, where multi-ple agents collaborate to improve structured prediction across named entity recognition and relation extraction. Zhang et al. [15] developed a generation-evaluation multi-agent frame-work, where a generation agent synthesizes event data and an evaluation agent assesses semantic consistency to provide reward signals for iterative optimization. These studies indicate that role specialization, agent collaboration, and verification-oriented refinement are effective for improving the reliability of LLM-based structured extraction. III. M ETHODS 
+
+We propose GAMA, a guideline-augmented multi-agent framework for schema-as-code BioNER. GAMA reformulates entity extraction as a schema-constrained programming pro-cess with explicit guideline modeling and iterative verification. The framework consists of five components: (1) an Annotation Rule Induction Agent that induces dataset-specific annotation rules from training data, (2) a Rule Verification Agent that validates and filters induced rules, (3) a Planning Agent that generates ranked mention-type hypotheses, (4) a Coding Agent that converts these hypotheses into executable entity objects, and (5) a Verification and Dual-Loop Refinement module that performs prediction-level validation and iterative correction. The overall workflow is illustrated in Figure 1. 
+
+A. Annotation Rule Induction 
+
+BioNER is strongly affected by dataset-specific annotation criteria. Different datasets may exhibit variations in entity boundary conventions, type granularity, and annotation scope, even for semantically similar biomedical mentions. Directly using input–label pairs provides only implicit supervision and fails to explicitly expose annotation semantics. To address this limitation, we introduce an Annotation Rule Induction Agent, which transforms instance-level anno-tations into explicit candidate annotation rules. Let D(s) =
+
+{(xi, y i)}M (s) 
+
+> i=1
+
+denote the annotated training set of dataset 
+
+s, where xi is a sentence and yi = {(ej , t j )}Ni 
+
+> j=1
+
+is its Fig. 1. Overview of the proposed GAMA framework. The framework instantiates a guideline-augmented multi-agent paradigm for schema-as-code biomedical named entity recognition. It consists of five stages: rule induction from training annotations, guideline memory construction, guideline-guided mention planning, schema-as-code entity generation, and dual-loop verification refinement for producing final structured entities. 
+
+corresponding entity annotation set. Each (ej , t j ) consists of an entity mention ej and its type tj ∈ T (s).For each training instance (xi, y i), the rule induction agent generates a set of candidate rules: 
+
+R(s) 
+
+> i
+
+= Mrule 
+
+ Prule (xi, y i), (1) where Mrule denotes the LLM-based rule generator and Prule 
+
+is the prompting function. The global candidate rule pool is defined as: 
+
+R(s) = 
+
+> M(s)
+
+[
+
+> i=1
+
+R(s) 
+
+> i
+
+. (2) These rules are subsequently passed to the Rule Verification Agent for validation and filtering. 
+
+B. Rule Verification and Guideline Memory Construction 
+
+Not all induced rules are reliable or consistent with dataset-specific annotation standards. Therefore, we introduce a Rule Verification Agent to filter candidate rules before constructing the guideline memory. The key intuition is that a useful annotation rule should help recover gold entities from the training data when it is applied as an explicit constraint. For each candidate rule rk ∈ R (s), the verification agent applies the rule to training instances and generates rule-guided predictions: 
+
+ˆy(s) 
+
+> i,k
+
+= Mver 
+
+ Pver (xi, r k), (3) where Mver denotes the verification LLM and Pver is the verification prompt. The prediction ˆy(s) 
+
+> i,k
+
+is then compared with the gold annotation set yi. A rule is regarded as supported by an instance if it helps recover at least one gold entity with the correct mention boundary and entity type. For each rule, we compute a support score by counting how many training instances support it. Rules with no support are discarded. The remaining rules are grouped by their associated entity types and ranked according to their support scores. For each entity type t, we retain the Top-N verified rules to construct the dataset-specific guideline memory: 
+
+G(s) 
+
+> t
+
+= Top-N( Rver ,(s) 
+
+> t
+
+), G(s) = {G (s) 
+
+> t
+
+}t∈T (s) , (4) where Rver ,(s) 
+
+> t
+
+denotes the verified rules associated with entity type t.The resulting guideline memory G(s) provides explicit and structured annotation constraints for downstream Planning, Coding, and Verification modules. By filtering rules through training-data consistency, the Rule Verification Agent reduces noisy or overly instance-specific rules without introducing additional trainable parameters. 
+
+C. Guideline-Guided Mention Planning 
+
+Given an input biomedical sentence x, the verified guideline memory G(s) constructed by the Rule Verification Agent, and the entity schema S(s), the Planning Agent generates a ranked set of mention-type hypotheses: 
+
+P = Mplan 
+
+ Pplan (x, G(s), S(s)), (5) where Mplan denotes the LLM used for planning, Pplan is the planning prompt, and P is the generated planning set. The schema S(s) specifies the valid entity type set T (s) and the output constraints for dataset s.The planning set is defined as: 
+
+P = {(mi, t i, β i, ρ i)}Ki=1 , (6) where mi denotes a candidate biomedical entity mention, 
+
+ti ∈ T (s) denotes its predicted entity type, βi ∈ [0 , 1] is a confidence score used for ranking, and ρi is a natural-language rationale grounded in the dataset-specific guideline memory 
+
+G(s).The score βi is used to prioritize candidate mention-type hypotheses during subsequent Coding and Verification, espe-cially when overlapping spans or type conflicts occur. The rationale ρi links the mention mi to relevant annotation rules in G(s), making the type assignment explicit and providing interpretable evidence for the downstream agents. 
+
+D. Schema-as-Code Entity Construction 
+
+Existing BioNER methods often produce outputs in free-form text, tagging sequences, or loosely structured JSON ob-jects. Such representations may lead to format inconsistencies, missing fields, or invalid entity-type assignments, making them difficult to integrate into a multi-stage verification workflow. To address this issue, we introduce the Coding Agent, which converts the ranked mention-type hypotheses from the Plan-ning Agent into schema-constrained entity objects. Each candidate entity is represented using a minimal BioNER schema, as illustrated in Figure 2:     
+
+> Fig. 2. Code-based template for BioNER entities. span denotes the extracted biomedical mention, and entity_type denotes its predicted category.
+
+Given the planning set P = {(mi, t i, β i, ρ i)}Ki=1 , the Coding Agent instantiates each mention-type hypothesis as a schema-constrained entity object: 
+
+ci = EntityObject( mi, t i), i = 1 , . . . , K. (7) The complete set of generated entity objects is denoted as 
+
+C = {ci}Ki=1 . Here, ci corresponds to the i-th planning hypothesis, where mi fills the span field and ti fills the 
+
+entity_type field under the dataset-specific schema S(s).The field entity_type is constrained by the dataset-specific type set T (s).The ranking score βi and rationale ρi are preserved as aux-iliary planning information for later verification and conflict                           
+
+> TABLE I STATISTICS OF THE BIO NER DATASETS USED IN OUR EXPERIMENTS .
+> Dataset Labels Train Test Entities
+> NCBI 15432 942 6881 BC2GM 112632 5065 24583 BC4CHEMD 131770 4240 84310 GENIA 516692 1854 50509 AnatEM 15861 3830 13701
+
+handling. Thus, the Coding Agent standardizes each mention-type hypothesis into a schema-aware entity object while maintaining the planning context needed by the subsequent Verification and Dual-Loop Refinement module. 
+
+E. Verification and Dual-Loop Refinement 
+
+After the Coding Agent generates schema-constrained entity objects, GAMA applies a prediction-level verification and refinement mechanism to ensure that the outputs are both text-grounded and schema-compliant. Each generated object is checked before being included in the final prediction set. Given the input sentence x, the dataset-specific schema S(s),and the generated entity objects C = {ci}Ki=1 , each object ci is verified along three dimensions: span grounding, type validity, and structural compliance. Span grounding checks whether the predicted mention appears in x, type validity checks whether the predicted type belongs to T (s), and structural compliance checks whether the object follows the schema S(s). Formally, this prediction-level verification is defined as: 
+
+(Vi, ϵ i) = Vpred (ci, x, S(s)), (8) where Vi indicates whether ci passes the verification checks, and ϵi denotes diagnostic feedback used for refinement. To improve robustness, GAMA employs a dual-loop refine-ment mechanism. The outer loop follows the ranked hypothe-ses produced by the Planning Agent and prioritizes candidates with higher βi. The inner loop uses the diagnostic feedback ϵi
+
+to revise and re-check the corresponding entity object until it passes verification or reaches the maximum number of refinement attempts. Only verified objects are included in the final prediction set: 
+
+Y(s)(x) = {(mi, t i) | Vi = 1 , c i = EntityObject( mi, t i)}.
+
+(9) This mechanism enables GAMA to correct object-level errors while preserving the hypothesis ranking produced by the Planning Agent, thereby producing text-grounded and schema-compliant entity predictions. IV. E XPERIMENTS 
+
+A. Datasets 
+
+We use five public BioNER datasets in our experiments: NCBI Disease [16], BC2GM [17], BC4CHEMD [18], GE-NIA [19], and AnatEM [20]. NCBI Disease focuses on dis-ease entity recognition, BC2GM mainly contains gene and protein mentions, BC4CHEMD is designed for chemical entity TABLE II PERFORMANCE COMPARISON OF DIFFERENT METHODS ACROSS FIVE BIO NER DATASETS UNDER DIFFERENT LLM S. T HE BEST RESULTS FOR EACH                                                          
+
+> LLM-DATASET COMBINATION ARE HIGHLIGHTED IN BOLD .
+> LLM Method NCBI BC2GM BC4CHEMD GENIA AnatEM Llama3-8B
+> CodeIE 68.24 59.94 68.25 57.25 70.29 GPT-NER 62.89 52.97 65.21 48.28 64.98 CMAS 61.21 53.64 65.54 52.72 64.75 EICL 73.56 63.41 76.29 60.31 75.26
+> GAMA 74.62 66.35 76.74 62.45 75.95 Llama3-70B
+> CodeIE 73.25 65.23 72.41 63.51 75.15 GPT-NER 68.26 59.64 70.62 57.15 69.24 CMAS 65.89 58.29 69.95 56.91 68.89 EICL 78.54 69.65 80.59 69.84 79.61
+> GAMA 79.26 70.69 81.68 71.59 80.65
+
+recognition, GENIA includes multiple biomedical entity types, and AnatEM provides annotations for anatomical entities. Together, these datasets cover a broad range of biomedical entity categories and are widely used for evaluating BioNER systems. Table I lists the detailed statistics. 
+
+B. Baselines 
+
+We compare our method with four representative LLM-based NER baselines, all of which perform inference without fine-tuning LLMs on task-specific data.  
+
+> •
+
+GPT-NER [21] transforms NER into a text generation task by asking LLMs to mark entity spans with special tokens, followed by self-verification to mitigate halluci-nated predictions.  
+
+> •
+
+CodeIE [22] converts information extraction as code generation, using Code-LLMs to generate structured pre-dictions in Python-style lists and dictionaries under few-shot settings.  
+
+> •
+
+CMAS [13] performs zero-shot NER with a cooperative multi-agent framework that integrates self-annotation, type-related feature extraction, demonstration discrimina-tion, and final prediction.  
+
+> •
+
+EICL [8] selects demonstrations for BioNER through entity-aware in-context learning, combining sentence-level semantic similarity, entity-centric representations, and domain-specific vocabulary overlap. 
+
+C. Base LLMs 
+
+We evaluate our method and all baselines on top of multiple representative instruction-tuned LLMs to ensure a compre-hensive comparison across model families, parameter scales, and closed-source/open-source settings. The evaluated models include Llama3-8B-Instruct and Llama3-70B-Instruct from the Llama3 family [23], Qwen2.5-14B-Instruct and Qwen2.5-72B-Instruct from the Qwen2.5 family [24], and two proprietary OpenAI models, GPT-3.5-turbo and GPT-4o [25]. 
+
+D. Implementation Details 
+
+Our framework is built upon instruction-tuned LLM back-bones without task-specific fine-tuning. For fair comparison, the same annotated training split is used whenever labeled information is required: baselines select in-context examples from it, while GAMA uses it only to induce and verify dataset-specific guideline memory. All components are driven by natural-language prompts and communicate through structured intermediate outputs, enabling multi-agent collaboration with-out updating model parameters. Unless otherwise specified, the same LLM backbone is used for all components. For guideline memory construction, the top-n verified annotation rules are retained for each entity type, where n = 10 . The Planning Agent generates k = 3 ranked candidate hypotheses, and the maximum number of inner-loop refinement iterations is set to t = 3 . All experiments use greedy decoding with 
+
+temperature = 0 . We report the average results over three independent runs. 
+
+E. Evaluation Metrics 
+
+Following previous work [8], we adopt the Micro-F1 score as the primary evaluation metric for all methods. We use exact-match evaluation, where an extracted entity is counted as correct only if its span boundary and entity type are both identical to the gold annotation. Micro-F1 provides an entity-level measure that balances precision and recall over all entity categories, enabling fair comparison with existing NER methods. V. EXPERIMENTAL RESULTS 
+
+A. Main Results 
+
+Table II summarizes the main results under Llama3-8B and Llama3-70B backbones. GAMA consistently achieves the best Micro-F1 scores across all five BioNER datasets under both backbone settings, demonstrating the overall effective-ness of the proposed guideline-augmented multi-agent frame-work. Compared with conventional prompting-based methods such as GPT-NER and CMAS, GAMA obtains substantially higher performance, indicating that directly prompting LLMs with natural-language instructions is insufficient for reliable biomedical entity extraction. In addition, GAMA also outper-forms the strongest retrieval-based baseline, EICL, showing TABLE III PERFORMANCE COMPARISON OF DIFFERENT METHODS UNDER MULTIPLE LLM BACKBONES (Q WEN 2.5-14B, Q WEN 2.5-72B, GPT-3.5-TURBO , AND    
+
+> GPT-4 O). T HE BEST RESULTS FOR EACH LLM GROUP ARE HIGHLIGHTED IN BOLD .
+
+LLM Method NCBI BC2GM BC4CHEMD GENIA AnatEM Qwen2.5-14B 
+
+CodeIE 68.47 60.13 68.89 57.54 70.71 GPT-NER 63.08 53.25 65.54 48.62 65.19 CMAS 61.76 53.94 65.93 53.09 65.06 EICL 73.96 63.88 76.73 60.62 75.65 
+
+GAMA 75.12 66.91 77.39 62.94 76.42 Qwen2.5-72B 
+
+CodeIE 73.06 65.48 72.13 63.26 74.98 GPT-NER 67.94 59.37 70.25 56.88 67.93 CMAS 65.61 58.02 69.66 56.64 68.52 EICL 78.20 69.82 80.28 69.56 79.34 
+
+GAMA 78.91 70.87 81.33 71.21 80.36 GPT-3.5-turbo 
+
+CodeIE 72.39 64.66 71.27 62.83 74.23 GPT-NER 67.52 58.51 69.96 56.24 67.95 CMAS 65.28 57.45 69.03 56.18 68.01 EICL 78.05 68.88 80.01 69.13 78.92 
+
+GAMA 78.82 70.17 81.25 70.98 80.17 GPT-4o 
+
+CodeIE 73.01 65.42 72.16 63.38 75.04 GPT-NER 68.12 59.34 70.62 57.19 68.68 CMAS 65.75 58.14 69.79 56.72 68.89 EICL 78.77 70.72 80.59 69.93 79.83 
+
+GAMA 79.71 70.79 82.08 71.93 80.89 
+
+that explicit guideline modeling and schema-constrained veri-fication provide complementary benefits beyond demonstration selection. The improvements are particularly noticeable on datasets that require more careful boundary and type decisions. Under Llama3-8B, GAMA improves over EICL by 2.94 points on BC2GM and 2.14 points on GENIA. Under Llama3-70B, GAMA further improves over EICL by 1.75 points on GENIA and maintains consistent gains on BC2GM, BC4CHEMD, and AnatEM. These results suggest that dataset-specific guide-line memory helps the model better capture annotation con-ventions, while the planning and verification stages reduce boundary ambiguity and invalid predictions. The advantage on GENIA is especially meaningful because it contains multiple entity types, making type assignment more challenging than single-label datasets. When scaling the backbone from Llama3-8B to Llama3-70B, all methods generally achieve better performance, but GAMA remains the best-performing method across all datasets. This indicates that the proposed framework is not tied to a specific model scale and can effectively cooperate with stronger LLM backbones. Overall, the main results verify that GAMA improves BioNER performance through the combined effects of guideline-aware reasoning, schema-as-code entity construction, and iterative verification. 
+
+B. Generalization across LLMs 
+
+The results in Table III demonstrate that the proposed method exhibits strong cross-model generalization ability across both open-source and proprietary LLMs. Specifically, our framework consistently ranks first on all datasets and all backbone models, verifying that the performance improve-ments are not tied to a specific LLM family. From the perspective of backbone scaling, a clear positive correlation can be observed between model capability and final BioNER performance. As the backbone evolves from Qwen2.5-14B to Qwen2.5-72B and further to GPT-4o, nearly all methods show performance improvements; however, our method benefits the most from stronger LLM reasoning capacity. For instance, on NCBI, the proposed framework improves from 75.12 under Qwen2.5-14B to 78.91 under Qwen2.5-72B and further to 79.71 under GPT-4o. Similar trends are consistently observed on BC2GM and AnatEM. Compared with traditional prompt-based baselines such as GPT-NER and CMAS, the proposed framework achieves substantially larger margins, suggesting that structured code-oriented reasoning is more effective than conventional natural-language prompting for biomedical en-tity extraction. Moreover, even compared with the strongest baseline EICL, our approach still achieves stable gains across nearly all datasets and backbone models, demonstrating the effectiveness of the proposed collaborative reasoning and verification mechanism. Notably, the improvements become more pronounced on datasets involving complex biomedical terminology and long-span entities, such as BC4CHEMD and AnatEM. This indicates that the proposed framework can better capture structured semantic dependencies and reduce boundary ambiguity through iterative multi-agent refinement. C. Ablation Study 
+
+Table IV evaluates five key design choices of GAMA across two LLM backbones and three BioNER datasets. All ablated variants consistently underperform the full model, with similar trends observed for Llama3-70B and GPT-4o, demonstrating the robustness of the proposed design. Removing the entire guideline modeling pathway, including Rule Induction and Rule Verification, decreases F1 by 3.53–4.89 points across the evaluated settings. This confirms the importance of incorporat-ing dataset-specific annotation knowledge into the extraction process. When only Rule Verification is removed, perfor-mance decreases by 2.79–3.96 points. Moreover, the gains of using unverified rules over using no guideline modeling are relatively limited and dataset-dependent. These results indicate that rule induction alone may introduce noisy or overly instance-specific guidance, while verification is impor-tant for constructing a reliable guideline memory. Removing Planning Rationales produces the largest average degradation among the evaluated variants, with F1 reductions ranging from 2.96 to 6.09 points. This demonstrates that explicitly relating candidate mentions and entity types to the induced annotation guidelines helps organize the prediction process and improves boundary and type decisions. Notably, this variant retains candidate generation and removes only the rationale-based reasoning mechanism. Removing Schema-as-Code results in consistent reductions of 1.45–2.87 F1 points, showing that schema-constrained representations provide addi-tional benefits over unconstrained entity generation. Disabling the Verification Loop causes larger drops of 2.20–4.15 points, particularly on BC4CHEMD under both backbones. This finding is consistent with the role of iterative verification and correction in identifying inconsistent predictions and improv-ing the reliability of complex biomedical entity extraction. Overall, the results demonstrate that GAMA benefits from the complementary interaction of verified guideline modeling, rationale-guided planning, schema-constrained representation, and iterative refinement. 
+
+D. Effect of Top-N Rules 
+
+To investigate the effect of top-n rules on biomedical entity recognition, we evaluate different n settings under two LLM backbones. As shown in Table V, model performance first improves and then gradually saturates as n increases. This phenomenon indicates that incorporating additional rules initially enhances the model’s understanding of biomedical annotation guidelines and entity semantics. For example, under Llama3-70B, the NCBI score improves from 77.26 at n = 5 
+
+to 79.26 at n = 10 , demonstrating that a moderate number of rules effectively strengthens semantic disambiguation and boundary prediction. However, excessively large rule sets do not continuously improve performance. When n = 30 , both models exhibit noticeable performance declines on several datasets. We attribute this phenomenon to two main factors. First, larger rule sets significantly increase the prompt context length, which may weaken the model’s ability to focus on                                                                              
+
+> TABLE IV ABLATION STUDIES ON TWO DIFFERENT LLM S,EVALUATED ON THREE
+> BIO NER DATASETS .
+> Llama3-70B Ablation Setting NCBI BC2GM BC4CHEMD
+> GAMA (full model) 79.26 70.69 81.68
+> w/o Guideline Modeling 75.49 66.27 77.42 w/o Rule Verification 76.21 66.98 77.95 w/o Planning Rationales 74.17 66.37 76.43 w/o Schema-as-Code 77.63 68.98 79.92 w/o Verification Loop 76.54 67.59 77.53
+> GPT-4o Ablation Setting NCBI BC2GM BC4CHEMD
+> GAMA (full model) 79.71 70.79 82.08
+> w/o Guideline Modeling 75.21 67.26 77.19 w/o Rule Verification 76.92 67.01 78.12 w/o Planning Rationales 73.62 67.83 76.32 w/o Schema-as-Code 78.26 69.08 79.21 w/o Verification Loop 77.51 68.18 77.96
+> TABLE V TOP -N PERFORMANCE OF LLAMA 3MODELS ON THREE BIO NER
+> DATASETS .
+> Model Top-N NCBI BC2GM BC4CHEMD
+> Llama3-8B 573.26 65.21 73.28 10 74.62 66.35 76.74 20 74.21 66.17 77.12
+> 30 73.52 65.64 75.94 Llama3-70B 577.26 69.61 80.26 10 79.26 70.69 81.68
+> 20 78.69 70.92 81.21 30 77.42 69.26 80.36
+
+the most important annotation constraints. Second, introduc-ing low-frequency or weakly relevant rules may dilute the influence of high-quality core rules and increase semantic noise during reasoning. In addition, the smaller Llama3-8B model reaches saturation earlier than Llama3-70B, indicating that smaller LLMs are more sensitive to long and complex guideline contexts. In contrast, larger models demonstrate stronger capabilities in handling larger rule collections and maintaining stable reasoning performance. 
+
+E. Impact of k and t
+
+To further evaluate the proposed iterative reasoning frame-work, we analyze two key hyperparameters: the number of generated hypotheses k and the maximum refinement itera-tions t. Table VI summarizes the results on three biomedical NER datasets. Several observations can be made. First, in-creasing k improves performance in most settings, indicating that multiple candidate hypotheses help the model explore diverse semantic interpretations of biomedical entities. This is particularly beneficial for datasets with complex entity structures and ambiguous terminology, such as BC4CHEMD. Second, increasing t also leads to noticeable gains, demonstrat-ing the effectiveness of iterative refinement and self-correction. Additional refinement iterations allow the framework to repair inconsistent predictions and improve entity boundary accuracy. Nevertheless, the gains gradually saturate when both k and t
+
+become excessively large. Although (k = 5 , t = 5) achieves competitive performance, it does not consistently outperform 
+
+(k = 3, t = 3) . This suggests that overly large hypoth-esis pools may introduce noisy low-confidence candidates, while excessive refinement iterations can produce redundant corrections and reduce prediction stability. Overall, these findings show that the proposed framework achieves optimal performance through a balanced trade-off between candidate exploration and iterative verification, with (k = 3 , t = 3) 
+
+providing the most effective configuration. 
+
+TABLE VI EXPERIMENTAL RESULTS OF DIFFERENT k AND t SETTINGS UNDER THE 
+
+LLAMA 3-70B BACKBONE ON THREE BIO NER DATASETS .
+
+k t NCBI BC2GM BC4CHEMD 
+
+1 1 74.65 65.34 71.42 1 3 75.26 66.25 72.25 3 1 78.45 69.12 81.15 3 3 79.26 70.69 81.68 
+
+5 3 78.92 69.52 81.31 5 5 79.23 70.72 81.57 
+
+VI. C ONCLUSIONS 
+
+In this paper, we presented GAMA, a guideline-augmented multi-agent framework for schema-as-code BioNER. GAMA addresses two key limitations of existing LLM-based BioNER methods: the lack of explicit modeling for dataset-specific an-notation semantics and the weak structural control of free-form generation. By inducing and verifying annotation guidelines from training instances, decomposing extraction into planning and coding stages, and validating schema-as-code entity ob-jects through dual-loop refinement, GAMA produces more grounded and structurally valid biomedical entity predictions. Experiments on five public BioNER datasets and multiple LLM backbones show that GAMA consistently outperforms strong LLM-based baselines. Ablation and parameter analyses further verify the effectiveness of each key component. These results highlight the importance of combining dataset-level annotation guidance with explicit structural constraints for reliable LLM-based BioNER. In future work, we will explore more efficient guideline selection and extend the framework to broader biomedical information extraction tasks. REFERENCES [1] B. Song, F. Li, Y. Liu, and X. Zeng, “Deep learning methods for biomed-ical named entity recognition: a survey and qualitative comparison,” 
+
+Briefings in Bioinformatics , vol. 22, no. 6, p. bbab282, 2021. [2] Y. Hu, Y. Chen, R. Huang, Y. Qin, and Q. Zheng, “A hierarchical convolutional model for biomedical relation extraction,” Information Processing & Management , vol. 61, no. 1, p. 103560, 2024. [3] A. Ramponi, R. Van Der Goot, R. Lombardo, and B. Plank, “Biomedical event extraction as sequence labeling,” in Proceedings of the 2020 con-ference on empirical methods in natural language processing (emnlp) ,2020, pp. 5357–5367. [4] J. Lee, W. Yoon, S. Kim, D. Kim, S. Kim, C. H. So, and J. Kang, “Biobert: a pre-trained biomedical language representation model for biomedical text mining,” Bioinformatics , vol. 36, no. 4, pp. 1234–1240, 2020. [5] Y. Gu, R. Tinn, H. Cheng, M. Lucas, N. Usuyama, X. Liu, T. Naumann, J. Gao, and H. Poon, “Domain-specific language model pretraining for biomedical natural language processing,” ACM Transactions on Computing for Healthcare (HEALTH) , vol. 3, no. 1, pp. 1–23, 2021. [6] T. Brown, B. Mann, N. Ryder, M. Subbiah, J. D. Kaplan, P. Dhariwal, A. Neelakantan, P. Shyam, G. Sastry, A. Askell et al. , “Language mod-els are few-shot learners,” Advances in neural information processing systems , vol. 33, pp. 1877–1901, 2020. [7] Y. Ge, S. Das, Y. Guo, and A. Sarker, “Retrieval augmented genera-tion based dynamic prompting for few-shot biomedical named entity recognition using large language models,” Research Square , pp. rs–3, 2025. [8] Z. Liu and N. Yao, “Eicl: Entity-aware in-context learning for bioner via hybrid semantic-terminological retrieval,” in 2025 IEEE International Conference on Bioinformatics and Biomedicine (BIBM) . IEEE, 2025, pp. 1–6. [9] J. Bian, J. Zheng, Y. Zhang, and S. Zhu, “Inspire the large language model by external knowledge on biomedical named entity recognition,” 
+
+arXiv preprint arXiv:2309.12278 , 2023. [10] W. Zhou, “Biomedical nested ner with large language model and umls heuristics,” arXiv preprint arXiv:2407.05480 , 2024. [11] Y. Hu, Q. Chen, J. Du, X. Peng, V. K. Keloth, X. Zuo, Y. Zhou, Z. Li, X. Jiang, Z. Lu et al. , “Improving large language models for clinical named entity recognition via prompt engineering,” Journal of the American Medical Informatics Association , vol. 31, no. 9, pp. 1812– 1820, 2024. [12] M. Li, H. Zhou, H. Yang, and R. Zhang, “Rt: a retrieving and chain-of-thought framework for few-shot medical named entity recognition,” 
+
+Journal of the American Medical Informatics Association , vol. 31, no. 9, pp. 1929–1938, 2024. [13] Z. Wang, Z. Zhao, Y. Lyu, Z. Chen, M. de Rijke, and Z. Ren, “A coop-erative multi-agent framework for zero-shot named entity recognition,” in Proceedings of the ACM on Web Conference 2025 , 2025, pp. 4183– 4195. [14] M. Lu, Y. Xie, Z. Bi, S. Cao, and X. Wang, “Crossagentie: Cross-type and cross-task multi-agent llm collaboration for zero-shot information extraction,” in Findings of the Association for Computational Linguis-tics: ACL 2025 , 2025, pp. 13 953–13 977. [15] G. Zhang, H. Zhang, Y. Han, Y. Fan, Y. Shao, H. Tan, and R. Li, “Learn-ing to generate and extract: A multi-agent collaboration framework for zero-shot document-level event arguments extraction,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 40, no. 41, 2026, pp. 34 665–34 673. [16] R. I. Do˘ gan, R. Leaman, and Z. Lu, “Ncbi disease corpus: a resource for disease name recognition and concept normalization,” Journal of biomedical informatics , vol. 47, pp. 1–10, 2014. [17] L. Smith, L. K. Tanabe, R. J. N. Ando, C.-J. Kuo, I.-F. Chung, C.-N. Hsu, Y.-S. Lin, R. Klinger, C. M. Friedrich, K. Ganchev et al. , “Overview of biocreative ii gene mention recognition,” Genome biology , vol. 9, no. Suppl 2, p. S2, 2008. [18] M. Krallinger, O. Rabal, F. Leitner, M. Vazquez, D. Salgado, Z. Lu, R. Leaman, Y. Lu, D. Ji, D. M. Lowe et al. , “The chemdner corpus of chemicals and drugs and its annotation principles,” Journal of cheminformatics , vol. 7, no. Suppl 1, p. S2, 2015. [19] J.-D. Kim, T. Ohta, Y. Tateisi, and J. Tsujii, “Genia corpus—a semanti-cally annotated corpus for bio-textmining,” Bioinformatics , vol. 19, no. suppl 1, pp. i180–i182, 2003. [20] S. Pyysalo and S. Ananiadou, “Anatomical entity mention recognition at literature scale,” Bioinformatics , vol. 30, no. 6, pp. 868–875, 2014. [21] S. Wang, X. Sun, X. Li, R. Ouyang, F. Wu, T. Zhang, J. Li, G. Wang, and C. Guo, “Gpt-ner: Named entity recognition via large language models,” in Findings of the association for computational linguistics: NAACL 2025 , 2025, pp. 4257–4275. [22] P. Li, T. Sun, Q. Tang, H. Yan, Y. Wu, X.-J. Huang, and X. Qiu, “Codeie: Large code generation models are better few-shot information extractors,” in Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 2023, pp. 15 339–15 353. [23] A. Grattafiori, A. Dubey, A. Jauhri, A. Pandey, A. Kadian, A. Al-Dahle, A. Letman, A. Mathur, A. Schelten, A. Vaughan et al. , “The llama 3 herd of models,” arXiv preprint arXiv:2407.21783 , 2024. [24] A. Yang, B. Yang, B. Zhang, B. Hui, B. Zheng, B. Yu, C. Li, D. Liu, F. Huang, H. Wei, H. Lin, J. Yang, J. Tu, J. Zhang, J. Yang, J. Yang, J. Zhou, J. Lin, K. Dang, K. Lu, K. Bao, K. Yang, L. Yu, M. Li, M. Xue, P. Zhang, Q. Zhu, R. Men, R. Lin, T. Li, T. Xia, X. Ren, X. Ren, Y. Fan, Y. Su, Y. Zhang, Y. Wan, Y. Liu, Z. Cui, Z. Zhang, and Z. Qiu, “Qwen2.5 technical report,” CoRR , vol. abs/2412.15115, 2024. [Online]. Available: https://doi.org/10.48550/arXiv.2412.15115 [25] A. Hurst, A. Lerer, A. P. Goucher, A. Perelman, A. Ramesh, A. Clark, A. Ostrow, A. Welihinda, A. Hayes, A. Radford et al. , “Gpt-4o system card,” arXiv preprint arXiv:2410.21276 , 2024.
