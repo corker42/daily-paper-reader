@@ -1,0 +1,567 @@
+Title: WorkflowOps: Learning Agent Collaboration Priors for Multi-Agent Workflow Orchestration
+
+URL Source: https://arxiv.org/pdf/2610.07860v1
+
+Published Time: Wed, 07 Oct 2026 00:58:29 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# WorkflowOps: Learning Agent Collaboration Priors for Multi-Agent Workflow Orchestration 
+
+## Qi Cheng 1, Shengyu Chen 2, Wei Cheng 3, Zhengzhang Chen 3,Xiaowei Jia 1, Haoyu Wang 3, Haifeng Chen 3
+
+> 1
+
+Rutgers University, New Brunswick, NJ 
+
+> 2
+
+University of Pittsburgh, Pittsburgh, PA 
+
+> 3
+
+NEC Labs America, Princeton, NJ q.cheng@rutgers.edu, shc160@pitt.edu, xj159@cs.rutgers.edu, {weicheng, zchen, haoyu, haifeng}@nec-labs.com 
+
+Abstract 
+
+Multi-agent systems are increasingly deployed for complex knowledge work, yet their orchestration layers remain largely memoryless: each new task is decomposed, assigned, and ex-ecuted from scratch with no benefit from prior successful executions. We present WorkflowOps, a multi-agent work-flow orchestration framework that learns agent collaboration priors from historical workflows and expands its agent pool on demand to cover new capability requirements. Our ap-proach introduces three coupled mechanisms. First, a transi-tion probability matrix captures pairwise agent collaboration frequencies from past workflows and applies them as soft guid-ance during DAG workflow construction through intra-layer ordering optimization, probability-thresholded edge sugges-tion, and transitive reduction for parallelism maximization. Second, a sufficiency-driven agent creation loop detects capa-bility gaps via semantic matching scores, generates special-ized agents through an LLM, and simultaneously injects them into the collaboration matrix, so that newly created agents are immediately usable with predicted collaboration priors. Third, a layered semantic matching strategy uses pre-trained sentence embeddings for fast, deterministic capability match-ing as a first pass, invoking LLM verification only for low-confidence cases, thereby reducing LLM routing calls by over 80% compared to pure-LLM approaches. We formalize the workflow construction problem as constrained optimization over a dependency-valid DAG guided by Markov collabora-tion priors and show that even lightweight frequency-based statistics, without any training, provide effective orchestration guidance. Experiments on mixed code, math, and question-answering suites show that WorkflowOps improves end-to-end pass rates over recent workflow-construction baselines, with the largest gains on structured, decomposable tasks where past agent handoff patterns transfer. 
+
+## 1 Introduction 
+
+Large language model (LLM) based multi-agent systems have rapidly evolved from research prototypes into practi-cal frameworks for complex knowledge-work tasks. Systems such as AutoGen (Wu et al. 2024), CrewAI (CrewAI 2024), and LangGraph (LangChain 2024) allow developers to com-pose specialized agents into collaborative workflows for tasks such as research synthesis, software engineering, compliance analysis, and business planning. As these systems are applied to increasingly complex and recurring tasks, the orchestra-tion layer—how one task is decomposed, how subtasks are assigned to agents, how dependencies are structured, and how the resulting workflow is executed—has become a cen-tral bottleneck. Reconstructing a workflow from scratch for every query increases API cost, latency, and the risk of error accumulation, even when similar workflows have succeeded before. The central limitation of many current orchestration pipelines is the lack of persistent orchestration state :workflow-level collaboration priors, evolving capability cov-erage, and low-cost capability matching are rarely carried across tasks. Historical workflow traces expose recurring handoffs, capability gaps, and matching patterns that can be reused as soft guidance rather than hard constraints. Recent work improves orchestration adaptivity through topology se-lection, dynamic coordination, learned optimization, routing, and sub-agent creation (authors 2026a,c,d; Yue et al. 2025; Zhang et al. 2026a; authors 2026b). However, these threads are typically studied separately: some methods recompute decisions at task time, some require task-specific training, and others create agents without integrating them into a per-sistent collaboration model. We introduce WorkflowOps, a history-conditioned or-chestration framework that maintains persistent state through a collaboration-prior matrix, an evolving agent pool, and a semantic capability index. The system uses historical or bootstrapped successful workflow traces as soft guidance for approximate constrained optimization over dependency-valid DAGs, balancing historical alignment, assignment sufficiency, and structural parallelism. Concretely, Work-flowOps builds a row-stochastic agent transition matrix for layer ordering, soft-edge proposal, and redundancy pruning via transitive reduction (Aho, Garey, and Ullman 1972); ex-pands the agent pool only when semantic sufficiency checks reveal capability gaps; and uses Sentence-BERT-style em-beddings (Reimers and Gurevych 2019) as the primary rout-ing mechanism, with optional LLM verification for low-confidence cases. We evaluate WorkflowOps on two heterogeneous suites: a Mixed code/math/QA benchmark and a harder Mixed_Hard suite of competition-grade and frontier-difficulty problems. On the Mixed test split, WorkflowOps in DAG mode arXiv:2610.07860v1 [cs.AI] 6 Oct 2026 Search inputs WorkflowOps pipeline Search outputs Agent pool A                    
+
+> 35 agents, 7 categories
+> Transition matrix P
+> First-order Markov priors
+> Task T
+> Code, math, or QA problem
+> Legend
+> existing agent created agent dep edge P edge
+> 1. Decompose Task T
+> Subtask 1 …Subtask K
+> 2. Match + sufficiency
+> saφ ≥ τ
+> saφ ≥ τ
+> sa* φ<τ: create
+> 3. DAG construction ssss4. Execute LsLssLsWorkflow W ssssUpdated A
+> N + 1 agents (last is new)
+> Updated P
+> Coral row + column = created agent in P
+
+Figure 1: Overview of WorkflowOps. Given an agent pool A, transition matrix P , and task T , the pipeline decomposes T ,matches subtasks to agents (creating a∗ when ϕ < τ ), constructs a DAG using P as soft guidance, and executes it in parallel layers. Outputs: workflow W , expanded A′, and updated P ′. Coral marks the newly created agent. achieves a 0.890 overall pass rate (Linear: 0.870), im-proving over MetaAgent (Zhang, Liu, and Xiao 2025), the strongest query-level baseline, by 13.9 absolute points, and over ADAS (Hu, Lu, and Clune 2025), the strongest task-level baseline, by 19.6 points. On the harder Mixed_Hard suite, WorkflowOps reaches 0.770, exceeding every fully-completed baseline by at least 15 points. Ablations show that removing the transition matrix, disabling agent-pool evolu-tion, and replacing semantic embeddings with TF-IDF re-duce accuracy by 4.5, 1.7, and 8.5 points, respectively, vali-dating each of the three coupled mechanisms. The gains are strongest on code and math; DAG execution provides modest additional accuracy gains via matrix-suggested edges over the Linear mode. Our contributions are as follows: 1. We formulate history-conditioned multi-agent work-flow construction as approximate constrained optimiza-tion over dependency-valid DAGs, guided by persistent Markov collaboration priors extracted from successful workflow traces. 2. We instantiate this formulation with a transition-prior workflow-construction algorithm that uses empirical agent-to-agent transition probabilities for layer ordering, soft-edge proposal, and redundancy pruning, while pre-serving hard task dependencies. 3. We introduce a sufficiency-driven agent-pool expansion loop that detects capability gaps through semantic match-ing, creates specialized agents only when needed, and immediately integrates new agents into the collaboration-prior matrix. 4. We provide an end-to-end empirical study and ablation analysis on Mixed and Mixed_Hard benchmarks, show-ing a 13.9-point overall gain over the strongest query-level baseline on Mixed and a 15+ point lead over fully-completed baselines on Mixed_Hard, while isolating the effects of transition priors, agent evolution, and semantic matching. Together, these results position WorkflowOps as alightweight and interpretable framework for training-free, history-conditioned multi-agent orchestration. Rather than relying on expensive policy learning or reconstructing work-flows from scratch, WorkflowOps demonstrates that sim-ple frequency-based collaboration statistics, when coupled with persistent agent-pool evolution and semantic capability matching, can serve as effective operational priors for future workflow construction. 
+
+## 2 Related Work 
+
+Recent multi-agent orchestration methods improve adaptivity through topology selection, dynamic coordination, learned workflow optimization, routing, or agent creation. Adap-tOrch (authors 2026a) selects among predefined orchestra-tion patterns, CORAL (authors 2026c) studies information-flow-based dynamic coordination, and FlowSteer (authors 2026d) learns workflow-editing policies through reinforce-ment learning. Other work optimizes workflow structure or interaction policies directly, including HeGFlow (Guan, Wang, and Shen 2025), AgentPO (Sun et al. 2026), and agen-tic architecture search methods such as ADAS (Hu, Lu, and Clune 2025) and MaAS (Zhang et al. 2025b). These ap-proaches show that orchestration structure matters, but many either recompute decisions at task time or require train-ing/search for each target setting. Our baselines instantiate this workflow-search line: AFlow (Zhang et al. 2025c) searches workflow code with MCTS, ADAS (Hu, Lu, and Clune 2025) performs auto-mated agentic-system search, MaAS (Zhang et al. 2025b) searches over architecture supernets, and MetaAgent (Zhang, Liu, and Xiao 2025) constructs a finite-state-machine work-flow per query. A further line reuses workflow experi-ence : Agent Workflow Memory (Wang et al. 2024) in-duces and stores reusable workflow skills, EvoFlow (Zhang et al. 2025a) evolves a population of diverse workflows, and TopoPrior (Zhang et al. 2026b) learns topology pri-ors that transfer across domains. WorkflowOps is comple-mentary to both lines: rather than storing executable work-flows or learning topology generators, it accumulates inter-pretable agent-to-agent transition statistics and applies them as training-free soft guidance under hard task dependencies. A complementary line of work studies agent routing and self-evolving agent systems. MasRouter (Yue et al. 2025) and EvoRoute (Zhang et al. 2026a) learn routing policies for multi-agent systems, while AOrchestra (authors 2026b), SEAA (SEAA authors 2026), SEVerA (Banerjee, Xu, and Singh 2026), and AgentOrchestra (authors 2025a) explore dynamic sub-agent creation, self-extension, verification, or hierarchical orchestration. WorkflowOps differs by inte-grating these threads into a single training-free, history-conditioned orchestration layer: empirical transition priors guide DAG construction, semantic matching assigns sub-tasks to agents, and demand-driven agent creation expands the pool while immediately updating the persistent collabora-tion prior. Extended related work is provided in Appendix A. 
+
+## 3 Problem Formulation 
+
+General problem. Given a task T and an agent pool A,workflow orchestration must produce a dependency-valid workflow DAG W and an agent assignment π that maxi-mize downstream task success. This statement is independent of any particular mechanism. WorkflowOps additionally assumes access to a history of successful workflows, from which it derives a transition matrix P; P is an input to our approach , not part of the problem itself. We first define the core objects. 
+
+Definition 1 (Agent Pool) An agent pool A =
+
+{a1, . . . , a N } consists of N specialized agents. Each agent ai is characterized by a natural language capability description di and dense embedding ei = fenc (di) ∈ Rh,where fenc is a pre-trained sentence encoder. 
+
+Definition 2 (Task Decomposition) Given a natural lan-guage task T , a decomposition function DLLM produces subtasks S = {s1, . . . , s K } and a dependency DAG Gdep =(S, E dep ), where each directed edge (si, s j ) ∈ Edep indi-cates that si must complete before sj begins. Each subtask 
+
+sj carries a required capability description cj .
+
+Definition 3 (Capability Matching) For subtask sj with requirement cj , the matching score against agent ai is 
+
+ϕ(sj , a i) = cos  fenc (cj ), ei
+
+. (1) 
+
+The assignment π : S → A maps each subtask to its best-matching agent: π(sj ) = arg max ai∈A ϕ(sj , a i).
+
+Definition 4 (Sufficiency) Assignment π is τ -sufficient if and only if ϕ(sj , π (sj )) ≥ τ for all sj ∈ S, where 
+
+τ ∈ [0 , 1] is the sufficiency threshold. The gap set is 
+
+G = {sj | ϕ(sj , π (sj )) < τ }.
+
+Definition 5 (Transition Matrix) Given a history of suc-cessful workflows H = {W1, . . . , W M }, each containing an ordered sequence of agent invocations, the transition matrix 
+
+P ∈ RN ×N is 
+
+Pij = count( ai → aj in H)
+
+PNk=1 count( ai → ak in H) . (2) 
+
+Here count( ai → aj in H) denotes the number of times agent aj immediately follows ai across workflows in H. P
+
+is row-stochastic and encodes empirical first-order Markov collaboration priors. 
+
+Definition 6 (Workflow) A workflow W = ( V, E, π ) con-sists of nodes V = S, edges E = Edep ∪ Emat containing hard dependency edges and soft matrix-suggested edges, and agent assignment π.
+
+WorkflowOps design objective. Because downstream task success is not directly measurable at construction time, our approach optimizes a history-conditioned surrogate bal-ancing three terms: alignment with historical collaboration priors, semantic sufficiency of subtask–agent assignments, and structural parallelism: 
+
+Q(W, π, A′) = α · Align( W, P) + β · Suff( π) + γ · Par( W ),
+
+(3) subject to preserving hard task dependencies, maintaining acyclicity, and allowing only monotonic expansion of the agent pool A′ ⊇ A , where 
+
+Align( W, P) = 1
+
+|E|
+
+X 
+
+> (si,s j)∈E
+
+Pπ(si),π (sj ), (4) 
+
+Suff( π) = 1
+
+|S| 
+
+> K
+
+X
+
+> j=1
+
+ϕ(sj , π (sj )) , (5) 
+
+Par( W ) = |S| 
+
+depth( W ) , (6) with depth( W ) the length of the longest path in the DAG. Align measures agreement with historical collaboration pat-terns, Suff measures capability coverage, and Par measures available parallelism. We use this objective as a design prin-ciple rather than solving it globally; WorkflowOps approx-imates it through staged decomposition, semantic matching, agent-pool expansion, transition-guided DAG construction, and layered execution. 4 Method 
+
+WorkflowOps operates as a pipeline of four stages: (1) task decomposition with layered semantic matching, (2) sufficiency-driven agent pool expansion, (3) transition-prior-guided workflow construction, and (4) layered parallel execu-tion. We describe each stage below, with detailed algorithms where useful. The general flow of WorkflowOps can be found in Figure 1. 
+
+4.1 Task decomposition and layered semantic matching 
+
+Task decomposition. Given a natural language task T , an LLM decomposes it into K subtasks S = {s1, . . . , s K } (3 ≤
+
+K ≤ 7), each with a required capability description cj and dependency links forming a DAG Gdep . The decomposition prompt enforces valid DAG structure; a post-processing step detects and breaks cycles via DFS if they arise from LLM output errors. All dependency links are thus proposed by the LLM under a schema-constrained prompt: structural validity is enforced programmatically, while the semantic correctness of the decomposition is delegated to the LLM. 
+
+Layered semantic matching. We adopt a two-layer match-ing strategy that balances quality and efficiency: 
+
+Layer 1: Sentence embedding matching. We use a pre-trained sentence encoder fenc (Sentence-BERT (Reimers and Gurevych 2019), specifically the all-MiniLM-L6-v2 
+
+variant) to encode both agent capability descriptions and subtask requirements into 384-dimensional dense vectors. Matching scores are computed as: 
+
+ϕ(sj , a i) = cos  fenc (cj ), f enc (di). (7) Here ai denotes an agent, di its capability description, and 
+
+cj the subtask requirement (cf. Definition 3). Agent embed-dings are pre-computed and cached; subtask embeddings are computed at decomposition time. This layer is deterministic, has zero LLM cost, and runs in sub-millisecond time per subtask-agent pair through batched matrix multiplication. 
+
+Layer 2: LLM on-demand verification. For subtasks where the best matching score falls below the sufficiency threshold τ , an optional LLM verification stage can judge whether an existing agent is truly adequate or whether a capability gap exists. This stage is invoked only for low-confidence cases where embedding similarity is ambiguous. 
+
+Complexity comparison. Pure LLM routing evaluates 
+
+K × N subtask-agent pairs with LLM calls. Our approach requires K × N vector operations (Layer 1, negligible cost) plus at most K′ × 1 LLM calls (Layer 2, where K′ ≪ K). For a typical setting with K=5 subtasks and N =35 agents, this reduces from 175 LLM calls to ∼5 vector-similarity computations plus ∼1 LLM verification call. 
+
+4.2 Transition-prior-guided workflow construction 
+
+Matrix construction. The transition matrix P (Defini-tion 5) is built offline from a corpus of historical (or syn-thetic) workflows by counting pairwise agent transitions and row-normalizing. In our deployment, we bootstrap from ∼65 
+
+Algorithm 1 Transition-guided DAG workflow construction                                                                    
+
+> Require: Subtasks S, dependency graph Gdep = ( S, E dep ), as-signment π, transition matrix P, edge threshold θ
+> Ensure: Workflow W= ( V, E, π )
+> 1: V← S ;E←Edep
+> 2: Compute topological depths: depth( s)←longest path from any source to sin Gdep
+> 3: for each pair (si, s j)∈ S × S with si̸=sjand (si, s j)/∈E
+> do
+> 4: if Pπ(si),π (sj)≥θand depth( si)<depth( sj)then
+> 5: E←E∪ { (si, s j)}▷Add matrix-suggested soft edge 6: end if
+> 7: end for
+> 8: E←TransitiveReduction (V, E )▷Remove redundant edges 9: Compute parallel groups via layered topological sort of (V, E )
+> 10: Sort agents within each layer by Pprev ,π (s)descending ▷
+> Intra-layer ordering 11: return W= ( V, E, π )
+
+synthetic workflows spanning eight task domains, yielding a 35 × 35 matrix with approximately 20% non-zero entries. Constructing P is a single counting pass over historical hand-offs, lookups are O(1) , and memory grows as O(N 2); at 
+
+N =35 the matrix occupies a few kilobytes, so its construc-tion and query cost are negligible relative to a single LLM call. 
+
+Triple-role mechanism. The transition matrix serves three distinct roles during workflow construction: 
+
+(a) Intra-layer ordering optimization. Within each topo-logical layer (subtasks that share the same depth and can be freely reordered), agents are sorted by their transition prob-ability from the preceding layer’s agents. If the previous layer’s agent was ap, and the current layer contains subtasks assigned to agents ax and ay , the system prefers the ordering where Pp,x > P p,y , placing ax before ay . This optimizes information flow sequence based on historically successful patterns. 
+
+(b) Probability-thresholded edge suggestion. For each pair of subtasks (si, s j ) with no explicit dependency edge, if Pπ(si),π (sj ) ≥ θ (the edge threshold) and adding the edge preserves topological ordering (i.e., depth( si) <
+
+depth( sj )), a soft edge is added. These matrix-suggested edges encode the system’s belief, grounded in historical data, that agent π(si)’s output is valuable as input to agent π(sj ).
+
+(c) Transitive reduction. After both hard dependency edges and soft matrix-suggested edges are incorporated, the system performs a transitive reduction (Aho, Garey, and Ull-man 1972): if edges (u, v ) and (v, w ) exist, and a direct edge (u, w ) also exists, the direct edge (u, w ) is removed because the dependency is already transitively satisfied. This maximizes parallelism by removing redundant sequential constraints, allowing more subtasks to execute concurrently within each topological layer. Algorithm 1 formalizes this procedure. 
+
+Dynamic matrix update. When new agents are created (§4.3), they must be integrated into P. The system uses the Algorithm 2 Sufficiency-driven agent pool expansion                                                                                         
+
+> Require: Subtasks S, agent pool A, threshold τ, max rounds R,matrix P
+> Ensure: Expanded pool A′, updated matrix P′, sufficient assign-ment π′
+> 1: A′← A ;P′←P
+> 2: for r= 1 , . . . , R do
+> 3: Build matching index from A′using fenc
+> 4: Compute π′←arg max a∈A ′ϕ(sj, a )for all sj∈ S
+> 5: G ← { sj|ϕ(sj, π ′(sj)) < τ }▷Identify capability gaps 6: if G=∅then
+> 7: break ▷All subtasks sufficiently covered 8: end if
+> 9: for each sj∈ G do
+> 10: if optional adequacy check indicates existing agents are insufficient then
+> 11: anew ←LLMGenerate (sj.capability) ▷Generate agent definition 12: Persist anew to agent pool on disk 13: A′← A ′∪ { anew }
+> 14: (pred ,succ) ←LLMPredict (anew ,A′)▷Predict collaborators 15: P′←InjectAndNormalize (P′, a new ,pred ,succ)
+> 16: end for
+> 17: end for
+> 18: return A′,P′, π ′
+
+LLM to predict likely predecessor and successor agents for the new agent anew ; the prediction is conditioned on the new agent’s capability card and the capability descriptions of the existing pool (cf. Algorithm 2), and the predicted transition probabilities are injected into the corresponding rows and columns of P. All affected rows are re-normalized to maintain row-stochasticity. This ensures that the matrix grows alongside the agent pool, so workflow construction can immediately exploit the new agent’s predicted collaboration patterns. 
+
+Why soft guidance. The matrix is used as soft guidance rather than hard constraints for three reasons: (i) with ∼20% 
+
+matrix density, hard constraints would block valid but histor-ically unseen workflows; (ii) dependency structure is always the non-negotiable foundation—the matrix cannot override task logic; (iii) novel task patterns should still be expressible even if they deviate from historical priors. 
+
+4.3 Sufficiency-driven agent-pool expansion 
+
+When the current agent pool cannot τ -sufficiently cover a task’s requirements, WorkflowOps enters a closed-loop agent creation process. This is a defining capability: the sys-tem does not stop at weak assignments but actively expands its capability boundaries. Algorithm 2 formalizes the sufficiency loop. 
+
+Key design decisions. Demand-driven creation. Unlike AOrchestra (authors 2026b), which creates agents for ev-ery task regardless of pool coverage, WorkflowOps creates agents only when a measurable capability gap is detected (ϕ < τ ). This prevents unnecessary pool inflation. 
+
+Integrated collaboration knowledge. Each new agent is not only added to the pool but also injected into the transition matrix P with LLM-predicted predecessor and successor relationships. This means the next workflow that uses the new agent benefits from collaboration priors immediately, rather than requiring multiple executions to accumulate transition statistics organically. 
+
+Safety mechanisms. The loop is bounded by three mech-anisms: (i) a maximum round count R (default 3), (ii) a per-subtask deduplication guard, and (iii) a maximum agent creation count per run. 
+
+Persistence and lifecycle. Created agents are persisted to disk and become part of the available pool for future runs. The system supports three environment modes—exploratory (free evolution), controlled (periodic curation), and frozen (version-locked for production)—enabling a governance path from experimentation to enterprise deployment. 
+
+4.4 Layered Parallel Execution 
+
+After workflow construction, WorkflowOps executes the DAG by topological layers. All nodes in the same layer are dependency-independent and can therefore run concurrently; downstream nodes receive either a single predecessor output or a merged message containing all upstream results. This ex-ecution mode preserves hard dependencies while exploiting the parallelism exposed by transition-guided DAG construc-tion. We compare this DAG mode with a Linear mode that uses the same decomposition and agent assignment but executes subtasks sequentially. Both modes use the same message ab-straction and logging interface, enabling a controlled com-parison between sequential execution and transition-guided DAG execution. Detailed message schemas, fan-in merging, error propagation, audit logging, and the end-to-end pipeline algorithm (Algorithm 3) are provided in Appendix B. 
+
+## 5 Experiments 
+
+5.1 Experimental Setup 
+
+Task suites. We use two heterogeneous benchmark suites with the same inference pipeline and grading harness. 
+
+Mixed combines code generation (HumanEval (Chen et al. 2021), MBPP (Austin et al. 2021)), mathematical rea-soning (GSM8K (Cobbe et al. 2021), MATH (Hendrycks et al. 2021)), and question answering (DROP (Dua et al. 2019), HotpotQA (Yang et al. 2018)); it contains 120 validation and 300 test problems, sampled equally across sources. Mixed_Hard contains harder competition-grade and frontier-difficulty problems from AIME 2025 (Balunović et al. 2026), LiveCodeBench (Jain et al. 2024), CodeCon-tests (Li et al. 2022), and GPQA Diamond (Rein et al. 2023); it contains 180 validation and 694 test problems. The orches-trator does not observe the benchmark identity, so it must handle both broad category coverage and harder problem distributions without source-specific routing. 
+
+Baselines. We compare against four recent multi-agent or-chestration systems: AFlow (Zhang et al. 2025c), an MCTS-based workflow generator; ADAS (Hu, Lu, and Clune 2025), an automated agentic-system search method; MaAS (Zhang Table 1: End-to-end pass rate on Mixed and Mixed_Hard. Full category breakdowns are in Appendix C.               
+
+> System Mixed Mixed_Hard AFlow (Zhang et al. 2025c) 0.676 0.218 ADAS (Hu, Lu, and Clune 2025) 0.694 0.729 †
+> MaAS (Zhang et al. 2025b) 0.400 DNF MetaAgent (Zhang, Liu, and Xiao 2025) 0.751 0.618 WorkflowOps Linear 0.870 0.763 WorkflowOps DAG 0.890 0.770
+> †ADAS on Mixed_Hard is the strongest partial-strategy result among completed candidate strategies. DNF = did not finish (MaAS deadlocked on Mixed_Hard).
+
+et al. 2025b), architecture search over agentic supernets; and MetaAgent (Zhang, Liu, and Xiao 2025), a finite-state-machine multi-agent constructor. MetaAgent constructs a fresh workflow per query, while AFlow, ADAS, and MaAS search for one workflow per benchmark and reuse it across queries. 
+
+Backbone and configuration. All systems use 
+
+gpt-5 as the underlying language model. Work-flowOps uses sufficiency threshold τ =0 .45 ,edge threshold θ=0 .3, the all-MiniLM-L6-v2 
+
+sentence-transformer matcher (Reimers and Gurevych 2019), MAX_AGENTS_PER_RUN =4, MAX_CREATION_ROUNDS = 3, and 
+
+MAX_DAG_BRANCHING = 3. Decomposition produces 
+
+3−7 subtasks per query, workflows execute with 16 worker processes per configuration, and each query has a 900 s wall-clock timeout. 
+
+Metrics. The primary metric is pass rate: the fraction of test rows where the extracted final answer matches ground truth, with code tasks graded by sandboxed execution against canonical tests. We also log matrix alignment, sufficiency, dynamic-agent creation, gap closure, LLM calls, token counts, latency, and DAG-vs.-Linear wall time; detailed op-erational statistics are reported in Appendix E. 
+
+5.2 End-to-end Workflow Quality 
+
+Table 1 reports the headline pass rates on Mixed and Mixed_Hard. Full category-level breakdowns are provided in Appendix C. Baseline numbers are taken from the respec-tive systems’ evaluation runs on the same splits with the same 
+
+gpt-5 backbone. 
+
+Mixed. On Mixed, WorkflowOps (DAG) reaches 0.890 ,improving over the strongest query-level baseline, MetaA-gent ( 0.751 ), by 13 .9 absolute points and over the strongest task-level baseline, ADAS ( 0.694 ), by 19 .6 points. The gain is largest on CODE: WorkflowOps obtains 0.940 in Lin-ear mode and 0.960 in DAG mode, more than 40 points above the nearest baseline. On MATH, WorkflowOps ties MetaAgent at 0.940 . QA remains the weakest category: MetaAgent leads by 4–8 points, suggesting that the current agent pool and transition priors are better aligned with struc-tured code/math workflows than with open-ended reading-comprehension style reasoning. DAG mode improves over Linear by 2 points overall, with the gain concentrated on CODE and QA. 
+
+Mixed_Hard. On the harder benchmark suite, Work-flowOps (DAG) reaches 0.770 , outperforming every fully completed baseline by at least 15 points and exceeding the strongest partial ADAS result by 4 points. The breakdown shows strong performance across competition-grade prob-lems: 0.850 on MATH, 0.780 on CODE, and 0.700 on QA. DAG and Linear modes are within 1 point of each other on Mixed_Hard, indicating that the harder suite benefits more from robust assignment and agent coverage than from addi-tional DAG structure. 
+
+Significance. A paired bootstrap test on Mixed finds the gap between WorkflowOps (DAG) and MetaAgent signif-icant ( p< 0.001 ). The effect is driven primarily by CODE; MATH is statistically tied and QA marginally favors MetaA-gent. Full confidence intervals, category results, and effect sizes are in Appendix C. 
+
+5.3 Ablation Studies 
+
+We ablate the mechanisms introduced in Section 4: transition-matrix guidance, sufficiency-driven agent-pool ex-pansion, semantic embedding matching, pure-LLM match-ing, and the edge threshold θ. Each cell uses the same agent pool, matrix initialization, decomposition prompt, and exe-cution engine. The ablations validate all three core mechanisms. Remov-ing the transition matrix drops Mixed accuracy by 4.5–5.0
+
+points, showing that historical collaboration priors provide useful structural guidance. Disabling agent evolution drops accuracy by 1.7 points but reduces cost sharply, identify-ing a cheaper operating point when the static pool already covers the task distribution. Replacing semantic embeddings with TF-IDF drops accuracy by 8.5–13 .0 points, while pure LLM matching is both less accurate and more expensive than the layered matcher. The edge-threshold sweep peaks near the default θ=0 .3, with θ=0 .5 close behind. Full per-benchmark ablations and detailed interpretations are in Ap-pendix D. Together, these ablations support the central de-sign claim: WorkflowOps improves not through a single dominant component, but through the coupling of historical transition priors, semantic capability matching, and bounded agent-pool expansion. In terms of effect size, semantic capa-bility matching is the largest single factor, transition-matrix guidance contributes a consistent additional gain, and pool expansion trades a smaller accuracy gain for the largest share of cost, while DAG construction adds a further modest im-provement over Linear at near-equal wall time. The head-line improvement is therefore driven primarily by reliable subtask–agent matching, with the transition prior and DAG structure supplying complementary structural guidance. 
+
+5.4 Efficiency Analysis 
+
+WorkflowOps exposes a clear cost–accuracy tradeoff. Ap-pendix E tabulates the full operational profile of the Refer-Table 2: Ablation results on the Mixed test split (300 problems per cell). “Linear” and “DAG” columns give overall pass rate; brackets are 95% bootstrap CIs ( nboot =2000 ). CODE/MATH/QA are unweighted category means in Linear mode. Calls and tokens are mean per query in Linear mode.                                                                                   
+
+> Variant Linear DAG CODE MATH QA calls tokens Reference 0.870 [0.830, 0.907] 0.890 [0.853, 0.923] 0.940 0.940 0.730 14.8 43.6k No-Matrix 0.825 [0.780, 0.867] 0.840 [0.797, 0.880] 0.920 0.910 0.645 13.9 41.2k No-Evolve 0.853 [0.813, 0.893] 0.850 [0.807, 0.890] 0.930 0.960 0.670 7.8 15.9k
+> TF-IDF 0.785 [0.737, 0.830] 0.760 [0.710, 0.810] 0.890 0.910 0.555 14.7 43.0k LLM-Match 0.840 [0.800, 0.883] 0.853 [0.813, 0.890] 0.930 0.940 0.650 17.7 48.0k
+> θ= 0 .00.825 [0.780, 0.867] 0.815 [0.770, 0.857] 0.870 0.910 0.695 14.6 42.5k
+> θ= 0 .50.855 [0.813, 0.893] 0.870 [0.830, 0.907] 0.910 0.920 0.735 14.7 42.6k
+> θ= 0 .70.795 [0.747, 0.840] 0.815 [0.770, 0.857] 0.870 0.890 0.625 14.5 42.3k
+
+ence configuration on the Mixed test split. The system uses 14.8 LLM calls and 43.6k tokens per query on average, with a median wall time of 605 seconds. Most calls come from two sources: the sufficiency-driven agent-creation loop, which creates an average of 3.5 agents per query, and agent execu-tion, which invokes one agent per workflow node. The em-bedding matcher itself contributes essentially no LLM calls, supporting the design choice of using semantic embeddings as the routing fast path. Normalizing by the cheapest ablation cell, No-Evolve (7.8 calls and 15.9k tokens), Reference spends 1.9× the calls and 2.7× the tokens for a +1 .7 point accuracy gain. This makes agent-pool expansion an explicit deployment knob: disabling expansion is attractive when the static pool already covers the task distribution, while the reference setting is preferable when tasks may expose new capability gaps. DAG execution provides modest accuracy gains with near-equal median wall time to Linear mode on Mixed, because most workflows are shallow; detailed DAG-vs.-Linear timing and additional operational statistics are provided in Appendix E. 
+
+## 6 Discussion and Limitations 
+
+Lightweight priors as orchestration memory. A key finding is that simple frequency-based transition priors can provide useful workflow guidance without gradient-based training. Unlike learned workflow optimizers, the transi-tion matrix requires only execution history, is interpretable, updates incrementally as new workflows complete, and de-grades gracefully when no relevant transition has been ob-served. This makes it a practical middle ground between static templates and expensive task-specific workflow search. 
+
+Limitations. WorkflowOps shows that lightweight col-laboration priors can improve multi-agent orchestration with-out gradient-based training, but several limitations remain. First, the transition matrix captures only first-order pair-wise handoffs; higher-order collaboration patterns such as repeated agent sequences are not modeled. Second, dynamic agent creation depends on LLM generation quality, so poorly specified agents may persist unless the pool is curated; re-latedly, our evaluation does not measure long-term effects of pool expansion—whether created agents are reused by later tasks, refined, or pruned—so we claim demand-driven expansion rather than sustained self-evolution. Third, the cur-rent system uses a single shared transition matrix, whereas domain-specific matrices may provide more targeted guid-ance; because P indexes agent roles rather than backbone outputs, it need not be rebuilt when the underlying LLM changes, though transition quality may shift and should be re-validated. Finally, our evaluation focuses on code, math, and QA-style knowledge work; generalization to substan-tially different domains requires further study. Additional discussion of matrix sparsity, matching design, and future extensions is provided in Appendix F. 
+
+## 7 Conclusion 
+
+We presented WorkflowOps, a multi-agent workflow or-chestration framework that addresses the memoryless orches-tration problem in current multi-agent systems. Our three coupled mechanisms—transition probability matrix guid-ance, sufficiency-driven agent-pool expansion, and layered semantic matching—enable the system to learn from execu-tion history, expand its capabilities on demand, and efficiently route subtasks to agents, all without requiring gradient-based training. The benefits are largest on structured, decomposable tasks where past agent handoff patterns transfer. The transition matrix demonstrates that even simple first-order Markov collaboration statistics, when applied as soft guidance during DAG workflow construction, provide mean-ingful improvement in workflow quality and parallelism. The sufficiency loop shows that demand-driven agent cre-ation with integrated collaboration knowledge updates lets the agent pool and its collaboration priors grow together on demand. The layered matching strategy shows that pre-trained sentence embeddings can serve as an effective fast path for capability matching, with LLM verification reserved for genuinely ambiguous cases. 
+
+Future work. Several directions are promising: (i) upgrad-ing the matrix to learned completion methods (matrix fac-torization, neural completion) for better coverage of sparse transitions; (ii) online matrix learning from execution feed-back, creating an RL-style closed loop; (iii) domain-specific matrices that capture field-specific collaboration patterns; (iv) integration with emerging inter-agent protocols such as A2A (Google 2026) and MCP for standardized agent com-munication. 
+
+## References 
+
+Aho, A. V.; Garey, M. R.; and Ullman, J. D. 1972. The Transitive Reduction of a Directed Graph. SIAM Journal on Computing , 1(2): 131–137. Austin, J.; Odena, A.; Nye, M.; Bosma, M.; Michalewski, H.; Dohan, D.; Jiang, E.; Cai, C.; Terry, M.; Le, Q.; et al. 2021. Program Synthesis with Large Language Models. 
+
+arXiv preprint arXiv:2108.07732 .authors, A. 2025a. AgentOrchestra: A Hierarchical Multi-Agent Framework for General-Purpose Task Solving. arXiv preprint arXiv:2506.12508 . Author metadata to be filled in the next round. authors, A. 2026a. AdaptOrch: Task-Adaptive Multi-Agent Orchestration in the Era of LLM Performance Convergence. 
+
+arXiv preprint arXiv:2602.16873 . Author metadata to be filled in the next round. authors, A. 2026b. AOrchestra: Automating Sub-Agent Creation for Agentic Orchestration. arXiv preprint arXiv:2602.03786 . Author metadata to be filled in the next round. authors, C. 2026c. Beyond Rule-Based Workflows: An Information-Flow-Orchestrated Multi-Agents Paradigm via Agent-to-Agent Communication from CORAL. arXiv preprint arXiv:2601.09883 . Author metadata to be filled in the next round. authors, F. 2026d. FlowSteer: Interactive Agentic Work-flow Orchestration via End-to-End Reinforcement Learning. 
+
+arXiv preprint arXiv:2602.01664 . Author metadata to be filled in the next round. authors, P. 2026e. ProMAS: Proactive Error Forecasting for Multi-Agent Systems Using Markov Transition Dynamics. 
+
+arXiv preprint arXiv:2603.20260 . Author metadata to be filled in the next round. authors, S. 2025b. A Survey on Agent Workflow – Status and Future. Proceedings of IEEE ICAIBD . Author metadata to be filled in the next round. authors, S. 2026f. From Static Templates to Dynamic Run-time Graphs: A Survey of Workflow Optimization for LLM Agents. arXiv preprint arXiv:2603.22386 . Author metadata to be filled in the next round. Balunović, M.; Dekoninck, J.; Petrov, I.; Jovanović, N.; and Vechev, M. 2026. MathArena: Evaluating LLMs on Uncon-taminated Math Competitions. arXiv:2505.23281. Banerjee, D.; Xu, C.; and Singh, G. 2026. SEVerA: Ver-ified Synthesis of Self-Evolving Agents. arXiv preprint arXiv:2603.25111 .Chen, M.; Tworek, J.; Jun, H.; Yuan, Q.; de Oliveira Pinto, H. P.; Kaplan, J.; Edwards, H.; Burda, Y.; Joseph, N.; Brock-man, G.; Ray, A.; Puri, R.; Krueger, G.; Petrov, M.; Khlaaf, H.; Sastry, G.; Mishkin, P.; Chan, B.; Gray, S.; Ryder, N.; Pavlov, M.; Power, A.; Kaiser, L.; Bavarian, M.; Winter, C.; Tillet, P.; Such, F. P.; Cummings, D.; Plappert, M.; Chantzis, F.; Barnes, E.; Herbert-Voss, A.; Guss, W. H.; Nichol, A.; Paino, A.; Tezak, N.; Tang, J.; Babuschkin, I.; Balaji, S.; Jain, S.; Saunders, W.; Hesse, C.; Carr, A. N.; Leike, J.; Achiam, J.; Misra, V.; Morikawa, E.; Radford, A.; Knight, M.; Brundage, M.; Murati, M.; Mayer, K.; Welinder, P.; Mc-Grew, B.; Amodei, D.; McCandlish, S.; Sutskever, I.; and Zaremba, W. 2021. Evaluating Large Language Models Trained on Code. arXiv:2107.03374. Cobbe, K.; Kosaraju, V.; Bavarian, M.; Chen, M.; Jun, H.; Kaiser, L.; Plappert, M.; Tworek, J.; Hilton, J.; Nakano, R.; Hesse, C.; and Schulman, J. 2021. Training Verifiers to Solve Math Word Problems. arXiv preprint arXiv:2110.14168 .CrewAI. 2024. CrewAI: Multi-Agent Orchestration Frame-work. https://www.crewai.com/. Dua, D.; Wang, Y.; Dasigi, P.; Stanovsky, G.; Singh, S.; and Gardner, M. 2019. DROP: A Reading Comprehension Benchmark Requiring Discrete Reasoning Over Paragraphs. In Proc. of NAACL .Google. 2026. Agent-to-Agent (A2A) Protocol. https: //google.github.io/A2A/. Guan, B.; Wang, R.; and Shen, Y. 2025. A Heteroge-neous Graph Optimization Perspective for Multi-Agent Sys-tem Workflows. arXiv preprint . Submitted to ICLR 2026. Hendrycks, D.; Burns, C.; Kadavath, S.; Arora, A.; Basart, S.; Tang, E.; Song, D.; and Steinhardt, J. 2021. Measuring Mathematical Problem Solving With the MATH Dataset. arXiv:2103.03874. Hu, S.; Lu, C.; and Clune, J. 2025. Automated Design of Agentic Systems. arXiv:2408.08435. Jain, N.; Han, K.; Gu, A.; Li, W.-D.; Yan, F.; Zhang, T.; Wang, S.; Solar-Lezama, A.; Sen, K.; and Stoica, I. 2024. LiveCodeBench: Holistic and Contamination Free Evalua-tion of Large Language Models for Code. arXiv preprint arXiv:2403.07974 .LangChain. 2024. LangGraph: Multi-Agent Work-flows. https://blog.langchain.dev/langgraph-multi-agent-workflows. Li, Y.; Choi, D.; Chung, J.; Kushman, N.; Schrittwieser, J.; Leblond, R.; Eccles, T.; Keeling, J.; Gimeno, F.; Dal Lago, A.; Hubert, T.; Choy, P.; de Masson d’Autume, C.; Babuschkin, I.; Chen, X.; Huang, P.-S.; Welbl, J.; Gowal, S.; Cherepanov, A.; Molloy, J.; Mankowitz, D. J.; Suther-land Robson, E.; Kohli, P.; de Freitas, N.; Kavukcuoglu, K.; and Vinyals, O. 2022. Competition-level code generation with AlphaCode. Science , 378(6624): 1092–1097. Reimers, N.; and Gurevych, I. 2019. Sentence-BERT: Sen-tence Embeddings using Siamese BERT-Networks. In Pro-ceedings of the 2019 Conference on Empirical Methods in Natural Language Processing (EMNLP) , 3982–3992. Rein, D.; Hou, B. L.; Stickland, A. C.; Petty, J.; Pang, R. Y.; Dirani, J.; Michael, J.; and Bowman, S. R. 2023. GPQA: A Graduate-Level Google-Proof Q&A Benchmark. arXiv:2311.12022. SEAA authors. 2026. Self-Extending Agent Architecture: Capability Gap Detection, Tool Synthesis, and Autonomous Evolution Under Governance Constraints. https://os.maria-code.ai/blog/self-extending-agent-architecture. Sun, L.; Liu, C.; Zhang, C.; Wu, Y.; Lu, W.; and Wu, N. 2026. AgentPO: Enhancing Multi-Agent Collaboration via Reinforcement Learning. In International Conference on Learning Representations (ICLR) .survey authors, O. 2026. The Orchestration of Multi-Agent Systems: Architectures, Protocols, and Enterprise Adoption. 
+
+arXiv preprint arXiv:2601.13671 . Author metadata to be filled in the next round. Wang, Z. Z.; Mao, J.; Fried, D.; and Neubig, G. 2024. Agent Workflow Memory. arXiv preprint arXiv:2409.07429 .Wu, Q.; Bansal, G.; Zhang, J.; Wu, Y.; Li, B.; Zhu, E.; Jiang, L.; Zhang, X.; Zhang, S.; Liu, J.; et al. 2024. AutoGen: En-abling Next-Gen LLM Applications via Multi-Agent Con-versation. In Conference on Language Modeling (COLM) .Yang, Z.; Qi, P.; Zhang, S.; Bengio, Y.; Cohen, W. W.; Salakhutdinov, R.; and Manning, C. D. 2018. HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question An-swering. In Conference on Empirical Methods in Natural Language Processing (EMNLP) .Yue, Y.; et al. 2025. MasRouter: Learning to Route LLMs for Multi-Agent Systems. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (ACL) , 15549–15572. Zhang, G.; Chen, K.; Wan, G.; Chang, H.; Cheng, H.; Wang, K.; Hu, S.; and Bai, L. 2025a. EvoFlow: Evolv-ing Diverse Agentic Workflows On The Fly. arXiv preprint arXiv:2502.07373 .Zhang, G.; Niu, L.; Fang, J.; Wang, K.; Bai, L.; and Wang, X. 2025b. Multi-agent Architecture Search via Agentic Su-pernet. arXiv:2502.04180. Zhang, G.; et al. 2026a. EvoRoute: Experience-Driven Self-Routing LLM Agent Systems. arXiv preprint arXiv:2601.02695 .Zhang, J.; Xiang, J.; Yu, Z.; Teng, F.; Chen, X.; Chen, J.; Zhuge, M.; Cheng, X.; Hong, S.; Wang, J.; Zheng, B.; Liu, B.; Luo, Y.; and Wu, C. 2025c. AFlow: Automating Agentic Workflow Generation. arXiv:2410.10762. Zhang, T.; Zhou, Z.; Wan, J.; Hu, T.; Wang, C.; He, X.; and Hong, R. 2026b. Learning Transferable Topology Priors for Multi-Agent LLM Collaboration Across Domains. arXiv preprint arXiv:2605.17359 .Zhang, Y.; Liu, X.; and Xiao, C. 2025. MetaAgent: Auto-matically Constructing Multi-Agent Systems Based on Finite State Machines. arXiv:2507.22606. 
+
+## Technical Appendix A Extended Related Work 
+
+A.1 Adaptive and Dynamic Orchestration 
+
+Recent orchestration methods mainly improve adaptivity through topology routing or learned control policies. Adap-tOrch (authors 2026a) proposes task-adaptive topology se-lection among predefined orchestration patterns and re-ports gains over static templates. CORAL (authors 2026c) moves from fixed workflows to information-flow-based dynamic coordination via agent-to-agent communication. FlowSteer (authors 2026d) applies end-to-end reinforcement learning to optimize workflow editing decisions. These methods are highly relevant but differ from our focus: WorkflowOps emphasizes persistent, training-free collaboration priors accumulated from workflow history and used as soft constraints during DAG construction. 
+
+A.2 Workflow Structure Learning and Optimization 
+
+HeGFlow (Guan, Wang, and Shen 2025) formulates work-flow design as heterogeneous graph adjacency optimization with a training pipeline, while AgentPO (Sun et al. 2026) op-timizes collaborative interaction policies under fixed topol-ogy assumptions. ProMAS (authors 2026e) uses Markov transition dynamics for error forecasting rather than work-flow synthesis. In contrast, WorkflowOps directly uses his-torical transition statistics as an interpretable and incremen-tally updatable prior for structure construction. A broader survey perspective (authors 2026f, 2025b; sur-vey authors 2026) highlights an open gap between static template orchestration and expensive training-heavy opti-mization. Our method is positioned in that gap: lightweight, history-informed graph construction without retraining. 
+
+A.3 Agent Routing and Selection 
+
+MasRouter (Yue et al. 2025) and EvoRoute (Zhang et al. 2026a) study learned routing in multi-agent systems, primar-ily targeting model allocation and cost-performance trade-offs. Our setting is complementary: we focus on capability matching between subtasks and role-specialized agents. The layered semantic matching strategy in WorkflowOps can be interpreted as a routing policy over agent capabilities, using an embedding fast path with optional LLM fallback, rather than routing over model backbones. 
+
+A.4 Self-Evolving Agent Architectures 
+
+AOrchestra (authors 2026b) demonstrates dynamic sub-agent creation through compositional agent specifications, but treats created sub-agents as ephemeral: they are not per-sisted, and no collaboration knowledge about them is accu-mulated. SEAA (SEAA authors 2026) and SEVerA (Baner-jee, Xu, and Singh 2026) provide formal perspectives on self-extension and verification, mainly at the tool or synthesis-control layer. AgentOrchestra (authors 2025a) studies hier-archical orchestration with dynamic tool pathways. Work-flowOps differs by coupling demand-driven agent creation with immediate integration into a persistent collaboration-prior matrix, so newly created roles influence future work-flow construction. 
+
+A.5 Workflow Memory and Experience Reuse 
+
+Agent Workflow Memory (Wang et al. 2024) induces reusable workflow skills from experience and stores them for later tasks, EvoFlow (Zhang et al. 2025a) evolves a popula-tion of diverse agentic workflows, and TopoPrior (Zhang et al. 2026b) learns topology priors that transfer across domains. These systems persist executable workflows or learned topol-ogy generators . WorkflowOps instead persists pairwise col-laboration statistics that act as training-free soft guidance Algorithm 3 WorkflowOps end-to-end pipeline 
+
+Require: Task T , agent pool A, transition matrix P, thresh-old τ , edge threshold θ, max rounds R, workflow type ∈{linear , dag }
+
+Ensure: Final result mfinal , workflow W , logs L
+
+1: // Stage 1: Decomposition 
+
+2: S, G dep ← D LLM (T ) ▷ LLM decomposes task into subtasks with dependencies 3: Validate DAG: if HasCycle (Gdep ), linearize dependencies 4: // Stage 2: Matching + Sufficiency Loop 
+
+5: A′, P′, π ← SufficiencyLoop (S, A, τ, R, P) ▷ Algorithm 2 6: // Stage 3: Workflow Construction 
+
+7: if workflow type = dag then 
+
+8: W ← TransitionGuidedDAG (S, G dep , π, P′, θ ) ▷
+
+Algorithm 1 9: else 
+
+10: W ← BuildLinear (S, π, P′) ▷ Linear with intra-layer ordering 11: end if 
+
+12: // Stage 4: Execution 
+
+13: mfinal , L ← ExecuteDAG (W, T ) ▷ Algorithm 4 14: // Stage 5: Persistence 
+
+15: Save (W, m final , L) to results directory with timestamps and metadata 16: return mfinal , W, L
+
+during construction: hard task dependencies are always pre-served, the prior is interpretable and incrementally updatable without retraining, and previously unseen workflow shapes remain expressible. 
+
+## B Pipeline and Execution Engine Details 
+
+B.1 End-to-End Pipeline 
+
+Algorithm 3 summarizes the complete WorkflowOps pipeline; the individual stages are described in Section 4. 
+
+B.2 Layered DAG Execution 
+
+After workflow construction, the execution engine processes the DAG through layered topological traversal. Nodes in the same layer have no unresolved dependencies and are executed in parallel. A downstream node receives the output of its predecessor when it has one parent, or a merged message when it has multiple parents. 
+
+B.3 Unified Messaging Protocol 
+
+All inter-agent communication uses a single 
+
+AgentMessage schema carrying natural language content, optional structured data, typed artifacts, and trace metadata, including source agent, target agent, parent message ID, workflow ID, and step index. This composable protocol avoids the pairwise adapter problem that arises when agents use heterogeneous message formats. 
+
+B.4 Fan-in Merge 
+
+When parallel branches converge, upstream messages are merged into a single input for the downstream agent. The merge concatenates labeled content sections, preserves source attribution, and unions artifact collections, maintain-ing provenance across branches. 
+
+Algorithm 4 DAG execution engine 
+
+Require: Workflow W = ( V, E, π ), original task T
+
+Ensure: Final result message mfinal , execution logs L
+
+1: Compute topological layers L0, L 1, . . . , L D from (V, E )
+
+2: results ← {} ; L ← [] 
+
+3: minit ← CreateMessage (T )
+
+4: for l = 0 , 1, . . . , D do 
+
+5: parallel for each node v ∈ Ll: ▷ Thread pool within layer 6: preds ← { u | (u, v ) ∈ E}
+
+7: if preds = ∅: min ← minit 
+
+8: else if |preds | = 1 : min ← results[preds[0]] 
+
+9: else : min ← MergeMessages ({results[ u] | u ∈
+
+preds })
+
+10: mout ← ExecuteAgent (π(v), m in )
+
+11: results[ v] ← mout ; append log to L
+
+12: end for 
+
+13: terminals ← { v ∈ V | ∄ (v, w ) ∈ E}
+
+14: mfinal ← MergeMessages ({results[ v] | v ∈ terminals })
+
+15: return mfinal , L
+
+B.5 Error Propagation 
+
+If an individual agent step fails, the system creates an error-typed message and propagates it downstream. Subsequent agents receive the error context and may still produce partial results. This prioritizes operational continuity and traceabil-ity over immediate workflow abortion. 
+
+B.6 Audit Logging 
+
+Every execution step records timestamps, input/output pre-views, success or error status, and agent metadata. Combined with the workflow definition, including nodes, edges, assign-ments, matrix alignment score, and sufficiency report, this provides a complete decision trail from task intake to final output. 
+
+## C Full End-to-end Results 
+
+Tables 3 and 4 provide the full category-level pass-rate break-downs corresponding to the compact main results table. On Mixed, WorkflowOps dominates the CODE category in both modes and ties MetaAgent on MATH, while MetaA-gent remains stronger on QA. On Mixed_Hard, Work-flowOps is strongest overall, with especially large gains on competition-level math and competitive results on code. A paired bootstrap test ( nboot =2000 ) on the per-row pass/fail vector finds the gap between WorkflowOps (DAG) and MetaAgent on Mixed highly significant ( p< 0.001 ), driven by CODE ( p< 0.001 ); MATH is statistically tied and QA marginally favors MetaAgent ( p< 0.05 ). Cohen’s h on over-all Mixed pass rate is +0 .53 over AFlow, +0 .49 over ADAS, 
+
++1 .09 over MaAS, and +0 .37 over MetaAgent. 
+
+## D Detailed Ablation Results 
+
+Table 5 reports per-benchmark ablation results. Disabling the transition matrix reduces all categories by 2–8 points, indi-cating that the matrix shapes workflow construction across subtasks rather than carrying a single category. Disabling agent evolution reduces accuracy modestly but cuts calls and tokens substantially, making it a cost-optimized operating Table 3: End-to-end accuracy on the Mixed test split (300 problems). Per-category numbers are unweighted means across the benchmarks within each category. “Overall” is the unweighted mean over all rows; brackets are 95% bootstrap CIs ( nboot =2000 )on WorkflowOps rows where per-row pass/fail data is available. Best result per column is in bold .                              
+
+> System Overall CODE MATH QA AFlow (Zhang et al. 2025c) 0.676 0.470 0.810 0.747 ADAS (Hu, Lu, and Clune 2025) 0.694 0.480 0.870 0.731 MaAS (Zhang et al. 2025b) 0.400 ———MetaAgent (Zhang, Liu, and Xiao 2025) 0.751 0.500 0.940 0.812
+> WorkflowOps (Linear) 0.870 [0.830, 0.907] 0.940 0.940 0.730 WorkflowOps (DAG) 0.890 [0.853, 0.923] 0.960 0.940 0.770
+
+Table 4: End-to-end accuracy on the Mixed_Hard test split (694 problems): AIME 2025 (math), LiveCodeBench and Code-Contests (code), and GPQA Diamond (qa). Best result per column in bold . ADAS results are from the strongest per-benchmark strategy among the 10 of 25 candidate strategies that completed; MaAS deadlocked and is omitted.                           
+
+> System Overall CODE MATH QA AFlow (Zhang et al. 2025c) 0.218 0.000 0.200 0.365 ADAS (Hu, Lu, and Clune 2025) (Self-Refine, partial) 0.729 0.751 0.567 0.723
+> MetaAgent (Zhang, Liu, and Xiao 2025) 0.618 0.648 0.450 0.584 WorkflowOps (Linear) 0.763 [0.731, 0.795] 0.770 0.850 0.700 WorkflowOps (DAG) 0.770 [0.738, 0.802] 0.780 0.850 0.700
+
+point when the static agent pool is already sufficient. Replac-ing embeddings with TF-IDF causes the largest degradation, validating semantic matching over sparse keyword overlap. Pure LLM matching is more expensive and less accurate than the layered matcher because it bypasses the agent-creation loop. The edge-threshold sweep peaks at the default θ = 0 .3,with θ = 0 .5 close behind. 
+
+## E Efficiency Details 
+
+We report per-query operational characteristics from the Ref-erence cell on the Mixed test split. Table 6 summarizes calls, tokens, latency, and workflow statistics; Table 7 compares DAG and Linear median wall time. Normalizing by the cheapest cell, No-Evolve (7.8 calls, 15.9k tokens), Reference spends 1.9× the calls and 2.7× the tokens for +1 .7 points of overall accuracy. The agent-creation loop is the dominant driver of latency variance: queries that trigger multiple creation rounds run approximately 3× longer than queries where the static pool is already sufficient. DAG mode provides consistent accuracy gains in cells where the matrix mechanism is active, but wall-time differ-ences are small because Mixed workflows are shallow. Thus, the main benefit of DAG mode in this setting is structural guidance rather than large parallel speedup. 
+
+## F Additional Discussion 
+
+Lightweight priors vs. trained optimizers. The transi-tion matrix is built from simple frequency counting without gradient-based training. This design is useful when execu-tion history exists but task-specific training is expensive: the matrix is interpretable, updates incrementally as new work-flows complete, and degrades gracefully when no historical transition is available. The matrix interface can also support learned completion methods, such as matrix factorization or neural completion, without changing the surrounding or-chestration pipeline. 
+
+Embedding matching vs. TF-IDF. Sentence embeddings capture semantic relationships beyond keyword overlap, such as “regulatory audit” and “compliance assessment,” while re-taining low cost because agent embeddings are pre-computed and cached. The matching module is abstracted, so future sys-tems can replace the current encoder with domain-specific embeddings or cross-encoder rerankers. 
+
+Matrix sparsity. With approximately 65 bootstrapped workflows over a 35-agent grid, the transition matrix has about 20% non-zero entries. This sparsity is acceptable be-cause the matrix is used as soft guidance; workflow construc-tion still preserves hard dependencies when the matrix has no relevant history. As more workflows execute, matrix den-sity increases organically, and LLM-predicted links for newly created agents provide immediate approximate guidance that can later be refined. 
+
+## G Agent card specification 
+
+Each agent in WorkflowOps is defined by a structured YAML card with the schema listed in Table 8. In addition, each predefined agent has a corresponding three-layer Agent Card providing richer structured metadata: 
+
+• Meta layer : Role identity ( role_definition ), se-mantic classification ( semantic_tags ), and overar-ching purpose ( primary_objective ). 
+
+• Reasoning layer : Capabilities, anti-patterns (domain-specific guardrails), and declared dependencies (up-stream/downstream agents). Table 5: Per-benchmark pass-rate per ablation cell on the Mixed test split (Linear mode, n=50 per benchmark per cell). 
+
+Variant humaneval mbpp gsm8k math drop hotpotqa Reference 0.940 0.940 0.980 0.900 0.640 0.820 
+
+No-Matrix 0.940 0.900 0.980 0.840 0.530 0.760 No-Evolve 0.900 0.960 1.000 0.920 0.560 0.780 TF-IDF 0.860 0.920 1.000 0.820 0.450 0.660 LLM-Match 0.920 0.940 1.000 0.880 0.580 0.720 
+
+θ = 0 .0 0.840 0.900 1.000 0.820 0.640 0.750 
+
+θ = 0 .5 0.900 0.920 1.000 0.840 0.660 0.810 
+
+θ = 0 .7 0.820 0.920 1.000 0.780 0.580 0.670 
+
+Table 6: Operational statistics for the Reference cell on the Mixed test split ( n = 300 ). “Calls/query” and “To-kens/query” are means; “Wall-time/query” is median. 
+
+Statistic Reference LLM calls / query (mean) 14.8 decomposition 1.0 matcher (sufficiency check) ∼0 (embedding) agent-creation loop ∼7 (3.5 new agents avg.) agent execution ∼6 (one per node) Prompt tokens / query (mean) ∼10 kCompletion tokens / query (mean) ∼33 kTotal tokens / query (mean) 43,620 Wall-time / query (median) 605 s Workflow nodes / query (mean) 5.62 Workflow edges / query (mean) 5.38 Matrix alignment score ¯A 0.181 Avg. sufficiency score ¯ϕ 0.748 Avg. dynamic agents created 3.50 Gap closure rate 0.96 Errors 0/300 
+
+• Execution layer : System prompt, output schema, and tool selection. 
+
+## H Message schema 
+
+The unified AgentMessage schema enables O(1) -composable inter-agent communication; Table 9 lists its fields. 
+
+## I Predefined agent pool 
+
+The system ships with 35 predefined agents organized into 7 categories, summarized in Table 10. 
+
+## J Configuration parameters 
+
+Table 11 lists the key configuration parameters and their defaults. Table 7: DAG vs. Linear median wall-time per query on the Mixed test split and selected ablation cells. “Ratio” is DAG-median / Linear-median; values close to 1 indicate near-equal wall time. 
+
+Cell Linear (s) DAG (s) Ratio Reference (test, n=300 ) 605 598 0.99 ×
+
+No-Matrix (test, n=300 ) 588 590 1.00 ×
+
+No-Evolve (test, n=300 ) 248 250 1.01 ×
+
+TF-IDF (test, n=300 ) 425 408 0.96 ×
+
+LLM-Match (test, n=300 ) 207 199 0.96 ×Table 8: Agent card schema. 
+
+Field Type Description 
+
+id string Unique identifier (snake_case) 
+
+name string Human-readable agent name 
+
+description string Capability description (primary signal for matching, 2–3 sentences) 
+
+keywords list[string] Search keywords for enriching embedding vectors 
+
+category enum One of: research , content , analysis , business ,
+
+engineering , quality , planning instructions string System prompt governing agent behavior 
+
+llm_config object Model configuration: model , temperature , max_tokens metadata dict Optional key-value metadata (e.g., priority, domain) 
+
+Table 9: AgentMessage schema. 
+
+Field Type Description 
+
+message_id UUID Unique identifier 
+
+message_type enum TASK , RESULT , ERROR , or HANDOFF source_agent string Sending agent ID 
+
+target_agent string Receiving agent ID 
+
+content string Primary natural language body 
+
+structured_data dict Optional key-value structured data 
+
+artifacts list Typed attachments with name , content_type , content task_context string Original user task (immutable, passed through entire workflow) 
+
+workflow_id string Workflow this message belongs to 
+
+step_index int Current step number 
+
+parent_message_id UUID Upstream message ID for traceability 
+
+metadata dict Arbitrary metadata dictionary 
+
+Table 10: Predefined agent pool composition. 
+
+Category Count Representative capabilities 
+
+Research 5 Information gathering, literature review, hypothesis gen-eration Content 8 Writing, summarization, translation, report synthesis Analysis 2 Data analysis, benchmarking, comparative evaluation Business 11 Risk assessment, market analysis, legal compliance, fi-nancial modeling Engineering 4 Code generation, data processing, visualization Quality 4 Review, editing, fact-checking, peer review simulation Planning 1 Strategic planning and task decomposition 
+
+Total 35 
+
+Table 11: Key configuration parameters and their defaults. 
+
+Parameter Default Description 
+
+τ (SUFFICIENCY_THRESHOLD ) 0.45 Minimum matching score for subtask-agent assignment 
+
+θ (EDGE_THRESHOLD ) 0.3 Minimum transition probability for matrix-suggested edges 
+
+R (MAX_CREATION_ROUNDS ) 3 Maximum rounds of dynamic agent creation 
+
+TOP_K_MATCHES 3 Number of top agent candidates per subtask 
+
+MAX_DAG_BRANCHING 3 Maximum branching factor in DAG workflows 
+
+LLM_TEMPERATURE 0.3 Default temperature for LLM calls 
+
+LLM_TIMEOUT 120s Request timeout for LLM API calls 
+
+MAX_RETRIES 2 Maximum retry attempts for failed LLM calls
